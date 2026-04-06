@@ -1,0 +1,3 @@
+ALTER TABLE members
+  DROP CONSTRAINT IF EXISTS members_role_check,
+  DROP COLUMN IF EXISTS role;
