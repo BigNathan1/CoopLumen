@@ -20,6 +20,7 @@
     "db:migrate": "node -r ts-node/register src/db/migrate.ts",
     "db:seed": "node -r ts-node/register src/db/seed.ts",
     "db:status": "node -r ts-node/register src/db/migrate.ts --status",
+    "db:rollback": "node -r ts-node/register src/db/migrate.ts --rollback",
     "type-check": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.{ts,js,json}\"",
     "format:check": "prettier --check \"src/**/*.{ts,js,json}\""
