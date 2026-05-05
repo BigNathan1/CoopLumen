@@ -34,10 +34,6 @@
     "open-source"
   ],
   "lint-staged": {
-    "backend/src/**/*.{ts,js}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
     "frontend/src/**/*.{ts,tsx,js,css}": [
       "prettier --write"
     ],
