@@ -1,0 +1,50 @@
+.panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  border-radius: calc(var(--radius) / 2);
+}
+
+.asset {
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--color-secondary);
+  letter-spacing: 0.05em;
+}
+
+.amount {
+  font-family: monospace;
+  font-size: 0.875rem;
+}
+
+.state {
+  padding: 12px;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.error {
+  color: var(--color-error);
+}

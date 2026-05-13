@@ -1,0 +1,23 @@
+{
+  "name": "stellarcommons",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Decentralized community finance on the Stellar blockchain",
+  "scripts": {
+    "dev": "docker-compose up",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "lint": "cd backend && npm run lint && cd ../frontend && npm run lint",
+    "type-check": "cd backend && npm run type-check && cd ../frontend && npm run type-check",
+    "test": "cd backend && npm test && cd ../frontend && npm test",
+    "test:coverage": "cd backend && npm run test:coverage && cd ../frontend && npm run test:coverage",
+    "db:migrate": "cd backend && npm run db:migrate"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourname/stellarcommons.git"
+  },
+  "license": "MIT",
+  "keywords": ["stellar", "blockchain", "defi", "community-finance", "open-source"]
+}
