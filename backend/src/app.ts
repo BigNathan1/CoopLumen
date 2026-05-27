@@ -1,12 +1,12 @@
 import express, { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import morgan from 'morgan';
 import { communityRouter } from './api/routes/communities';
 import { tokenRouter } from './api/routes/tokens';
 import { balanceRouter } from './api/routes/balances';
 import { errorHandler } from './api/middleware/errorHandler';
 import { notFound } from './api/middleware/notFound';
+import { requestLogger } from './api/middleware/requestLogger';
 import { db } from './db';
 import { StellarService } from './contracts/stellar';
 
@@ -15,9 +15,9 @@ const app = express();
 app.use(helmet());
 app.use(cors({ origin: process.env.FRONTEND_URL ?? 'http://localhost:3000' }));
 app.use(express.json());
-app.use(morgan('combined'));
+app.use(requestLogger);
 
-app.get('/health', (_req: Request, res: Response, next: NextFunction) => {
+const healthHandler = (_req: Request, res: Response, next: NextFunction): void => {
   Promise.allSettled([db.ping(), StellarService.ping()])
     .then(([dbResult, stellarResult]) => {
       const dbOk = dbResult.status === 'fulfilled' && dbResult.value;
@@ -31,7 +31,10 @@ app.get('/health', (_req: Request, res: Response, next: NextFunction) => {
       });
     })
     .catch(next);
-});
+};
+
+app.get('/health', healthHandler);
+app.get('/api/health', healthHandler);
 
 app.use('/api/communities', communityRouter);
 app.use('/api/tokens', tokenRouter);
