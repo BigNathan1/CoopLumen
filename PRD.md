@@ -1,8 +1,8 @@
-# StellarCommons — Product Requirements Document
+# CoopLumen — Product Requirements Document
 
 **Version:** 0.1  
 **Status:** Draft  
-**Authors:** StellarCommons Core Team  
+**Authors:** CoopLumen Core Team  
 **Last Updated:** 2026-05-13
 
 ---
@@ -25,7 +25,7 @@
 
 ## 1. Summary
 
-StellarCommons is an open-source, decentralized community finance network built on the Stellar blockchain. It allows any group — a cooperative, NGO, diaspora network, or local savings circle — to issue its own community token, manage a shared treasury, offer peer-to-peer micro-loans, and govern collectively through on-chain proposals.
+CoopLumen is an open-source, decentralized community finance network built on the Stellar blockchain. It allows any group — a cooperative, NGO, diaspora network, or local savings circle — to issue its own community token, manage a shared treasury, offer peer-to-peer micro-loans, and govern collectively through on-chain proposals.
 
 **Mission:** Make decentralized community finance accessible to any group, anywhere, with no prior crypto expertise required.
 
@@ -53,7 +53,7 @@ StellarCommons is an open-source, decentralized community finance network built 
 
 ## 3. Solution Overview
 
-StellarCommons leverages Stellar's strengths — near-zero fees, 3–5 second finality, built-in asset primitives — to give any community a sovereign financial layer:
+CoopLumen leverages Stellar's strengths — near-zero fees, 3–5 second finality, built-in asset primitives — to give any community a sovereign financial layer:
 
 1. **Community tokens** — Any group issues its own asset (e.g., `ECOLGS` for Eco Lagos), redeemable within the community
 2. **Shared treasury** — Multi-sig distributor accounts hold and disburse community funds transparently
@@ -77,7 +77,7 @@ StellarCommons leverages Stellar's strengths — near-zero fees, 3–5 second fi
 
 | Persona | Description |
 |---|---|
-| **Developer / Integrator** | Builds on StellarCommons APIs |
+| **Developer / Integrator** | Builds on CoopLumen APIs |
 | **Governance Participant** | (Phase 3) Votes on proposals via token-weighted governance |
 | **Auditor** | Views immutable on-chain transaction history |
 

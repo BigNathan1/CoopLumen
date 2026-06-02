@@ -1,4 +1,4 @@
-# StellarCommons
+# CoopLumen
 
 > **Decentralized community finance on the Stellar blockchain — open source, contributor-first.**
 
@@ -10,9 +10,9 @@
 
 ---
 
-## Why StellarCommons?
+## Why CoopLumen?
 
-Traditional finance excludes billions of people through geographic barriers, credit requirements, and prohibitive fees. StellarCommons uses the Stellar network — with its 5-second finality, near-zero fees, and built-in DEX — to give any group (NGO, cooperative, local community, diaspora network) the tools to issue community tokens, run peer-to-peer lending pools, and govern shared treasuries without a bank in the middle.
+Traditional finance excludes billions of people through geographic barriers, credit requirements, and prohibitive fees. CoopLumen uses the Stellar network — with its 5-second finality, near-zero fees, and built-in DEX — to give any group (NGO, cooperative, local community, diaspora network) the tools to issue community tokens, run peer-to-peer lending pools, and govern shared treasuries without a bank in the middle.
 
 Why Stellar specifically?
 
@@ -54,7 +54,7 @@ Why Stellar specifically?
 ## Project Structure
 
 ```
-stellarcommons/
+cooplumen/
 ├── backend/                  # Node.js / Express API
 │   ├── src/
 │   │   ├── api/
@@ -95,8 +95,8 @@ stellarcommons/
 ### 1. Clone
 
 ```bash
-git clone https://github.com/yourname/stellarcommons.git
-cd stellarcommons
+git clone https://github.com/yourname/cooplumen.git
+cd cooplumen
 ```
 
 ### 2. Configure environment
@@ -245,7 +245,7 @@ cd frontend && npm test
 
 ## Community
 
-- GitHub Discussions: [github.com/yourname/stellarcommons/discussions](https://github.com/yourname/stellarcommons/discussions)
+- GitHub Discussions: [github.com/yourname/cooplumen/discussions](https://github.com/yourname/cooplumen/discussions)
 - Discord: _coming soon_
 - Stellar Developers: [discord.gg/stellar](https://discord.gg/stellar)
 
@@ -253,4 +253,4 @@ cd frontend && npm test
 
 ## License
 
-MIT © StellarCommons Contributors
+MIT © CoopLumen Contributors

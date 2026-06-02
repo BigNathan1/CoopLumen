@@ -27,7 +27,7 @@ async function main(): Promise<void> {
   logger.info('Database connected');
 
   app.listen(PORT, () => {
-    logger.info(`StellarCommons API running on port ${PORT}`);
+    logger.info(`CoopLumen API running on port ${PORT}`);
   });
 }
 

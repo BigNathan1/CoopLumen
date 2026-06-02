@@ -1,5 +1,5 @@
 {
-  "name": "stellarcommons",
+  "name": "cooplumen",
   "version": "0.1.0",
   "private": true,
   "description": "Decentralized community finance on the Stellar blockchain",
@@ -16,7 +16,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourname/stellarcommons.git"
+    "url": "https://github.com/yourname/cooplumen.git"
   },
   "license": "MIT",
   "keywords": ["stellar", "blockchain", "defi", "community-finance", "open-source"]

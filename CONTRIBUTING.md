@@ -1,6 +1,6 @@
-# Contributing to StellarCommons
+# Contributing to CoopLumen
 
-Thank you for investing your time in StellarCommons. Every contribution — code, docs, bug reports, or discussions — moves us closer to decentralized financial access for everyone.
+Thank you for investing your time in CoopLumen. Every contribution — code, docs, bug reports, or discussions — moves us closer to decentralized financial access for everyone.
 
 ---
 
@@ -30,7 +30,7 @@ All participants are expected to uphold our community standards:
 - **Be patient.** Maintainers are volunteers; allow 72 hours for responses.
 - **Be constructive.** Explain *why*, not just *what* when requesting changes.
 
-Violations may be reported to `conduct@stellarcommons.org`. Serious violations result in temporary or permanent ban.
+Violations may be reported to `conduct@cooplumen.org`. Serious violations result in temporary or permanent ban.
 
 ---
 
@@ -41,11 +41,11 @@ Violations may be reported to `conduct@stellarcommons.org`. Serious violations r
 ```bash
 # 1. Fork on GitHub (click "Fork" top-right)
 # 2. Clone your fork
-git clone https://github.com/YOUR_USERNAME/stellarcommons.git
-cd stellarcommons
+git clone https://github.com/YOUR_USERNAME/cooplumen.git
+cd cooplumen
 
 # 3. Add upstream remote
-git remote add upstream https://github.com/yourname/stellarcommons.git
+git remote add upstream https://github.com/yourname/cooplumen.git
 ```
 
 ### Set Up the Dev Environment
@@ -80,7 +80,7 @@ Open [http://localhost:3000](http://localhost:3000) and confirm the dashboard lo
 ## 3. Project Structure
 
 ```
-stellarcommons/
+cooplumen/
 ├── backend/src/
 │   ├── api/routes/          # Express route handlers
 │   ├── api/middleware/      # Error handling, 404
@@ -393,7 +393,7 @@ This keeps the review diff clean and reviewable.
 
 ### Reporting a Security Vulnerability
 
-**Do not open a public GitHub issue.** Email `security@stellarcommons.org` with:
+**Do not open a public GitHub issue.** Email `security@cooplumen.org` with:
 - Description of the vulnerability
 - Steps to reproduce
 - Potential impact

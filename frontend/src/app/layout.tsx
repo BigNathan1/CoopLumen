@@ -5,7 +5,7 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'StellarCommons — Decentralized Community Finance',
+  title: 'CoopLumen — Decentralized Community Finance',
   description:
     'Open-source community finance network powered by the Stellar blockchain.',
 };

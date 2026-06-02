@@ -1,8 +1,8 @@
 {
-  "name": "stellarcommons-backend",
+  "name": "cooplumen-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "StellarCommons backend API server",
+  "description": "CoopLumen backend API server",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",

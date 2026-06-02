@@ -16,7 +16,7 @@ export function Dashboard() {
       <header className={styles.header}>
         <div className={styles.brand}>
           <span className={styles.logo}>◆</span>
-          <h1 className={styles.title}>StellarCommons</h1>
+          <h1 className={styles.title}>CoopLumen</h1>
           <span className={styles.tagline}>Decentralized Community Finance</span>
         </div>
         <WalletConnect />
@@ -51,7 +51,7 @@ export function Dashboard() {
             <div className={styles.state}>
               No communities yet.{' '}
               <a
-                href="https://github.com/yourname/stellarcommons#quickstart"
+                href="https://github.com/yourname/cooplumen#quickstart"
                 target="_blank"
                 rel="noopener noreferrer"
               >
