@@ -43,7 +43,7 @@ class StellarServiceClass {
   async getTransactionHistory(
     publicKey: string,
     limit = 20
-  ): Promise<Horizon.HorizonApi.TransactionRecord[]> {
+  ): Promise<Horizon.ServerApi.TransactionRecord[]> {
     const records = await this.server
       .transactions()
       .forAccount(publicKey)
