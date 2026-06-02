@@ -52,6 +52,19 @@ class StellarServiceClass {
       .call();
     return records.records;
   }
+
+  async ping(): Promise<boolean> {
+    try {
+      const network = (process.env.STELLAR_NETWORK ?? 'testnet') as StellarNetwork;
+      const horizonUrl = process.env.STELLAR_HORIZON_URL ?? HORIZON_URLS[network];
+      const response = await fetch(horizonUrl, {
+        signal: AbortSignal.timeout(3000),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
 }
 
 export const StellarService = new StellarServiceClass();
