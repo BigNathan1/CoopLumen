@@ -60,18 +60,16 @@ describe('POST /api/communities', () => {
     };
 
     mockDb.query
-      .mockResolvedValueOnce([])        // name uniqueness check
+      .mockResolvedValueOnce([]) // name uniqueness check
       .mockResolvedValueOnce([community]); // insert
 
-    const res = await request(app)
-      .post('/api/communities')
-      .send({
-        name: 'EcoDAO',
-        description: 'An eco community',
-        issuerPublicKey: validKey,
-        assetCode: 'ECO',
-        assetIssuer: validKey,
-      });
+    const res = await request(app).post('/api/communities').send({
+      name: 'EcoDAO',
+      description: 'An eco community',
+      issuerPublicKey: validKey,
+      assetCode: 'ECO',
+      assetIssuer: validKey,
+    });
 
     expect(res.status).toBe(201);
     expect(res.body.data.name).toBe('EcoDAO');

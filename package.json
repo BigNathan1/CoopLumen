@@ -12,7 +12,9 @@
     "type-check": "cd backend && npm run type-check && cd ../frontend && npm run type-check",
     "test": "cd backend && npm test && cd ../frontend && npm test",
     "test:coverage": "cd backend && npm run test:coverage && cd ../frontend && npm run test:coverage",
-    "db:migrate": "cd backend && npm run db:migrate"
+    "db:migrate": "cd backend && npm run db:migrate",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,css,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,css,md,yml,yaml}\""
   },
   "repository": {
     "type": "git",
@@ -23,5 +25,11 @@
     "npm": ">=10.0.0"
   },
   "license": "MIT",
-  "keywords": ["stellar", "blockchain", "defi", "community-finance", "open-source"]
+  "keywords": [
+    "stellar",
+    "blockchain",
+    "defi",
+    "community-finance",
+    "open-source"
+  ]
 }

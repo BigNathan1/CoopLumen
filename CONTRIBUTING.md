@@ -28,7 +28,7 @@ All participants are expected to uphold our community standards:
 - **Be respectful.** Critique code, not people.
 - **Be inclusive.** Welcome contributors of all backgrounds and skill levels.
 - **Be patient.** Maintainers are volunteers; allow 72 hours for responses.
-- **Be constructive.** Explain *why*, not just *what* when requesting changes.
+- **Be constructive.** Explain _why_, not just _what_ when requesting changes.
 
 Violations may be reported to `conduct@cooplumen.org`. Serious violations result in temporary or permanent ban.
 
@@ -126,17 +126,18 @@ main  ────────────────────────�
 <type>/<short-description>
 ```
 
-| Prefix | When to use |
-|---|---|
-| `feature/` | New functionality |
-| `fix/` | Bug fixes |
-| `docs/` | Documentation only |
+| Prefix      | When to use                                |
+| ----------- | ------------------------------------------ |
+| `feature/`  | New functionality                          |
+| `fix/`      | Bug fixes                                  |
+| `docs/`     | Documentation only                         |
 | `refactor/` | Code restructuring without behavior change |
-| `test/` | Adding or fixing tests |
-| `chore/` | Dependency bumps, config changes, CI |
-| `perf/` | Performance improvements |
+| `test/`     | Adding or fixing tests                     |
+| `chore/`    | Dependency bumps, config changes, CI       |
+| `perf/`     | Performance improvements                   |
 
 **Examples:**
+
 ```
 feature/p2p-loan-request-api
 fix/balance-panel-undefined-key
@@ -168,17 +169,17 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)
 
 ### Types
 
-| Type | When to use |
-|---|---|
-| `feat` | A new feature |
-| `fix` | A bug fix |
-| `docs` | Documentation changes only |
-| `style` | Formatting, whitespace — no logic change |
+| Type       | When to use                                |
+| ---------- | ------------------------------------------ |
+| `feat`     | A new feature                              |
+| `fix`      | A bug fix                                  |
+| `docs`     | Documentation changes only                 |
+| `style`    | Formatting, whitespace — no logic change   |
 | `refactor` | Code restructuring with no behavior change |
-| `test` | Adding or correcting tests |
-| `chore` | Build system, CI, dependency updates |
-| `perf` | Performance improvement |
-| `revert` | Reverting a previous commit |
+| `test`     | Adding or correcting tests                 |
+| `chore`    | Build system, CI, dependency updates       |
+| `perf`     | Performance improvement                    |
+| `revert`   | Reverting a previous commit                |
 
 ### Scopes
 
@@ -205,7 +206,7 @@ BREAKING CHANGE: establishTrustline now requires assetIssuer instead of Asset ob
 ### Rules
 
 - Subject line: imperative mood, lowercase, no period, ≤72 characters
-- Body: wrap at 80 characters, explain *why* not *what*
+- Body: wrap at 80 characters, explain _why_ not _what_
 - One logical change per commit; squash WIP commits before opening a PR
 
 ---
@@ -262,11 +263,13 @@ When you open a PR, fill in the auto-generated template:
 
 ```markdown
 ## What does this PR do?
+
 <!-- 2-3 sentences. Link to the issue it closes. -->
 
 Closes #<issue_number>
 
 ## Type of change
+
 - [ ] Bug fix
 - [ ] New feature
 - [ ] Refactor
@@ -274,12 +277,15 @@ Closes #<issue_number>
 - [ ] Tests only
 
 ## Testing
+
 <!-- How did you test this? What scenarios did you cover? -->
 
 ## Screenshots (if frontend)
+
 <!-- Before/after or just "after" for new UI -->
 
 ## Checklist
+
 - [ ] Tests added/updated
 - [ ] Docs updated
 - [ ] No secrets in diff
@@ -304,28 +310,33 @@ Closes #<issue_number>
 Reviewers use this checklist when approving PRs:
 
 ### Correctness
+
 - [ ] Logic is correct for both happy path and error cases
 - [ ] No unhandled promise rejections
 - [ ] Stellar operations handle network failures gracefully
 
 ### Security
+
 - [ ] No private keys logged or returned in API responses
 - [ ] User input validated at API boundary (`express-validator`)
 - [ ] No SQL injection vectors (parameterized queries only)
 - [ ] No new CORS or CSP weakening
 
 ### Code Quality
+
 - [ ] TypeScript `strict` mode — no `any` without justification
 - [ ] Functions are small, named clearly, and do one thing
 - [ ] No commented-out code or debug `console.log`
-- [ ] Comments explain *why*, not *what*
+- [ ] Comments explain _why_, not _what_
 
 ### Testing
+
 - [ ] New feature has at least one unit test
 - [ ] Edge cases and error paths are tested
 - [ ] Mocks are scoped and cleaned up in `afterEach`
 
 ### Documentation
+
 - [ ] Public APIs are described in README.md if new
 - [ ] PRD.md updated if feature changes scope or roadmap
 
@@ -366,6 +377,7 @@ git push --force-with-lease origin <your-branch>
 ### For Merge Conflicts in Long-Running PRs
 
 If your PR has been open for more than 2 weeks and conflicts accumulate:
+
 1. Close the PR
 2. Rebase onto current `main`
 3. Open a fresh PR with a note linking to the old one
@@ -376,24 +388,25 @@ This keeps the review diff clean and reviewable.
 
 ## 11. Issue Labeling Scheme
 
-| Label | Color | Description |
-|---|---|---|
-| `good first issue` | `#7057ff` | Beginner-friendly; well-scoped, documented |
-| `help wanted` | `#008672` | Maintainers welcome community ownership |
-| `bug` | `#d73a4a` | Confirmed defect in existing functionality |
-| `feature` | `#a2eeef` | New capability request |
-| `docs` | `#0075ca` | Documentation improvement |
-| `needs-discussion` | `#e4e669` | Design question unresolved |
-| `blocked` | `#b60205` | Waiting on external dependency or decision |
-| `duplicate` | `#cfd3d7` | Issue already tracked elsewhere |
-| `wontfix` | `#ffffff` | Out of scope or intentionally not addressed |
-| `Phase 2` | `#fbca04` | Planned for Phase 2 milestone |
-| `Phase 3` | `#f9d0c4` | Planned for Phase 3 milestone |
-| `security` | `#e11d48` | Security-sensitive — maintainer triage only |
+| Label              | Color     | Description                                 |
+| ------------------ | --------- | ------------------------------------------- |
+| `good first issue` | `#7057ff` | Beginner-friendly; well-scoped, documented  |
+| `help wanted`      | `#008672` | Maintainers welcome community ownership     |
+| `bug`              | `#d73a4a` | Confirmed defect in existing functionality  |
+| `feature`          | `#a2eeef` | New capability request                      |
+| `docs`             | `#0075ca` | Documentation improvement                   |
+| `needs-discussion` | `#e4e669` | Design question unresolved                  |
+| `blocked`          | `#b60205` | Waiting on external dependency or decision  |
+| `duplicate`        | `#cfd3d7` | Issue already tracked elsewhere             |
+| `wontfix`          | `#ffffff` | Out of scope or intentionally not addressed |
+| `Phase 2`          | `#fbca04` | Planned for Phase 2 milestone               |
+| `Phase 3`          | `#f9d0c4` | Planned for Phase 3 milestone               |
+| `security`         | `#e11d48` | Security-sensitive — maintainer triage only |
 
 ### Reporting a Security Vulnerability
 
 **Do not open a public GitHub issue.** Email `security@cooplumen.org` with:
+
 - Description of the vulnerability
 - Steps to reproduce
 - Potential impact

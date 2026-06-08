@@ -16,9 +16,7 @@ export function CommunityCard({ community }: Props) {
         <h3 className={styles.name}>{community.name}</h3>
         <span className={styles.token}>{community.asset_code}</span>
       </div>
-      {community.description && (
-        <p className={styles.description}>{community.description}</p>
-      )}
+      {community.description && <p className={styles.description}>{community.description}</p>}
       <div className={styles.meta}>
         <span>Issuer: {community.issuer_public_key.slice(0, 8)}…</span>
         <span>Created {joined}</span>

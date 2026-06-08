@@ -45,10 +45,9 @@ communityRouter.get('/', async (_req, res, next) => {
  */
 communityRouter.get('/:id', async (req, res, next) => {
   try {
-    const [community] = await db.query<Community>(
-      'SELECT * FROM communities WHERE id = $1',
-      [req.params.id]
-    );
+    const [community] = await db.query<Community>('SELECT * FROM communities WHERE id = $1', [
+      req.params.id,
+    ]);
     if (!community) {
       res.status(404).json({ error: 'Community not found' });
       return;
@@ -69,29 +68,23 @@ communityRouter.post(
     body('name').isString().trim().isLength({ min: 2, max: 64 }),
     body('description').optional().isString().trim().isLength({ max: 500 }),
     body('issuerPublicKey').isString().trim().isLength({ min: 56, max: 56 }),
-    body('assetCode')
-      .isString()
-      .trim()
-      .isLength({ min: 1, max: 12 })
-      .isAlphanumeric(),
+    body('assetCode').isString().trim().isLength({ min: 1, max: 12 }).isAlphanumeric(),
     body('assetIssuer').isString().trim().isLength({ min: 56, max: 56 }),
   ],
   validate,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { name, description, issuerPublicKey, assetCode, assetIssuer } =
-        req.body as {
-          name: string;
-          description?: string;
-          issuerPublicKey: string;
-          assetCode: string;
-          assetIssuer: string;
-        };
+      const { name, description, issuerPublicKey, assetCode, assetIssuer } = req.body as {
+        name: string;
+        description?: string;
+        issuerPublicKey: string;
+        assetCode: string;
+        assetIssuer: string;
+      };
 
-      const [existing] = await db.query<Community>(
-        'SELECT id FROM communities WHERE name = $1',
-        [name]
-      );
+      const [existing] = await db.query<Community>('SELECT id FROM communities WHERE name = $1', [
+        name,
+      ]);
       if (existing) {
         res.status(409).json({ error: 'Community name already taken' });
         return;

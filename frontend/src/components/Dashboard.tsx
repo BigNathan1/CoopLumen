@@ -32,14 +32,10 @@ export function Dashboard() {
         <section className={styles.main}>
           <div className={styles.sectionHeader}>
             <h2>Communities</h2>
-            <span className={styles.count}>
-              {communities?.length ?? 0} registered
-            </span>
+            <span className={styles.count}>{communities?.length ?? 0} registered</span>
           </div>
 
-          {isLoading && (
-            <div className={styles.state}>Loading communities…</div>
-          )}
+          {isLoading && <div className={styles.state}>Loading communities…</div>}
 
           {error && (
             <div className={`${styles.state} ${styles.error}`}>

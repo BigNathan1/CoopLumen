@@ -26,20 +26,21 @@ tokenRouter.post(
     body('issuerSecret').isString().trim().isLength({ min: 56 }),
     body('assetCode').isString().trim().isLength({ min: 1, max: 12 }),
     body('distributorPublicKey').isString().trim().isLength({ min: 56, max: 56 }),
-    body('amount').isString().matches(/^\d+(\.\d{1,7})?$/),
+    body('amount')
+      .isString()
+      .matches(/^\d+(\.\d{1,7})?$/),
     body('memo').optional().isString().trim().isLength({ max: 28 }),
   ],
   validate,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { issuerSecret, assetCode, distributorPublicKey, amount, memo } =
-        req.body as {
-          issuerSecret: string;
-          assetCode: string;
-          distributorPublicKey: string;
-          amount: string;
-          memo?: string;
-        };
+      const { issuerSecret, assetCode, distributorPublicKey, amount, memo } = req.body as {
+        issuerSecret: string;
+        assetCode: string;
+        distributorPublicKey: string;
+        amount: string;
+        memo?: string;
+      };
 
       const txHash = await issueAsset({
         issuerSecret,
@@ -66,7 +67,10 @@ tokenRouter.post(
     body('accountSecret').isString().trim().isLength({ min: 56 }),
     body('assetCode').isString().trim().isLength({ min: 1, max: 12 }),
     body('assetIssuer').isString().trim().isLength({ min: 56, max: 56 }),
-    body('limit').optional().isString().matches(/^\d+(\.\d{1,7})?$/),
+    body('limit')
+      .optional()
+      .isString()
+      .matches(/^\d+(\.\d{1,7})?$/),
   ],
   validate,
   async (req: Request, res: Response, next: NextFunction) => {

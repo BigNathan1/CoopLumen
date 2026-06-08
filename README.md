@@ -118,6 +118,7 @@ docker-compose up
 ```
 
 This starts:
+
 - PostgreSQL on `localhost:5432`
 - Backend API on `localhost:4000`
 - Frontend on `localhost:3000`
@@ -156,21 +157,21 @@ You will need a local PostgreSQL instance. Set `DATABASE_URL` in `backend/.env`.
 
 ### Backend (`backend/.env`)
 
-| Variable | Default | Description |
-|---|---|---|
-| `PORT` | `4000` | API server port |
-| `DATABASE_URL` | — | PostgreSQL connection string |
-| `STELLAR_NETWORK` | `testnet` | `testnet` or `mainnet` |
-| `STELLAR_HORIZON_URL` | Testnet Horizon | Override Horizon endpoint |
-| `FRONTEND_URL` | `http://localhost:3000` | CORS allowed origin |
-| `LOG_LEVEL` | `info` | winston log level |
+| Variable              | Default                 | Description                  |
+| --------------------- | ----------------------- | ---------------------------- |
+| `PORT`                | `4000`                  | API server port              |
+| `DATABASE_URL`        | —                       | PostgreSQL connection string |
+| `STELLAR_NETWORK`     | `testnet`               | `testnet` or `mainnet`       |
+| `STELLAR_HORIZON_URL` | Testnet Horizon         | Override Horizon endpoint    |
+| `FRONTEND_URL`        | `http://localhost:3000` | CORS allowed origin          |
+| `LOG_LEVEL`           | `info`                  | winston log level            |
 
 ### Frontend (`frontend/.env.local`)
 
-| Variable | Default | Description |
-|---|---|---|
-| `NEXT_PUBLIC_API_URL` | `http://localhost:4000` | Backend API base URL |
-| `NEXT_PUBLIC_STELLAR_NETWORK` | `TESTNET` | Network shown in UI |
+| Variable                      | Default                 | Description          |
+| ----------------------------- | ----------------------- | -------------------- |
+| `NEXT_PUBLIC_API_URL`         | `http://localhost:4000` | Backend API base URL |
+| `NEXT_PUBLIC_STELLAR_NETWORK` | `TESTNET`               | Network shown in UI  |
 
 ---
 
@@ -178,28 +179,28 @@ You will need a local PostgreSQL instance. Set `DATABASE_URL` in `backend/.env`.
 
 ### Communities
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/communities` | List all communities |
-| `GET` | `/api/communities/:id` | Get a single community |
-| `POST` | `/api/communities` | Register a new community |
-| `GET` | `/api/communities/:id/members` | List community members |
-| `POST` | `/api/communities/:id/members` | Add a member |
+| Method | Path                           | Description              |
+| ------ | ------------------------------ | ------------------------ |
+| `GET`  | `/api/communities`             | List all communities     |
+| `GET`  | `/api/communities/:id`         | Get a single community   |
+| `POST` | `/api/communities`             | Register a new community |
+| `GET`  | `/api/communities/:id/members` | List community members   |
+| `POST` | `/api/communities/:id/members` | Add a member             |
 
 ### Tokens
 
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/api/tokens/issue` | Issue community token on Stellar |
+| Method | Path                    | Description                      |
+| ------ | ----------------------- | -------------------------------- |
+| `POST` | `/api/tokens/issue`     | Issue community token on Stellar |
 | `POST` | `/api/tokens/trustline` | Establish trustline for a member |
 
 ### Balances
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/api/balances/:publicKey` | Get all balances for an account |
-| `GET` | `/api/balances/:publicKey/loans` | Get loans for an account |
-| `GET` | `/api/balances/community/:id/loans` | Get all loans in a community |
+| Method | Path                                | Description                     |
+| ------ | ----------------------------------- | ------------------------------- |
+| `GET`  | `/api/balances/:publicKey`          | Get all balances for an account |
+| `GET`  | `/api/balances/:publicKey/loans`    | Get loans for an account        |
+| `GET`  | `/api/balances/community/:id/loans` | Get all loans in a community    |
 
 ### Health
 

@@ -31,29 +31,19 @@ export interface BuildUnsignedPaymentParams {
  * Submits a signed payment from a server-held keypair (e.g., community distributor).
  */
 export async function submitPayment(params: PaymentParams): Promise<string> {
-  const {
-    senderSecret,
-    destinationPublicKey,
-    assetCode,
-    assetIssuer,
-    amount,
-    memo,
-  } = params;
+  const { senderSecret, destinationPublicKey, assetCode, assetIssuer, amount, memo } = params;
 
   const senderKeypair = Keypair.fromSecret(senderSecret);
   const server = StellarService.getServer();
   const network = StellarService.getNetwork();
 
   const account = await server.loadAccount(senderKeypair.publicKey());
-  const asset =
-    assetCode === 'XLM' ? Asset.native() : new Asset(assetCode, assetIssuer);
+  const asset = assetCode === 'XLM' ? Asset.native() : new Asset(assetCode, assetIssuer);
 
   const txBuilder = new TransactionBuilder(account, {
     fee: BASE_FEE,
     networkPassphrase: network,
-  }).addOperation(
-    Operation.payment({ destination: destinationPublicKey, asset, amount })
-  );
+  }).addOperation(Operation.payment({ destination: destinationPublicKey, asset, amount }));
 
   if (memo) {
     txBuilder.addMemo(Memo.text(memo));
@@ -69,31 +59,19 @@ export async function submitPayment(params: PaymentParams): Promise<string> {
 /**
  * Builds an unsigned XDR transaction for client-side signing via Freighter.
  */
-export async function buildUnsignedPayment(
-  params: BuildUnsignedPaymentParams
-): Promise<string> {
-  const {
-    senderPublicKey,
-    destinationPublicKey,
-    assetCode,
-    assetIssuer,
-    amount,
-    memo,
-  } = params;
+export async function buildUnsignedPayment(params: BuildUnsignedPaymentParams): Promise<string> {
+  const { senderPublicKey, destinationPublicKey, assetCode, assetIssuer, amount, memo } = params;
 
   const server = StellarService.getServer();
   const network = StellarService.getNetwork();
 
   const account = await server.loadAccount(senderPublicKey);
-  const asset =
-    assetCode === 'XLM' ? Asset.native() : new Asset(assetCode, assetIssuer);
+  const asset = assetCode === 'XLM' ? Asset.native() : new Asset(assetCode, assetIssuer);
 
   const txBuilder = new TransactionBuilder(account, {
     fee: BASE_FEE,
     networkPassphrase: network,
-  }).addOperation(
-    Operation.payment({ destination: destinationPublicKey, asset, amount })
-  );
+  }).addOperation(Operation.payment({ destination: destinationPublicKey, asset, amount }));
 
   if (memo) {
     txBuilder.addMemo(Memo.text(memo));

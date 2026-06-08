@@ -28,8 +28,5 @@ export function useCommunities() {
 }
 
 export function useCommunity(id: string) {
-  return useSWR<Community>(
-    id ? `${API_URL}/api/communities/${id}` : null,
-    fetcher
-  );
+  return useSWR<Community>(id ? `${API_URL}/api/communities/${id}` : null, fetcher);
 }

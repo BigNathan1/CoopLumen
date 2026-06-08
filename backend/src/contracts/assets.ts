@@ -28,8 +28,7 @@ export interface AssetDetails {
  * The issuer account creates the asset and sends initial supply to a distributor.
  */
 export async function issueAsset(params: IssueAssetParams): Promise<string> {
-  const { issuerSecret, assetCode, distributorPublicKey, amount, memo } =
-    params;
+  const { issuerSecret, assetCode, distributorPublicKey, amount, memo } = params;
 
   const issuerKeypair = Keypair.fromSecret(issuerSecret);
   const server = StellarService.getServer();

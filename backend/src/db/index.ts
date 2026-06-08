@@ -19,10 +19,7 @@ export const db = {
     logger.info('Database pool initialised');
   },
 
-  async query<T extends object>(
-    text: string,
-    params?: unknown[]
-  ): Promise<T[]> {
+  async query<T extends object>(text: string, params?: unknown[]): Promise<T[]> {
     const start = Date.now();
     const result = await pool.query<T>(text, params);
     logger.info('Query executed', {
@@ -32,9 +29,7 @@ export const db = {
     return result.rows;
   },
 
-  async transaction<T>(
-    fn: (client: PoolClient) => Promise<T>
-  ): Promise<T> {
+  async transaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');

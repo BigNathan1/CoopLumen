@@ -22,9 +22,7 @@ export function useWallet() {
   const connect = useCallback(async () => {
     setState((s) => ({ ...s, connecting: true, error: null }));
     try {
-      const { isConnected, getPublicKey, setAllowed } = await import(
-        '@stellar/freighter-api'
-      );
+      const { isConnected, getPublicKey, setAllowed } = await import('@stellar/freighter-api');
 
       const connected = await isConnected();
       if (!connected) {
@@ -34,8 +32,7 @@ export function useWallet() {
       const publicKey = await getPublicKey();
       setState({ publicKey, connected: true, connecting: false, error: null });
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to connect wallet';
+      const message = err instanceof Error ? err.message : 'Failed to connect wallet';
       setState((s) => ({ ...s, connecting: false, error: message }));
     }
   }, []);

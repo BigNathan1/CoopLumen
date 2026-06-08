@@ -18,8 +18,7 @@ class StellarServiceClass {
 
   constructor() {
     const env = (process.env.STELLAR_NETWORK ?? 'testnet') as StellarNetwork;
-    const horizonUrl =
-      process.env.STELLAR_HORIZON_URL ?? HORIZON_URLS[env];
+    const horizonUrl = process.env.STELLAR_HORIZON_URL ?? HORIZON_URLS[env];
 
     this.network = NETWORK_PASSPHRASES[env];
     this.server = new Horizon.Server(horizonUrl);
@@ -33,9 +32,7 @@ class StellarServiceClass {
     return this.network;
   }
 
-  async getAccountBalance(
-    publicKey: string
-  ): Promise<Horizon.HorizonApi.BalanceLine[]> {
+  async getAccountBalance(publicKey: string): Promise<Horizon.HorizonApi.BalanceLine[]> {
     const account = await this.server.loadAccount(publicKey);
     return account.balances;
   }

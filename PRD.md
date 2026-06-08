@@ -42,12 +42,12 @@ CoopLumen is an open-source, decentralized community finance network built on th
 
 ### Specific Pain Points
 
-| Group | Problem |
-|---|---|
-| Local savings circles | No digital record; fraud risk; limited reach |
-| Diaspora communities | High remittance fees to send money home |
-| NGOs | Grant disbursement is slow, opaque, and auditor-heavy |
-| Co-ops | No shared ledger; governance is manual and slow |
+| Group                 | Problem                                               |
+| --------------------- | ----------------------------------------------------- |
+| Local savings circles | No digital record; fraud risk; limited reach          |
+| Diaspora communities  | High remittance fees to send money home               |
+| NGOs                  | Grant disbursement is slow, opaque, and auditor-heavy |
+| Co-ops                | No shared ledger; governance is manual and slow       |
 
 ---
 
@@ -67,19 +67,19 @@ CoopLumen leverages Stellar's strengths — near-zero fees, 3–5 second finalit
 
 ### Primary
 
-| Persona | Description | Key Need |
-|---|---|---|
-| **Community Treasurer** | Manages a savings group or co-op fund | Issue token, disburse funds, view audit trail |
-| **Community Member** | Holds community token, requests loans | View balance, apply for loan, repay on-chain |
-| **NGO Administrator** | Distributes grants to beneficiary groups | Register communities, batch-disburse tokens |
+| Persona                 | Description                              | Key Need                                      |
+| ----------------------- | ---------------------------------------- | --------------------------------------------- |
+| **Community Treasurer** | Manages a savings group or co-op fund    | Issue token, disburse funds, view audit trail |
+| **Community Member**    | Holds community token, requests loans    | View balance, apply for loan, repay on-chain  |
+| **NGO Administrator**   | Distributes grants to beneficiary groups | Register communities, batch-disburse tokens   |
 
 ### Secondary
 
-| Persona | Description |
-|---|---|
-| **Developer / Integrator** | Builds on CoopLumen APIs |
+| Persona                    | Description                                                |
+| -------------------------- | ---------------------------------------------------------- |
+| **Developer / Integrator** | Builds on CoopLumen APIs                                   |
 | **Governance Participant** | (Phase 3) Votes on proposals via token-weighted governance |
-| **Auditor** | Views immutable on-chain transaction history |
+| **Auditor**                | Views immutable on-chain transaction history               |
 
 ---
 
@@ -145,15 +145,15 @@ CoopLumen leverages Stellar's strengths — near-zero fees, 3–5 second finalit
 
 ### Stack
 
-| Layer | Technology | Rationale |
-|---|---|---|
-| Frontend | Next.js 14 (App Router), TypeScript | SSR/SSG, strong typing, ecosystem |
-| Wallet | Freighter browser extension | Stellar-native, widely used |
-| Backend | Node.js 20, Express 4, TypeScript | Familiar ecosystem, strong typing |
-| Blockchain | Stellar SDK, Horizon REST API | Near-zero fees, fast finality |
-| Database | PostgreSQL 16 | Off-chain metadata, complex queries |
-| Containers | Docker, Docker Compose | Reproducible dev environment |
-| Testing | Jest, ts-jest, @testing-library/react | Unit and integration coverage |
+| Layer      | Technology                            | Rationale                           |
+| ---------- | ------------------------------------- | ----------------------------------- |
+| Frontend   | Next.js 14 (App Router), TypeScript   | SSR/SSG, strong typing, ecosystem   |
+| Wallet     | Freighter browser extension           | Stellar-native, widely used         |
+| Backend    | Node.js 20, Express 4, TypeScript     | Familiar ecosystem, strong typing   |
+| Blockchain | Stellar SDK, Horizon REST API         | Near-zero fees, fast finality       |
+| Database   | PostgreSQL 16                         | Off-chain metadata, complex queries |
+| Containers | Docker, Docker Compose                | Reproducible dev environment        |
+| Testing    | Jest, ts-jest, @testing-library/react | Unit and integration coverage       |
 
 ### Data Flow
 
@@ -245,6 +245,7 @@ Acceptance criteria:
 ## 8. Roadmap
 
 ### Phase 1 — Foundation _(current)_
+
 > Target: Q3 2026
 
 - [x] Monorepo scaffold (Next.js + Express + Docker)
@@ -257,6 +258,7 @@ Acceptance criteria:
 - [ ] Deployed staging environment
 
 ### Phase 2 — P2P Lending
+
 > Target: Q4 2026
 
 - [ ] Loan request and acceptance flow
@@ -267,6 +269,7 @@ Acceptance criteria:
 - [ ] Mobile-responsive UI improvements
 
 ### Phase 3 — DAO Governance
+
 > Target: Q1 2027
 
 - [ ] Soroban smart contract for proposal voting
@@ -275,6 +278,7 @@ Acceptance criteria:
 - [ ] On-chain governance UI
 
 ### Phase 4 — Identity, KYC & Oracles
+
 > Target: Q2–Q3 2027
 
 - [ ] SEP-12 KYC integration
@@ -286,14 +290,14 @@ Acceptance criteria:
 
 ## 9. Success Metrics
 
-| Metric | Phase 1 Target | Phase 2 Target |
-|---|---|---|
-| Registered communities | 10 (testnet) | 100 (mainnet) |
-| Active wallets | 50 | 1,000 |
-| On-chain transaction volume | 1,000 tx | 50,000 tx |
-| GitHub contributors | 5 | 25 |
-| Open issues resolved | 20 | 100 |
-| Test coverage | ≥ 70% | ≥ 80% |
+| Metric                      | Phase 1 Target | Phase 2 Target |
+| --------------------------- | -------------- | -------------- |
+| Registered communities      | 10 (testnet)   | 100 (mainnet)  |
+| Active wallets              | 50             | 1,000          |
+| On-chain transaction volume | 1,000 tx       | 50,000 tx      |
+| GitHub contributors         | 5              | 25             |
+| Open issues resolved        | 20             | 100            |
+| Test coverage               | ≥ 70%          | ≥ 80%          |
 
 ---
 
@@ -312,9 +316,9 @@ The following are explicitly **out of scope** for Phase 1:
 
 ## 11. Open Questions
 
-| # | Question | Owner | Due |
-|---|---|---|---|
-| 1 | Should community keys be custodied by the platform or always user-held? | Core Team | Phase 2 planning |
-| 2 | What is the minimum viable governance mechanism — weighted voting or simple majority? | Community | Phase 3 planning |
-| 3 | Which SEP-12 anchor should we recommend for KYC in Phase 4? | Partnerships | Phase 3 complete |
-| 4 | Should the reputation score be on-chain or off-chain? | Core Team | Phase 2 design |
+| #   | Question                                                                              | Owner        | Due              |
+| --- | ------------------------------------------------------------------------------------- | ------------ | ---------------- |
+| 1   | Should community keys be custodied by the platform or always user-held?               | Core Team    | Phase 2 planning |
+| 2   | What is the minimum viable governance mechanism — weighted voting or simple majority? | Community    | Phase 3 planning |
+| 3   | Which SEP-12 anchor should we recommend for KYC in Phase 4?                           | Partnerships | Phase 3 complete |
+| 4   | Should the reputation score be on-chain or off-chain?                                 | Core Team    | Phase 2 design   |

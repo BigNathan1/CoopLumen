@@ -13,8 +13,7 @@ export function errorHandler(
   _next: NextFunction
 ): void {
   const status = err.status ?? err.statusCode ?? 500;
-  const message =
-    status === 500 ? 'Internal server error' : err.message;
+  const message = status === 500 ? 'Internal server error' : err.message;
 
   if (status === 500) {
     logger.error('Unhandled error', { error: err.message, stack: err.stack });

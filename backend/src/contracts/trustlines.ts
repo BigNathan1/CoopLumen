@@ -1,10 +1,4 @@
-import {
-  Asset,
-  Keypair,
-  TransactionBuilder,
-  Operation,
-  BASE_FEE,
-} from '@stellar/stellar-sdk';
+import { Asset, Keypair, TransactionBuilder, Operation, BASE_FEE } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
 
 export interface TrustlineParams {
@@ -18,9 +12,7 @@ export interface TrustlineParams {
  * Establishes a trustline so an account can hold a community token.
  * Must be called before the account can receive or hold the asset.
  */
-export async function establishTrustline(
-  params: TrustlineParams
-): Promise<string> {
+export async function establishTrustline(params: TrustlineParams): Promise<string> {
   const { accountSecret, assetCode, assetIssuer, limit } = params;
 
   const accountKeypair = Keypair.fromSecret(accountSecret);
@@ -53,9 +45,7 @@ export async function establishTrustline(
  * Removes a trustline from an account. The account balance for that
  * asset must be zero before removal succeeds on the network.
  */
-export async function removeTrustline(
-  params: Omit<TrustlineParams, 'limit'>
-): Promise<string> {
+export async function removeTrustline(params: Omit<TrustlineParams, 'limit'>): Promise<string> {
   return establishTrustline({ ...params, limit: '0' });
 }
 

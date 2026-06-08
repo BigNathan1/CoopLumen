@@ -15,11 +15,7 @@ export function BalancePanel({ publicKey }: Props) {
   }
 
   if (error) {
-    return (
-      <div className={`${styles.state} ${styles.error}`}>
-        Failed to load balances
-      </div>
-    );
+    return <div className={`${styles.state} ${styles.error}`}>Failed to load balances</div>;
   }
 
   if (!balances?.length) {
@@ -32,9 +28,7 @@ export function BalancePanel({ publicKey }: Props) {
       <ul className={styles.list}>
         {balances.map((b, i) => (
           <li key={i} className={styles.item}>
-            <span className={styles.asset}>
-              {b.asset_type === 'native' ? 'XLM' : b.asset_code}
-            </span>
+            <span className={styles.asset}>{b.asset_type === 'native' ? 'XLM' : b.asset_code}</span>
             <span className={styles.amount}>
               {parseFloat(b.balance).toLocaleString(undefined, {
                 minimumFractionDigits: 2,

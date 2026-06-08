@@ -36,33 +36,30 @@ balanceRouter.get(
  * GET /api/balances/:publicKey/loans
  * Returns all loans involving a specific Stellar address.
  */
-balanceRouter.get(
-  '/:publicKey/loans',
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { publicKey } = req.params;
-      const loans = await db.query<{
-        id: string;
-        community_id: string;
-        borrower_address: string;
-        lender_address: string;
-        amount: string;
-        asset_code: string;
-        status: string;
-        due_at: string | null;
-        created_at: string;
-      }>(
-        `SELECT * FROM loans
+balanceRouter.get('/:publicKey/loans', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { publicKey } = req.params;
+    const loans = await db.query<{
+      id: string;
+      community_id: string;
+      borrower_address: string;
+      lender_address: string;
+      amount: string;
+      asset_code: string;
+      status: string;
+      due_at: string | null;
+      created_at: string;
+    }>(
+      `SELECT * FROM loans
          WHERE borrower_address = $1 OR lender_address = $1
          ORDER BY created_at DESC`,
-        [publicKey]
-      );
-      res.json({ data: loans });
-    } catch (err) {
-      next(err);
-    }
+      [publicKey]
+    );
+    res.json({ data: loans });
+  } catch (err) {
+    next(err);
   }
-);
+});
 
 /**
  * GET /api/balances/community/:communityId/loans

@@ -26,8 +26,6 @@ describe('CommunityCard', () => {
 
   it('omits description element when null', () => {
     render(<CommunityCard community={{ ...mockCommunity, description: null }} />);
-    expect(
-      screen.queryByText('An eco-friendly community')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('An eco-friendly community')).not.toBeInTheDocument();
   });
 });
