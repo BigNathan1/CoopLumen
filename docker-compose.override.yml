@@ -1,0 +1,61 @@
+# docker-compose.override.yml — loaded automatically on `docker-compose up`
+# Local development overrides only. Not used in CI or production.
+
+version: '3.9'
+
+services:
+  db:
+    # Disable auto-restart so the container stays down if you stop it manually
+    restart: 'no'
+    # Expose PostgreSQL to any local DB client (e.g. TablePlus, psql)
+    ports:
+      - '5432:5432'
+
+  backend:
+    restart: 'no'
+    environment:
+      LOG_LEVEL: debug
+      NODE_ENV: development
+    # Expose Node.js inspector — attach VS Code debugger on localhost:9229
+    ports:
+      - '4000:4000'
+      - '9229:9229'
+    # Start with --inspect so the debugger is available immediately
+    command: >
+      ts-node-dev
+      --respawn
+      --transpile-only
+      --inspect=0.0.0.0:9229
+      src/index.ts
+    # Relax health check during dev — faster feedback loop
+    healthcheck:
+      interval: 15s
+      timeout: 8s
+      retries: 3
+      start_period: 45s
+
+  frontend:
+    restart: 'no'
+    environment:
+      # Enables Next.js detailed error overlays
+      NODE_ENV: development
+    healthcheck:
+      interval: 20s
+      timeout: 8s
+      retries: 3
+      start_period: 90s
+
+  # Optional pgAdmin UI — start with: docker-compose --profile tools up
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    profiles:
+      - tools
+    restart: 'no'
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@cooplumen.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - '5050:80'
+    depends_on:
+      db:
+        condition: service_healthy
