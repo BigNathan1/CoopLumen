@@ -14,7 +14,8 @@
     "test:coverage": "cd backend && npm run test:coverage && cd ../frontend && npm run test:coverage",
     "db:migrate": "cd backend && npm run db:migrate",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,css,md,yml,yaml}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,css,md,yml,yaml}\""
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,css,md,yml,yaml}\"",
+    "prepare": "husky"
   },
   "repository": {
     "type": "git",
@@ -31,5 +32,24 @@
     "defi",
     "community-finance",
     "open-source"
-  ]
+  ],
+  "lint-staged": {
+    "backend/src/**/*.{ts,js}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "frontend/src/**/*.{ts,tsx,js,css}": [
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.7",
+    "prettier": "^3.8.4"
+  }
 }
