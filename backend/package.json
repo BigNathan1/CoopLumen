@@ -18,6 +18,8 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "db:migrate": "node -r ts-node/register src/db/migrate.ts",
+    "db:seed": "node -r ts-node/register src/db/seed.ts",
+    "db:status": "node -r ts-node/register src/db/migrate.ts --status",
     "type-check": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.{ts,js,json}\"",
     "format:check": "prettier --check \"src/**/*.{ts,js,json}\""
