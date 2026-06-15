@@ -1,0 +1,23 @@
+# CODEOWNERS — reviewers are auto-requested on PRs touching these paths.
+# Syntax: <path pattern>  <@github-username ...>
+
+# Global fallback — everything not matched below
+*                          @BigNathan1
+
+# Backend API, contracts, and database
+/backend/                  @BigNathan1
+
+# Frontend app and components
+/frontend/                 @BigNathan1
+
+# Infrastructure and CI/CD
+/docker-compose*.yml       @BigNathan1
+/.github/                  @BigNathan1
+/Makefile                  @BigNathan1
+
+# Documentation
+/*.md                      @BigNathan1
+/docs/                     @BigNathan1
+
+# Security-sensitive files — always require owner review
+/SECURITY.md               @BigNathan1

@@ -1,0 +1,67 @@
+name: Feature Request
+description: Propose a new feature or improvement for CoopLumen
+title: 'feat: <short description>'
+labels: ['feature']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea that would make CoopLumen better? Tell us about it.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the user pain point or gap this feature addresses.
+      placeholder: "As a community treasurer, I can't currently..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How would you like it to work?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any other approaches you thought about?
+
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Which roadmap phase does this belong to?
+      options:
+        - Phase 1 — Foundation (current)
+        - Phase 2 — P2P Lending
+        - Phase 3 — Governance
+        - Phase 4 — KYC & Oracles
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Backend API
+        - Frontend UI
+        - Stellar / blockchain
+        - Database / migrations
+        - Docker / infrastructure
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Are you willing to contribute this?
+      options:
+        - label: Yes, I'd like to open a PR for this
