@@ -44,8 +44,10 @@ describeIf('Migration integration', () => {
       .filter((f) => f.endsWith('.sql') && !f.endsWith('.down.sql'))
       .sort();
 
+    // The migration runner always records into public.schema_migrations, so
+    // query it explicitly rather than relying on the session search_path.
     const { rows } = await pool.query<{ name: string }>(
-      'SELECT name FROM schema_migrations ORDER BY name'
+      'SELECT name FROM public.schema_migrations ORDER BY name'
     );
     const applied = rows.map((r) => r.name);
 
