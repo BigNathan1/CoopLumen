@@ -9,6 +9,7 @@ import {
   updateCommunitySchema,
   addMemberSchema,
   updateMemberSchema,
+  setAvatarSchema,
 } from '../schemas/community';
 
 export const communityRouter = Router();
@@ -20,6 +21,7 @@ interface Community {
   issuer_public_key: string;
   asset_code: string;
   asset_issuer: string;
+  avatar_url: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -28,7 +30,7 @@ interface Community {
 const VALID_ROLES = ['admin', 'treasurer', 'member', 'observer'];
 
 /**
- * GET /api/communities
+ * GET /api/v1/communities
  * Paginated, searchable, sortable list of communities.
  * Query: page, limit, search, sortBy (created_at|name|updated_at), order (asc|desc)
  */
@@ -68,7 +70,7 @@ communityRouter.get('/', async (req, res, next) => {
 });
 
 /**
- * GET /api/communities/search?q=...
+ * GET /api/v1/communities/search?q=...
  * Dedicated full-text search endpoint over name and description.
  */
 communityRouter.get('/search', async (req, res, next) => {
@@ -95,7 +97,7 @@ communityRouter.get('/search', async (req, res, next) => {
 });
 
 /**
- * GET /api/communities/:id
+ * GET /api/v1/communities/:id
  * Single community enriched with member count, token list, and statistics.
  */
 communityRouter.get('/:id', async (req, res, next) => {
@@ -148,7 +150,7 @@ communityRouter.get('/:id', async (req, res, next) => {
 });
 
 /**
- * POST /api/communities
+ * POST /api/v1/communities
  * Registers a new community and records a `community_created` audit event.
  */
 communityRouter.post(
@@ -198,7 +200,7 @@ communityRouter.post(
 );
 
 /**
- * PUT /api/communities/:id
+ * PUT /api/v1/communities/:id
  * Updates name, description, and/or per-community settings.
  */
 communityRouter.put(
@@ -261,7 +263,7 @@ communityRouter.put(
 );
 
 /**
- * DELETE /api/communities/:id
+ * DELETE /api/v1/communities/:id
  * Soft-deletes a community by setting `deleted_at`.
  */
 communityRouter.delete('/:id', writeLimiter, async (req, res, next) => {
@@ -281,7 +283,7 @@ communityRouter.delete('/:id', writeLimiter, async (req, res, next) => {
 });
 
 /**
- * GET /api/communities/:id/members
+ * GET /api/v1/communities/:id/members
  * Paginated member list with optional role filter.
  */
 communityRouter.get('/:id/members', async (req, res, next) => {
@@ -317,7 +319,7 @@ communityRouter.get('/:id/members', async (req, res, next) => {
 });
 
 /**
- * POST /api/communities/:id/members
+ * POST /api/v1/communities/:id/members
  * Adds a member after validating the Stellar address.
  */
 communityRouter.post(
@@ -352,7 +354,7 @@ communityRouter.post(
 );
 
 /**
- * GET /api/communities/:id/members/:address
+ * GET /api/v1/communities/:id/members/:address
  * Fetches a single member's details.
  */
 communityRouter.get('/:id/members/:address', async (req, res, next) => {
@@ -373,7 +375,7 @@ communityRouter.get('/:id/members/:address', async (req, res, next) => {
 });
 
 /**
- * PUT /api/communities/:id/members/:address
+ * PUT /api/v1/communities/:id/members/:address
  * Updates a member's role.
  */
 communityRouter.put(
@@ -401,7 +403,7 @@ communityRouter.put(
 );
 
 /**
- * DELETE /api/communities/:id/members/:address
+ * DELETE /api/v1/communities/:id/members/:address
  * Soft-removes a member from the community.
  */
 communityRouter.delete('/:id/members/:address', writeLimiter, async (req, res, next) => {
@@ -423,7 +425,7 @@ communityRouter.delete('/:id/members/:address', writeLimiter, async (req, res, n
 });
 
 /**
- * GET /api/communities/:id/treasury
+ * GET /api/v1/communities/:id/treasury
  * Returns the treasury (issuer) account's on-chain balances.
  */
 communityRouter.get('/:id/treasury', async (req, res, next) => {
@@ -442,3 +444,31 @@ communityRouter.get('/:id/treasury', async (req, res, next) => {
     next(err);
   }
 });
+
+/**
+ * POST /api/v1/communities/:id/avatar
+ * Sets the community's avatar image URL.
+ */
+communityRouter.post(
+  '/:id/avatar',
+  writeLimiter,
+  validateBody(setAvatarSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { avatarUrl } = req.body as { avatarUrl: string };
+      const result = await db.query<Community>(
+        `UPDATE communities SET avatar_url = $1
+         WHERE id = $2 AND deleted_at IS NULL
+         RETURNING id, avatar_url`,
+        [avatarUrl, req.params.id]
+      );
+      if (result.length === 0) {
+        res.status(404).json({ error: 'Community not found' });
+        return;
+      }
+      res.json({ data: result[0] });
+    } catch (err) {
+      next(err);
+    }
+  }
+);

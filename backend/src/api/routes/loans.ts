@@ -78,7 +78,7 @@ async function bumpReputation(
 }
 
 /**
- * GET /api/loans
+ * GET /api/v1/loans
  * Paginated, filterable list of loans.
  * Query: page, limit, communityId, borrower, lender, status,
  *        sortBy (created_at|amount|due_at|updated_at), order (asc|desc)
@@ -132,7 +132,7 @@ loanRouter.get('/', async (req, res, next) => {
 });
 
 /**
- * GET /api/loans/:id
+ * GET /api/v1/loans/:id
  * Single loan with its full event history and a repayment summary.
  */
 loanRouter.get('/:id', async (req, res, next) => {
@@ -160,7 +160,7 @@ loanRouter.get('/:id', async (req, res, next) => {
 });
 
 /**
- * GET /api/loans/:id/events
+ * GET /api/v1/loans/:id/events
  * Chronological event log for a single loan.
  */
 loanRouter.get('/:id/events', async (req, res, next) => {
@@ -176,7 +176,7 @@ loanRouter.get('/:id/events', async (req, res, next) => {
 });
 
 /**
- * POST /api/loans
+ * POST /api/v1/loans
  * Records a new loan request (status `pending`), seeds a `created` loan event,
  * an audit entry, and the borrower's loan tally.
  */
@@ -260,7 +260,7 @@ loanRouter.post(
 );
 
 /**
- * POST /api/loans/:id/disburse
+ * POST /api/v1/loans/:id/disburse
  * Transitions a `pending` loan to `active` once funds have been sent.
  */
 loanRouter.post(
@@ -314,7 +314,7 @@ loanRouter.post(
 );
 
 /**
- * POST /api/loans/:id/repay
+ * POST /api/v1/loans/:id/repay
  * Records a (partial or full) repayment. When the outstanding balance reaches
  * zero the loan is marked `repaid` and the borrower's on-time tally increases.
  */
@@ -412,7 +412,7 @@ loanRouter.post(
 );
 
 /**
- * POST /api/loans/:id/default
+ * POST /api/v1/loans/:id/default
  * Marks an `active` loan as defaulted and records it against the borrower's
  * reputation.
  */
@@ -463,7 +463,7 @@ loanRouter.post(
 );
 
 /**
- * DELETE /api/loans/:id
+ * DELETE /api/v1/loans/:id
  * Cancels a loan that has not yet been disbursed (status `pending`).
  */
 loanRouter.delete('/:id', writeLimiter, async (req, res, next) => {

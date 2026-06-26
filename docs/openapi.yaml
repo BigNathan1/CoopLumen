@@ -1,0 +1,372 @@
+openapi: 3.0.3
+info:
+  title: CoopLumen API — Communities
+  description: >
+    REST API for managing CoopLumen communities, their members, and treasury.
+    All resource routes are served under the `/api/v1` version prefix. Health
+    checks remain unversioned at `/health` and `/api/health`.
+  version: 0.1.0
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:4000
+    description: Local development
+
+tags:
+  - name: Health
+    description: Liveness and readiness probes
+  - name: Communities
+    description: Community registration and management
+  - name: Members
+    description: Community membership management
+  - name: Treasury
+    description: On-chain treasury balances
+
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Service health
+      description: Reports database and Stellar Horizon connectivity.
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '503':
+          description: Service degraded (database unreachable)
+
+  /api/v1/communities:
+    get:
+      tags: [Communities]
+      summary: List communities
+      description: Paginated, searchable, and sortable list of communities.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: search
+          in: query
+          schema: { type: string }
+          description: Full-text search over name and description.
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [created_at, name, updated_at]
+            default: created_at
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: A page of communities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Community' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+    post:
+      tags: [Communities]
+      summary: Create a community
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateCommunity' }
+      responses:
+        '201':
+          description: Community created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Community' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409':
+          description: Community name already taken
+
+  /api/v1/communities/search:
+    get:
+      tags: [Communities]
+      summary: Full-text community search
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Matching communities
+        '400':
+          description: Missing query parameter
+
+  /api/v1/communities/{id}:
+    parameters:
+      - $ref: '#/components/parameters/CommunityId'
+    get:
+      tags: [Communities]
+      summary: Get a community
+      description: Enriched with member count, token list, and statistics.
+      responses:
+        '200':
+          description: Community detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/CommunityDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Communities]
+      summary: Update a community
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateCommunity' }
+      responses:
+        '200':
+          description: Updated community
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Community name already taken
+    delete:
+      tags: [Communities]
+      summary: Soft-delete a community
+      responses:
+        '200':
+          description: Community soft-deleted
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/communities/{id}/avatar:
+    parameters:
+      - $ref: '#/components/parameters/CommunityId'
+    post:
+      tags: [Communities]
+      summary: Set community avatar URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [avatarUrl]
+              properties:
+                avatarUrl:
+                  type: string
+                  format: uri
+                  maxLength: 2048
+      responses:
+        '200':
+          description: Avatar updated
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/communities/{id}/members:
+    parameters:
+      - $ref: '#/components/parameters/CommunityId'
+    get:
+      tags: [Members]
+      summary: List members
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [admin, treasurer, member, observer]
+      responses:
+        '200':
+          description: A page of members
+    post:
+      tags: [Members]
+      summary: Add a member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stellarAddress]
+              properties:
+                stellarAddress: { $ref: '#/components/schemas/StellarKey' }
+                role:
+                  type: string
+                  enum: [admin, treasurer, member, observer]
+                  default: member
+      responses:
+        '201':
+          description: Member added
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/communities/{id}/members/{address}:
+    parameters:
+      - $ref: '#/components/parameters/CommunityId'
+      - name: address
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/StellarKey' }
+    get:
+      tags: [Members]
+      summary: Get a member
+      responses:
+        '200':
+          description: Member detail
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Members]
+      summary: Update a member's role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [admin, treasurer, member, observer]
+      responses:
+        '200':
+          description: Member updated
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Members]
+      summary: Remove a member
+      responses:
+        '200':
+          description: Member soft-removed
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/communities/{id}/treasury:
+    parameters:
+      - $ref: '#/components/parameters/CommunityId'
+    get:
+      tags: [Treasury]
+      summary: Get treasury balances
+      description: Returns the issuer account's on-chain Stellar balances.
+      responses:
+        '200':
+          description: Treasury balances
+        '404': { $ref: '#/components/responses/NotFound' }
+
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    CommunityId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ValidationError:
+      description: Request body failed validation
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string }
+              errors:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    path: { type: string }
+                    message: { type: string }
+
+  schemas:
+    StellarKey:
+      type: string
+      description: A 56-character Stellar StrKey public key.
+      pattern: '^G[A-Z2-7]{55}$'
+    Health:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        db: { type: string, example: ok }
+        stellar: { type: string, example: ok }
+        uptime: { type: integer }
+        version: { type: string }
+    Community:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        issuer_public_key: { $ref: '#/components/schemas/StellarKey' }
+        asset_code: { type: string }
+        asset_issuer: { $ref: '#/components/schemas/StellarKey' }
+        avatar_url: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    CommunityDetail:
+      allOf:
+        - $ref: '#/components/schemas/Community'
+        - type: object
+          properties:
+            member_count: { type: integer }
+            tokens:
+              type: array
+              items: { type: object }
+            stats:
+              type: object
+              properties:
+                total_transactions: { type: integer }
+                total_token_supply: { type: number }
+    CreateCommunity:
+      type: object
+      required: [name, issuerPublicKey, assetCode, assetIssuer]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 64 }
+        description: { type: string, maxLength: 500 }
+        issuerPublicKey: { $ref: '#/components/schemas/StellarKey' }
+        assetCode: { type: string, minLength: 1, maxLength: 12 }
+        assetIssuer: { $ref: '#/components/schemas/StellarKey' }
+    UpdateCommunity:
+      type: object
+      properties:
+        name: { type: string, minLength: 2, maxLength: 64 }
+        description: { type: string, nullable: true, maxLength: 500 }
+        settings: { type: object, additionalProperties: true }
+    PageMeta:
+      type: object
+      properties:
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        pages: { type: integer }
+    Error:
+      type: object
+      properties:
+        error: { type: string }

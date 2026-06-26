@@ -15,7 +15,7 @@ const validate = (req: Request, res: Response, next: NextFunction): void => {
 };
 
 /**
- * POST /api/tokens/issue
+ * POST /api/v1/tokens/issue
  * Issues a community token on the Stellar network.
  * The issuer secret must be held server-side for this endpoint (e.g., community treasury key).
  * In production, prefer the client-sign flow (/api/tokens/build-issue).
@@ -58,7 +58,7 @@ tokenRouter.post(
 );
 
 /**
- * POST /api/tokens/trustline
+ * POST /api/v1/tokens/trustline
  * Establishes a trustline so a member account can hold a community token.
  */
 tokenRouter.post(

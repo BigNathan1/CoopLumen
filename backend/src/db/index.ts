@@ -52,4 +52,9 @@ export const db = {
       return false;
     }
   },
+
+  /** Drains the connection pool. Used by integration tests for clean teardown. */
+  async end(): Promise<void> {
+    await pool.end();
+  },
 };

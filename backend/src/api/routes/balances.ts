@@ -6,7 +6,7 @@ import { db } from '../../db';
 export const balanceRouter = Router();
 
 /**
- * GET /api/balances/:publicKey
+ * GET /api/v1/balances/:publicKey
  * Returns all asset balances for a Stellar account.
  */
 balanceRouter.get(
@@ -24,7 +24,7 @@ balanceRouter.get(
 );
 
 /**
- * GET /api/balances/:publicKey/loans
+ * GET /api/v1/balances/:publicKey/loans
  * Returns all loans involving a specific Stellar address.
  */
 balanceRouter.get('/:publicKey/loans', async (req: Request, res: Response, next: NextFunction) => {
@@ -53,7 +53,7 @@ balanceRouter.get('/:publicKey/loans', async (req: Request, res: Response, next:
 });
 
 /**
- * GET /api/balances/community/:communityId/loans
+ * GET /api/v1/balances/community/:communityId/loans
  * Returns all loans in a community.
  */
 balanceRouter.get(

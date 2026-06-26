@@ -17,7 +17,7 @@ async function fetcher<T>(url: string): Promise<T> {
 }
 
 export function useBalances(publicKey: string | null) {
-  return useSWR<Balance[]>(publicKey ? `${API_URL}/api/balances/${publicKey}` : null, fetcher, {
+  return useSWR<Balance[]>(publicKey ? `${API_URL}/api/v1/balances/${publicKey}` : null, fetcher, {
     refreshInterval: 15_000,
   });
 }

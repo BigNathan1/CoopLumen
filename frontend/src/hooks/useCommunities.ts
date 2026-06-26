@@ -22,11 +22,11 @@ async function fetcher<T>(url: string): Promise<T> {
 }
 
 export function useCommunities() {
-  return useSWR<Community[]>(`${API_URL}/api/communities`, fetcher, {
+  return useSWR<Community[]>(`${API_URL}/api/v1/communities`, fetcher, {
     refreshInterval: 30_000,
   });
 }
 
 export function useCommunity(id: string) {
-  return useSWR<Community>(id ? `${API_URL}/api/communities/${id}` : null, fetcher);
+  return useSWR<Community>(id ? `${API_URL}/api/v1/communities/${id}` : null, fetcher);
 }

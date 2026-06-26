@@ -35,3 +35,7 @@ export const addMemberSchema = z.object({
 export const updateMemberSchema = z.object({
   role,
 });
+
+export const setAvatarSchema = z.object({
+  avatarUrl: z.string().trim().url({ message: 'avatarUrl must be a valid URL' }).max(2048),
+});

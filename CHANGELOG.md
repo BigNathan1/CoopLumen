@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- API versioning: all resource routes moved under the `/api/v1` prefix (health checks stay unversioned)
+- Community avatar support: `avatar_url` column and `POST /api/v1/communities/:id/avatar` endpoint
+- OpenAPI 3.0 specification for the communities API at `docs/openapi.yaml`
+- Integration tests for the full community CRUD lifecycle over HTTP (real DB, gated on `DATABASE_URL`)
+- `db.end()` helper for clean test teardown
 - Loans API: full lifecycle — create, disburse, repay (partial/full), default, and cancel
 - Loan event log and per-loan repayment summary (`GET /api/loans/:id`, `/events`)
 - Borrower reputation scoring driven by loan outcomes (on-time repayments vs. defaults)
