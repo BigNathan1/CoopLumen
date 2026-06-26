@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  lint:
+    name: Lint & format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+
+      - name: Lint backend
+        working-directory: backend
+        run: npm run lint
+
+      - name: Check backend formatting
+        working-directory: backend
+        run: npm run format:check
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Check frontend formatting
+        working-directory: frontend
+        run: npm run format:check
+
+  typecheck:
+    name: Type-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+
+      - name: Type-check backend
+        working-directory: backend
+        run: npm run type-check
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Type-check frontend
+        working-directory: frontend
+        run: npm run type-check
+
+  test-backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cooplumen
+          POSTGRES_PASSWORD: cooplumen
+          POSTGRES_DB: cooplumen
+        ports:
+          - 5432:5432
+        # Wait until Postgres is accepting connections before the job runs.
+        options: >-
+          --health-cmd "pg_isready -U cooplumen"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://cooplumen:cooplumen@localhost:5432/cooplumen
+      STELLAR_NETWORK: testnet
+      STELLAR_HORIZON_URL: https://horizon-testnet.stellar.org
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+
+      - name: Run database migrations
+        working-directory: backend
+        run: npm run db:migrate
+
+      - name: Run tests (unit + integration)
+        working-directory: backend
+        run: npm test -- --runInBand
+
+  test-frontend:
+    name: Frontend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run tests
+        working-directory: frontend
+        run: npm test
