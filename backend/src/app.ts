@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { communityRouter } from './api/routes/communities';
 import { tokenRouter } from './api/routes/tokens';
 import { balanceRouter } from './api/routes/balances';
+import { loanRouter } from './api/routes/loans';
 import { errorHandler } from './api/middleware/errorHandler';
 import { notFound } from './api/middleware/notFound';
 import { requestLogger } from './api/middleware/requestLogger';
@@ -39,6 +40,7 @@ app.get('/api/health', healthHandler);
 app.use('/api/communities', communityRouter);
 app.use('/api/tokens', tokenRouter);
 app.use('/api/balances', balanceRouter);
+app.use('/api/loans', loanRouter);
 
 app.use(notFound);
 app.use(errorHandler);

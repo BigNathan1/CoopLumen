@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Loans API: full lifecycle — create, disburse, repay (partial/full), default, and cancel
+- Loan event log and per-loan repayment summary (`GET /api/loans/:id`, `/events`)
+- Borrower reputation scoring driven by loan outcomes (on-time repayments vs. defaults)
+- Migration 015: loan lifecycle columns (status constraint, repayment tracking, timestamps)
 - Project renamed from StellarCommons to CoopLumen
 - Live `GET /health` endpoint probing DB and Stellar Horizon connectivity
 - `db.ping()` and `StellarService.ping()` helpers
