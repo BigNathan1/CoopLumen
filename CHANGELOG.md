@@ -44,6 +44,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `.dockerignore` files for backend and frontend
 - `CODEOWNERS`, issue templates, PR template, `SECURITY.md`, `CHANGELOG.md`
 
+### Fixed
+
+- Frontend Jest config used a non-existent `setupFilesAfterFramework` key, so `jest.setup.ts` never loaded and `@testing-library/jest-dom` matchers were unavailable — every component test silently failed. Corrected to `setupFilesAfterEnv`.
+- Frontend `type-check` failed on all test files because `@types/jest` was missing; added it to devDependencies.
+- Frontend ESLint extended `next/typescript`, a config not shipped by `eslint-config-next@14`, which broke `npm run lint`; dropped it (TypeScript linting is already covered by `next/core-web-vitals`).
+
 ---
 
 ## [0.1.0] — 2026-05-13
