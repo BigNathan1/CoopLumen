@@ -5,6 +5,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { WalletConnect } from './WalletConnect';
 import { CommunityCard } from './CommunityCard';
 import { BalancePanel } from './BalancePanel';
+import { ReputationPanel } from './ReputationPanel';
 import styles from './Dashboard.module.css';
 
 export function Dashboard() {
@@ -23,11 +24,10 @@ export function Dashboard() {
       </header>
 
       <div className={styles.content}>
-        {connected && publicKey && (
-          <aside className={styles.sidebar}>
-            <BalancePanel publicKey={publicKey} />
-          </aside>
-        )}
+        <aside className={styles.sidebar}>
+          {connected && publicKey && <BalancePanel publicKey={publicKey} />}
+          <ReputationPanel />
+        </aside>
 
         <section className={styles.main}>
           <div className={styles.sectionHeader}>
