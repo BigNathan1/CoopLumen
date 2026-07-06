@@ -12,6 +12,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Reputation API: `GET /api/v1/reputation` (paginated, community-filterable leaderboard sorted by score) and `GET /api/v1/reputation/:address` (a member's scores across communities with an aggregate summary) — exposing the reputation the loan lifecycle already records
+- OpenAPI spec now covers the full API surface: added the Loans lifecycle and Reputation endpoints (with `Loan`, `LoanEvent`, `LoanDetail`, `ReputationScore`, and related schemas) alongside the existing Communities documentation
 - GitHub Actions CI (`.github/workflows/ci.yml`): lint, type-check, frontend tests, and backend tests with a PostgreSQL 16 service container so the DB integration suites run automatically on every push and PR to main
 - API versioning: all resource routes moved under the `/api/v1` prefix (health checks stay unversioned)
 - Community avatar support: `avatar_url` column and `POST /api/v1/communities/:id/avatar` endpoint

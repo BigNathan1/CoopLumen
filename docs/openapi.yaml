@@ -1,10 +1,11 @@
 openapi: 3.0.3
 info:
-  title: CoopLumen API — Communities
+  title: CoopLumen API
   description: >
-    REST API for managing CoopLumen communities, their members, and treasury.
-    All resource routes are served under the `/api/v1` version prefix. Health
-    checks remain unversioned at `/health` and `/api/health`.
+    REST API for CoopLumen communities, their members and treasury, the P2P
+    loan lifecycle, and borrower reputation. All resource routes are served
+    under the `/api/v1` version prefix. Health checks remain unversioned at
+    `/health` and `/api/health`.
   version: 0.1.0
   license:
     name: MIT
@@ -22,6 +23,10 @@ tags:
     description: Community membership management
   - name: Treasury
     description: On-chain treasury balances
+  - name: Loans
+    description: Peer-to-peer loan lifecycle
+  - name: Reputation
+    description: Borrower reputation scoring
 
 paths:
   /api/health:
@@ -267,6 +272,254 @@ paths:
           description: Treasury balances
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /api/v1/loans:
+    get:
+      tags: [Loans]
+      summary: List loans
+      description: Paginated, filterable list of loans.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: communityId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: borrower
+          in: query
+          schema: { $ref: '#/components/schemas/StellarKey' }
+        - name: lender
+          in: query
+          schema: { $ref: '#/components/schemas/StellarKey' }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/LoanStatus' }
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [created_at, amount, due_at, updated_at]
+            default: created_at
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: A page of loans
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Loan' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+    post:
+      tags: [Loans]
+      summary: Create a loan request
+      description: Records a new loan in `pending` status and seeds its event log.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateLoan' }
+      responses:
+        '201':
+          description: Loan created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Loan' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404':
+          description: Community not found
+
+  /api/v1/loans/{id}:
+    parameters:
+      - $ref: '#/components/parameters/LoanId'
+    get:
+      tags: [Loans]
+      summary: Get a loan
+      description: Enriched with its full event history and outstanding balance.
+      responses:
+        '200':
+          description: Loan detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/LoanDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Loans]
+      summary: Cancel a pending loan
+      description: Cancels a loan that has not yet been disbursed.
+      responses:
+        '200':
+          description: Loan cancelled
+        '404':
+          description: No pending loan found to cancel
+
+  /api/v1/loans/{id}/events:
+    parameters:
+      - $ref: '#/components/parameters/LoanId'
+    get:
+      tags: [Loans]
+      summary: Get a loan's event log
+      responses:
+        '200':
+          description: Chronological event log
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/LoanEvent' }
+
+  /api/v1/loans/{id}/disburse:
+    parameters:
+      - $ref: '#/components/parameters/LoanId'
+    post:
+      tags: [Loans]
+      summary: Disburse a loan
+      description: Transitions a `pending` loan to `active` once funds are sent.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stellarTxHash: { type: string, maxLength: 128 }
+                note: { type: string, maxLength: 280 }
+      responses:
+        '200':
+          description: Loan disbursed
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Loan is not in a disbursable (`pending`) status
+
+  /api/v1/loans/{id}/repay:
+    parameters:
+      - $ref: '#/components/parameters/LoanId'
+    post:
+      tags: [Loans]
+      summary: Record a repayment
+      description: >
+        Records a partial or full repayment. When the outstanding balance
+        reaches zero the loan is marked `repaid`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RepayLoan' }
+      responses:
+        '200':
+          description: Repayment recorded
+        '400':
+          description: Repayment exceeds the outstanding balance, or invalid body
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Loan is not `active`
+
+  /api/v1/loans/{id}/default:
+    parameters:
+      - $ref: '#/components/parameters/LoanId'
+    post:
+      tags: [Loans]
+      summary: Mark a loan defaulted
+      description: Marks an `active` loan as defaulted and records it against reputation.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string, maxLength: 280 }
+      responses:
+        '200':
+          description: Loan defaulted
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Loan is not `active`
+
+  /api/v1/reputation:
+    get:
+      tags: [Reputation]
+      summary: Reputation leaderboard
+      description: Paginated leaderboard, highest score first by default.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: communityId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [score, total_loans, on_time_repayments, defaults, updated_at]
+            default: score
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: A page of reputation scores
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/ReputationScore' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+
+  /api/v1/reputation/{address}:
+    parameters:
+      - name: address
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/StellarKey' }
+    get:
+      tags: [Reputation]
+      summary: Get a member's reputation
+      description: >
+        A member's reputation across every community they participate in, plus
+        an aggregate summary. Optionally narrowed with `communityId`.
+      parameters:
+        - name: communityId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Member reputation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      address: { $ref: '#/components/schemas/StellarKey' }
+                      communities:
+                        type: array
+                        items: { $ref: '#/components/schemas/ReputationScore' }
+                      summary: { $ref: '#/components/schemas/ReputationSummary' }
+        '404':
+          description: No reputation found for this address
+
 components:
   parameters:
     Page:
@@ -278,6 +531,11 @@ components:
       in: query
       schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
     CommunityId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    LoanId:
       name: id
       in: path
       required: true
@@ -366,6 +624,86 @@ components:
         page: { type: integer }
         limit: { type: integer }
         pages: { type: integer }
+    LoanStatus:
+      type: string
+      enum: [pending, active, repaid, defaulted, cancelled]
+    Loan:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        community_id: { type: string, format: uuid }
+        borrower_address: { $ref: '#/components/schemas/StellarKey' }
+        lender_address: { $ref: '#/components/schemas/StellarKey' }
+        amount: { type: string, description: 'Stellar-precision decimal string' }
+        amount_repaid: { type: string }
+        asset_code: { type: string }
+        asset_issuer: { type: string, nullable: true }
+        purpose: { type: string, nullable: true }
+        status: { $ref: '#/components/schemas/LoanStatus' }
+        due_at: { type: string, format: date-time, nullable: true }
+        disbursed_at: { type: string, format: date-time, nullable: true }
+        closed_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    LoanDetail:
+      allOf:
+        - $ref: '#/components/schemas/Loan'
+        - type: object
+          properties:
+            outstanding: { type: string, description: 'amount − amount_repaid' }
+            events:
+              type: array
+              items: { $ref: '#/components/schemas/LoanEvent' }
+    LoanEvent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        loan_id: { type: string, format: uuid }
+        event_type:
+          type: string
+          enum: [created, disbursed, repayment, closed, defaulted]
+        amount: { type: string, nullable: true }
+        payment_id: { type: string, format: uuid, nullable: true }
+        note: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+    CreateLoan:
+      type: object
+      required: [communityId, borrowerAddress, lenderAddress, amount, assetCode]
+      properties:
+        communityId: { type: string, format: uuid }
+        borrowerAddress: { $ref: '#/components/schemas/StellarKey' }
+        lenderAddress: { $ref: '#/components/schemas/StellarKey' }
+        amount: { type: string, pattern: '^\d+(\.\d{1,7})?$' }
+        assetCode: { type: string, minLength: 1, maxLength: 12 }
+        assetIssuer: { $ref: '#/components/schemas/StellarKey' }
+        purpose: { type: string, maxLength: 280 }
+        dueAt: { type: string, format: date-time }
+    RepayLoan:
+      type: object
+      required: [amount]
+      properties:
+        amount: { type: string, pattern: '^\d+(\.\d{1,7})?$' }
+        paymentId: { type: string, format: uuid }
+        note: { type: string, maxLength: 280 }
+    ReputationScore:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        stellar_address: { $ref: '#/components/schemas/StellarKey' }
+        community_id: { type: string, format: uuid }
+        score: { type: string, description: 'NUMERIC(5,2), 0–100' }
+        total_loans: { type: integer }
+        on_time_repayments: { type: integer }
+        defaults: { type: integer }
+        last_calculated_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ReputationSummary:
+      type: object
+      properties:
+        total_loans: { type: integer }
+        on_time_repayments: { type: integer }
+        defaults: { type: integer }
     Error:
       type: object
       properties:
