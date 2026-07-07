@@ -6,6 +6,7 @@ import { WalletConnect } from './WalletConnect';
 import { CommunityCard } from './CommunityCard';
 import { BalancePanel } from './BalancePanel';
 import { ReputationPanel } from './ReputationPanel';
+import { LoansSection } from './LoansSection';
 import styles from './Dashboard.module.css';
 
 export function Dashboard() {
@@ -29,39 +30,43 @@ export function Dashboard() {
           <ReputationPanel />
         </aside>
 
-        <section className={styles.main}>
-          <div className={styles.sectionHeader}>
-            <h2>Communities</h2>
-            <span className={styles.count}>{communities?.length ?? 0} registered</span>
-          </div>
-
-          {isLoading && <div className={styles.state}>Loading communities…</div>}
-
-          {error && (
-            <div className={`${styles.state} ${styles.error}`}>
-              Could not load communities. Is the API running?
+        <div className={styles.main}>
+          <section>
+            <div className={styles.sectionHeader}>
+              <h2>Communities</h2>
+              <span className={styles.count}>{communities?.length ?? 0} registered</span>
             </div>
-          )}
 
-          {!isLoading && !error && communities?.length === 0 && (
-            <div className={styles.state}>
-              No communities yet.{' '}
-              <a
-                href="https://github.com/yourname/cooplumen#quickstart"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Create the first one
-              </a>
+            {isLoading && <div className={styles.state}>Loading communities…</div>}
+
+            {error && (
+              <div className={`${styles.state} ${styles.error}`}>
+                Could not load communities. Is the API running?
+              </div>
+            )}
+
+            {!isLoading && !error && communities?.length === 0 && (
+              <div className={styles.state}>
+                No communities yet.{' '}
+                <a
+                  href="https://github.com/yourname/cooplumen#quickstart"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Create the first one
+                </a>
+              </div>
+            )}
+
+            <div className={styles.grid}>
+              {communities?.map((c) => (
+                <CommunityCard key={c.id} community={c} />
+              ))}
             </div>
-          )}
+          </section>
 
-          <div className={styles.grid}>
-            {communities?.map((c) => (
-              <CommunityCard key={c.id} community={c} />
-            ))}
-          </div>
-        </section>
+          <LoansSection />
+        </div>
       </div>
     </div>
   );
