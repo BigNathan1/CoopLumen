@@ -1,0 +1,75 @@
+.form {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.asset {
+  color: var(--color-secondary);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.input {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: calc(var(--radius) / 2);
+  padding: 8px 10px;
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-family: inherit;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.btn {
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: calc(var(--radius) / 2);
+  padding: 10px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  margin-top: 4px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error {
+  font-size: 0.8rem;
+  color: var(--color-error);
+}
+
+.success {
+  font-size: 0.8rem;
+  color: var(--color-success);
+}

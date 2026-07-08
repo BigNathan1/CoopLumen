@@ -7,6 +7,7 @@ import { CommunityCard } from './CommunityCard';
 import { BalancePanel } from './BalancePanel';
 import { ReputationPanel } from './ReputationPanel';
 import { LoansSection } from './LoansSection';
+import { CreateLoanForm } from './CreateLoanForm';
 import styles from './Dashboard.module.css';
 
 export function Dashboard() {
@@ -64,6 +65,10 @@ export function Dashboard() {
               ))}
             </div>
           </section>
+
+          {connected && publicKey && communities && communities.length > 0 && (
+            <CreateLoanForm lenderAddress={publicKey} communities={communities} />
+          )}
 
           <LoansSection />
         </div>
