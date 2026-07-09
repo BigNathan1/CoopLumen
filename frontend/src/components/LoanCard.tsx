@@ -1,6 +1,7 @@
 'use client';
 
 import type { Loan } from '@/hooks/useLoans';
+import { LoanActions } from './LoanActions';
 import styles from './LoanCard.module.css';
 
 interface Props {
@@ -43,6 +44,8 @@ export function LoanCard({ loan }: Props) {
           Outstanding {formatAmount(outstanding.toFixed(7))} {loan.asset_code}
         </div>
       )}
+
+      <LoanActions loan={loan} />
     </article>
   );
 }

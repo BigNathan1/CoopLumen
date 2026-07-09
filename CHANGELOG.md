@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Frontend loan lifecycle actions: `useLoanActions` hook and a `LoanActions` control on each loan card that drives the remaining transitions — disburse and cancel for pending loans, and repay (with an inline, outstanding-bounded amount field) and mark-defaulted for active loans. Each action revalidates both the loan and reputation caches so the dashboard stays in sync
 - Frontend loan origination: `useCreateLoan` mutation hook and a `CreateLoanForm` that posts to `POST /api/v1/loans` with the connected Freighter wallet as lender, auto-fills the asset from the selected community, validates the borrower address/amount client-side, and revalidates the loan list on success. Shown on the dashboard only when a wallet is connected
 - Frontend loans view: `useLoans` hook and a `LoanCard` / `LoansSection` pair that render the most recent loans on the dashboard — amount, asset, colour-coded status badge (pending/active/repaid/defaulted/cancelled), borrower/lender, and the outstanding balance for active loans
 - Frontend reputation leaderboard: `useReputation` hook and a `ReputationPanel` sidebar component showing the top-ranked members (score, on-time/default tally) from the reputation API; the dashboard sidebar now renders even before a wallet is connected
