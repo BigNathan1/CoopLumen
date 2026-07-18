@@ -22,6 +22,21 @@ export interface Loan {
   updated_at: string;
 }
 
+export interface LoanEvent {
+  id: string;
+  loan_id: string;
+  event_type: 'created' | 'disbursed' | 'repayment' | 'closed' | 'defaulted';
+  amount: string | null;
+  payment_id: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+export interface LoanDetail extends Loan {
+  outstanding: string;
+  events: LoanEvent[];
+}
+
 async function fetcher<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) {
@@ -49,4 +64,13 @@ export function useLoans(filters: LoanFilters = {}) {
   return useSWR<Loan[]>(`${API_URL}/api/v1/loans?${params.toString()}`, fetcher, {
     refreshInterval: 30_000,
   });
+}
+
+/**
+ * A single loan with its outstanding balance and full event history. Pass
+ * `enabled: false` to defer the request until the caller needs it (e.g. only
+ * when a card's history is expanded).
+ */
+export function useLoan(id: string, enabled = true) {
+  return useSWR<LoanDetail>(enabled ? `${API_URL}/api/v1/loans/${id}` : null, fetcher);
 }

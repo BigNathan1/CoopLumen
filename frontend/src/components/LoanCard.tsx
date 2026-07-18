@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import type { Loan } from '@/hooks/useLoans';
 import { LoanActions } from './LoanActions';
+import { LoanHistory } from './LoanHistory';
 import styles from './LoanCard.module.css';
 
 interface Props {
@@ -21,6 +23,7 @@ function formatAmount(value: string): string {
 }
 
 export function LoanCard({ loan }: Props) {
+  const [showHistory, setShowHistory] = useState(false);
   const outstanding = Number(loan.amount) - Number(loan.amount_repaid);
 
   return (
@@ -46,6 +49,16 @@ export function LoanCard({ loan }: Props) {
       )}
 
       <LoanActions loan={loan} />
+
+      <button
+        className={styles.historyToggle}
+        onClick={() => setShowHistory((v) => !v)}
+        aria-expanded={showHistory}
+      >
+        {showHistory ? 'Hide history' : 'Show history'}
+      </button>
+
+      {showHistory && <LoanHistory loanId={loan.id} />}
     </article>
   );
 }
