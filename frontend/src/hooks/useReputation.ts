@@ -14,6 +14,18 @@ export interface ReputationScore {
   updated_at: string;
 }
 
+export interface ReputationSummary {
+  total_loans: number;
+  on_time_repayments: number;
+  defaults: number;
+}
+
+export interface ReputationDetail {
+  address: string;
+  communities: ReputationScore[];
+  summary: ReputationSummary;
+}
+
 async function fetcher<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) {
@@ -33,4 +45,17 @@ export function useReputation(communityId?: string, limit = 10) {
   return useSWR<ReputationScore[]>(`${API_URL}/api/v1/reputation?${params.toString()}`, fetcher, {
     refreshInterval: 30_000,
   });
+}
+
+/**
+ * A single member's reputation across every community they participate in, plus
+ * an aggregate summary. The API returns 404 when the address has no history, so
+ * callers should treat an error as "no reputation yet".
+ */
+export function useReputationDetail(address: string | null) {
+  return useSWR<ReputationDetail>(
+    address ? `${API_URL}/api/v1/reputation/${address}` : null,
+    fetcher,
+    { shouldRetryOnError: false }
+  );
 }

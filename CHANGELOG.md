@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Frontend personal reputation: when a wallet is connected, a `MyReputationPanel` in the sidebar shows the member's aggregate reputation (total loans, on-time repayments, defaults) and per-community scores via a new `useReputationDetail` hook backed by `GET /api/v1/reputation/:address`. A fresh address (API 404) shows a friendly prompt instead of an error
 - Frontend loan history: each loan card has a "Show history" toggle that lazily loads the loan's full event timeline (created, disbursed, repayments, closed, defaulted) via a new `useLoan` detail hook and `LoanHistory` component — surfacing the event log the backend already records. The request is deferred until the card is expanded
 - Frontend loan filters: the Recent Loans section now has status and community dropdowns that drive the `useLoans` query params, so the dashboard can narrow loans by lifecycle state and community. The community filter only appears once communities are available
 - Frontend loan lifecycle actions: `useLoanActions` hook and a `LoanActions` control on each loan card that drives the remaining transitions — disburse and cancel for pending loans, and repay (with an inline, outstanding-bounded amount field) and mark-defaulted for active loans. Each action revalidates both the loan and reputation caches so the dashboard stays in sync
