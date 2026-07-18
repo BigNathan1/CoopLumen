@@ -634,8 +634,11 @@ components:
         community_id: { type: string, format: uuid }
         borrower_address: { $ref: '#/components/schemas/StellarKey' }
         lender_address: { $ref: '#/components/schemas/StellarKey' }
-        amount: { type: string, description: 'Stellar-precision decimal string' }
+        amount: { type: string, description: 'Principal, Stellar-precision decimal string' }
         amount_repaid: { type: string }
+        interest_rate:
+          type: string
+          description: 'Flat interest as a percent of principal (NUMERIC(6,2)); "10.00" => 10%'
         asset_code: { type: string }
         asset_issuer: { type: string, nullable: true }
         purpose: { type: string, nullable: true }
@@ -650,7 +653,8 @@ components:
         - $ref: '#/components/schemas/Loan'
         - type: object
           properties:
-            outstanding: { type: string, description: 'amount − amount_repaid' }
+            total_due: { type: string, description: 'principal + interest' }
+            outstanding: { type: string, description: 'total_due − amount_repaid' }
             events:
               type: array
               items: { $ref: '#/components/schemas/LoanEvent' }
@@ -678,6 +682,11 @@ components:
         assetIssuer: { $ref: '#/components/schemas/StellarKey' }
         purpose: { type: string, maxLength: 280 }
         dueAt: { type: string, format: date-time }
+        interestRate:
+          type: number
+          minimum: 0
+          maximum: 1000
+          description: 'Flat interest as a percent of principal; defaults to 0'
     RepayLoan:
       type: object
       required: [amount]
