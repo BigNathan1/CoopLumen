@@ -94,6 +94,29 @@
   gap: 16px;
 }
 
+.filterBar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.filter {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: calc(var(--radius) / 2);
+  padding: 6px 10px;
+  color: var(--color-text);
+  font-size: 0.8rem;
+  font-family: inherit;
+  text-transform: capitalize;
+}
+
+.filter:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
 .state {
   padding: 40px 20px;
   text-align: center;

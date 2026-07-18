@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { LoansSection } from '../LoansSection';
 import type { Loan } from '@/hooks/useLoans';
+import type { Community } from '@/hooks/useCommunities';
 import * as hook from '@/hooks/useLoans';
 
 const loan: Loan = {
@@ -21,10 +23,20 @@ const loan: Loan = {
   updated_at: '2026-01-01T00:00:00.000Z',
 };
 
+const community: Community = {
+  id: 'community-1',
+  name: 'EcoDAO',
+  description: null,
+  asset_code: 'ECO',
+  asset_issuer: 'G' + 'A'.repeat(55),
+  issuer_public_key: 'G' + 'A'.repeat(55),
+  created_at: '2026-01-01T00:00:00.000Z',
+};
+
 type UseLoansReturn = ReturnType<typeof hook.useLoans>;
 
-function mockUseLoans(value: Partial<UseLoansReturn>): void {
-  jest.spyOn(hook, 'useLoans').mockReturnValue(value as UseLoansReturn);
+function mockUseLoans(value: Partial<UseLoansReturn>): jest.SpyInstance {
+  return jest.spyOn(hook, 'useLoans').mockReturnValue(value as UseLoansReturn);
 }
 
 afterEach(() => {
@@ -47,13 +59,34 @@ describe('LoansSection', () => {
   it('renders an empty state', () => {
     mockUseLoans({ data: [], isLoading: false });
     render(<LoansSection />);
-    expect(screen.getByText('No loans yet.')).toBeInTheDocument();
+    expect(screen.getByText('No loans match these filters.')).toBeInTheDocument();
   });
 
   it('renders a loan card and the shown count', () => {
     mockUseLoans({ data: [loan], isLoading: false });
     render(<LoansSection />);
     expect(screen.getByText('1 shown')).toBeInTheDocument();
-    expect(screen.getByText('pending')).toBeInTheDocument();
+    // The status badge is a span; the filter dropdown also has a "pending" option.
+    expect(screen.getByText('pending', { selector: 'span' })).toBeInTheDocument();
+  });
+
+  it('passes the selected status filter to the loans hook', async () => {
+    const spy = mockUseLoans({ data: [loan], isLoading: false });
+    render(<LoansSection communities={[community]} />);
+
+    await userEvent.selectOptions(screen.getByLabelText('Filter by status'), 'active');
+
+    expect(spy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: 'active', communityId: undefined })
+    );
+  });
+
+  it('only shows the community filter when communities are provided', () => {
+    mockUseLoans({ data: [], isLoading: false });
+    const { rerender } = render(<LoansSection />);
+    expect(screen.queryByLabelText('Filter by community')).not.toBeInTheDocument();
+
+    rerender(<LoansSection communities={[community]} />);
+    expect(screen.getByLabelText('Filter by community')).toBeInTheDocument();
   });
 });

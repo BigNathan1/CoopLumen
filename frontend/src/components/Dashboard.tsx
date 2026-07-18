@@ -70,7 +70,7 @@ export function Dashboard() {
             <CreateLoanForm lenderAddress={publicKey} communities={communities} />
           )}
 
-          <LoansSection />
+          <LoansSection communities={communities} />
         </div>
       </div>
     </div>

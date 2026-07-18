@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Frontend loan filters: the Recent Loans section now has status and community dropdowns that drive the `useLoans` query params, so the dashboard can narrow loans by lifecycle state and community. The community filter only appears once communities are available
 - Frontend loan lifecycle actions: `useLoanActions` hook and a `LoanActions` control on each loan card that drives the remaining transitions — disburse and cancel for pending loans, and repay (with an inline, outstanding-bounded amount field) and mark-defaulted for active loans. Each action revalidates both the loan and reputation caches so the dashboard stays in sync
 - Frontend loan origination: `useCreateLoan` mutation hook and a `CreateLoanForm` that posts to `POST /api/v1/loans` with the connected Freighter wallet as lender, auto-fills the asset from the selected community, validates the borrower address/amount client-side, and revalidates the loan list on success. Shown on the dashboard only when a wallet is connected
 - Frontend loans view: `useLoans` hook and a `LoanCard` / `LoansSection` pair that render the most recent loans on the dashboard — amount, asset, colour-coded status badge (pending/active/repaid/defaulted/cancelled), borrower/lender, and the outstanding balance for active loans
