@@ -13,6 +13,8 @@ const loan: Loan = {
   amount: '100.0000000',
   amount_repaid: '0',
   interest_rate: '0',
+  total_due: '100.0000000',
+  outstanding: '100.0000000',
   asset_code: 'ECO',
   asset_issuer: null,
   purpose: null,

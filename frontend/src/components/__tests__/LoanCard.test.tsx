@@ -12,6 +12,8 @@ const baseLoan: Loan = {
   amount: '100.0000000',
   amount_repaid: '40.0000000',
   interest_rate: '0',
+  total_due: '100.0000000',
+  outstanding: '60.0000000',
   asset_code: 'ECO',
   asset_issuer: null,
   purpose: 'Seed capital',
@@ -49,7 +51,17 @@ describe('LoanCard', () => {
   });
 
   it('shows the interest rate and total due for an interest-bearing loan', () => {
-    render(<LoanCard loan={{ ...baseLoan, interest_rate: '10.00', amount_repaid: '0' }} />);
+    render(
+      <LoanCard
+        loan={{
+          ...baseLoan,
+          interest_rate: '10.00',
+          amount_repaid: '0',
+          total_due: '110.0000000',
+          outstanding: '110.0000000',
+        }}
+      />
+    );
     expect(screen.getByText(/10% interest/)).toBeInTheDocument();
     expect(screen.getByText(/110.00 ECO due/)).toBeInTheDocument();
   });

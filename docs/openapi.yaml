@@ -648,13 +648,13 @@ components:
         closed_at: { type: string, format: date-time, nullable: true }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+        total_due: { type: string, description: 'principal + interest' }
+        outstanding: { type: string, description: 'total_due − amount_repaid' }
     LoanDetail:
       allOf:
         - $ref: '#/components/schemas/Loan'
         - type: object
           properties:
-            total_due: { type: string, description: 'principal + interest' }
-            outstanding: { type: string, description: 'total_due − amount_repaid' }
             events:
               type: array
               items: { $ref: '#/components/schemas/LoanEvent' }

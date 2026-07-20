@@ -53,6 +53,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `.dockerignore` files for backend and frontend
 - `CODEOWNERS`, issue templates, PR template, `SECURITY.md`, `CHANGELOG.md`
 
+### Changed
+
+- Loan totals are now computed once, server-side: `GET /api/v1/loans` (the list) returns `total_due` and `outstanding` on every loan just like `GET /api/v1/loans/:id` already did, via a shared `withTotals` helper. The frontend loan card and repay control consume those fields instead of re-deriving `amount × (1 + rate)` client-side, so the interest formula lives in exactly one place. The OpenAPI `Loan` schema documents both fields.
+
 ### Fixed
 
 - Frontend Jest config used a non-existent `setupFilesAfterFramework` key, so `jest.setup.ts` never loaded and `@testing-library/jest-dom` matchers were unavailable — every component test silently failed. Corrected to `setupFilesAfterEnv`.

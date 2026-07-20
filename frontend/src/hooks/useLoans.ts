@@ -21,6 +21,10 @@ export interface Loan {
   closed_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Principal + flat interest, computed server-side (Stellar-precision string). */
+  total_due: string;
+  /** total_due − amount_repaid, computed server-side (Stellar-precision string). */
+  outstanding: string;
 }
 
 export interface LoanEvent {
@@ -34,8 +38,6 @@ export interface LoanEvent {
 }
 
 export interface LoanDetail extends Loan {
-  total_due: string;
-  outstanding: string;
   events: LoanEvent[];
 }
 

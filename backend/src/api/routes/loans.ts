@@ -55,6 +55,21 @@ function totalDue(loan: Pick<Loan, 'amount' | 'interest_rate'>): number {
 }
 
 /**
+ * Enriches a raw loan row with its `total_due` (principal + interest) and
+ * `outstanding` (total due − amount repaid) balances, so every loan response —
+ * list and detail alike — carries the same server-computed figures and the
+ * frontend never has to re-derive them.
+ */
+function withTotals(loan: Loan): Loan & { total_due: string; outstanding: string } {
+  const due = totalDue(loan);
+  return {
+    ...loan,
+    total_due: due.toFixed(7),
+    outstanding: (due - Number(loan.amount_repaid)).toFixed(7),
+  };
+}
+
+/**
  * Upserts a borrower's reputation row and recomputes their score from their
  * on-time-repayment and default counts using a smoothed success ratio (so a
  * member with no history sits near the neutral midpoint rather than 0 or 100).
@@ -136,7 +151,7 @@ loanRouter.get('/', async (req, res, next) => {
       listParams
     );
 
-    res.json({ data: loans, meta: pageMeta(count, pagination) });
+    res.json({ data: loans.map(withTotals), meta: pageMeta(count, pagination) });
   } catch (err) {
     next(err);
   }
@@ -157,16 +172,7 @@ loanRouter.get('/:id', async (req, res, next) => {
       'SELECT * FROM loan_events WHERE loan_id = $1 ORDER BY created_at',
       [loan.id]
     );
-    const due = totalDue(loan);
-    const outstanding = due - Number(loan.amount_repaid);
-    res.json({
-      data: {
-        ...loan,
-        total_due: due.toFixed(7),
-        outstanding: outstanding.toFixed(7),
-        events,
-      },
-    });
+    res.json({ data: { ...withTotals(loan), events } });
   } catch (err) {
     next(err);
   }
