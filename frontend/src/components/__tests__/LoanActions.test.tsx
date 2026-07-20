@@ -11,6 +11,7 @@ const baseLoan: Loan = {
   lender_address: 'G' + 'B'.repeat(55),
   amount: '100.0000000',
   amount_repaid: '0',
+  interest_rate: '0',
   asset_code: 'ECO',
   asset_issuer: null,
   purpose: null,

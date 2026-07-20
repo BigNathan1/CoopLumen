@@ -24,7 +24,9 @@ function formatAmount(value: string): string {
 
 export function LoanCard({ loan }: Props) {
   const [showHistory, setShowHistory] = useState(false);
-  const outstanding = Number(loan.amount) - Number(loan.amount_repaid);
+  const rate = Number(loan.interest_rate ?? 0);
+  const totalDue = Number(loan.amount) * (1 + rate / 100);
+  const outstanding = totalDue - Number(loan.amount_repaid);
 
   return (
     <article className={styles.card}>
@@ -34,6 +36,12 @@ export function LoanCard({ loan }: Props) {
         </span>
         <span className={`${styles.status} ${styles[loan.status]}`}>{loan.status}</span>
       </div>
+
+      {rate > 0 && (
+        <div className={styles.interest}>
+          {rate}% interest · {formatAmount(totalDue.toFixed(7))} {loan.asset_code} due
+        </div>
+      )}
 
       {loan.purpose && <p className={styles.purpose}>{loan.purpose}</p>}
 

@@ -82,6 +82,12 @@
   font-family: monospace;
 }
 
+.interest {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-family: monospace;
+}
+
 .historyToggle {
   align-self: flex-start;
   background: none;

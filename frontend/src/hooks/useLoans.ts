@@ -11,6 +11,7 @@ export interface Loan {
   lender_address: string;
   amount: string;
   amount_repaid: string;
+  interest_rate: string;
   asset_code: string;
   asset_issuer: string | null;
   purpose: string | null;
@@ -33,6 +34,7 @@ export interface LoanEvent {
 }
 
 export interface LoanDetail extends Loan {
+  total_due: string;
   outstanding: string;
   events: LoanEvent[];
 }

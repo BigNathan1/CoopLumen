@@ -77,4 +77,20 @@ describe('CreateLoanForm', () => {
       purpose: 'Seed',
     });
   });
+
+  it('includes the interest rate and previews the total repayable', async () => {
+    const createLoan = jest.fn().mockResolvedValue({ id: 'loan-1' });
+    mockCreateLoan(createLoan);
+    render(<CreateLoanForm lenderAddress={lender} communities={[community]} />);
+
+    await userEvent.selectOptions(screen.getByRole('combobox'), 'community-1');
+    await userEvent.type(screen.getByPlaceholderText('G…'), borrower);
+    await userEvent.type(screen.getByPlaceholderText('0.00'), '100');
+    await userEvent.type(screen.getByPlaceholderText('0'), '10');
+
+    expect(screen.getByText('Total repayable: 110.00 ECO')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create loan' }));
+    expect(createLoan).toHaveBeenCalledWith(expect.objectContaining({ interestRate: 10 }));
+  });
 });

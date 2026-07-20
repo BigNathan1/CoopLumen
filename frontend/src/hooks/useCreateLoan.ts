@@ -13,6 +13,7 @@ export interface CreateLoanInput {
   assetIssuer?: string;
   purpose?: string;
   dueAt?: string;
+  interestRate?: number;
 }
 
 /**

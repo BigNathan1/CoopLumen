@@ -15,7 +15,8 @@ export function LoanActions({ loan }: Props) {
   const { disburse, repay, markDefaulted, cancel, pending, error } = useLoanActions(loan.id);
   const [amount, setAmount] = useState('');
 
-  const outstanding = Number(loan.amount) - Number(loan.amount_repaid);
+  const totalDue = Number(loan.amount) * (1 + Number(loan.interest_rate ?? 0) / 100);
+  const outstanding = totalDue - Number(loan.amount_repaid);
   const amountValid =
     AMOUNT_RE.test(amount) && Number(amount) > 0 && Number(amount) <= outstanding + 1e-7;
 

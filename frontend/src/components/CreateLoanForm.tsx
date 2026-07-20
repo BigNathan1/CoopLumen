@@ -19,16 +19,24 @@ export function CreateLoanForm({ lenderAddress, communities }: Props) {
   const [communityId, setCommunityId] = useState('');
   const [borrower, setBorrower] = useState('');
   const [amount, setAmount] = useState('');
+  const [interestRate, setInterestRate] = useState('');
   const [purpose, setPurpose] = useState('');
   const [success, setSuccess] = useState(false);
 
   const selected = communities.find((c) => c.id === communityId);
+
+  const rateValue = interestRate.trim() === '' ? 0 : Number(interestRate);
 
   const validationError = (): string | null => {
     if (!communityId) return 'Select a community';
     if (!STELLAR_RE.test(borrower)) return 'Borrower must be a valid Stellar address';
     if (borrower === lenderAddress) return 'Borrower and lender cannot be the same account';
     if (!AMOUNT_RE.test(amount) || Number(amount) <= 0) return 'Enter a positive amount';
+    if (
+      interestRate.trim() !== '' &&
+      (!Number.isFinite(rateValue) || rateValue < 0 || rateValue > 1000)
+    )
+      return 'Interest rate must be between 0 and 1000';
     return null;
   };
 
@@ -47,12 +55,14 @@ export function CreateLoanForm({ lenderAddress, communities }: Props) {
       assetCode: selected.asset_code,
       assetIssuer: selected.asset_issuer,
       purpose: purpose.trim() || undefined,
+      interestRate: rateValue > 0 ? rateValue : undefined,
     });
 
     if (loan) {
       setSuccess(true);
       setBorrower('');
       setAmount('');
+      setInterestRate('');
       setPurpose('');
     }
   };
@@ -101,6 +111,24 @@ export function CreateLoanForm({ lenderAddress, communities }: Props) {
           placeholder="0.00"
         />
       </label>
+
+      <label className={styles.label}>
+        Interest rate % (optional)
+        <input
+          className={styles.input}
+          value={interestRate}
+          onChange={(e) => setInterestRate(e.target.value)}
+          inputMode="decimal"
+          placeholder="0"
+        />
+      </label>
+
+      {rateValue > 0 && AMOUNT_RE.test(amount) && Number(amount) > 0 && (
+        <p className={styles.hint}>
+          Total repayable: {(Number(amount) * (1 + rateValue / 100)).toFixed(2)}
+          {selected ? ` ${selected.asset_code}` : ''}
+        </p>
+      )}
 
       <label className={styles.label}>
         Purpose (optional)

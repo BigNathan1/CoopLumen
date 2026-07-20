@@ -11,6 +11,7 @@ const baseLoan: Loan = {
   lender_address: 'G' + 'B'.repeat(55),
   amount: '100.0000000',
   amount_repaid: '40.0000000',
+  interest_rate: '0',
   asset_code: 'ECO',
   asset_issuer: null,
   purpose: 'Seed capital',
@@ -45,6 +46,17 @@ describe('LoanCard', () => {
     render(<LoanCard loan={baseLoan} />);
     expect(screen.getByText(/Borrower GAAA…AAAA/)).toBeInTheDocument();
     expect(screen.getByText(/Lender GBBB…BBBB/)).toBeInTheDocument();
+  });
+
+  it('shows the interest rate and total due for an interest-bearing loan', () => {
+    render(<LoanCard loan={{ ...baseLoan, interest_rate: '10.00', amount_repaid: '0' }} />);
+    expect(screen.getByText(/10% interest/)).toBeInTheDocument();
+    expect(screen.getByText(/110.00 ECO due/)).toBeInTheDocument();
+  });
+
+  it('omits the interest line for a zero-rate loan', () => {
+    render(<LoanCard loan={baseLoan} />);
+    expect(screen.queryByText(/interest/)).not.toBeInTheDocument();
   });
 
   it('reveals the event history when the toggle is clicked', async () => {
