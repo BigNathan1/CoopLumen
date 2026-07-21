@@ -5,6 +5,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { WalletConnect } from './WalletConnect';
 import { CommunityCard } from './CommunityCard';
 import { BalancePanel } from './BalancePanel';
+import { PortfolioPanel } from './PortfolioPanel';
 import { MyReputationPanel } from './MyReputationPanel';
 import { ReputationPanel } from './ReputationPanel';
 import { LoansSection } from './LoansSection';
@@ -29,6 +30,7 @@ export function Dashboard() {
       <div className={styles.content}>
         <aside className={styles.sidebar}>
           {connected && publicKey && <BalancePanel publicKey={publicKey} />}
+          {connected && publicKey && <PortfolioPanel address={publicKey} />}
           {connected && publicKey && <MyReputationPanel address={publicKey} />}
           <ReputationPanel />
         </aside>
