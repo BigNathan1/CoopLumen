@@ -136,3 +136,105 @@ jobs:
       - name: Run tests
         working-directory: frontend
         run: npm test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+
+      - name: Build backend
+        working-directory: backend
+        run: npm run build
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+        env:
+          # next build needs *a* value for these at build time; real values are
+          # injected at deploy time. Keeping this here (rather than committing
+          # a .env file) is what lets the build job run without secrets.
+          NEXT_PUBLIC_API_URL: http://localhost:4000
+          NEXT_PUBLIC_STELLAR_NETWORK: TESTNET
+
+  docker-build:
+    name: Docker image build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t cooplumen-backend:ci ./backend
+
+      - name: Build frontend image
+        run: docker build -t cooplumen-frontend:ci ./frontend
+
+  security-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    # Vulnerable transitive deps shouldn't block every PR the moment a new CVE
+    # is published upstream — this reports loudly but doesn't fail the build.
+    # Flip continue-on-error to false once the backlog of existing findings
+    # (if any) has been triaged and the project wants a hard gate.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Audit backend
+        working-directory: backend
+        run: npm audit --audit-level=high
+
+      - name: Audit frontend
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
+  commitlint:
+    name: Commit message lint
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install commitlint
+        run: npm install --no-save @commitlint/cli @commitlint/config-conventional
+
+      - name: Lint commits in this PR
+        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+  # Single required status check to point branch protection at, instead of
+  # every job above individually — add a job to the `needs` list here and it
+  # becomes part of the gate with no branch-protection settings to update.
+  quality-gate:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, test-backend, test-frontend, build, docker-build, commitlint]
+    if: always()
+    steps:
+      - name: Fail if any required job failed
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "One or more required jobs failed."
+            exit 1
+          fi
