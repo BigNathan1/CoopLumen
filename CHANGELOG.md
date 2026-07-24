@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Migration runner hardening: PostgreSQL advisory lock so concurrent `db:migrate` runs cannot double-apply, SHA-256 checksums recorded in `schema_migrations.checksum` with drift detection on every run, strict `NNN_snake_case_name.sql` filename validation, numeric-prefix ordering, and a `--dry-run` flag for `db:migrate` / `db:rollback`
 - GitHub Actions CI (`.github/workflows/ci.yml`): lint, type-check, frontend tests, and backend tests with a PostgreSQL 16 service container so the DB integration suites run automatically on every push and PR to main
 - API versioning: all resource routes moved under the `/api/v1` prefix (health checks stay unversioned)
 - Community avatar support: `avatar_url` column and `POST /api/v1/communities/:id/avatar` endpoint
