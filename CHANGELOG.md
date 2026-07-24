@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Migration 017: members table integrity — Stellar address format constraint, `updated_at` column and trigger, and indexes covering the cross-community and live-member lookup paths
+- Integration tests for the members schema: FK cascade, role and address constraints, composite-key uniqueness, and `updated_at` behaviour
 - GitHub Actions CI (`.github/workflows/ci.yml`): lint, type-check, frontend tests, and backend tests with a PostgreSQL 16 service container so the DB integration suites run automatically on every push and PR to main
 - API versioning: all resource routes moved under the `/api/v1` prefix (health checks stay unversioned)
 - Community avatar support: `avatar_url` column and `POST /api/v1/communities/:id/avatar` endpoint

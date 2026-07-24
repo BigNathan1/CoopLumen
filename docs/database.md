@@ -25,6 +25,7 @@ erDiagram
     text stellar_address PK
     text role
     timestamptz joined_at
+    timestamptz updated_at
     timestamptz deleted_at
   }
 
@@ -192,15 +193,26 @@ FK constraints: none (root table).
 
 ### `members`
 
-A Stellar address belonging to a community. Composite PK prevents duplicates.
+A Stellar address belonging to a community. Composite PK prevents duplicates — the same address can join many communities, but only once each.
 
 | Column            | Type          | Notes                                        |
 | ----------------- | ------------- | -------------------------------------------- |
 | `community_id`    | `UUID`        | PK, FK → `communities(id) ON DELETE CASCADE` |
-| `stellar_address` | `TEXT`        | PK                                           |
+| `stellar_address` | `TEXT`        | PK — `G…` ed25519 public key, 56 chars       |
 | `role`            | `TEXT`        | `admin \| treasurer \| member \| observer`   |
 | `joined_at`       | `TIMESTAMPTZ` |                                              |
+| `updated_at`      | `TIMESTAMPTZ` | Auto-updated by `set_updated_at()` trigger   |
 | `deleted_at`      | `TIMESTAMPTZ` | Nullable — soft delete                       |
+
+Constraints:
+
+- `members_role_check` — `role IN ('admin', 'treasurer', 'member', 'observer')`
+- `members_stellar_address_format` — `stellar_address ~ '^G[A-Z2-7]{55}$'`, mirroring the API-layer validation. Added `NOT VALID`, so it governs writes without re-validating pre-existing rows.
+
+Indexes:
+
+- `idx_members_stellar_address` on `stellar_address` — cross-community lookup for one address. Every other read is served by the primary key, whose leading column is `community_id`.
+- `idx_members_community_active` on `(community_id, joined_at) WHERE deleted_at IS NULL` — the member list endpoint, which always filters out soft-deleted rows and orders by `joined_at`.
 
 ---
 
