@@ -54,6 +54,25 @@ describeIf('Migration integration', () => {
     expect(applied).toEqual(expect.arrayContaining(files));
   });
 
+  it('records the bootstrap migration exactly once', async () => {
+    const { rows } = await pool.query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM public.schema_migrations WHERE name = $1`,
+      ['001_schema_migrations.sql']
+    );
+
+    expect(Number(rows[0].count)).toBe(1);
+  });
+
+  it('schema_migrations is keyed on name and indexed on applied_at', async () => {
+    const { rows } = await pool.query<{ indexdef: string }>(
+      `SELECT indexdef FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'schema_migrations'`
+    );
+    const definitions = rows.map((r) => r.indexdef).join('\n');
+
+    expect(definitions).toMatch(/UNIQUE INDEX schema_migrations_pkey .*\(name\)/);
+    expect(definitions).toMatch(/idx_schema_migrations_applied_at .*\(applied_at\)/);
+  });
+
   it('running db:migrate a second time is a no-op', async () => {
     const { execSync } = await import('child_process');
     const output = execSync('npm run db:migrate', {

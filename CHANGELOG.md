@@ -42,6 +42,15 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `.dockerignore` files for backend and frontend
 - `CODEOWNERS`, issue templates, PR template, `SECURITY.md`, `CHANGELOG.md`
 
+### Changed
+
+- Migration 001 is now the single source of truth for the `schema_migrations` table: the runner bootstraps by executing that file instead of an inlined copy of the DDL, and records it as applied so it is never replayed
+- `schema_migrations` gained an `applied_at` index and table/column comments
+
+### Fixed
+
+- `npm run db:rollback` no longer fails when rolling back `001_schema_migrations`: the tracking row is deleted before the `.down.sql` runs, so dropping the tracking table itself succeeds
+
 ---
 
 ## [0.1.0] — 2026-05-13
