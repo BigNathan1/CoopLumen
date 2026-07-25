@@ -79,6 +79,7 @@ describeIf('Migration integration', () => {
       'community_settings',
       'notifications',
       'audit_log',
+      'multisig_requests',
     ];
 
     const { rows } = await pool.query<{ tablename: string }>(
