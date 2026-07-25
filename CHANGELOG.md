@@ -16,6 +16,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Migration `002_create_communities.sql`: canonical `communities` schema — full column set, CHECK constraints mirroring the API validation (name length, description length, Stellar asset code and issuer formats, avatar URL length), a partial index for the active-community listing, and an index on `(asset_code, asset_issuer)`
 - Migration 018: `multisig_requests` table for community treasury actions awaiting co-signer approval (dormant until the multisig phase)
 - Migration 017: notification index tuning — composite `(stellar_address, created_at DESC)` for the recipient feed, replacing the redundant single-column index and dropping the no-op `read_at` column from the unread partial index
+- Migration 018: `votes` table recording one ballot per voter per proposal, with weighted choices (`for`/`against`/`abstain`) and an optional on-chain transaction hash. Dormant until the governance phase activates it
+- Migration 017: `proposals` table for community governance (Phase 3 prep) — type and status enums, quorum percentage, voting window, and execution tracking. Dormant until the governance phase activates it
 - GitHub Actions CI (`.github/workflows/ci.yml`): lint, type-check, frontend tests, and backend tests with a PostgreSQL 16 service container so the DB integration suites run automatically on every push and PR to main
 - API versioning: all resource routes moved under the `/api/v1` prefix (health checks stay unversioned)
 - Community avatar support: `avatar_url` column and `POST /api/v1/communities/:id/avatar` endpoint
