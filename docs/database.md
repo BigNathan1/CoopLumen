@@ -445,6 +445,8 @@ In-app notifications addressed to a Stellar address. `read_at` is null until the
 | `read_at`         | `TIMESTAMPTZ` | Nullable — partial index for unread queries       |
 | `created_at`      | `TIMESTAMPTZ` |                                                   |
 
+Indexes: `(stellar_address, created_at DESC)` for the recipient feed, `community_id`, and a partial `(stellar_address, created_at DESC) WHERE read_at IS NULL` for unread counts and the unread feed.
+
 ---
 
 ### `audit_log`
