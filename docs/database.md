@@ -142,6 +142,24 @@ erDiagram
     timestamptz created_at
   }
 
+  proposals {
+    uuid id PK
+    uuid community_id FK
+    text proposer_address
+    text title
+    text description
+    text type
+    text status
+    numeric quorum_percent
+    jsonb metadata
+    timestamptz voting_starts_at
+    timestamptz voting_ends_at
+    timestamptz executed_at
+    text stellar_tx_hash UK
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
   communities ||--o{ members : "has"
   communities ||--o{ loans : "has"
   communities ||--o{ payments : "has"
@@ -150,6 +168,7 @@ erDiagram
   communities ||--o{ reputation_scores : "tracks"
   communities ||--|| community_settings : "has"
   communities ||--o{ notifications : "generates"
+  communities ||--o{ proposals : "governs via"
   loans ||--o{ loan_events : "has"
   loans ||--o{ payments : "repaid via"
   loan_events }o--o| payments : "linked to"
@@ -386,6 +405,34 @@ Security-sensitive event log. Records before/after state for all destructive ope
 
 ---
 
+### `proposals`
+
+Governance proposals raised inside a community. Created in Phase 3 prep and dormant until the
+governance phase activates it — no API reads or writes it yet.
+
+| Column             | Type           | Notes                                                              |
+| ------------------ | -------------- | ------------------------------------------------------------------ |
+| `id`               | `UUID`         | PK                                                                 |
+| `community_id`     | `UUID`         | FK → `communities(id) ON DELETE CASCADE`                           |
+| `proposer_address` | `TEXT`         | Stellar address of the author                                      |
+| `title`            | `TEXT`         | Non-blank, CHECK enforced                                          |
+| `description`      | `TEXT`         | Nullable — proposal body                                           |
+| `type`             | `TEXT`         | Constrained enum (see migration)                                   |
+| `status`           | `TEXT`         | `draft`, `active`, `passed`, `rejected`, `executed`, `cancelled`   |
+| `quorum_percent`   | `NUMERIC(5,2)` | 0–100, CHECK enforced — share of voting weight needed to pass      |
+| `metadata`         | `JSONB`        | Nullable — type-specific payload (target loan, spend amount, etc.) |
+| `voting_starts_at` | `TIMESTAMPTZ`  | Defaults to insert time                                            |
+| `voting_ends_at`   | `TIMESTAMPTZ`  | Must be later than `voting_starts_at`, CHECK enforced              |
+| `executed_at`      | `TIMESTAMPTZ`  | Nullable — set when the outcome is applied on-chain                |
+| `stellar_tx_hash`  | `TEXT`         | Unique, nullable — execution transaction                           |
+| `created_at`       | `TIMESTAMPTZ`  |                                                                    |
+| `updated_at`       | `TIMESTAMPTZ`  | Auto-updated by trigger                                            |
+
+Indexes: `community_id`, `proposer_address`, `(community_id, status)`, and a partial index on
+`voting_ends_at` covering only `status = 'active'` for open-ballot sweeps.
+
+---
+
 ## Foreign Key `ON DELETE` Summary
 
 | Child table          | FK column      | References        | Behaviour           |
@@ -402,3 +449,4 @@ Security-sensitive event log. Records before/after state for all destructive ope
 | `reputation_scores`  | `community_id` | `communities(id)` | CASCADE             |
 | `community_settings` | `community_id` | `communities(id)` | CASCADE             |
 | `notifications`      | `community_id` | `communities(id)` | CASCADE             |
+| `proposals`          | `community_id` | `communities(id)` | CASCADE             |
