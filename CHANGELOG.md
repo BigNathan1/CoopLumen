@@ -42,6 +42,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `.dockerignore` files for backend and frontend
 - `CODEOWNERS`, issue templates, PR template, `SECURITY.md`, `CHANGELOG.md`
 
+### Fixed
+
+- `docs/database.md`: sync the `loans` table reference to the current schema — add the lifecycle columns and constraints introduced in migration 015 (`asset_issuer`, `purpose`, `amount_repaid`, `disbursed_at`, `closed_at`, `updated_at`, the `status` and `amount_repaid` CHECKs, and the `status` index)
+
 ---
 
 ## [0.1.0] — 2026-05-13

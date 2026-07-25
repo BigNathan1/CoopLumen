@@ -35,9 +35,15 @@ erDiagram
     text lender_address
     numeric amount
     text asset_code
+    text asset_issuer
     text status
+    text purpose
+    numeric amount_repaid
     timestamptz due_at
+    timestamptz disbursed_at
+    timestamptz closed_at
     timestamptz created_at
+    timestamptz updated_at
   }
 
   payments {
@@ -206,19 +212,29 @@ A Stellar address belonging to a community. Composite PK prevents duplicates.
 
 ### `loans`
 
-A P2P loan between two community members, tracked off-chain.
+A P2P loan between two community members, tracked off-chain. Base columns are created in migration 002; the lifecycle columns and constraints are added in migration 015.
 
-| Column             | Type            | Notes                                |
-| ------------------ | --------------- | ------------------------------------ |
-| `id`               | `UUID`          | PK                                   |
-| `community_id`     | `UUID`          | FK → `communities(id)`               |
-| `borrower_address` | `TEXT`          | Stellar address                      |
-| `lender_address`   | `TEXT`          | Stellar address                      |
-| `amount`           | `NUMERIC(20,7)` | 7 decimal places — Stellar precision |
-| `asset_code`       | `TEXT`          |                                      |
-| `status`           | `TEXT`          | Default `pending`                    |
-| `due_at`           | `TIMESTAMPTZ`   | Nullable                             |
-| `created_at`       | `TIMESTAMPTZ`   |                                      |
+| Column             | Type            | Notes                                                            |
+| ------------------ | --------------- | ---------------------------------------------------------------- |
+| `id`               | `UUID`          | PK                                                               |
+| `community_id`     | `UUID`          | FK → `communities(id)`                                           |
+| `borrower_address` | `TEXT`          | Stellar address                                                  |
+| `lender_address`   | `TEXT`          | Stellar address                                                  |
+| `amount`           | `NUMERIC(20,7)` | 7 decimal places — Stellar precision                             |
+| `asset_code`       | `TEXT`          |                                                                  |
+| `asset_issuer`     | `TEXT`          | Nullable — XLM has no issuer (migration 015)                     |
+| `status`           | `TEXT`          | Default `pending`; CHECK enum (see below)                        |
+| `purpose`          | `TEXT`          | Nullable — free-text loan purpose (migration 015)               |
+| `amount_repaid`    | `NUMERIC(20,7)` | Default `0`; CHECK `0 ≤ amount_repaid ≤ amount` (migration 015)  |
+| `due_at`           | `TIMESTAMPTZ`   | Nullable                                                         |
+| `disbursed_at`     | `TIMESTAMPTZ`   | Nullable — set when the loan is disbursed (migration 015)        |
+| `closed_at`        | `TIMESTAMPTZ`   | Nullable — set when repaid, defaulted, or cancelled (migration 015) |
+| `created_at`       | `TIMESTAMPTZ`   |                                                                  |
+| `updated_at`       | `TIMESTAMPTZ`   | Auto-updated by `set_updated_at()` trigger (migration 015)       |
+
+Status enum (`loans_status_check`): `pending \| active \| repaid \| defaulted \| cancelled`.
+
+Indexes: `community_id`, `borrower_address`, `lender_address`, and `status`.
 
 ---
 
