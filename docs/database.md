@@ -25,6 +25,7 @@ erDiagram
     text stellar_address PK
     text role
     timestamptz joined_at
+    timestamptz updated_at
     timestamptz deleted_at
   }
 
@@ -38,6 +39,7 @@ erDiagram
     text status
     timestamptz due_at
     timestamptz created_at
+    timestamptz updated_at
   }
 
   payments {
@@ -52,6 +54,7 @@ erDiagram
     text stellar_tx_hash UK
     text memo
     timestamptz created_at
+    timestamptz updated_at
   }
 
   trustlines {
@@ -63,6 +66,7 @@ erDiagram
     text stellar_tx_hash UK
     timestamptz established_at
     timestamptz removed_at
+    timestamptz updated_at
   }
 
   loan_events {
@@ -73,6 +77,7 @@ erDiagram
     uuid payment_id FK
     text note
     timestamptz created_at
+    timestamptz updated_at
   }
 
   tokens {
@@ -97,6 +102,7 @@ erDiagram
     text stellar_tx_hash UK
     jsonb metadata
     timestamptz created_at
+    timestamptz updated_at
   }
 
   reputation_scores {
@@ -128,6 +134,7 @@ erDiagram
     jsonb metadata
     timestamptz read_at
     timestamptz created_at
+    timestamptz updated_at
   }
 
   audit_log {
@@ -140,6 +147,7 @@ erDiagram
     jsonb before_state
     jsonb after_state
     timestamptz created_at
+    timestamptz updated_at
   }
 
   communities ||--o{ members : "has"
@@ -192,7 +200,7 @@ FK constraints: none (root table).
 
 ### `members`
 
-A Stellar address belonging to a community. Composite PK prevents duplicates.
+A Stellar address belonging to a community. Composite PK and explicit unique index prevent duplicates.
 
 | Column            | Type          | Notes                                        |
 | ----------------- | ------------- | -------------------------------------------- |
@@ -200,6 +208,7 @@ A Stellar address belonging to a community. Composite PK prevents duplicates.
 | `stellar_address` | `TEXT`        | PK                                           |
 | `role`            | `TEXT`        | `admin \| treasurer \| member \| observer`   |
 | `joined_at`       | `TIMESTAMPTZ` |                                              |
+| `updated_at`      | `TIMESTAMPTZ` | Auto-updated by trigger                      |
 | `deleted_at`      | `TIMESTAMPTZ` | Nullable — soft delete                       |
 
 ---
@@ -219,6 +228,7 @@ A P2P loan between two community members, tracked off-chain.
 | `status`           | `TEXT`          | Default `pending`                    |
 | `due_at`           | `TIMESTAMPTZ`   | Nullable                             |
 | `created_at`       | `TIMESTAMPTZ`   |                                      |
+| `updated_at`       | `TIMESTAMPTZ`   | Auto-updated by trigger              |
 
 ---
 
@@ -239,6 +249,7 @@ Records every submitted Stellar payment. Linked optionally to a community and/or
 | `stellar_tx_hash`   | `TEXT`          | Unique — prevents duplicate records |
 | `memo`              | `TEXT`          | Nullable                            |
 | `created_at`        | `TIMESTAMPTZ`   |                                     |
+| `updated_at`        | `TIMESTAMPTZ`   | Auto-updated by trigger             |
 
 ---
 
@@ -256,6 +267,7 @@ Local cache of Stellar trustline state. Updated when `establishTrustline` / `rem
 | `stellar_tx_hash` | `TEXT`          | Unique                                |
 | `established_at`  | `TIMESTAMPTZ`   |                                       |
 | `removed_at`      | `TIMESTAMPTZ`   | Nullable — set when trustline removed |
+| `updated_at`      | `TIMESTAMPTZ`   | Auto-updated by trigger               |
 
 Unique constraint: `(stellar_address, asset_code, asset_issuer)` — one row per address/asset pair; `removed_at` tracks removal without duplicating rows.
 
@@ -274,6 +286,7 @@ Immutable audit trail of loan lifecycle transitions.
 | `payment_id` | `UUID`          | Nullable FK → `payments(id)`                               |
 | `note`       | `TEXT`          | Nullable                                                   |
 | `created_at` | `TIMESTAMPTZ`   |                                                            |
+| `updated_at` | `TIMESTAMPTZ`   | Auto-updated by trigger                                    |
 
 ---
 
@@ -312,8 +325,9 @@ General-purpose audit trail for all on-chain and off-chain state changes. `metad
 | `stellar_tx_hash` | `TEXT`        | Unique, nullable                        |
 | `metadata`        | `JSONB`       | GIN-indexed for flexible querying       |
 | `created_at`      | `TIMESTAMPTZ` |                                         |
+| `updated_at`      | `TIMESTAMPTZ` | Auto-updated by trigger                 |
 
-Indexes: `(community_id, created_at DESC)`, `actor_address`, `action`, GIN on `metadata`.
+Indexes: `(community_id, created_at DESC)` B-tree for newest-first community history queries, `actor_address`, `action`, GIN on `metadata`.
 
 ---
 
@@ -365,6 +379,7 @@ In-app notifications addressed to a Stellar address. `read_at` is null until the
 | `metadata`        | `JSONB`       | Nullable — action-specific payload                |
 | `read_at`         | `TIMESTAMPTZ` | Nullable — partial index for unread queries       |
 | `created_at`      | `TIMESTAMPTZ` |                                                   |
+| `updated_at`      | `TIMESTAMPTZ` | Auto-updated by trigger                           |
 
 ---
 
@@ -383,6 +398,7 @@ Security-sensitive event log. Records before/after state for all destructive ope
 | `before_state`  | `JSONB`       | Nullable — snapshot before change        |
 | `after_state`   | `JSONB`       | Nullable — snapshot after change         |
 | `created_at`    | `TIMESTAMPTZ` |                                          |
+| `updated_at`    | `TIMESTAMPTZ` | Auto-updated by trigger                  |
 
 ---
 
