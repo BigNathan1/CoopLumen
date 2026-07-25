@@ -167,12 +167,18 @@ erDiagram
 
 ### `schema_migrations`
 
-Migration tracking table. Applied automatically by the runner before any other migrations.
+Migration tracking table. One row per applied migration file.
 
-| Column       | Type          | Notes                   |
-| ------------ | ------------- | ----------------------- |
-| `name`       | `TEXT`        | PK — migration filename |
-| `applied_at` | `TIMESTAMPTZ` | When the migration ran  |
+| Column       | Type          | Notes                                   |
+| ------------ | ------------- | --------------------------------------- |
+| `name`       | `TEXT`        | PK — migration filename                 |
+| `applied_at` | `TIMESTAMPTZ` | Commit time of the applying transaction |
+
+Indexes: `idx_schema_migrations_applied_at` on `applied_at` — the runner lists applied migrations with `ORDER BY applied_at ASC, name ASC`.
+
+**Bootstrap.** `001_schema_migrations.sql` is the only definition of this table; `migrate.ts` executes that file before every run and records it as applied with `ON CONFLICT DO NOTHING`, so it never appears as pending and is never replayed. The file is fully idempotent (`CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS` / `COMMENT ON`), so running it against an already-migrated database is a no-op.
+
+**Rollback.** `npm run db:rollback` deletes a migration's `schema_migrations` row before executing its `.down.sql`, inside one transaction. That ordering is what lets `001_schema_migrations.down.sql` drop the tracking table itself.
 
 ---
 
