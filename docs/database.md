@@ -331,6 +331,8 @@ General-purpose audit trail for all on-chain and off-chain state changes. `metad
 
 Indexes: `(community_id, created_at DESC)`, `actor_address`, `action`, GIN on `metadata`.
 
+`community_id` is `ON DELETE SET NULL` (migration 017): deleting a community nulls the reference but preserves the immutable audit record.
+
 ---
 
 ### `reputation_scores`
