@@ -326,15 +326,21 @@ Per-address, per-community lending reputation score (0–100).
 | `id`                 | `UUID`         | PK                                       |
 | `stellar_address`    | `TEXT`         |                                          |
 | `community_id`       | `UUID`         | FK → `communities(id) ON DELETE CASCADE` |
-| `score`              | `NUMERIC(5,2)` | 0–100, CHECK enforced                    |
-| `total_loans`        | `INTEGER`      |                                          |
-| `on_time_repayments` | `INTEGER`      |                                          |
-| `defaults`           | `INTEGER`      |                                          |
+| `score`              | `NUMERIC(5,2)` | 0–100, CHECK enforced. Defaults to `50`  |
+| `total_loans`        | `INTEGER`      | `>= 0`, CHECK enforced                   |
+| `on_time_repayments` | `INTEGER`      | `>= 0`, CHECK enforced                   |
+| `defaults`           | `INTEGER`      | `>= 0`, CHECK enforced                   |
 | `last_calculated_at` | `TIMESTAMPTZ`  |                                          |
 | `created_at`         | `TIMESTAMPTZ`  |                                          |
 | `updated_at`         | `TIMESTAMPTZ`  | Auto-updated by trigger                  |
 
 Unique constraint: `(stellar_address, community_id)`.
+
+The default score is the neutral midpoint the scoring formula converges on for a
+member with no history (`100 * (on_time + 1) / (on_time + defaults + 2)`), so an
+address that has never borrowed is not indistinguishable from a serial defaulter.
+
+Indexes: `stellar_address`, `(community_id, score DESC)` for community leaderboards.
 
 ---
 
