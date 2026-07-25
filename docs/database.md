@@ -170,6 +170,36 @@ erDiagram
     timestamptz created_at
   }
 
+  proposals {
+    uuid id PK
+    uuid community_id FK
+    text proposer_address
+    text title
+    text description
+    text type
+    text status
+    numeric quorum_percent
+    jsonb metadata
+    timestamptz voting_starts_at
+    timestamptz voting_ends_at
+    timestamptz executed_at
+    text stellar_tx_hash UK
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  votes {
+    uuid id PK
+    uuid proposal_id FK
+    text voter_address
+    text choice
+    numeric weight
+    text reason
+    text stellar_tx_hash UK
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
   communities ||--o{ members : "has"
   communities ||--o{ loans : "has"
   communities ||--o{ payments : "has"
@@ -179,6 +209,8 @@ erDiagram
   communities ||--|| community_settings : "has"
   communities ||--o{ notifications : "generates"
   communities ||--o{ multisig_requests : "approves via"
+  communities ||--o{ proposals : "governs via"
+  proposals ||--o{ votes : "tallied from"
   loans ||--o{ loan_events : "has"
   loans ||--o{ payments : "repaid via"
   loan_events }o--o| payments : "linked to"
@@ -499,6 +531,58 @@ Indexes: `(community_id, status, created_at DESC)`, `proposer_address`, partial 
 
 ---
 
+### `proposals`
+
+Governance proposals raised inside a community. Created in Phase 3 prep and dormant until the
+governance phase activates it — no API reads or writes it yet.
+
+| Column             | Type           | Notes                                                              |
+| ------------------ | -------------- | ------------------------------------------------------------------ |
+| `id`               | `UUID`         | PK                                                                 |
+| `community_id`     | `UUID`         | FK → `communities(id) ON DELETE CASCADE`                           |
+| `proposer_address` | `TEXT`         | Stellar address of the author                                      |
+| `title`            | `TEXT`         | Non-blank, CHECK enforced                                          |
+| `description`      | `TEXT`         | Nullable — proposal body                                           |
+| `type`             | `TEXT`         | Constrained enum (see migration)                                   |
+| `status`           | `TEXT`         | `draft`, `active`, `passed`, `rejected`, `executed`, `cancelled`   |
+| `quorum_percent`   | `NUMERIC(5,2)` | 0–100, CHECK enforced — share of voting weight needed to pass      |
+| `metadata`         | `JSONB`        | Nullable — type-specific payload (target loan, spend amount, etc.) |
+| `voting_starts_at` | `TIMESTAMPTZ`  | Defaults to insert time                                            |
+| `voting_ends_at`   | `TIMESTAMPTZ`  | Must be later than `voting_starts_at`, CHECK enforced              |
+| `executed_at`      | `TIMESTAMPTZ`  | Nullable — set when the outcome is applied on-chain                |
+| `stellar_tx_hash`  | `TEXT`         | Unique, nullable — execution transaction                           |
+| `created_at`       | `TIMESTAMPTZ`  |                                                                    |
+| `updated_at`       | `TIMESTAMPTZ`  | Auto-updated by trigger                                            |
+
+Indexes: `community_id`, `proposer_address`, `(community_id, status)`, and a partial index on
+`voting_ends_at` covering only `status = 'active'` for open-ballot sweeps.
+
+---
+
+### `votes`
+
+Ballots cast against a proposal. One row per voter per proposal — a voter changing their mind
+updates the existing row rather than inserting a second one. Dormant until the governance phase
+activates it.
+
+| Column            | Type            | Notes                                                      |
+| ----------------- | --------------- | ---------------------------------------------------------- |
+| `id`              | `UUID`          | PK                                                         |
+| `proposal_id`     | `UUID`          | FK → `proposals(id) ON DELETE CASCADE`                     |
+| `voter_address`   | `TEXT`          | Stellar address of the voter                               |
+| `choice`          | `TEXT`          | `for`, `against`, or `abstain`                             |
+| `weight`          | `NUMERIC(20,7)` | Voting weight, `>= 0` CHECK enforced — defaults to `1`     |
+| `reason`          | `TEXT`          | Nullable — optional rationale shown alongside the tally    |
+| `stellar_tx_hash` | `TEXT`          | Unique, nullable — on-chain vote transaction               |
+| `created_at`      | `TIMESTAMPTZ`   |                                                            |
+| `updated_at`      | `TIMESTAMPTZ`   | Auto-updated by trigger — reflects the last change of mind |
+
+Unique constraint: `(proposal_id, voter_address)`.
+
+Indexes: `proposal_id`, `voter_address`, `(proposal_id, choice)` for tallying.
+
+---
+
 ## Foreign Key `ON DELETE` Summary
 
 | Child table          | FK column      | References        | Behaviour           |
@@ -516,3 +600,5 @@ Indexes: `(community_id, status, created_at DESC)`, `proposer_address`, partial 
 | `community_settings` | `community_id` | `communities(id)` | CASCADE             |
 | `notifications`      | `community_id` | `communities(id)` | CASCADE             |
 | `multisig_requests`  | `community_id` | `communities(id)` | CASCADE             |
+| `proposals`          | `community_id` | `communities(id)` | CASCADE             |
+| `votes`              | `proposal_id`  | `proposals(id)`   | CASCADE             |

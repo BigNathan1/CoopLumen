@@ -99,6 +99,8 @@ describeIf('Migration integration', () => {
       'notifications',
       'audit_log',
       'multisig_requests',
+      'proposals',
+      'votes',
     ];
 
     const { rows } = await pool.query<{ tablename: string }>(
