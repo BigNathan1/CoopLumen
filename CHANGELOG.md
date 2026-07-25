@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Migration `002_create_communities.sql`: canonical `communities` schema — full column set, CHECK constraints mirroring the API validation (name length, description length, Stellar asset code and issuer formats, avatar URL length), a partial index for the active-community listing, and an index on `(asset_code, asset_issuer)`
 - GitHub Actions CI (`.github/workflows/ci.yml`): lint, type-check, frontend tests, and backend tests with a PostgreSQL 16 service container so the DB integration suites run automatically on every push and PR to main
 - API versioning: all resource routes moved under the `/api/v1` prefix (health checks stay unversioned)
 - Community avatar support: `avatar_url` column and `POST /api/v1/communities/:id/avatar` endpoint
@@ -41,6 +42,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Next.js `output: standalone` for minimal production image
 - `.dockerignore` files for backend and frontend
 - `CODEOWNERS`, issue templates, PR template, `SECURITY.md`, `CHANGELOG.md`
+
+### Fixed
+
+- Development seed data used malformed Stellar public keys (55 characters, one containing literal filler text); replaced with well-formed 56-character StrKey addresses
 
 ---
 

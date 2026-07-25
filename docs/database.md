@@ -15,6 +15,7 @@ erDiagram
     text issuer_public_key
     text asset_code
     text asset_issuer
+    text avatar_url
     timestamptz created_at
     timestamptz updated_at
     timestamptz deleted_at
@@ -182,11 +183,32 @@ A registered cooperative community on CoopLumen. Each community maps to a Stella
 | `issuer_public_key` | `TEXT`        | Stellar G… address that controls the asset |
 | `asset_code`        | `TEXT`        | 1–12 char Stellar asset code               |
 | `asset_issuer`      | `TEXT`        | Stellar G… address of the asset issuer     |
+| `avatar_url`        | `TEXT`        | Nullable — community avatar image          |
 | `created_at`        | `TIMESTAMPTZ` |                                            |
 | `updated_at`        | `TIMESTAMPTZ` | Auto-updated by `set_updated_at()` trigger |
 | `deleted_at`        | `TIMESTAMPTZ` | Nullable — soft delete                     |
 
 FK constraints: none (root table).
+
+CHECK constraints — these mirror the request validation in `backend/src/api/schemas/community.ts`, so rows written by seeds, migrations or manual fixes obey the same rules the API enforces:
+
+| Constraint                            | Rule                                                     |
+| ------------------------------------- | -------------------------------------------------------- |
+| `communities_name_check`              | trimmed `name` is 2–64 characters                        |
+| `communities_description_check`       | `description` is NULL or ≤ 500 characters                |
+| `communities_asset_code_check`        | `asset_code` matches `^[A-Za-z0-9]{1,12}$` (Stellar alphanum4/alphanum12) |
+| `communities_issuer_public_key_check` | `issuer_public_key` matches `^G[A-Z2-7]{55}$`            |
+| `communities_asset_issuer_check`      | `asset_issuer` matches `^G[A-Z2-7]{55}$`                 |
+| `communities_avatar_url_check`        | `avatar_url` is NULL or ≤ 2048 characters                |
+
+Indexes:
+
+| Index                               | Definition                                                | Serves                                       |
+| ----------------------------------- | --------------------------------------------------------- | -------------------------------------------- |
+| `communities_name_key`              | `UNIQUE (name)`                                            | duplicate-name 409s                          |
+| `idx_communities_active_created_at` | `(created_at DESC) WHERE deleted_at IS NULL`               | default community listing                    |
+| `idx_communities_asset`             | `(asset_code, asset_issuer)`                               | resolving a community from its Stellar asset |
+| `idx_communities_fts`               | GIN over `to_tsvector(name || ' ' || description)`         | full-text search                             |
 
 ---
 
