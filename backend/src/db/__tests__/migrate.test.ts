@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import { PoolClient } from 'pg';
 import {
+  BOOTSTRAP_MIGRATION,
   listMigrationFiles,
   ensureSchemaMigrationsTable,
   getAppliedMigrations,
@@ -57,12 +58,62 @@ describe('listMigrationFiles', () => {
 });
 
 describe('ensureSchemaMigrationsTable', () => {
-  it('runs CREATE TABLE IF NOT EXISTS', async () => {
+  const bootstrapSql = 'CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY);';
+
+  it('executes the bootstrap migration file inside a transaction', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockFs.readFile.mockResolvedValueOnce(bootstrapSql as any);
     const client = makeClient();
+
     await ensureSchemaMigrationsTable(client);
-    expect(client.query).toHaveBeenCalledWith(
-      expect.stringContaining('CREATE TABLE IF NOT EXISTS schema_migrations')
+
+    const calls = client.query.mock.calls.map(([sql]) => sql as string);
+    expect(mockFs.readFile).toHaveBeenCalledWith(
+      expect.stringContaining(BOOTSTRAP_MIGRATION),
+      'utf8'
     );
+    expect(calls).toContain('BEGIN');
+    expect(calls).toContain(bootstrapSql);
+    expect(calls).toContain('COMMIT');
+  });
+
+  it('records the bootstrap migration without duplicating an existing row', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockFs.readFile.mockResolvedValueOnce(bootstrapSql as any);
+    const client = makeClient();
+
+    await ensureSchemaMigrationsTable(client);
+
+    const insert = client.query.mock.calls.find(([sql]) =>
+      (sql as string).includes('INSERT INTO schema_migrations')
+    );
+    expect(insert?.[0]).toContain('ON CONFLICT (name) DO NOTHING');
+    expect(insert?.[1]).toEqual([BOOTSTRAP_MIGRATION]);
+  });
+
+  it('throws a descriptive error when the bootstrap file is missing', async () => {
+    const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+    mockFs.readFile.mockRejectedValueOnce(err);
+    const client = makeClient();
+
+    await expect(ensureSchemaMigrationsTable(client)).rejects.toThrow(
+      /Bootstrap migration is missing/
+    );
+  });
+
+  it('rolls back when the bootstrap SQL fails', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockFs.readFile.mockResolvedValueOnce('BAD SQL;' as any);
+    const client = {
+      query: jest.fn(async (sql: string) => {
+        if (sql === 'BAD SQL;') throw new Error('syntax error');
+      }),
+    } as unknown as jest.Mocked<PoolClient>;
+
+    await expect(ensureSchemaMigrationsTable(client)).rejects.toThrow('syntax error');
+
+    const calls = client.query.mock.calls.map(([sql]) => sql as string);
+    expect(calls).toContain('ROLLBACK');
   });
 });
 

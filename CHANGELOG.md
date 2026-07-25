@@ -42,10 +42,16 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `.dockerignore` files for backend and frontend
 - `CODEOWNERS`, issue templates, PR template, `SECURITY.md`, `CHANGELOG.md`
 
+### Changed
+
+- Migration 001 is now the single source of truth for the `schema_migrations` table: the runner bootstraps by executing that file instead of an inlined copy of the DDL, and records it as applied so it is never replayed
+- `schema_migrations` gained an `applied_at` index and table/column comments
+
 ### Fixed
 
 - `docs/database.md`: sync the `loans` table reference to the current schema — add the lifecycle columns and constraints introduced in migration 015 (`asset_issuer`, `purpose`, `amount_repaid`, `disbursed_at`, `closed_at`, `updated_at`, the `status` and `amount_repaid` CHECKs, and the `status` index)
 - Migration 017: `transactions_log.community_id` foreign key is now `ON DELETE SET NULL`. Previously it defaulted to `NO ACTION`, which blocked deleting a community that had logged transactions and tied audit-trail retention to the community lifetime; the audit record now survives community deletion with `community_id` nulled
+- `npm run db:rollback` no longer fails when rolling back `001_schema_migrations`: the tracking row is deleted before the `.down.sql` runs, so dropping the tracking table itself succeeds
 
 ---
 
