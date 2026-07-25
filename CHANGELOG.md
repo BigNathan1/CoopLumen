@@ -13,6 +13,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Migration 017: members table integrity — Stellar address format constraint, `updated_at` column and trigger, and indexes covering the cross-community and live-member lookup paths
 - Integration tests for the members schema: FK cascade, role and address constraints, composite-key uniqueness, and `updated_at` behaviour
+- Migration `002_create_communities.sql`: canonical `communities` schema — full column set, CHECK constraints mirroring the API validation (name length, description length, Stellar asset code and issuer formats, avatar URL length), a partial index for the active-community listing, and an index on `(asset_code, asset_issuer)`
 - GitHub Actions CI (`.github/workflows/ci.yml`): lint, type-check, frontend tests, and backend tests with a PostgreSQL 16 service container so the DB integration suites run automatically on every push and PR to main
 - API versioning: all resource routes moved under the `/api/v1` prefix (health checks stay unversioned)
 - Community avatar support: `avatar_url` column and `POST /api/v1/communities/:id/avatar` endpoint
@@ -54,6 +55,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `docs/database.md`: sync the `loans` table reference to the current schema — add the lifecycle columns and constraints introduced in migration 015 (`asset_issuer`, `purpose`, `amount_repaid`, `disbursed_at`, `closed_at`, `updated_at`, the `status` and `amount_repaid` CHECKs, and the `status` index)
 - Migration 017: `transactions_log.community_id` foreign key is now `ON DELETE SET NULL`. Previously it defaulted to `NO ACTION`, which blocked deleting a community that had logged transactions and tied audit-trail retention to the community lifetime; the audit record now survives community deletion with `community_id` nulled
 - `npm run db:rollback` no longer fails when rolling back `001_schema_migrations`: the tracking row is deleted before the `.down.sql` runs, so dropping the tracking table itself succeeds
+- Development seed data used malformed Stellar public keys (55 characters, one containing literal filler text); replaced with well-formed 56-character StrKey addresses
 
 ---
 
