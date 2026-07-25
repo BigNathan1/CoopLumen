@@ -200,6 +200,20 @@ erDiagram
     timestamptz updated_at
   }
 
+  kyc_records {
+    uuid id PK
+    uuid community_id FK
+    text stellar_address
+    text status
+    text provider
+    text provider_reference
+    timestamptz verified_at
+    text rejected_reason
+    jsonb metadata
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
   communities ||--o{ members : "has"
   communities ||--o{ loans : "has"
   communities ||--o{ payments : "has"
@@ -211,6 +225,7 @@ erDiagram
   communities ||--o{ multisig_requests : "approves via"
   communities ||--o{ proposals : "governs via"
   proposals ||--o{ votes : "tallied from"
+  communities ||--o{ kyc_records : "verifies"
   loans ||--o{ loan_events : "has"
   loans ||--o{ payments : "repaid via"
   loan_events }o--o| payments : "linked to"
@@ -583,6 +598,28 @@ Indexes: `proposal_id`, `voter_address`, `(proposal_id, choice)` for tallying.
 
 ---
 
+### `kyc_records`
+
+Per-community KYC verification state for a Stellar address. **Phase 4 prep** — dormant until SEP-12 anchor integration activates it; no API routes read or write this table yet.
+
+| Column               | Type          | Notes                                                     |
+| -------------------- | ------------- | ---------------------------------------------------------- |
+| `id`                 | `UUID`        | PK                                                          |
+| `community_id`       | `UUID`        | FK → `communities(id) ON DELETE CASCADE`                    |
+| `stellar_address`    | `TEXT`        |                                                              |
+| `status`              | `TEXT`        | `pending \| submitted \| verified \| rejected \| expired`, CHECK enforced, default `pending` |
+| `provider`           | `TEXT`        | Nullable — SEP-12 anchor / KYC provider identifier          |
+| `provider_reference` | `TEXT`        | Nullable — external reference ID from the provider          |
+| `verified_at`        | `TIMESTAMPTZ` | Nullable — set when `status` becomes `verified`             |
+| `rejected_reason`    | `TEXT`        | Nullable                                                     |
+| `metadata`           | `JSONB`       | Nullable — provider-specific payload                         |
+| `created_at`         | `TIMESTAMPTZ` |                                                              |
+| `updated_at`         | `TIMESTAMPTZ` | Auto-updated by trigger                                      |
+
+Unique constraint: `(community_id, stellar_address)` — one KYC record per address per community.
+
+---
+
 ## Foreign Key `ON DELETE` Summary
 
 | Child table          | FK column      | References        | Behaviour           |
@@ -602,3 +639,4 @@ Indexes: `proposal_id`, `voter_address`, `(proposal_id, choice)` for tallying.
 | `multisig_requests`  | `community_id` | `communities(id)` | CASCADE             |
 | `proposals`          | `community_id` | `communities(id)` | CASCADE             |
 | `votes`              | `proposal_id`  | `proposals(id)`   | CASCADE             |
+| `kyc_records`        | `community_id` | `communities(id)` | CASCADE             |

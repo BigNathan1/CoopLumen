@@ -101,6 +101,7 @@ describeIf('Migration integration', () => {
       'multisig_requests',
       'proposals',
       'votes',
+      'kyc_records',
     ];
 
     const { rows } = await pool.query<{ tablename: string }>(
