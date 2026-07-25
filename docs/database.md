@@ -160,6 +160,18 @@ erDiagram
     timestamptz updated_at
   }
 
+  votes {
+    uuid id PK
+    uuid proposal_id FK
+    text voter_address
+    text choice
+    numeric weight
+    text reason
+    text stellar_tx_hash UK
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
   communities ||--o{ members : "has"
   communities ||--o{ loans : "has"
   communities ||--o{ payments : "has"
@@ -169,6 +181,7 @@ erDiagram
   communities ||--|| community_settings : "has"
   communities ||--o{ notifications : "generates"
   communities ||--o{ proposals : "governs via"
+  proposals ||--o{ votes : "tallied from"
   loans ||--o{ loan_events : "has"
   loans ||--o{ payments : "repaid via"
   loan_events }o--o| payments : "linked to"
@@ -433,6 +446,30 @@ Indexes: `community_id`, `proposer_address`, `(community_id, status)`, and a par
 
 ---
 
+### `votes`
+
+Ballots cast against a proposal. One row per voter per proposal — a voter changing their mind
+updates the existing row rather than inserting a second one. Dormant until the governance phase
+activates it.
+
+| Column            | Type            | Notes                                                      |
+| ----------------- | --------------- | ---------------------------------------------------------- |
+| `id`              | `UUID`          | PK                                                         |
+| `proposal_id`     | `UUID`          | FK → `proposals(id) ON DELETE CASCADE`                     |
+| `voter_address`   | `TEXT`          | Stellar address of the voter                               |
+| `choice`          | `TEXT`          | `for`, `against`, or `abstain`                             |
+| `weight`          | `NUMERIC(20,7)` | Voting weight, `>= 0` CHECK enforced — defaults to `1`     |
+| `reason`          | `TEXT`          | Nullable — optional rationale shown alongside the tally    |
+| `stellar_tx_hash` | `TEXT`          | Unique, nullable — on-chain vote transaction               |
+| `created_at`      | `TIMESTAMPTZ`   |                                                            |
+| `updated_at`      | `TIMESTAMPTZ`   | Auto-updated by trigger — reflects the last change of mind |
+
+Unique constraint: `(proposal_id, voter_address)`.
+
+Indexes: `proposal_id`, `voter_address`, `(proposal_id, choice)` for tallying.
+
+---
+
 ## Foreign Key `ON DELETE` Summary
 
 | Child table          | FK column      | References        | Behaviour           |
@@ -450,3 +487,4 @@ Indexes: `community_id`, `proposer_address`, `(community_id, status)`, and a par
 | `community_settings` | `community_id` | `communities(id)` | CASCADE             |
 | `notifications`      | `community_id` | `communities(id)` | CASCADE             |
 | `proposals`          | `community_id` | `communities(id)` | CASCADE             |
+| `votes`              | `proposal_id`  | `proposals(id)`   | CASCADE             |
