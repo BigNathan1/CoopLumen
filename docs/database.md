@@ -15,6 +15,7 @@ erDiagram
     text issuer_public_key
     text asset_code
     text asset_issuer
+    text avatar_url
     timestamptz created_at
     timestamptz updated_at
     timestamptz deleted_at
@@ -36,9 +37,15 @@ erDiagram
     text lender_address
     numeric amount
     text asset_code
+    text asset_issuer
     text status
+    text purpose
+    numeric amount_repaid
     timestamptz due_at
+    timestamptz disbursed_at
+    timestamptz closed_at
     timestamptz created_at
+    timestamptz updated_at
   }
 
   payments {
@@ -131,6 +138,26 @@ erDiagram
     timestamptz created_at
   }
 
+  multisig_requests {
+    uuid id PK
+    uuid community_id FK
+    text proposer_address
+    text action
+    text title
+    text description
+    jsonb payload
+    text transaction_xdr
+    int required_signatures
+    int current_signatures
+    text status
+    text stellar_tx_hash UK
+    text rejection_reason
+    timestamptz expires_at
+    timestamptz executed_at
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
   audit_log {
     uuid id PK
     text actor_address
@@ -143,6 +170,50 @@ erDiagram
     timestamptz created_at
   }
 
+  proposals {
+    uuid id PK
+    uuid community_id FK
+    text proposer_address
+    text title
+    text description
+    text type
+    text status
+    numeric quorum_percent
+    jsonb metadata
+    timestamptz voting_starts_at
+    timestamptz voting_ends_at
+    timestamptz executed_at
+    text stellar_tx_hash UK
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  votes {
+    uuid id PK
+    uuid proposal_id FK
+    text voter_address
+    text choice
+    numeric weight
+    text reason
+    text stellar_tx_hash UK
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
+  kyc_records {
+    uuid id PK
+    uuid community_id FK
+    text stellar_address
+    text status
+    text provider
+    text provider_reference
+    timestamptz verified_at
+    text rejected_reason
+    jsonb metadata
+    timestamptz created_at
+    timestamptz updated_at
+  }
+
   communities ||--o{ members : "has"
   communities ||--o{ loans : "has"
   communities ||--o{ payments : "has"
@@ -151,6 +222,10 @@ erDiagram
   communities ||--o{ reputation_scores : "tracks"
   communities ||--|| community_settings : "has"
   communities ||--o{ notifications : "generates"
+  communities ||--o{ multisig_requests : "approves via"
+  communities ||--o{ proposals : "governs via"
+  proposals ||--o{ votes : "tallied from"
+  communities ||--o{ kyc_records : "verifies"
   loans ||--o{ loan_events : "has"
   loans ||--o{ payments : "repaid via"
   loan_events }o--o| payments : "linked to"
@@ -162,12 +237,18 @@ erDiagram
 
 ### `schema_migrations`
 
-Migration tracking table. Applied automatically by the runner before any other migrations.
+Migration tracking table. One row per applied migration file.
 
-| Column       | Type          | Notes                   |
-| ------------ | ------------- | ----------------------- |
-| `name`       | `TEXT`        | PK — migration filename |
-| `applied_at` | `TIMESTAMPTZ` | When the migration ran  |
+| Column       | Type          | Notes                                   |
+| ------------ | ------------- | --------------------------------------- |
+| `name`       | `TEXT`        | PK — migration filename                 |
+| `applied_at` | `TIMESTAMPTZ` | Commit time of the applying transaction |
+
+Indexes: `idx_schema_migrations_applied_at` on `applied_at` — the runner lists applied migrations with `ORDER BY applied_at ASC, name ASC`.
+
+**Bootstrap.** `001_schema_migrations.sql` is the only definition of this table; `migrate.ts` executes that file before every run and records it as applied with `ON CONFLICT DO NOTHING`, so it never appears as pending and is never replayed. The file is fully idempotent (`CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS` / `COMMENT ON`), so running it against an already-migrated database is a no-op.
+
+**Rollback.** `npm run db:rollback` deletes a migration's `schema_migrations` row before executing its `.down.sql`, inside one transaction. That ordering is what lets `001_schema_migrations.down.sql` drop the tracking table itself.
 
 ---
 
@@ -183,11 +264,32 @@ A registered cooperative community on CoopLumen. Each community maps to a Stella
 | `issuer_public_key` | `TEXT`        | Stellar G… address that controls the asset |
 | `asset_code`        | `TEXT`        | 1–12 char Stellar asset code               |
 | `asset_issuer`      | `TEXT`        | Stellar G… address of the asset issuer     |
+| `avatar_url`        | `TEXT`        | Nullable — community avatar image          |
 | `created_at`        | `TIMESTAMPTZ` |                                            |
 | `updated_at`        | `TIMESTAMPTZ` | Auto-updated by `set_updated_at()` trigger |
 | `deleted_at`        | `TIMESTAMPTZ` | Nullable — soft delete                     |
 
 FK constraints: none (root table).
+
+CHECK constraints — these mirror the request validation in `backend/src/api/schemas/community.ts`, so rows written by seeds, migrations or manual fixes obey the same rules the API enforces:
+
+| Constraint                            | Rule                                                     |
+| ------------------------------------- | -------------------------------------------------------- |
+| `communities_name_check`              | trimmed `name` is 2–64 characters                        |
+| `communities_description_check`       | `description` is NULL or ≤ 500 characters                |
+| `communities_asset_code_check`        | `asset_code` matches `^[A-Za-z0-9]{1,12}$` (Stellar alphanum4/alphanum12) |
+| `communities_issuer_public_key_check` | `issuer_public_key` matches `^G[A-Z2-7]{55}$`            |
+| `communities_asset_issuer_check`      | `asset_issuer` matches `^G[A-Z2-7]{55}$`                 |
+| `communities_avatar_url_check`        | `avatar_url` is NULL or ≤ 2048 characters                |
+
+Indexes:
+
+| Index                               | Definition                                                | Serves                                       |
+| ----------------------------------- | --------------------------------------------------------- | -------------------------------------------- |
+| `communities_name_key`              | `UNIQUE (name)`                                            | duplicate-name 409s                          |
+| `idx_communities_active_created_at` | `(created_at DESC) WHERE deleted_at IS NULL`               | default community listing                    |
+| `idx_communities_asset`             | `(asset_code, asset_issuer)`                               | resolving a community from its Stellar asset |
+| `idx_communities_fts`               | GIN over `to_tsvector(name || ' ' || description)`         | full-text search                             |
 
 ---
 
@@ -218,19 +320,29 @@ Indexes:
 
 ### `loans`
 
-A P2P loan between two community members, tracked off-chain.
+A P2P loan between two community members, tracked off-chain. Base columns are created in migration 002; the lifecycle columns and constraints are added in migration 015.
 
-| Column             | Type            | Notes                                |
-| ------------------ | --------------- | ------------------------------------ |
-| `id`               | `UUID`          | PK                                   |
-| `community_id`     | `UUID`          | FK → `communities(id)`               |
-| `borrower_address` | `TEXT`          | Stellar address                      |
-| `lender_address`   | `TEXT`          | Stellar address                      |
-| `amount`           | `NUMERIC(20,7)` | 7 decimal places — Stellar precision |
-| `asset_code`       | `TEXT`          |                                      |
-| `status`           | `TEXT`          | Default `pending`                    |
-| `due_at`           | `TIMESTAMPTZ`   | Nullable                             |
-| `created_at`       | `TIMESTAMPTZ`   |                                      |
+| Column             | Type            | Notes                                                            |
+| ------------------ | --------------- | ---------------------------------------------------------------- |
+| `id`               | `UUID`          | PK                                                               |
+| `community_id`     | `UUID`          | FK → `communities(id)`                                           |
+| `borrower_address` | `TEXT`          | Stellar address                                                  |
+| `lender_address`   | `TEXT`          | Stellar address                                                  |
+| `amount`           | `NUMERIC(20,7)` | 7 decimal places — Stellar precision                             |
+| `asset_code`       | `TEXT`          |                                                                  |
+| `asset_issuer`     | `TEXT`          | Nullable — XLM has no issuer (migration 015)                     |
+| `status`           | `TEXT`          | Default `pending`; CHECK enum (see below)                        |
+| `purpose`          | `TEXT`          | Nullable — free-text loan purpose (migration 015)               |
+| `amount_repaid`    | `NUMERIC(20,7)` | Default `0`; CHECK `0 ≤ amount_repaid ≤ amount` (migration 015)  |
+| `due_at`           | `TIMESTAMPTZ`   | Nullable                                                         |
+| `disbursed_at`     | `TIMESTAMPTZ`   | Nullable — set when the loan is disbursed (migration 015)        |
+| `closed_at`        | `TIMESTAMPTZ`   | Nullable — set when repaid, defaulted, or cancelled (migration 015) |
+| `created_at`       | `TIMESTAMPTZ`   |                                                                  |
+| `updated_at`       | `TIMESTAMPTZ`   | Auto-updated by `set_updated_at()` trigger (migration 015)       |
+
+Status enum (`loans_status_check`): `pending \| active \| repaid \| defaulted \| cancelled`.
+
+Indexes: `community_id`, `borrower_address`, `lender_address`, and `status`.
 
 ---
 
@@ -327,6 +439,8 @@ General-purpose audit trail for all on-chain and off-chain state changes. `metad
 
 Indexes: `(community_id, created_at DESC)`, `actor_address`, `action`, GIN on `metadata`.
 
+`community_id` is `ON DELETE SET NULL` (migration 017): deleting a community nulls the reference but preserves the immutable audit record.
+
 ---
 
 ### `reputation_scores`
@@ -378,6 +492,8 @@ In-app notifications addressed to a Stellar address. `read_at` is null until the
 | `read_at`         | `TIMESTAMPTZ` | Nullable — partial index for unread queries       |
 | `created_at`      | `TIMESTAMPTZ` |                                                   |
 
+Indexes: `(stellar_address, created_at DESC)` for the recipient feed, `community_id`, and a partial `(stellar_address, created_at DESC) WHERE read_at IS NULL` for unread counts and the unread feed.
+
 ---
 
 ### `audit_log`
@@ -398,6 +514,112 @@ Security-sensitive event log. Records before/after state for all destructive ope
 
 ---
 
+### `multisig_requests`
+
+A treasury action awaiting co-signer approval. The row is the off-chain coordination record — it holds the proposed Stellar transaction envelope while signatures are collected. The network remains the authority on whether that envelope is actually executable.
+
+Dormant until the multisig phase activates it.
+
+| Column                | Type          | Notes                                                                                           |
+| --------------------- | ------------- | ----------------------------------------------------------------------------------------------- |
+| `id`                  | `UUID`        | PK                                                                                              |
+| `community_id`        | `UUID`        | FK → `communities(id) ON DELETE CASCADE`                                                        |
+| `proposer_address`    | `TEXT`        | Stellar address that opened the request                                                         |
+| `action`              | `TEXT`        | `payment \| token_issue \| trustline \| settings_update \| member_role_change \| signer_update` |
+| `title`               | `TEXT`        | Short human-readable summary                                                                    |
+| `description`         | `TEXT`        | Nullable — rationale shown to co-signers                                                        |
+| `payload`             | `JSONB`       | Action-specific parameters. GIN-indexed                                                         |
+| `transaction_xdr`     | `TEXT`        | Nullable — base64 Stellar transaction envelope, unsigned or partially signed                    |
+| `required_signatures` | `INTEGER`     | `>= 1` — threshold in force when the request was opened                                         |
+| `current_signatures`  | `INTEGER`     | `0 .. required_signatures`                                                                      |
+| `status`              | `TEXT`        | `pending \| approved \| rejected \| executed \| expired \| cancelled`                           |
+| `stellar_tx_hash`     | `TEXT`        | Unique, nullable — set on execution                                                             |
+| `rejection_reason`    | `TEXT`        | Nullable                                                                                        |
+| `expires_at`          | `TIMESTAMPTZ` | Nullable — partial index drives the expiry sweep                                                |
+| `executed_at`         | `TIMESTAMPTZ` | Nullable — non-null only when `status = 'executed'`                                             |
+| `created_at`          | `TIMESTAMPTZ` |                                                                                                 |
+| `updated_at`          | `TIMESTAMPTZ` | Auto-updated by trigger                                                                         |
+
+Only an executed request carries an on-chain result: `status = 'executed'` requires both `executed_at` and `stellar_tx_hash`, and every other status requires `executed_at` to be null.
+
+Indexes: `(community_id, status, created_at DESC)`, `proposer_address`, partial on `expires_at` where the request is still pending, GIN on `payload`.
+
+---
+
+### `proposals`
+
+Governance proposals raised inside a community. Created in Phase 3 prep and dormant until the
+governance phase activates it — no API reads or writes it yet.
+
+| Column             | Type           | Notes                                                              |
+| ------------------ | -------------- | ------------------------------------------------------------------ |
+| `id`               | `UUID`         | PK                                                                 |
+| `community_id`     | `UUID`         | FK → `communities(id) ON DELETE CASCADE`                           |
+| `proposer_address` | `TEXT`         | Stellar address of the author                                      |
+| `title`            | `TEXT`         | Non-blank, CHECK enforced                                          |
+| `description`      | `TEXT`         | Nullable — proposal body                                           |
+| `type`             | `TEXT`         | Constrained enum (see migration)                                   |
+| `status`           | `TEXT`         | `draft`, `active`, `passed`, `rejected`, `executed`, `cancelled`   |
+| `quorum_percent`   | `NUMERIC(5,2)` | 0–100, CHECK enforced — share of voting weight needed to pass      |
+| `metadata`         | `JSONB`        | Nullable — type-specific payload (target loan, spend amount, etc.) |
+| `voting_starts_at` | `TIMESTAMPTZ`  | Defaults to insert time                                            |
+| `voting_ends_at`   | `TIMESTAMPTZ`  | Must be later than `voting_starts_at`, CHECK enforced              |
+| `executed_at`      | `TIMESTAMPTZ`  | Nullable — set when the outcome is applied on-chain                |
+| `stellar_tx_hash`  | `TEXT`         | Unique, nullable — execution transaction                           |
+| `created_at`       | `TIMESTAMPTZ`  |                                                                    |
+| `updated_at`       | `TIMESTAMPTZ`  | Auto-updated by trigger                                            |
+
+Indexes: `community_id`, `proposer_address`, `(community_id, status)`, and a partial index on
+`voting_ends_at` covering only `status = 'active'` for open-ballot sweeps.
+
+---
+
+### `votes`
+
+Ballots cast against a proposal. One row per voter per proposal — a voter changing their mind
+updates the existing row rather than inserting a second one. Dormant until the governance phase
+activates it.
+
+| Column            | Type            | Notes                                                      |
+| ----------------- | --------------- | ---------------------------------------------------------- |
+| `id`              | `UUID`          | PK                                                         |
+| `proposal_id`     | `UUID`          | FK → `proposals(id) ON DELETE CASCADE`                     |
+| `voter_address`   | `TEXT`          | Stellar address of the voter                               |
+| `choice`          | `TEXT`          | `for`, `against`, or `abstain`                             |
+| `weight`          | `NUMERIC(20,7)` | Voting weight, `>= 0` CHECK enforced — defaults to `1`     |
+| `reason`          | `TEXT`          | Nullable — optional rationale shown alongside the tally    |
+| `stellar_tx_hash` | `TEXT`          | Unique, nullable — on-chain vote transaction               |
+| `created_at`      | `TIMESTAMPTZ`   |                                                            |
+| `updated_at`      | `TIMESTAMPTZ`   | Auto-updated by trigger — reflects the last change of mind |
+
+Unique constraint: `(proposal_id, voter_address)`.
+
+Indexes: `proposal_id`, `voter_address`, `(proposal_id, choice)` for tallying.
+
+---
+
+### `kyc_records`
+
+Per-community KYC verification state for a Stellar address. **Phase 4 prep** — dormant until SEP-12 anchor integration activates it; no API routes read or write this table yet.
+
+| Column               | Type          | Notes                                                     |
+| -------------------- | ------------- | ---------------------------------------------------------- |
+| `id`                 | `UUID`        | PK                                                          |
+| `community_id`       | `UUID`        | FK → `communities(id) ON DELETE CASCADE`                    |
+| `stellar_address`    | `TEXT`        |                                                              |
+| `status`              | `TEXT`        | `pending \| submitted \| verified \| rejected \| expired`, CHECK enforced, default `pending` |
+| `provider`           | `TEXT`        | Nullable — SEP-12 anchor / KYC provider identifier          |
+| `provider_reference` | `TEXT`        | Nullable — external reference ID from the provider          |
+| `verified_at`        | `TIMESTAMPTZ` | Nullable — set when `status` becomes `verified`             |
+| `rejected_reason`    | `TEXT`        | Nullable                                                     |
+| `metadata`           | `JSONB`       | Nullable — provider-specific payload                         |
+| `created_at`         | `TIMESTAMPTZ` |                                                              |
+| `updated_at`         | `TIMESTAMPTZ` | Auto-updated by trigger                                      |
+
+Unique constraint: `(community_id, stellar_address)` — one KYC record per address per community.
+
+---
+
 ## Foreign Key `ON DELETE` Summary
 
 | Child table          | FK column      | References        | Behaviour           |
@@ -414,3 +636,7 @@ Security-sensitive event log. Records before/after state for all destructive ope
 | `reputation_scores`  | `community_id` | `communities(id)` | CASCADE             |
 | `community_settings` | `community_id` | `communities(id)` | CASCADE             |
 | `notifications`      | `community_id` | `communities(id)` | CASCADE             |
+| `multisig_requests`  | `community_id` | `communities(id)` | CASCADE             |
+| `proposals`          | `community_id` | `communities(id)` | CASCADE             |
+| `votes`              | `proposal_id`  | `proposals(id)`   | CASCADE             |
+| `kyc_records`        | `community_id` | `communities(id)` | CASCADE             |
