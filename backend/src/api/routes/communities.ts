@@ -37,12 +37,12 @@ const VALID_ROLES = ['admin', 'treasurer', 'member', 'observer'];
 communityRouter.get('/', async (req, res, next) => {
   try {
     const pagination = parsePagination(req);
-    const { sortBy, order } = parseSort(req, ['created_at', 'name', 'updated_at'], 'created_at');
-    const search = queryString(req.query.search).trim();
+    const { sortBy, order } = parseSort(req, ['created_at', 'name', 'updated_at']);
+    const search = queryString(req.query.search);
 
     const clauses = ['deleted_at IS NULL'];
     const params: unknown[] = [];
-    if (search) {
+    if (search.trim()) {
       params.push(search);
       clauses.push(
         `to_tsvector('english', name || ' ' || COALESCE(description, '')) @@ plainto_tsquery('english', $${params.length})`
@@ -58,12 +58,12 @@ communityRouter.get('/', async (req, res, next) => {
     const listParams = [...params, pagination.limit, pagination.offset];
     const communities = await db.query<Community>(
       `SELECT * FROM communities ${where}
-       ORDER BY ${sortBy} ${order}
+       ORDER BY ${sortBy} ${order.toUpperCase()}
        LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
       listParams
     );
 
-    res.json({ data: communities, meta: pageMeta(count, pagination) });
+    res.json({ data: communities.rows, meta: pageMeta(count, pagination) });
   } catch (err) {
     next(err);
   }

@@ -47,17 +47,17 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Limit'
-        - name: search
+        - name: search #062
           in: query
           schema: { type: string }
           description: Full-text search over name and description.
-        - name: sortBy
+        - name: sortBy #063
           in: query
           schema:
             type: string
             enum: [created_at, name, updated_at]
             default: created_at
-        - name: order
+        - name: order #063
           in: query
           schema:
             type: string
