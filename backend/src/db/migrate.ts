@@ -74,13 +74,19 @@ export async function ensureSchemaMigrationsTable(client: PoolClient): Promise<v
   await client.query('BEGIN');
   try {
     await client.query(sql);
+    // `checksum` was added after the table shipped; databases migrated before
+    // then keep NULL and are skipped by drift detection.
+    await client.query('ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS checksum TEXT;');
     await client.query(
       'INSERT INTO schema_migrations (name) VALUES ($1) ON CONFLICT (name) DO NOTHING',
       [BOOTSTRAP_MIGRATION]
     );
-    // `checksum` was added after the table shipped; databases migrated before
-    // then keep NULL and are skipped by drift detection.
-    await client.query('ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS checksum TEXT;');
+    if (sql) {
+      await client.query(
+        'UPDATE schema_migrations SET checksum = $1 WHERE name = $2 AND checksum IS NULL',
+        [checksumOf(sql), BOOTSTRAP_MIGRATION]
+      );
+    }
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');

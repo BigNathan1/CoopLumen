@@ -70,6 +70,33 @@ communityRouter.get('/', async (req, res, next) => {
 });
 
 /**
+ * GET /api/v1/communities/search?q=...
+ * Dedicated full-text search endpoint over name and description.
+ */
+communityRouter.get('/search', async (req, res, next) => {
+  try {
+    const term = (queryString(req.query.q) || queryString(req.query.search)).trim();
+    if (!term) {
+      res.status(400).json({ error: 'Query parameter "q" is required' });
+      return;
+    }
+    const pagination = parsePagination(req);
+    const params: unknown[] = [term, pagination.limit, pagination.offset];
+    const communities = await db.query<Community>(
+      `SELECT * FROM communities
+       WHERE deleted_at IS NULL
+         AND to_tsvector('english', name || ' ' || COALESCE(description, '')) @@ plainto_tsquery('english', $1)
+       ORDER BY created_at DESC
+       LIMIT $2 OFFSET $3`,
+      params
+    );
+    res.json({ data: communities });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * GET /api/v1/communities/:id
  * Single community enriched with member count, token list, and statistics.
  */
