@@ -61,6 +61,7 @@ export async function createMember(
 export async function truncateAll(client: PoolClient): Promise<void> {
   await client.query(`
     TRUNCATE TABLE
+      multisig_requests,
       audit_log,
       notifications,
       community_settings,
