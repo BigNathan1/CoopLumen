@@ -299,6 +299,7 @@ Indexes: `idx_schema_migrations_applied_at` on `applied_at` — the runner lists
 | `name`       | `TEXT`        | PK — migration filename                                          |
 | `applied_at` | `TIMESTAMPTZ` | When the migration ran                                           |
 | `checksum`   | `TEXT`        | SHA-256 of the file as applied; NULL for pre-checksum migrations |
+
 **Bootstrap.** `001_schema_migrations.sql` is the only definition of this table; `migrate.ts` executes that file before every run and records it as applied with `ON CONFLICT DO NOTHING`, so it never appears as pending and is never replayed. The file is fully idempotent (`CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS` / `COMMENT ON`), so running it against an already-migrated database is a no-op.
 
 **Rollback.** `npm run db:rollback` deletes a migration's `schema_migrations` row before executing its `.down.sql`, inside one transaction. That ordering is what lets `001_schema_migrations.down.sql` drop the tracking table itself.
@@ -326,23 +327,23 @@ FK constraints: none (root table).
 
 CHECK constraints — these mirror the request validation in `backend/src/api/schemas/community.ts`, so rows written by seeds, migrations or manual fixes obey the same rules the API enforces:
 
-| Constraint                            | Rule                                                     |
-| ------------------------------------- | -------------------------------------------------------- |
-| `communities_name_check`              | trimmed `name` is 2–64 characters                        |
-| `communities_description_check`       | `description` is NULL or ≤ 500 characters                |
+| Constraint                            | Rule                                                                      |
+| ------------------------------------- | ------------------------------------------------------------------------- |
+| `communities_name_check`              | trimmed `name` is 2–64 characters                                         |
+| `communities_description_check`       | `description` is NULL or ≤ 500 characters                                 |
 | `communities_asset_code_check`        | `asset_code` matches `^[A-Za-z0-9]{1,12}$` (Stellar alphanum4/alphanum12) |
-| `communities_issuer_public_key_check` | `issuer_public_key` matches `^G[A-Z2-7]{55}$`            |
-| `communities_asset_issuer_check`      | `asset_issuer` matches `^G[A-Z2-7]{55}$`                 |
-| `communities_avatar_url_check`        | `avatar_url` is NULL or ≤ 2048 characters                |
+| `communities_issuer_public_key_check` | `issuer_public_key` matches `^G[A-Z2-7]{55}$`                             |
+| `communities_asset_issuer_check`      | `asset_issuer` matches `^G[A-Z2-7]{55}$`                                  |
+| `communities_avatar_url_check`        | `avatar_url` is NULL or ≤ 2048 characters                                 |
 
 Indexes:
 
-| Index                               | Definition                                                | Serves                                       |
-| ----------------------------------- | --------------------------------------------------------- | -------------------------------------------- |
-| `communities_name_key`              | `UNIQUE (name)`                                            | duplicate-name 409s                          |
-| `idx_communities_active_created_at` | `(created_at DESC) WHERE deleted_at IS NULL`               | default community listing                    |
-| `idx_communities_asset`             | `(asset_code, asset_issuer)`                               | resolving a community from its Stellar asset |
-| `idx_communities_fts`               | GIN over `to_tsvector(name || ' ' || description)`         | full-text search                             |
+| Index                               | Definition                                   | Serves                                       |
+| ----------------------------------- | -------------------------------------------- | -------------------------------------------- | --- | --- | ------------- | ---------------- |
+| `communities_name_key`              | `UNIQUE (name)`                              | duplicate-name 409s                          |
+| `idx_communities_active_created_at` | `(created_at DESC) WHERE deleted_at IS NULL` | default community listing                    |
+| `idx_communities_asset`             | `(asset_code, asset_issuer)`                 | resolving a community from its Stellar asset |
+| `idx_communities_fts`               | GIN over `to_tsvector(name                   |                                              | ' ' |     | description)` | full-text search |
 
 ---
 
@@ -375,23 +376,23 @@ Indexes:
 
 A P2P loan between two community members, tracked off-chain. Base columns are created in migration 002; the lifecycle columns and constraints are added in migration 015.
 
-| Column             | Type            | Notes                                                            |
-| ------------------ | --------------- | ---------------------------------------------------------------- |
-| `id`               | `UUID`          | PK                                                               |
-| `community_id`     | `UUID`          | FK → `communities(id)`                                           |
-| `borrower_address` | `TEXT`          | Stellar address                                                  |
-| `lender_address`   | `TEXT`          | Stellar address                                                  |
-| `amount`           | `NUMERIC(20,7)` | 7 decimal places — Stellar precision                             |
-| `asset_code`       | `TEXT`          |                                                                  |
-| `asset_issuer`     | `TEXT`          | Nullable — XLM has no issuer (migration 015)                     |
-| `status`           | `TEXT`          | Default `pending`; CHECK enum (see below)                        |
-| `purpose`          | `TEXT`          | Nullable — free-text loan purpose (migration 015)               |
-| `amount_repaid`    | `NUMERIC(20,7)` | Default `0`; CHECK `0 ≤ amount_repaid ≤ amount` (migration 015)  |
-| `due_at`           | `TIMESTAMPTZ`   | Nullable                                                         |
-| `disbursed_at`     | `TIMESTAMPTZ`   | Nullable — set when the loan is disbursed (migration 015)        |
+| Column             | Type            | Notes                                                               |
+| ------------------ | --------------- | ------------------------------------------------------------------- |
+| `id`               | `UUID`          | PK                                                                  |
+| `community_id`     | `UUID`          | FK → `communities(id)`                                              |
+| `borrower_address` | `TEXT`          | Stellar address                                                     |
+| `lender_address`   | `TEXT`          | Stellar address                                                     |
+| `amount`           | `NUMERIC(20,7)` | 7 decimal places — Stellar precision                                |
+| `asset_code`       | `TEXT`          |                                                                     |
+| `asset_issuer`     | `TEXT`          | Nullable — XLM has no issuer (migration 015)                        |
+| `status`           | `TEXT`          | Default `pending`; CHECK enum (see below)                           |
+| `purpose`          | `TEXT`          | Nullable — free-text loan purpose (migration 015)                   |
+| `amount_repaid`    | `NUMERIC(20,7)` | Default `0`; CHECK `0 ≤ amount_repaid ≤ amount` (migration 015)     |
+| `due_at`           | `TIMESTAMPTZ`   | Nullable                                                            |
+| `disbursed_at`     | `TIMESTAMPTZ`   | Nullable — set when the loan is disbursed (migration 015)           |
 | `closed_at`        | `TIMESTAMPTZ`   | Nullable — set when repaid, defaulted, or cancelled (migration 015) |
-| `created_at`       | `TIMESTAMPTZ`   |                                                                  |
-| `updated_at`       | `TIMESTAMPTZ`   | Auto-updated by `set_updated_at()` trigger (migration 015)       |
+| `created_at`       | `TIMESTAMPTZ`   |                                                                     |
+| `updated_at`       | `TIMESTAMPTZ`   | Auto-updated by `set_updated_at()` trigger (migration 015)          |
 
 Status enum (`loans_status_check`): `pending \| active \| repaid \| defaulted \| cancelled`.
 
@@ -546,10 +547,10 @@ In-app notifications addressed to a Stellar address. `read_at` is null until the
 | Column            | Type          | Notes                                             |
 | ----------------- | ------------- | ------------------------------------------------- |
 | `id`              | `UUID`        | PK                                                |
-| `stellar_address` | `TEXT`        | Recipient                                         |
+| `stellar_address` | `TEXT`        | Recipient — `^G[A-Z2-7]{55}$`                     |
 | `community_id`    | `UUID`        | Nullable FK → `communities(id) ON DELETE CASCADE` |
 | `type`            | `TEXT`        | Constrained enum (see migration)                  |
-| `title`           | `TEXT`        |                                                   |
+| `title`           | `TEXT`        | Non-blank                                         |
 | `body`            | `TEXT`        | Nullable                                          |
 | `metadata`        | `JSONB`       | Nullable — action-specific payload                |
 | `read_at`         | `TIMESTAMPTZ` | Nullable — partial index for unread queries       |
@@ -557,6 +558,8 @@ In-app notifications addressed to a Stellar address. `read_at` is null until the
 | `updated_at`      | `TIMESTAMPTZ` | Auto-updated by trigger                           |
 
 Indexes: `(stellar_address, created_at DESC)` for the recipient feed, `community_id`, and a partial `(stellar_address, created_at DESC) WHERE read_at IS NULL` for unread counts and the unread feed.
+
+Constraints: `notifications_type_check` on `type`, `notifications_stellar_address_format` on the recipient address, `notifications_read_at_check` (`read_at IS NULL OR read_at >= created_at`), and `notifications_title_check` (title is not blank). The last three are `NOT VALID`, so they apply to new and updated rows and leave any pre-existing row untouched.
 
 ---
 
@@ -667,19 +670,19 @@ Indexes: `proposal_id`, `voter_address`, `(proposal_id, choice)` for tallying.
 
 Per-community KYC verification state for a Stellar address. **Phase 4 prep** — dormant until SEP-12 anchor integration activates it; no API routes read or write this table yet.
 
-| Column               | Type          | Notes                                                     |
-| -------------------- | ------------- | ---------------------------------------------------------- |
-| `id`                 | `UUID`        | PK                                                          |
-| `community_id`       | `UUID`        | FK → `communities(id) ON DELETE CASCADE`                    |
-| `stellar_address`    | `TEXT`        |                                                              |
-| `status`              | `TEXT`        | `pending \| submitted \| verified \| rejected \| expired`, CHECK enforced, default `pending` |
-| `provider`           | `TEXT`        | Nullable — SEP-12 anchor / KYC provider identifier          |
-| `provider_reference` | `TEXT`        | Nullable — external reference ID from the provider          |
-| `verified_at`        | `TIMESTAMPTZ` | Nullable — set when `status` becomes `verified`             |
-| `rejected_reason`    | `TEXT`        | Nullable                                                     |
-| `metadata`           | `JSONB`       | Nullable — provider-specific payload                         |
-| `created_at`         | `TIMESTAMPTZ` |                                                              |
-| `updated_at`         | `TIMESTAMPTZ` | Auto-updated by trigger                                      |
+| Column               | Type          | Notes                                                                                        |
+| -------------------- | ------------- | -------------------------------------------------------------------------------------------- |
+| `id`                 | `UUID`        | PK                                                                                           |
+| `community_id`       | `UUID`        | FK → `communities(id) ON DELETE CASCADE`                                                     |
+| `stellar_address`    | `TEXT`        |                                                                                              |
+| `status`             | `TEXT`        | `pending \| submitted \| verified \| rejected \| expired`, CHECK enforced, default `pending` |
+| `provider`           | `TEXT`        | Nullable — SEP-12 anchor / KYC provider identifier                                           |
+| `provider_reference` | `TEXT`        | Nullable — external reference ID from the provider                                           |
+| `verified_at`        | `TIMESTAMPTZ` | Nullable — set when `status` becomes `verified`                                              |
+| `rejected_reason`    | `TEXT`        | Nullable                                                                                     |
+| `metadata`           | `JSONB`       | Nullable — provider-specific payload                                                         |
+| `created_at`         | `TIMESTAMPTZ` |                                                                                              |
+| `updated_at`         | `TIMESTAMPTZ` | Auto-updated by trigger                                                                      |
 
 Unique constraint: `(community_id, stellar_address)` — one KYC record per address per community.
 
