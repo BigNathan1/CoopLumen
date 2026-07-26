@@ -50,6 +50,9 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `.dockerignore` files for backend and frontend
 - `CODEOWNERS`, issue templates, PR template, `SECURITY.md`, `CHANGELOG.md`
 
+### Fixed
+
+- Migration 017: `transactions_log.community_id` foreign key is now `ON DELETE SET NULL`. Previously it defaulted to `NO ACTION`, which blocked deleting a community that had logged transactions and tied audit-trail retention to the community lifetime; the audit record now survives community deletion with `community_id` nulled
 ### Changed
 
 - Migration 001 is now the single source of truth for the `schema_migrations` table: the runner bootstraps by executing that file instead of an inlined copy of the DDL, and records it as applied so it is never replayed
