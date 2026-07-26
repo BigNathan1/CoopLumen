@@ -95,6 +95,31 @@ describeIf('Migration integration', () => {
     }
   });
 
+  it('re-applying 019_member_role_check_idempotent.sql leaves one role constraint', async () => {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const file = path.join(__dirname, '..', 'migrations', '019_member_role_check_idempotent.sql');
+
+    // The runner records migrations by filename and never replays one, so apply
+    // the file directly — that is the only way to exercise a replay. A schema
+    // rebuild or a manual re-run must not fail on the CHECK constraint.
+    // search_path is pinned because the pool hands out arbitrary connections.
+    const sql = `SET search_path TO public;\n${await fs.readFile(file, 'utf8')}`;
+
+    await pool.query(sql);
+    await pool.query(sql);
+
+    // Exactly one: a drop/add cycle that silently left the table unconstrained
+    // would still pass a "did not throw" check.
+    const { rows } = await pool.query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM pg_constraint
+        WHERE conrelid = 'public.members'::regclass
+          AND conname = 'members_role_check'`
+    );
+
+    expect(Number(rows[0].count)).toBe(1);
+  });
+
   it('fails the run when an applied migration has been edited', async () => {
     const { execSync } = await import('child_process');
     await pool.query(
