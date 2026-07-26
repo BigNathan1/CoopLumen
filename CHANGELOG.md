@@ -56,6 +56,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Migration 019: `members_role_check` is now re-established with a preceding `DROP CONSTRAINT IF EXISTS`, so the role contract (`admin`/`treasurer`/`member`/`observer`) is replay-safe. Migration 011 added it with a bare `ADD CONSTRAINT`, which fails with `duplicate_object` on any direct re-apply; 011 itself is left untouched so applied checksums do not drift
+
 ### Changed
 
 - New `reputation_scores` rows now start at the neutral score `50` instead of `0`, matching the midpoint the scoring formula converges on for a member with no borrowing history
