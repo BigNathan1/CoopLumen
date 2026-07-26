@@ -96,23 +96,6 @@ paths:
         '409':
           description: Community name already taken
 
-  /api/v1/communities/search:
-    get:
-      tags: [Communities]
-      summary: Full-text community search
-      parameters:
-        - name: q
-          in: query
-          required: true
-          schema: { type: string }
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          description: Matching communities
-        '400':
-          description: Missing query parameter
-
   /api/v1/communities/{id}:
     parameters:
       - $ref: '#/components/parameters/CommunityId'
