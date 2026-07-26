@@ -1,11 +1,17 @@
 import { Pool, PoolClient } from 'pg';
 import { logger } from '../utils/logger';
 
+// PostgreSQL connection pool configuration
+// Environment variables with safe defaults for production readiness
+const PGPOOL_MAX = parseInt(process.env.PGPOOL_MAX || '10', 10);
+const PGPOOL_IDLE_TIMEOUT = parseInt(process.env.PGPOOL_IDLE_TIMEOUT || '30000', 10);
+const PGPOOL_CONNECTION_TIMEOUT = parseInt(process.env.PGPOOL_CONNECTION_TIMEOUT || '2000', 10);
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  max: PGPOOL_MAX,
+  idleTimeoutMillis: PGPOOL_IDLE_TIMEOUT,
+  connectionTimeoutMillis: PGPOOL_CONNECTION_TIMEOUT,
 });
 
 pool.on('error', (err) => {
@@ -16,7 +22,12 @@ export const db = {
   async connect(): Promise<void> {
     const client = await pool.connect();
     client.release();
-    logger.info('Database pool initialised');
+    logger.info('Database pool initialised', {
+      maxConnections: PGPOOL_MAX,
+      idleTimeoutMs: PGPOOL_IDLE_TIMEOUT,
+      connectionTimeoutMs: PGPOOL_CONNECTION_TIMEOUT,
+      environment: process.env.NODE_ENV || 'development',
+    });
   },
 
   async query<T extends object>(text: string, params?: unknown[]): Promise<T[]> {
