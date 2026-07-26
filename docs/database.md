@@ -259,6 +259,28 @@ erDiagram
 
 ---
 
+## Migration Runner
+
+`backend/src/db/migrate.ts` applies the SQL files in `backend/src/db/migrations/`.
+
+| Command                           | What it does                                              |
+| --------------------------------- | --------------------------------------------------------- |
+| `npm run db:migrate`              | Applies every pending migration in order                  |
+| `npm run db:migrate -- --dry-run` | Lists what would be applied without touching the DB       |
+| `npm run db:status`               | Prints applied, pending, and drifted migrations           |
+| `npm run db:rollback -- <n>`      | Runs the matching `.down.sql` for the last `n` migrations |
+
+Rules the runner enforces:
+
+- **Naming.** Files must be `NNN_snake_case_name.sql`; a `.down.sql` sibling is the rollback script. Anything else in the directory that ends in `.sql` aborts the run rather than being silently skipped.
+- **Ordering.** Files are sorted by the numeric prefix (so `9_` runs before `10_`), with the filename as a tie-breaker when two files share a prefix.
+- **Idempotence.** Each applied filename is recorded in `schema_migrations`, so a second run is a no-op.
+- **Atomicity.** Every migration runs inside its own transaction and is rolled back on error, leaving `schema_migrations` untouched for that file.
+- **Concurrency.** The runner holds a PostgreSQL advisory lock for the whole run, so two processes starting at once cannot apply the same file twice.
+- **Drift detection.** The SHA-256 of each applied file is stored on apply and re-checked on every run. Editing a migration that has already been applied fails the run; add a new migration instead.
+
+---
+
 ## Tables
 
 ### `schema_migrations`
@@ -272,6 +294,11 @@ Migration tracking table. One row per applied migration file.
 
 Indexes: `idx_schema_migrations_applied_at` on `applied_at` — the runner lists applied migrations with `ORDER BY applied_at ASC, name ASC`.
 
+| Column       | Type          | Notes                                                            |
+| ------------ | ------------- | ---------------------------------------------------------------- |
+| `name`       | `TEXT`        | PK — migration filename                                          |
+| `applied_at` | `TIMESTAMPTZ` | When the migration ran                                           |
+| `checksum`   | `TEXT`        | SHA-256 of the file as applied; NULL for pre-checksum migrations |
 **Bootstrap.** `001_schema_migrations.sql` is the only definition of this table; `migrate.ts` executes that file before every run and records it as applied with `ON CONFLICT DO NOTHING`, so it never appears as pending and is never replayed. The file is fully idempotent (`CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS` / `COMMENT ON`), so running it against an already-migrated database is a no-op.
 
 **Rollback.** `npm run db:rollback` deletes a migration's `schema_migrations` row before executing its `.down.sql`, inside one transaction. That ordering is what lets `001_schema_migrations.down.sql` drop the tracking table itself.

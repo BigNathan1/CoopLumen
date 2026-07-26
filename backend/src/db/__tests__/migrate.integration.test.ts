@@ -84,6 +84,46 @@ describeIf('Migration integration', () => {
     expect(output).toMatch(/No pending migrations/i);
   });
 
+  it('records a checksum for every applied migration', async () => {
+    const { rows } = await pool.query<{ name: string; checksum: string | null }>(
+      'SELECT name, checksum FROM public.schema_migrations ORDER BY name'
+    );
+
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.checksum).toMatch(/^[0-9a-f]{64}$/);
+    }
+  });
+
+  it('fails the run when an applied migration has been edited', async () => {
+    const { execSync } = await import('child_process');
+    await pool.query(
+      `UPDATE public.schema_migrations SET checksum = 'tampered' WHERE name = '001_schema_migrations.sql'`
+    );
+
+    try {
+      expect(() =>
+        execSync('npm run db:migrate', {
+          cwd: process.cwd(),
+          env: { ...process.env },
+          stdio: 'pipe',
+        })
+      ).toThrow();
+    } finally {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const { createHash } = await import('crypto');
+      const sql = await fs.readFile(
+        path.join(__dirname, '..', 'migrations', '001_schema_migrations.sql'),
+        'utf8'
+      );
+      await pool.query('UPDATE public.schema_migrations SET checksum = $1 WHERE name = $2', [
+        createHash('sha256').update(sql, 'utf8').digest('hex'),
+        '001_schema_migrations.sql',
+      ]);
+    }
+  });
+
   it('all expected tables exist after migration', async () => {
     const expectedTables = [
       'communities',
