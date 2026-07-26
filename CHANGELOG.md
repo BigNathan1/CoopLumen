@@ -12,6 +12,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Migration runner hardening: PostgreSQL advisory lock so concurrent `db:migrate` runs cannot double-apply, SHA-256 checksums recorded in `schema_migrations.checksum` with drift detection on every run, strict `NNN_snake_case_name.sql` filename validation, numeric-prefix ordering, and a `--dry-run` flag for `db:migrate` / `db:rollback`
+- Migration `002_create_communities.sql`: canonical `communities` schema — full column set, CHECK constraints mirroring the API validation (name length, description length, Stellar asset code and issuer formats, avatar URL length), a partial index for the active-community listing, and an index on `(asset_code, asset_issuer)`
 - Migration 018: `multisig_requests` table for community treasury actions awaiting co-signer approval (dormant until the multisig phase)
 - Database hardening migrations for audit logging, global `updated_at` triggers, membership uniqueness, and transaction history indexes
 - Migration 017: members table integrity — Stellar address format constraint, `updated_at` column and trigger, and indexes covering the cross-community and live-member lookup paths
@@ -53,11 +54,17 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `.dockerignore` files for backend and frontend
 - `CODEOWNERS`, issue templates, PR template, `SECURITY.md`, `CHANGELOG.md`
 
+### Fixed
+
 ### Changed
 
 - New `reputation_scores` rows now start at the neutral score `50` instead of `0`, matching the midpoint the scoring formula converges on for a member with no borrowing history
 - Migration 001 is now the single source of truth for the `schema_migrations` table: the runner bootstraps by executing that file instead of an inlined copy of the DDL, and records it as applied so it is never replayed
 - `schema_migrations` gained an `applied_at` index and table/column comments
+
+### Removed
+
+- The redundant `GET /api/v1/communities/search` endpoint has been removed. Its functionality is now covered by the `search` query parameter on the main `GET /api/v1/communities` list endpoint.
 
 ### Fixed
 
