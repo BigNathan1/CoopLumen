@@ -12,6 +12,15 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Migration 018: `multisig_requests` table for community treasury actions awaiting co-signer approval (dormant until the multisig phase)
+- Database hardening migrations for audit logging, global `updated_at` triggers, membership uniqueness, and transaction history indexes
+- Migration 017: members table integrity — Stellar address format constraint, `updated_at` column and trigger, and indexes covering the cross-community and live-member lookup paths
+- Integration tests for the members schema: FK cascade, role and address constraints, composite-key uniqueness, and `updated_at` behaviour
+- Migration `002_create_communities.sql`: canonical `communities` schema — full column set, CHECK constraints mirroring the API validation (name length, description length, Stellar asset code and issuer formats, avatar URL length), a partial index for the active-community listing, and an index on `(asset_code, asset_issuer)`
+- Migration 018: `multisig_requests` table for community treasury actions awaiting co-signer approval (dormant until the multisig phase)
+- Migration 017: notification index tuning — composite `(stellar_address, created_at DESC)` for the recipient feed, replacing the redundant single-column index and dropping the no-op `read_at` column from the unread partial index
+- Migration 018: `votes` table recording one ballot per voter per proposal, with weighted choices (`for`/`against`/`abstain`) and an optional on-chain transaction hash. Dormant until the governance phase activates it
+- Migration 017: `proposals` table for community governance (Phase 3 prep) — type and status enums, quorum percentage, voting window, and execution tracking. Dormant until the governance phase activates it
+- Migration 017: `kyc_records` table (Phase 4 prep) — per-community KYC verification state for a Stellar address, dormant until SEP-12 anchor integration lands
 - GitHub Actions CI (`.github/workflows/ci.yml`): lint, type-check, frontend tests, and backend tests with a PostgreSQL 16 service container so the DB integration suites run automatically on every push and PR to main
 - API versioning: all resource routes moved under the `/api/v1` prefix (health checks stay unversioned)
 - Community avatar support: `avatar_url` column and `POST /api/v1/communities/:id/avatar` endpoint
@@ -42,6 +51,22 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Next.js `output: standalone` for minimal production image
 - `.dockerignore` files for backend and frontend
 - `CODEOWNERS`, issue templates, PR template, `SECURITY.md`, `CHANGELOG.md`
+
+### Changed
+
+- New `reputation_scores` rows now start at the neutral score `50` instead of `0`, matching the midpoint the scoring formula converges on for a member with no borrowing history
+- Migration 001 is now the single source of truth for the `schema_migrations` table: the runner bootstraps by executing that file instead of an inlined copy of the DDL, and records it as applied so it is never replayed
+- `schema_migrations` gained an `applied_at` index and table/column comments
+
+### Fixed
+
+- Migration 017: `transactions_log.community_id` foreign key is now `ON DELETE SET NULL`. Previously it defaulted to `NO ACTION`, which blocked deleting a community that had logged transactions and tied audit-trail retention to the community lifetime; the audit record now survives community deletion with `community_id` nulled
+- `npm run db:rollback` no longer fails when rolling back `001_schema_migrations`: the tracking row is deleted before the `.down.sql` runs, so dropping the tracking table itself succeeds
+- Frontend Jest config used a non-existent `setupFilesAfterFramework` key, so `jest.setup.ts` never loaded and `@testing-library/jest-dom` matchers were unavailable — every component test silently failed. Corrected to `setupFilesAfterEnv`.
+- Frontend `type-check` failed on all test files because `@types/jest` was missing; added it to devDependencies.
+- Frontend ESLint extended `next/typescript`, a config not shipped by `eslint-config-next@14`, which broke `npm run lint`; dropped it (TypeScript linting is already covered by `next/core-web-vitals`).
+- `docs/database.md`: sync the `loans` table reference to the current schema — add the lifecycle columns and constraints introduced in migration 015 (`asset_issuer`, `purpose`, `amount_repaid`, `disbursed_at`, `closed_at`, `updated_at`, the `status` and `amount_repaid` CHECKs, and the `status` index)
+- Development seed data used malformed Stellar public keys (55 characters, one containing literal filler text); replaced with well-formed 56-character StrKey addresses
 
 ---
 

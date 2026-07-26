@@ -7,17 +7,48 @@ import { logger } from '../utils/logger';
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const migrationsDirectory = path.join(__dirname, 'migrations');
 
+/**
+ * Migration that creates the tracking table itself. It cannot be applied
+ * through the normal path — the table it creates is what records applications —
+ * so the runner executes it up front and marks it applied.
+ */
+export const BOOTSTRAP_MIGRATION = '001_schema_migrations.sql';
+
 interface AppliedMigration {
   name: string;
 }
 
+/**
+ * Creates `schema_migrations` by executing the bootstrap migration file, so the
+ * SQL lives in exactly one place. The file is idempotent, making this safe to
+ * call on every run.
+ */
 export async function ensureSchemaMigrationsTable(client: PoolClient): Promise<void> {
-  await client.query(`
-    CREATE TABLE IF NOT EXISTS schema_migrations (
-      name TEXT PRIMARY KEY,
-      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  const filePath = path.join(migrationsDirectory, BOOTSTRAP_MIGRATION);
+
+  let sql: string;
+  try {
+    sql = await fs.readFile(filePath, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new Error(`Bootstrap migration is missing: ${filePath}`);
+    }
+
+    throw error;
+  }
+
+  await client.query('BEGIN');
+  try {
+    await client.query(sql);
+    await client.query(
+      'INSERT INTO schema_migrations (name) VALUES ($1) ON CONFLICT (name) DO NOTHING',
+      [BOOTSTRAP_MIGRATION]
     );
-  `);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  }
 }
 
 export async function listMigrationFiles(): Promise<string[]> {
@@ -90,8 +121,11 @@ async function rollback(steps: number = 1): Promise<void> {
 
       await client.query('BEGIN');
       try {
-        await client.query(sql);
+        // Delete the bookkeeping row first: the bootstrap migration's down file
+        // drops schema_migrations itself, so the DELETE has to happen while the
+        // table still exists. Both statements share one transaction.
         await client.query('DELETE FROM schema_migrations WHERE name = $1', [fileName]);
+        await client.query(sql);
         await client.query('COMMIT');
         logger.info('Rolled back migration', { fileName });
       } catch (error) {
