@@ -648,17 +648,17 @@ Ballots cast against a proposal. One row per voter per proposal — a voter chan
 updates the existing row rather than inserting a second one. Dormant until the governance phase
 activates it.
 
-| Column            | Type            | Notes                                                      |
-| ----------------- | --------------- | ---------------------------------------------------------- |
-| `id`              | `UUID`          | PK                                                         |
-| `proposal_id`     | `UUID`          | FK → `proposals(id) ON DELETE CASCADE`                     |
-| `voter_address`   | `TEXT`          | Stellar address of the voter                               |
-| `choice`          | `TEXT`          | `for`, `against`, or `abstain`                             |
-| `weight`          | `NUMERIC(20,7)` | Voting weight, `>= 0` CHECK enforced — defaults to `1`     |
-| `reason`          | `TEXT`          | Nullable — optional rationale shown alongside the tally    |
-| `stellar_tx_hash` | `TEXT`          | Unique, nullable — on-chain vote transaction               |
-| `created_at`      | `TIMESTAMPTZ`   |                                                            |
-| `updated_at`      | `TIMESTAMPTZ`   | Auto-updated by trigger — reflects the last change of mind |
+| Column            | Type            | Notes                                                          |
+| ----------------- | --------------- | -------------------------------------------------------------- |
+| `id`              | `UUID`          | PK                                                             |
+| `proposal_id`     | `UUID`          | FK → `proposals(id) ON DELETE CASCADE`                         |
+| `voter_address`   | `TEXT`          | Stellar address of the voter, `^G[A-Z2-7]{55}$` CHECK enforced |
+| `choice`          | `TEXT`          | `for`, `against`, or `abstain`                                 |
+| `weight`          | `NUMERIC(20,7)` | Voting weight, `0 … 1e12` CHECK enforced — defaults to `1`     |
+| `reason`          | `TEXT`          | Nullable — optional rationale, max 2 000 chars                 |
+| `stellar_tx_hash` | `TEXT`          | Unique, nullable — on-chain vote transaction                   |
+| `created_at`      | `TIMESTAMPTZ`   |                                                                |
+| `updated_at`      | `TIMESTAMPTZ`   | Auto-updated by trigger — reflects the last change of mind     |
 
 Unique constraint: `(proposal_id, voter_address)`.
 
