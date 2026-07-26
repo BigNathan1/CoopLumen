@@ -86,6 +86,12 @@ describeIf('Community CRUD (integration)', () => {
     expect(res.body.data.some((c: { id: string }) => c.id === communityId)).toBe(true);
   });
 
+  it('finds the community via the general list search parameter', async () => {
+    const res = await request(app).get('/api/v1/communities?search=IntegrationDAO');
+    expect(res.status).toBe(200);
+    expect(res.body.data.some((c: { id: string }) => c.id === communityId)).toBe(true);
+  });
+
   it('updates the community', async () => {
     const res = await request(app)
       .put(`/api/v1/communities/${communityId}`)
