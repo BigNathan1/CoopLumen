@@ -93,48 +93,69 @@ export async function applyMigration(client: PoolClient, fileName: string): Prom
   }
 }
 
-async function rollback(steps: number = 1): Promise<void> {
+export async function rollback(client: PoolClient, steps: number = 1): Promise<void> {
+  await ensureSchemaMigrationsTable(client);
+  const applied = [...(await getAppliedMigrations(client))].sort().reverse();
+  const toRollback = applied.slice(0, steps);
+
+  if (toRollback.length === 0) {
+    logger.info('Nothing to roll back');
+    return;
+  }
+
+  for (const fileName of toRollback) {
+    const downFileName = fileName.replace('.sql', '.down.sql');
+    const filePath = path.join(migrationsDirectory, downFileName);
+    let sql: string;
+    try {
+      sql = await fs.readFile(filePath, 'utf8');
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        logger.warn('No down file — skipping rollback', { fileName, downFileName });
+        continue;
+      }
+      throw err;
+    }
+
+    await client.query('BEGIN');
+    try {
+      // Delete the bookkeeping row first: the bootstrap migration's down file
+      // drops schema_migrations itself, so the DELETE has to happen while the
+      // table still exists. Both statements share one transaction.
+      await client.query('DELETE FROM schema_migrations WHERE name = $1', [fileName]);
+      await client.query(sql);
+      await client.query('COMMIT');
+      logger.info('Rolled back migration', { fileName });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    }
+  }
+
+  logger.info('Rollback complete');
+}
+
+export async function migrate(client: PoolClient): Promise<void> {
+  await ensureSchemaMigrationsTable(client);
+  const applied = await getAppliedMigrations(client);
+  const pending = (await listMigrationFiles()).filter((fileName) => !applied.has(fileName));
+
+  if (pending.length === 0) {
+    logger.info('No pending migrations');
+    return;
+  }
+
+  for (const fileName of pending) {
+    await applyMigration(client, fileName);
+  }
+
+  logger.info('Migrations applied successfully');
+}
+
+async function rollbackMigration(steps: number = 1): Promise<void> {
   const client = await pool.connect();
   try {
-    await ensureSchemaMigrationsTable(client);
-    const applied = [...(await getAppliedMigrations(client))].sort().reverse();
-    const toRollback = applied.slice(0, steps);
-
-    if (toRollback.length === 0) {
-      logger.info('Nothing to roll back');
-      return;
-    }
-
-    for (const fileName of toRollback) {
-      const downFileName = fileName.replace('.sql', '.down.sql');
-      const filePath = path.join(migrationsDirectory, downFileName);
-      let sql: string;
-      try {
-        sql = await fs.readFile(filePath, 'utf8');
-      } catch (err) {
-        if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-          logger.warn('No down file — skipping rollback', { fileName, downFileName });
-          continue;
-        }
-        throw err;
-      }
-
-      await client.query('BEGIN');
-      try {
-        // Delete the bookkeeping row first: the bootstrap migration's down file
-        // drops schema_migrations itself, so the DELETE has to happen while the
-        // table still exists. Both statements share one transaction.
-        await client.query('DELETE FROM schema_migrations WHERE name = $1', [fileName]);
-        await client.query(sql);
-        await client.query('COMMIT');
-        logger.info('Rolled back migration', { fileName });
-      } catch (error) {
-        await client.query('ROLLBACK');
-        throw error;
-      }
-    }
-
-    logger.info('Rollback complete');
+    await rollback(client, steps);
   } catch (error) {
     logger.error('Rollback failed', error);
     process.exitCode = 1;
@@ -165,7 +186,7 @@ async function showStatus(): Promise<void> {
   }
 }
 
-async function migrate(): Promise<void> {
+async function migrateDB(): Promise<void> {
   if (process.argv.includes('--status')) {
     await showStatus();
     return;
@@ -174,26 +195,13 @@ async function migrate(): Promise<void> {
   const rollbackIndex = process.argv.indexOf('--rollback');
   if (rollbackIndex !== -1) {
     const steps = parseInt(process.argv[rollbackIndex + 1] ?? '1', 10);
-    await rollback(isNaN(steps) ? 1 : steps);
+    await rollbackMigration(isNaN(steps) ? 1 : steps);
     return;
   }
 
   const client = await pool.connect();
   try {
-    await ensureSchemaMigrationsTable(client);
-    const applied = await getAppliedMigrations(client);
-    const pending = (await listMigrationFiles()).filter((fileName) => !applied.has(fileName));
-
-    if (pending.length === 0) {
-      logger.info('No pending migrations');
-      return;
-    }
-
-    for (const fileName of pending) {
-      await applyMigration(client, fileName);
-    }
-
-    logger.info('Migrations applied successfully');
+    await migrate(client);
   } catch (error) {
     logger.error('Migration failed', error);
     process.exitCode = 1;
@@ -204,7 +212,7 @@ async function migrate(): Promise<void> {
 }
 
 if (require.main === module) {
-  migrate().catch((error) => {
+  migrateDB().catch((error) => {
     logger.error('Migration runner failed', error);
     process.exitCode = 1;
   });
