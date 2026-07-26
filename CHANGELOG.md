@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Migration 018: `multisig_requests` table for community treasury actions awaiting co-signer approval (dormant until the multisig phase)
 - Database hardening migrations for audit logging, global `updated_at` triggers, membership uniqueness, and transaction history indexes
 - Migration 017: members table integrity — Stellar address format constraint, `updated_at` column and trigger, and indexes covering the cross-community and live-member lookup paths
 - Integration tests for the members schema: FK cascade, role and address constraints, composite-key uniqueness, and `updated_at` behaviour
