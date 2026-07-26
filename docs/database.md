@@ -619,23 +619,23 @@ Indexes: `(community_id, status, created_at DESC)`, `proposer_address`, partial 
 Governance proposals raised inside a community. Created in Phase 3 prep and dormant until the
 governance phase activates it — no API reads or writes it yet.
 
-| Column             | Type           | Notes                                                              |
-| ------------------ | -------------- | ------------------------------------------------------------------ |
-| `id`               | `UUID`         | PK                                                                 |
-| `community_id`     | `UUID`         | FK → `communities(id) ON DELETE CASCADE`                           |
-| `proposer_address` | `TEXT`         | Stellar address of the author                                      |
-| `title`            | `TEXT`         | Non-blank, CHECK enforced                                          |
-| `description`      | `TEXT`         | Nullable — proposal body                                           |
-| `type`             | `TEXT`         | Constrained enum (see migration)                                   |
-| `status`           | `TEXT`         | `draft`, `active`, `passed`, `rejected`, `executed`, `cancelled`   |
-| `quorum_percent`   | `NUMERIC(5,2)` | 0–100, CHECK enforced — share of voting weight needed to pass      |
-| `metadata`         | `JSONB`        | Nullable — type-specific payload (target loan, spend amount, etc.) |
-| `voting_starts_at` | `TIMESTAMPTZ`  | Defaults to insert time                                            |
-| `voting_ends_at`   | `TIMESTAMPTZ`  | Must be later than `voting_starts_at`, CHECK enforced              |
-| `executed_at`      | `TIMESTAMPTZ`  | Nullable — set when the outcome is applied on-chain                |
-| `stellar_tx_hash`  | `TEXT`         | Unique, nullable — execution transaction                           |
-| `created_at`       | `TIMESTAMPTZ`  |                                                                    |
-| `updated_at`       | `TIMESTAMPTZ`  | Auto-updated by trigger                                            |
+| Column             | Type           | Notes                                                                             |
+| ------------------ | -------------- | --------------------------------------------------------------------------------- |
+| `id`               | `UUID`         | PK                                                                                |
+| `community_id`     | `UUID`         | FK → `communities(id) ON DELETE CASCADE`                                          |
+| `proposer_address` | `TEXT`         | Stellar address of the author, `^G[A-Z2-7]{55}$` CHECK enforced                   |
+| `title`            | `TEXT`         | Non-blank, max 200 chars, CHECK enforced                                          |
+| `description`      | `TEXT`         | Nullable — proposal body, max 10 000 chars                                        |
+| `type`             | `TEXT`         | Constrained enum (see migration)                                                  |
+| `status`           | `TEXT`         | `draft`, `active`, `passed`, `rejected`, `executed`, `cancelled`                  |
+| `quorum_percent`   | `NUMERIC(5,2)` | 0–100, CHECK enforced — share of voting weight needed to pass                     |
+| `metadata`         | `JSONB`        | Nullable — type-specific payload (target loan, spend amount, etc.)                |
+| `voting_starts_at` | `TIMESTAMPTZ`  | Defaults to insert time                                                           |
+| `voting_ends_at`   | `TIMESTAMPTZ`  | Must be later than `voting_starts_at`, CHECK enforced                             |
+| `executed_at`      | `TIMESTAMPTZ`  | Nullable — only on a `passed`/`executed` proposal, at or after `voting_starts_at` |
+| `stellar_tx_hash`  | `TEXT`         | Unique, nullable — execution transaction                                          |
+| `created_at`       | `TIMESTAMPTZ`  |                                                                                   |
+| `updated_at`       | `TIMESTAMPTZ`  | Auto-updated by trigger                                                           |
 
 Indexes: `community_id`, `proposer_address`, `(community_id, status)`, and a partial index on
 `voting_ends_at` covering only `status = 'active'` for open-ballot sweeps.

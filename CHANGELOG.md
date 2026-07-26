@@ -22,6 +22,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Migration 017: notification index tuning — composite `(stellar_address, created_at DESC)` for the recipient feed, replacing the redundant single-column index and dropping the no-op `read_at` column from the unread partial index
 - Migration 018: `votes` table recording one ballot per voter per proposal, with weighted choices (`for`/`against`/`abstain`) and an optional on-chain transaction hash. Dormant until the governance phase activates it
 - Migration 017: `proposals` table for community governance (Phase 3 prep) — type and status enums, quorum percentage, voting window, and execution tracking. Dormant until the governance phase activates it
+- Migration 021: proposals table integrity — Stellar address format constraint on the proposer, title and description length bounds, a guard tying `executed_at` to the voting window and a settled status, and table/column comments, bringing the table in line with the hardening already applied to `communities`, `members` and `notifications`
+- Integration tests for the proposals schema: address, length, enum, quorum, voting-window and execution constraints, unique execution hash, `updated_at` behaviour, and FK cascade
 - Migration 017: `kyc_records` table (Phase 4 prep) — per-community KYC verification state for a Stellar address, dormant until SEP-12 anchor integration lands
 - GitHub Actions CI (`.github/workflows/ci.yml`): lint, type-check, frontend tests, and backend tests with a PostgreSQL 16 service container so the DB integration suites run automatically on every push and PR to main
 - API versioning: all resource routes moved under the `/api/v1` prefix (health checks stay unversioned)
