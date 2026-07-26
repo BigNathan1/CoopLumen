@@ -57,6 +57,9 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Frontend Jest config used a non-existent `setupFilesAfterFramework` key, so `jest.setup.ts` never loaded and `@testing-library/jest-dom` matchers were unavailable — every component test silently failed. Corrected to `setupFilesAfterEnv`.
+- Frontend `type-check` failed on all test files because `@types/jest` was missing; added it to devDependencies.
+- Frontend ESLint extended `next/typescript`, a config not shipped by `eslint-config-next@14`, which broke `npm run lint`; dropped it (TypeScript linting is already covered by `next/core-web-vitals`).
 - `docs/database.md`: sync the `loans` table reference to the current schema — add the lifecycle columns and constraints introduced in migration 015 (`asset_issuer`, `purpose`, `amount_repaid`, `disbursed_at`, `closed_at`, `updated_at`, the `status` and `amount_repaid` CHECKs, and the `status` index)
 - Migration 017: `transactions_log.community_id` foreign key is now `ON DELETE SET NULL`. Previously it defaulted to `NO ACTION`, which blocked deleting a community that had logged transactions and tied audit-trail retention to the community lifetime; the audit record now survives community deletion with `community_id` nulled
 - `npm run db:rollback` no longer fails when rolling back `001_schema_migrations`: the tracking row is deleted before the `.down.sql` runs, so dropping the tracking table itself succeeds
