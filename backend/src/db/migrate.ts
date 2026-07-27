@@ -155,10 +155,14 @@ async function showStatus(): Promise<void> {
       applied: [...applied].sort(),
       pending,
     });
-    console.log('Applied migrations:');
-    [...applied].sort().forEach((name) => console.log(`  - ${name}`));
-    console.log('\nPending migrations:');
-    pending.forEach((name) => console.log(`  - ${name}`));
+    
+    // Log applied migrations
+    logger.info('Applied migrations:');
+    [...applied].sort().forEach((name) => logger.info(`  - ${name}`));
+    
+    // Log pending migrations
+    logger.info('Pending migrations:');
+    pending.forEach((name) => logger.info(`  - ${name}`));
   } finally {
     client.release();
     await pool.end();
