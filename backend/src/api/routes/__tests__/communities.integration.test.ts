@@ -107,6 +107,8 @@ describeIf('Community CRUD (integration)', () => {
       .post(`/api/v1/communities/${communityId}/members`)
       .send({ stellarAddress: member, role: 'treasurer' });
     expect(add.status).toBe(201);
+    expect(add.body.data.stellar_address).toBe(member);
+    expect(add.body.data.role).toBe('treasurer');
 
     const list = await request(app).get(`/api/v1/communities/${communityId}/members`);
     expect(list.status).toBe(200);
