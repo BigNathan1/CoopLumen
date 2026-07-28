@@ -9,8 +9,17 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `POST /api/v1/tokens/issue`, `POST /api/v1/tokens/burn`, and `POST /api/v1/tokens/trustline` now return `{ data: { txHash } }` instead of a bare `{ txHash }`, matching the API's `{ data, meta?, error? }` response envelope
+- The repayment-overflow `400` on `POST /api/v1/loans/:id/repay` and the validation-failure `400` from `validateBody` now nest their extra fields (`outstanding`, `errors`) under `meta` instead of returning them alongside `error` at the top level
+
 ### Added
 
+- Test coverage for the structured request logger (`method`, `path`, `status`, `duration` via Winston)
+- Test coverage confirming resource routes are only served under `/api/v1` and health checks stay unversioned
+- Test coverage confirming `issuer_public_key`/Stellar public keys are validated as structurally valid 56-character StrKeys, not just checked for length
+- `docs/openapi.yaml` entries for `POST /api/v1/tokens/issue` and `POST /api/v1/tokens/trustline`, previously undocumented
 - `GET /api/v1/tokens/:communityId` to list all tokens issued for a community
 - `GET /api/v1/tokens/holders/:assetCode/:issuer` to list accounts holding a token, backed by Horizon's asset endpoint
 - `POST /api/v1/tokens/burn` to reduce circulating supply by returning tokens to the issuing account
