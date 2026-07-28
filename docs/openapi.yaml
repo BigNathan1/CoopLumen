@@ -96,6 +96,46 @@ paths:
         '409':
           description: Community name already taken
 
+  /api/v1/communities/search:
+    get:
+      tags: [Communities]
+      summary: Search communities
+      description: Dedicated full-text search over community name and description.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+          description: Search query text.
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [created_at, name, updated_at]
+            default: created_at
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: A page of matching communities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Community' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '400':
+          description: Missing required "q" query parameter
+
   /api/v1/communities/{id}:
     parameters:
       - $ref: '#/components/parameters/CommunityId'

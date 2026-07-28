@@ -71,6 +71,44 @@ communityRouter.get('/', async (req, res, next) => {
 });
 
 /**
+ * GET /api/v1/communities/search
+ * Dedicated full-text search over community name and description.
+ * Query: q (required), page, limit, sortBy (created_at|name|updated_at), order (asc|desc)
+ */
+communityRouter.get('/search', async (req, res, next) => {
+  try {
+    const q = queryString(req.query.q).trim();
+    if (!q) {
+      res.status(400).json({ error: 'Query parameter "q" is required' });
+      return;
+    }
+
+    const pagination = parsePagination(req);
+    const { sortBy, order } = parseSort(req, ['created_at', 'name', 'updated_at'], 'created_at');
+
+    const where = `WHERE deleted_at IS NULL AND to_tsvector('english', name || ' ' || COALESCE(description, '')) @@ plainto_tsquery('english', $1)`;
+    const params: unknown[] = [q];
+
+    const [{ count }] = await db.query<{ count: number }>(
+      `SELECT COUNT(*)::int AS count FROM communities ${where}`,
+      params
+    );
+
+    const listParams = [...params, pagination.limit, pagination.offset];
+    const communities = await db.query<Community>(
+      `SELECT * FROM communities ${where}
+       ORDER BY ${sortBy} ${order}
+       LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
+      listParams
+    );
+
+    res.json({ data: communities, meta: pageMeta(count, pagination) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * GET /api/v1/communities/:id
  * Single community enriched with member count, token list, and statistics.
  */

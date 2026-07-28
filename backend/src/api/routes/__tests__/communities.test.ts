@@ -47,6 +47,35 @@ describe('GET /api/v1/communities', () => {
   });
 });
 
+describe('GET /api/v1/communities/search', () => {
+  it('returns 400 when "q" is missing', async () => {
+    const res = await request(app).get('/api/v1/communities/search');
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when "q" is blank', async () => {
+    const res = await request(app).get('/api/v1/communities/search?q=%20');
+    expect(res.status).toBe(400);
+  });
+
+  it('returns matching communities with pagination meta', async () => {
+    const community = {
+      id: 'uuid-1',
+      name: 'EcoDAO',
+      asset_code: 'ECO',
+      asset_issuer: validKey,
+      issuer_public_key: validKey,
+      description: 'An eco community',
+    };
+    mockDb.query.mockResolvedValueOnce([{ count: 1 }]).mockResolvedValueOnce([community]);
+    const res = await request(app).get('/api/v1/communities/search?q=eco');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].name).toBe('EcoDAO');
+    expect(res.body.meta).toEqual({ total: 1, page: 1, limit: 20, pages: 1 });
+  });
+});
+
 describe('GET /api/v1/communities/:id', () => {
   it('returns 404 when not found', async () => {
     mockDb.query.mockResolvedValueOnce([]);
