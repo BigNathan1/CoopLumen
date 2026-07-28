@@ -168,7 +168,9 @@ describe('members', () => {
   it('adds a valid member', async () => {
     mockDb.query
       .mockResolvedValueOnce([{ id: 'uuid-1' }]) // community exists
-      .mockResolvedValueOnce([{ stellar_address: validKey, role: 'treasurer', joined_at: '2024-01-01T00:00:00Z' }]); // insert
+      .mockResolvedValueOnce([
+        { stellar_address: validKey, role: 'treasurer', joined_at: '2024-01-01T00:00:00Z' },
+      ]); // insert
     const res = await request(app)
       .post('/api/v1/communities/uuid-1/members')
       .send({ stellarAddress: validKey, role: 'treasurer' });
@@ -178,7 +180,9 @@ describe('members', () => {
   });
 
   it('updates a member role', async () => {
-    mockDb.query.mockResolvedValueOnce([{ stellar_address: validKey, role: 'admin', joined_at: '2024-01-01T00:00:00Z' }]);
+    mockDb.query.mockResolvedValueOnce([
+      { stellar_address: validKey, role: 'admin', joined_at: '2024-01-01T00:00:00Z' },
+    ]);
     const res = await request(app)
       .put(`/api/v1/communities/uuid-1/members/${validKey}`)
       .send({ role: 'admin' });
