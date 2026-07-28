@@ -53,7 +53,7 @@ tokenRouter.post(
         memo,
       });
 
-      res.status(201).json({ txHash });
+      res.status(201).json({ data: { txHash } });
     } catch (err) {
       if ((err as { response?: unknown }).response) {
         const mapped = mapHorizonError(err);
@@ -90,7 +90,7 @@ tokenRouter.post(
         [amount, assetCode, assetIssuer]
       );
 
-      res.status(200).json({ txHash });
+      res.status(200).json({ data: { txHash } });
     } catch (err) {
       if ((err as { response?: unknown }).response) {
         const mapped = mapHorizonError(err);
@@ -125,7 +125,7 @@ tokenRouter.post(
         limit,
       });
 
-      res.status(201).json({ txHash });
+      res.status(201).json({ data: { txHash } });
     } catch (err) {
       next(err);
     }
