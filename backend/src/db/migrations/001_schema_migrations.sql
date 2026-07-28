@@ -11,6 +11,10 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
   applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Added after the table first shipped. Databases migrated before checksums
+-- existed keep NULL here and are skipped by the runner's drift check.
+ALTER TABLE schema_migrations
+  ADD COLUMN IF NOT EXISTS checksum TEXT;
 -- The runner reads applied migrations with `ORDER BY applied_at ASC, name ASC`.
 CREATE INDEX IF NOT EXISTS idx_schema_migrations_applied_at
   ON schema_migrations (applied_at);

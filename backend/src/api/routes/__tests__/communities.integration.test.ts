@@ -80,8 +80,8 @@ describeIf('Community CRUD (integration)', () => {
     expect(res.body.data.stats).toBeDefined();
   });
 
-  it('finds the community via full-text search', async () => {
-    const res = await request(app).get('/api/v1/communities/search?q=IntegrationDAO');
+  it('finds the community via the general list search parameter', async () => {
+    const res = await request(app).get('/api/v1/communities?search=IntegrationDAO');
     expect(res.status).toBe(200);
     expect(res.body.data.some((c: { id: string }) => c.id === communityId)).toBe(true);
   });
@@ -107,6 +107,8 @@ describeIf('Community CRUD (integration)', () => {
       .post(`/api/v1/communities/${communityId}/members`)
       .send({ stellarAddress: member, role: 'treasurer' });
     expect(add.status).toBe(201);
+    expect(add.body.data.stellar_address).toBe(member);
+    expect(add.body.data.role).toBe('treasurer');
 
     const list = await request(app).get(`/api/v1/communities/${communityId}/members`);
     expect(list.status).toBe(200);
