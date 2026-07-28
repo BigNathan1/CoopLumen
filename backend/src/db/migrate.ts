@@ -216,24 +216,20 @@ async function runPending(client: PoolClient, dryRun: boolean): Promise<void> {
   await ensureSchemaMigrationsTable(client);
   const applied = await getAppliedMigrations(client);
 
-    logger.info('Migration status', {
-      applied: [...applied].sort(),
-      pending,
-    });
-    
-    // Log applied migrations
-    logger.info('Applied migrations:');
-    [...applied].sort().forEach((name) => logger.info(`  - ${name}`));
-    
-    // Log pending migrations
-    logger.info('Pending migrations:');
-    pending.forEach((name) => logger.info(`  - ${name}`));
-  } finally {
-    client.release();
-    await pool.end();
+  const drifted = await findDriftedMigrations(applied);
+  if (drifted.length > 0) {
+    throw new Error(
+      `Applied migration(s) changed on disk: ${drifted.join(', ')}. ` +
+        'Revert the edit and add a new migration instead.'
+    );
   }
 
   const pending = (await listMigrationFiles()).filter((fileName) => !applied.has(fileName));
+
+  logger.info('Migration status', {
+    applied: [...applied.keys()].sort(),
+    pending,
+  });
 
   if (pending.length === 0) {
     logger.info('No pending migrations');
