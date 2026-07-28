@@ -351,7 +351,7 @@ loanRouter.post(
       if (Number(amount) > outstanding + 1e-7) {
         res.status(400).json({
           error: 'Repayment exceeds outstanding balance',
-          outstanding: outstanding.toFixed(7),
+          meta: { outstanding: outstanding.toFixed(7) },
         });
         return;
       }
