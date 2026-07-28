@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { Pool, PoolClient } from 'pg';
-import { migrate, rollback } from '../migrate';
+import { runPending, rollback } from '../migrate';
 
 describe('rollback', () => {
   const migrationsDirectory = path.join(__dirname, '..', 'migrations');
@@ -29,22 +29,18 @@ describe('rollback', () => {
     await fs.writeFile(downMigrationPath, 'DROP TABLE dummy_table;');
 
     try {
-      // Run migrate to apply the dummy migration
-      await migrate(client);
+      // Run the pending-migrations step to apply the dummy migration
+      await runPending(client, false);
 
       // Check that the table was created
-      let result = await client.query(
-        "SELECT to_regclass('public.dummy_table') as table_exists;"
-      );
+      let result = await client.query("SELECT to_regclass('public.dummy_table') as table_exists;");
       expect(result.rows[0].table_exists).toBe('dummy_table');
 
       // Run rollback
-      await rollback(client, 1);
+      await rollback(client, 1, false);
 
       // Check that the table was dropped
-      result = await client.query(
-        "SELECT to_regclass('public.dummy_table') as table_exists;"
-      );
+      result = await client.query("SELECT to_regclass('public.dummy_table') as table_exists;");
       expect(result.rows[0].table_exists).toBeNull();
     } finally {
       // Cleanup the dummy migration files

@@ -212,7 +212,7 @@ export function parseArgs(argv: string[]): CliOptions {
   return { command: 'up', steps: 0, dryRun };
 }
 
-async function runPending(client: PoolClient, dryRun: boolean): Promise<void> {
+export async function runPending(client: PoolClient, dryRun: boolean): Promise<void> {
   await ensureSchemaMigrationsTable(client);
   const applied = await getAppliedMigrations(client);
 
@@ -249,7 +249,7 @@ async function runPending(client: PoolClient, dryRun: boolean): Promise<void> {
   logger.info('Migrations applied successfully', { count: pending.length });
 }
 
-async function rollback(client: PoolClient, steps: number, dryRun: boolean): Promise<void> {
+export async function rollback(client: PoolClient, steps: number, dryRun: boolean): Promise<void> {
   await ensureSchemaMigrationsTable(client);
   const applied = [...(await getAppliedMigrations(client)).keys()]
     .sort(compareMigrations)
@@ -344,7 +344,7 @@ async function migrate(): Promise<void> {
 }
 
 if (require.main === module) {
-  migrateDB().catch((error) => {
+  migrate().catch((error) => {
     logger.error('Migration runner failed', error);
     process.exitCode = 1;
   });
