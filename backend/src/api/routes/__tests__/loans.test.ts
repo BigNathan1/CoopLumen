@@ -77,6 +77,18 @@ describe('GET /api/v1/loans/:id', () => {
   });
 });
 
+describe('GET /api/v1/loans/:id/events', () => {
+  it('returns paginated event history', async () => {
+    mockDb.query
+      .mockResolvedValueOnce([{ count: 1 }])
+      .mockResolvedValueOnce([{ id: 'ev-1', event_type: 'created' }]);
+    const res = await request(app).get(`/api/v1/loans/${loanId}/events?page=1&limit=5`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.meta).toEqual({ total: 1, page: 1, limit: 5, pages: 1 });
+  });
+});
+
 describe('POST /api/v1/loans', () => {
   it('rejects an invalid payload', async () => {
     const res = await request(app).post('/api/v1/loans').send({});

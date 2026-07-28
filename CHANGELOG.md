@@ -11,6 +11,17 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `GET /api/v1/communities/search` dedicated full-text search endpoint over community name and description, with pagination and sorting
+- `docs/openapi.yaml` entry for the new search endpoint
+
+### Changed
+
+- Replaced `express-validator` chains with Zod schemas for `/api/v1/tokens/issue` and `/api/v1/tokens/trustline` bodies, matching the validation convention used across the rest of the API
+- Removed a dead `express-validator` query check on `GET /api/v1/balances/:publicKey`
+- Added pagination metadata (`total`, `page`, `limit`, `pages`) to `GET /api/v1/balances/:publicKey/loans`, `GET /api/v1/balances/community/:communityId/loans`, and `GET /api/v1/loans/:id/events`
+
+### Added
+
 - Community Membership API completion: added proper Stellar address validation for all membership endpoints (GET, PUT, DELETE) to match the validation already present in POST endpoint
 - Enhanced test coverage for invalid Stellar addresses in path parameters across all membership operations
 
