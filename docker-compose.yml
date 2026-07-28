@@ -25,17 +25,21 @@ services:
       db:
         condition: service_healthy
     environment:
+      # PostgreSQL backend connection
       POSTGRESQL_HOST: db
       POSTGRESQL_PORT: 5432
       POSTGRESQL_USERNAME: cooplumen
       POSTGRESQL_PASSWORD: cooplumen
       POSTGRESQL_DATABASE: cooplumen
+      # PgBouncer configuration
       PGBOUNCER_DATABASE: cooplumen
-      PGBOUNCER_POOL_MODE: transaction
-      PGBOUNCER_MAX_CLIENT_CONN: 100
-      PGBOUNCER_DEFAULT_POOL_SIZE: 20
+      PGBOUNCER_POOL_MODE: transaction  # transaction|session|statement
+      PGBOUNCER_MAX_CLIENT_CONN: 100    # Maximum client connections
+      PGBOUNCER_DEFAULT_POOL_SIZE: 20   # Default pool size per database
+      PGBOUNCER_MAX_DB_CONNECTIONS: 50  # Maximum backend connections to PostgreSQL
+      PGBOUNCER_MIN_POOL_SIZE: 5        # Minimum pool size
     ports:
-      - '6432:6432'
+      - '6432:6432'  # PgBouncer default port
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -h localhost -p 6432 -U cooplumen']
       interval: 5s
@@ -55,7 +59,14 @@ services:
     environment:
       NODE_ENV: development
       PORT: 4000
-      DATABASE_URL: postgresql://cooplumen:cooplumen@db:5432/cooplumen
+      # Connect through PgBouncer for connection pooling (development: transaction mode)
+      DATABASE_URL: postgresql://cooplumen:cooplumen@pgbouncer:6432/cooplumen
+      # Direct database connection (fallback/compatibility)
+      DATABASE_DIRECT_URL: postgresql://cooplumen:cooplumen@db:5432/cooplumen
+      # PostgreSQL Pool Configuration
+      PGPOOL_MAX: ${PGPOOL_MAX:-10}
+      PGPOOL_IDLE_TIMEOUT: ${PGPOOL_IDLE_TIMEOUT:-30000}
+      PGPOOL_CONNECTION_TIMEOUT: ${PGPOOL_CONNECTION_TIMEOUT:-2000}
       STELLAR_NETWORK: testnet
       STELLAR_HORIZON_URL: https://horizon-testnet.stellar.org
       FRONTEND_URL: http://localhost:3000

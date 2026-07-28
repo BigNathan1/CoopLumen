@@ -11,13 +11,26 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Community Membership API completion: added proper Stellar address validation for all membership endpoints (GET, PUT, DELETE) to match the validation already present in POST endpoint
+- Enhanced test coverage for invalid Stellar addresses in path parameters across all membership operations
+
+### Added
+
+- Migration runner hardening: PostgreSQL advisory lock so concurrent `db:migrate` runs cannot double-apply, SHA-256 checksums recorded in `schema_migrations.checksum` with drift detection on every run, strict `NNN_snake_case_name.sql` filename validation, numeric-prefix ordering, and a `--dry-run` flag for `db:migrate` / `db:rollback`
+- Migration `002_create_communities.sql`: canonical `communities` schema — full column set, CHECK constraints mirroring the API validation (name length, description length, Stellar asset code and issuer formats, avatar URL length), a partial index for the active-community listing, and an index on `(asset_code, asset_issuer)`
+- Migration 018: `multisig_requests` table for community treasury actions awaiting co-signer approval (dormant until the multisig phase)
+- Database hardening migrations for audit logging, global `updated_at` triggers, membership uniqueness, and transaction history indexes
 - Migration 017: members table integrity — Stellar address format constraint, `updated_at` column and trigger, and indexes covering the cross-community and live-member lookup paths
 - Integration tests for the members schema: FK cascade, role and address constraints, composite-key uniqueness, and `updated_at` behaviour
 - Migration `002_create_communities.sql`: canonical `communities` schema — full column set, CHECK constraints mirroring the API validation (name length, description length, Stellar asset code and issuer formats, avatar URL length), a partial index for the active-community listing, and an index on `(asset_code, asset_issuer)`
 - Migration 018: `multisig_requests` table for community treasury actions awaiting co-signer approval (dormant until the multisig phase)
 - Migration 017: notification index tuning — composite `(stellar_address, created_at DESC)` for the recipient feed, replacing the redundant single-column index and dropping the no-op `read_at` column from the unread partial index
 - Migration 018: `votes` table recording one ballot per voter per proposal, with weighted choices (`for`/`against`/`abstain`) and an optional on-chain transaction hash. Dormant until the governance phase activates it
+- Migration 022: votes table integrity — Stellar address format constraint on the voter, an upper bound on the ballot weight, a length bound on the rationale, and table/column comments, bringing the table in line with the hardening already applied to `communities`, `members` and `notifications`
+- Integration tests for the votes schema: address, choice, weight and reason constraints, one-ballot-per-voter enforcement with in-place change of mind, unique transaction hash, and FK cascade through both the proposal and the community
 - Migration 017: `proposals` table for community governance (Phase 3 prep) — type and status enums, quorum percentage, voting window, and execution tracking. Dormant until the governance phase activates it
+- Migration 021: proposals table integrity — Stellar address format constraint on the proposer, title and description length bounds, a guard tying `executed_at` to the voting window and a settled status, and table/column comments, bringing the table in line with the hardening already applied to `communities`, `members` and `notifications`
+- Integration tests for the proposals schema: address, length, enum, quorum, voting-window and execution constraints, unique execution hash, `updated_at` behaviour, and FK cascade
 - Migration 017: `kyc_records` table (Phase 4 prep) — per-community KYC verification state for a Stellar address, dormant until SEP-12 anchor integration lands
 - GitHub Actions CI (`.github/workflows/ci.yml`): lint, type-check, frontend tests, and backend tests with a PostgreSQL 16 service container so the DB integration suites run automatically on every push and PR to main
 - API versioning: all resource routes moved under the `/api/v1` prefix (health checks stay unversioned)
@@ -50,16 +63,29 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `.dockerignore` files for backend and frontend
 - `CODEOWNERS`, issue templates, PR template, `SECURITY.md`, `CHANGELOG.md`
 
+### Fixed
+
+- Migration 019: `members_role_check` is now re-established with a preceding `DROP CONSTRAINT IF EXISTS`, so the role contract (`admin`/`treasurer`/`member`/`observer`) is replay-safe. Migration 011 added it with a bare `ADD CONSTRAINT`, which fails with `duplicate_object` on any direct re-apply; 011 itself is left untouched so applied checksums do not drift
+
 ### Changed
 
+- New `reputation_scores` rows now start at the neutral score `50` instead of `0`, matching the midpoint the scoring formula converges on for a member with no borrowing history
 - Migration 001 is now the single source of truth for the `schema_migrations` table: the runner bootstraps by executing that file instead of an inlined copy of the DDL, and records it as applied so it is never replayed
 - `schema_migrations` gained an `applied_at` index and table/column comments
 
+### Removed
+
+- The redundant `GET /api/v1/communities/search` endpoint has been removed. Its functionality is now covered by the `search` query parameter on the main `GET /api/v1/communities` list endpoint.
+
 ### Fixed
 
-- `docs/database.md`: sync the `loans` table reference to the current schema — add the lifecycle columns and constraints introduced in migration 015 (`asset_issuer`, `purpose`, `amount_repaid`, `disbursed_at`, `closed_at`, `updated_at`, the `status` and `amount_repaid` CHECKs, and the `status` index)
+- Migration 020: notifications table integrity — Stellar address format constraint on the recipient, a `read_at >= created_at` guard, a non-blank `title` check, and table/column comments, bringing the table in line with the hardening already applied to `communities` and `members`
 - Migration 017: `transactions_log.community_id` foreign key is now `ON DELETE SET NULL`. Previously it defaulted to `NO ACTION`, which blocked deleting a community that had logged transactions and tied audit-trail retention to the community lifetime; the audit record now survives community deletion with `community_id` nulled
 - `npm run db:rollback` no longer fails when rolling back `001_schema_migrations`: the tracking row is deleted before the `.down.sql` runs, so dropping the tracking table itself succeeds
+- Frontend Jest config used a non-existent `setupFilesAfterFramework` key, so `jest.setup.ts` never loaded and `@testing-library/jest-dom` matchers were unavailable — every component test silently failed. Corrected to `setupFilesAfterEnv`.
+- Frontend `type-check` failed on all test files because `@types/jest` was missing; added it to devDependencies.
+- Frontend ESLint extended `next/typescript`, a config not shipped by `eslint-config-next@14`, which broke `npm run lint`; dropped it (TypeScript linting is already covered by `next/core-web-vitals`).
+- `docs/database.md`: sync the `loans` table reference to the current schema — add the lifecycle columns and constraints introduced in migration 015 (`asset_issuer`, `purpose`, `amount_repaid`, `disbursed_at`, `closed_at`, `updated_at`, the `status` and `amount_repaid` CHECKs, and the `status` index)
 - Development seed data used malformed Stellar public keys (55 characters, one containing literal filler text); replaced with well-formed 56-character StrKey addresses
 
 ---

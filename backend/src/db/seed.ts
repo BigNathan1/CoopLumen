@@ -2,13 +2,17 @@ import 'dotenv/config';
 import { Pool } from 'pg';
 import { logger } from '../utils/logger';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-
 // Randomly generated testnet public keys. They must be well-formed 56-character
 // StrKey addresses — the `communities` CHECK constraints reject anything else.
 const ISSUER_1 = 'GDMZRAGTOJHQK3LN3D2EDLEAMS76EDIQEMWCUTYIYHUE5HFPLPGBCGUS';
 const ISSUER_2 = 'GB24DH7I4KCJ7ABONGAOGWWNQBHBVXWNBMZXOBZRSL7ZMJGMP5VZV6P6';
+
 const MEMBERS = [
+  'GDPOXKXG35WBW7C5FMTHB5PSJOLLTRWFGP4JHQQMNF4UT2VRH6HC2KRZ',
+  'GA2TDRPYGRQ5LXX3HPO6FHESSV6KZJKC72N6QZI77NE5NXG4VQXTA5C2',
+  'GC2H4OVKUNLVGU7AG625OG6HMFYU7KVUNN7O367QV4X43AEFJ7XOO32Q',
+  'GCZU7VEN33HVIHPS2ZR3VWI5FZXOMWBZFBFOON53WRKDGXGIXNHLY43J',
+  'GBQYZ6AJY3VCXTS4L4YHFXGGGNYKF3DHTBJWUISSTOCW5H3Z7PUVUCH3',
   'GDQOE23CFSUMSVQK4Y5JHPPYK73VYCNHZHA7ENKCV37P6SUEO6XQBKPP',
   'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7',
   'GBHWKBPP3O4H2BUUKSFXE4PK5WHLQYVZIZUNUJ4AU5VATCHX3B7A3OGR',
@@ -16,11 +20,11 @@ const MEMBERS = [
   'GBK5QKMKFFE4OJDAGYWNMV746HCRBSEJH57I2UMWPJGA5BUMSZIAQAAO',
 ];
 
-async function seed(): Promise<void> {
+async function main(): Promise<void> {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const client = await pool.connect();
-  try {
-    logger.info('Seeding development database...');
 
+  try {
     // Communities
     const [eco] = (
       await client.query<{ id: string }>(
@@ -52,23 +56,25 @@ async function seed(): Promise<void> {
 
     // Members — first 3 join EcoDAO, last 2 join AgriCoop, middle one joins both
     const memberInserts = [
-      [eco.id, MEMBERS[0], 'admin'],
-      [eco.id, MEMBERS[1], 'treasurer'],
-      [eco.id, MEMBERS[2], 'member'],
-      [eco.id, MEMBERS[3], 'member'],
-      [agri.id, MEMBERS[2], 'admin'],
-      [agri.id, MEMBERS[3], 'treasurer'],
-      [agri.id, MEMBERS[4], 'member'],
+      { communityId: eco.id, address: MEMBERS[0], role: 'admin' },
+      { communityId: eco.id, address: MEMBERS[1], role: 'treasurer' },
+      { communityId: eco.id, address: MEMBERS[2], role: 'member' },
+      { communityId: eco.id, address: MEMBERS[3], role: 'member' },
+      { communityId: agri.id, address: MEMBERS[2], role: 'admin' },
+      { communityId: agri.id, address: MEMBERS[3], role: 'treasurer' },
+      { communityId: agri.id, address: MEMBERS[4], role: 'member' },
     ];
 
-    for (const [communityId, address, role] of memberInserts) {
-      await client.query(
-        `INSERT INTO members (community_id, stellar_address, role)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (community_id, stellar_address) DO UPDATE SET role = EXCLUDED.role`,
-        [communityId, address, role]
-      );
-    }
+    await Promise.all(
+      memberInserts.map(({ communityId, address, role }) =>
+        client.query(
+          `INSERT INTO members (community_id, stellar_address, role)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (community_id, stellar_address) DO UPDATE SET role = EXCLUDED.role`,
+          [communityId, address, role]
+        )
+      )
+    );
 
     logger.info('Members seeded', { count: memberInserts.length });
 
@@ -86,17 +92,22 @@ async function seed(): Promise<void> {
     );
 
     logger.info('Community settings seeded');
-    logger.info('Seed complete');
   } catch (error) {
     logger.error('Seed failed', error);
     process.exitCode = 1;
   } finally {
     client.release();
     await pool.end();
+    logger.info('Database connection closed.');
   }
 }
 
-seed().catch((error) => {
-  logger.error('Seed runner failed', error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  logger.info('Seeding development database...');
+  main()
+    .then(() => logger.info('Seed complete'))
+    .catch((error) => {
+      logger.error('Seed runner failed', error);
+      process.exitCode = 1;
+    });
+}
