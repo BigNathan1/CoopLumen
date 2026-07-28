@@ -11,6 +11,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `GET /api/v1/tokens/:communityId` to list all tokens issued for a community
+- `GET /api/v1/tokens/holders/:assetCode/:issuer` to list accounts holding a token, backed by Horizon's asset endpoint
+- `POST /api/v1/tokens/burn` to reduce circulating supply by returning tokens to the issuing account
+- `Idempotency-Key` header support on `POST /api/v1/tokens/issue`, backed by a new `idempotency_keys` table, so a retried issuance request replays the original response instead of double-minting
+- Horizon/Stellar error mapping (`api/utils/horizonError.ts`) for token issue, burn, and holder-lookup endpoints, turning raw Horizon result codes into actionable messages
+- `docs/openapi.yaml` entries for the new token endpoints
 - `GET /api/v1/communities/search` dedicated full-text search endpoint over community name and description, with pagination and sorting
 - `docs/openapi.yaml` entry for the new search endpoint
 

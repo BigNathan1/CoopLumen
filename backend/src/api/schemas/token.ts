@@ -37,3 +37,15 @@ export const trustlineSchema = z.object({
   assetIssuer: stellarPublicKey,
   limit: amount.optional(),
 });
+
+export const burnTokenSchema = z.object({
+  holderSecret: stellarSecret,
+  assetCode: z
+    .string()
+    .trim()
+    .min(1)
+    .max(12)
+    .regex(/^[a-zA-Z0-9]+$/, { message: 'Asset code must be alphanumeric' }),
+  assetIssuer: stellarPublicKey,
+  amount,
+});
