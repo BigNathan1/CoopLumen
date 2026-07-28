@@ -36,11 +36,11 @@ function makeClient(queryResults: Record<string, unknown[][]> = {}): jest.Mocked
 describe('listMigrationFiles', () => {
   it('returns sorted .sql files, excluding .down.sql files', async () => {
     mockFs.readdir.mockResolvedValueOnce([
-      { name: '002_core_schema.sql', isFile: () => true },
-      { name: '001_schema_migrations.sql', isFile: () => true },
-      { name: '001_schema_migrations.down.sql', isFile: () => true },
-      { name: '003_trigger.sql', isFile: () => true },
-      { name: 'README.md', isFile: () => true },
+      { name: '002_core_schema.sql', isFile: (): boolean => true },
+      { name: '001_schema_migrations.sql', isFile: (): boolean => true },
+      { name: '001_schema_migrations.down.sql', isFile: (): boolean => true },
+      { name: '003_trigger.sql', isFile: (): boolean => true },
+      { name: 'README.md', isFile: (): boolean => true },
     ] as unknown as Awaited<ReturnType<typeof fs.readdir>>);
 
     const files = await listMigrationFiles();

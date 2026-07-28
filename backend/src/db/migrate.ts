@@ -226,6 +226,11 @@ async function runPending(client: PoolClient, dryRun: boolean): Promise<void> {
 
   const pending = (await listMigrationFiles()).filter((fileName) => !applied.has(fileName));
 
+  logger.info('Migration status', {
+    applied: [...applied.keys()].sort(),
+    pending,
+  });
+
   if (pending.length === 0) {
     logger.info('No pending migrations');
     return;
