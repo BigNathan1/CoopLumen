@@ -165,11 +165,18 @@ loanRouter.get('/:id', async (req, res, next) => {
  */
 loanRouter.get('/:id/events', async (req, res, next) => {
   try {
-    const events = await db.query<LoanEvent>(
-      'SELECT * FROM loan_events WHERE loan_id = $1 ORDER BY created_at',
+    const pagination = parsePagination(req);
+
+    const [{ count }] = await db.query<{ count: number }>(
+      'SELECT COUNT(*)::int AS count FROM loan_events WHERE loan_id = $1',
       [req.params.id]
     );
-    res.json({ data: events });
+
+    const events = await db.query<LoanEvent>(
+      'SELECT * FROM loan_events WHERE loan_id = $1 ORDER BY created_at LIMIT $2 OFFSET $3',
+      [req.params.id, pagination.limit, pagination.offset]
+    );
+    res.json({ data: events, meta: pageMeta(count, pagination) });
   } catch (err) {
     next(err);
   }

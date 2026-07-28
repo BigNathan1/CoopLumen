@@ -1,18 +1,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { body, validationResult } from 'express-validator';
 import { issueAsset } from '../../contracts/assets';
 import { establishTrustline } from '../../contracts/trustlines';
+import { validateBody } from '../middleware/validate';
+import { issueTokenSchema, trustlineSchema } from '../schemas/token';
 
 export const tokenRouter = Router();
-
-const validate = (req: Request, res: Response, next: NextFunction): void => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    res.status(400).json({ errors: errors.array() });
-    return;
-  }
-  next();
-};
 
 /**
  * POST /api/v1/tokens/issue
@@ -22,16 +14,7 @@ const validate = (req: Request, res: Response, next: NextFunction): void => {
  */
 tokenRouter.post(
   '/issue',
-  [
-    body('issuerSecret').isString().trim().isLength({ min: 56 }),
-    body('assetCode').isString().trim().isLength({ min: 1, max: 12 }),
-    body('distributorPublicKey').isString().trim().isLength({ min: 56, max: 56 }),
-    body('amount')
-      .isString()
-      .matches(/^\d+(\.\d{1,7})?$/),
-    body('memo').optional().isString().trim().isLength({ max: 28 }),
-  ],
-  validate,
+  validateBody(issueTokenSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { issuerSecret, assetCode, distributorPublicKey, amount, memo } = req.body as {
@@ -63,16 +46,7 @@ tokenRouter.post(
  */
 tokenRouter.post(
   '/trustline',
-  [
-    body('accountSecret').isString().trim().isLength({ min: 56 }),
-    body('assetCode').isString().trim().isLength({ min: 1, max: 12 }),
-    body('assetIssuer').isString().trim().isLength({ min: 56, max: 56 }),
-    body('limit')
-      .optional()
-      .isString()
-      .matches(/^\d+(\.\d{1,7})?$/),
-  ],
-  validate,
+  validateBody(trustlineSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { accountSecret, assetCode, assetIssuer, limit } = req.body as {
