@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { db } from '../../db';
 import { StellarService } from '../../contracts/stellar';
 import { parsePagination, pageMeta, parseSort, queryString } from '../utils/http';
-import { validateBody } from '../middleware/validate';
+import { validateBody, validateParams } from '../middleware/validate';
 import { writeLimiter } from '../middleware/rateLimit';
 import { isValidStellarPublicKey } from '../utils/stellar';
 import {
@@ -11,6 +11,7 @@ import {
   addMemberSchema,
   updateMemberSchema,
   setAvatarSchema,
+  communityIdParamsSchema,
 } from '../schemas/community';
 
 export const communityRouter = Router();
@@ -548,7 +549,7 @@ communityRouter.delete('/:id/members/:address', writeLimiter, async (req, res, n
  * @returns {404} Community not found or soft-deleted.
  * @see docs/openapi.yaml — GET /api/v1/communities/{id}/treasury
  */
-communityRouter.get('/:id/treasury', async (req, res, next) => {
+communityRouter.get('/:id/treasury', validateParams(communityIdParamsSchema), async (req, res, next) => {
   try {
     const [community] = await db.query<Community>(
       'SELECT issuer_public_key FROM communities WHERE id = $1 AND deleted_at IS NULL',
