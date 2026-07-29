@@ -28,7 +28,8 @@ const STELLAR_ERRORS: Record<string, string> = {
   tx_bad_seq: 'The transaction sequence number is stale. Please build and sign a new transaction.',
   tx_expired: 'The transaction has expired. Please build and sign a new transaction.',
   tx_insufficient_fee: 'The transaction fee is too low for the network.',
-  tx_insufficient_balance: 'The payment account does not have enough XLM to cover the payment and fee.',
+  tx_insufficient_balance:
+    'The payment account does not have enough XLM to cover the payment and fee.',
   tx_failed: 'The transaction was rejected by the Stellar network.',
   tx_bad_auth_extra: 'The transaction contains an invalid extra signature.',
   op_underfunded: 'The payment account does not have enough balance for this payment.',
@@ -55,7 +56,8 @@ function horizonMessage(error: HorizonFailure): string {
   const code = operationCode ?? resultCodes?.transaction;
 
   if (code && STELLAR_ERRORS[code]) return STELLAR_ERRORS[code];
-  if (code) return `The Stellar transaction was rejected (${code}). Please review the payment and try again.`;
+  if (code)
+    return `The Stellar transaction was rejected (${code}). Please review the payment and try again.`;
   return 'Horizon could not submit the payment transaction. Please verify the signed XDR and try again.';
 }
 
@@ -81,10 +83,7 @@ router.post('/transfer', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  if (
-    transaction.operations.length !== 1 ||
-    transaction.operations[0]?.type !== 'payment'
-  ) {
+  if (transaction.operations.length !== 1 || transaction.operations[0]?.type !== 'payment') {
     res.status(400).json({
       data: null,
       error: 'The signed transaction must contain exactly one payment operation.',

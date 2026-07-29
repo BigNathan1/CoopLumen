@@ -1,28 +1,19 @@
 import { Router } from 'express';
-import * as balancesModule from './balances';
-import * as communitiesModule from './communities';
-import * as loansModule from './loans';
-import * as tokensModule from './tokens';
-import tokenTransferRouter from './tokenTransfer';
+import { communityRouter } from './communities';
+import { tokenRouter } from './tokens';
+import { tokenTransferRouter } from './tokenTransfer';
+import { balanceRouter } from './balances';
+import { loanRouter } from './loans';
 
-type RouterModule = Record<string, unknown>;
-
-function extractRouter(module: RouterModule): Router {
-  const candidate = Object.values(module).find(
-    (value) => typeof value === 'function' && 'use' in (value as object)
-  );
-
-  if (!candidate) {
-    throw new Error('Route module does not export an Express router');
-  }
-
-  return candidate as Router;
-}
-
+/**
+ * Combined API router. Mounted under the `/api/v1` version prefix in app.ts so
+ * that future breaking changes can ship under `/api/v2` without disturbing
+ * existing clients.
+ */
 export const apiRouter = Router();
 
-apiRouter.use('/communities', extractRouter(communitiesModule as RouterModule));
-apiRouter.use('/balances', extractRouter(balancesModule as RouterModule));
-apiRouter.use('/loans', extractRouter(loansModule as RouterModule));
+apiRouter.use('/communities', communityRouter);
 apiRouter.use('/tokens', tokenTransferRouter);
-apiRouter.use('/tokens', extractRouter(tokensModule as RouterModule));
+apiRouter.use('/tokens', tokenRouter);
+apiRouter.use('/balances', balanceRouter);
+apiRouter.use('/loans', loanRouter);
