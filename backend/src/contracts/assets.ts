@@ -100,7 +100,10 @@ export async function burnAsset(params: BurnAssetParams): Promise<string> {
 }
 
 /** Lists accounts holding a given asset by querying Horizon's asset endpoint. */
-export async function getAssetHolders(assetCode: string, assetIssuer: string): Promise<AssetHolder[]> {
+export async function getAssetHolders(
+  assetCode: string,
+  assetIssuer: string
+): Promise<AssetHolder[]> {
   const server = StellarService.getServer();
   const asset = new Asset(assetCode, assetIssuer);
 
