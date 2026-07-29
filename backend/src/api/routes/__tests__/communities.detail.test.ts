@@ -41,7 +41,8 @@ describe('GET /api/v1/communities/:id enriched response', () => {
           description: 'Community token',
           icon_url: 'https://example.com/climate.png',
         },
-      ]);
+      ])
+      .mockResolvedValueOnce([{ count: 7 }]);
 
     const response = await request(app).get(`/api/v1/communities/${communityId}`);
 
