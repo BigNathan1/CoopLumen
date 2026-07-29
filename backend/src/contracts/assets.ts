@@ -109,7 +109,10 @@ export async function burnAsset(params: BurnAssetParams): Promise<string> {
 }
 
 /** Lists accounts holding a given asset by querying Horizon's asset endpoint. */
-export async function getAssetHolders(assetCode: string, assetIssuer: string): Promise<AssetHolder[]> {
+export async function getAssetHolders(
+  assetCode: string,
+  assetIssuer: string
+): Promise<AssetHolder[]> {
   const server = StellarService.getServer();
   const asset = new Asset(assetCode, assetIssuer);
 
@@ -119,7 +122,11 @@ export async function getAssetHolders(assetCode: string, assetIssuer: string): P
   while (page.records.length > 0) {
     for (const account of page.records) {
       const balanceLine = account.balances.find(
-        (b) => b.asset_type !== 'native' && 'asset_code' in b && b.asset_code === assetCode && b.asset_issuer === assetIssuer
+        (b) =>
+          b.asset_type !== 'native' &&
+          'asset_code' in b &&
+          b.asset_code === assetCode &&
+          b.asset_issuer === assetIssuer
       );
       if (balanceLine) {
         holders.push({ account: account.account_id, balance: balanceLine.balance });

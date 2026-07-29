@@ -2,6 +2,7 @@ import express, { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { apiRouter } from './api/routes';
+import airdropRouter from './api/routes/airdrop';
 import { errorHandler } from './api/middleware/errorHandler';
 import { notFound } from './api/middleware/notFound';
 import { requestLogger } from './api/middleware/requestLogger';
@@ -31,11 +32,10 @@ const healthHandler = (_req: Request, res: Response, next: NextFunction): void =
     .catch(next);
 };
 
-// Health checks stay unversioned so infra probes have a stable path.
 app.get('/health', healthHandler);
 app.get('/api/health', healthHandler);
 
-// All resource routes live under the /api/v1 version prefix.
+app.use('/api/v1/tokens/airdrop', airdropRouter);
 app.use('/api/v1', apiRouter);
 
 app.use(notFound);
