@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `backend/src/db/migrations/012_create_community_settings.sql`, an idempotent migration matching the per-community JSON config schema against the migration number originally requested in issue #38 (the `community_settings` table itself already shipped in migration 010)
 - `GET /api/v1/tokens/:assetCode/:issuer` for retrieving metadata for a single Stellar token
 - `POST /api/v1/tokens/airdrop` to distribute an equal token amount to every member of a community, with Zod validation and actionable Stellar error responses.
 
