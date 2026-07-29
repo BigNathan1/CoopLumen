@@ -207,6 +207,7 @@ paths:
     get:
       tags: [Members]
       summary: List members
+      description: Paginated member list for a community, optionally filtered by role.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Limit'
@@ -215,12 +216,26 @@ paths:
           schema:
             type: string
             enum: [admin, treasurer, member, observer]
+          description: Restricts the list to a single role. Unrecognized values are ignored.
       responses:
         '200':
           description: A page of members
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Member' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
     post:
       tags: [Members]
       summary: Add a member
+      description: >
+        Adds a member to the community. Re-adding a previously removed
+        (soft-deleted) address reactivates it with the given role instead of
+        failing on the unique constraint.
       requestBody:
         required: true
         content:
@@ -237,6 +252,12 @@ paths:
       responses:
         '201':
           description: Member added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Member' }
         '400': { $ref: '#/components/responses/ValidationError' }
         '404': { $ref: '#/components/responses/NotFound' }
 
@@ -247,12 +268,21 @@ paths:
         in: path
         required: true
         schema: { $ref: '#/components/schemas/StellarKey' }
+        description: Stellar public key of the member. Rejected with 400 if not a structurally valid 56-character StrKey.
     get:
       tags: [Members]
       summary: Get a member
       responses:
         '200':
           description: Member detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Member' }
+        '400':
+          description: The address path parameter is not a structurally valid Stellar StrKey
         '404': { $ref: '#/components/responses/NotFound' }
     put:
       tags: [Members]
@@ -271,13 +301,36 @@ paths:
       responses:
         '200':
           description: Member updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Member' }
+        '400':
+          description: >
+            The role in the request body failed validation, or the address
+            path parameter is not a structurally valid Stellar StrKey
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
       tags: [Members]
       summary: Remove a member
+      description: Soft-removes a member; the address can be re-added later via POST.
       responses:
         '200':
           description: Member soft-removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      stellar_address: { $ref: '#/components/schemas/StellarKey' }
+                      removed: { type: boolean, example: true }
+        '400':
+          description: The address path parameter is not a structurally valid Stellar StrKey
         '404': { $ref: '#/components/responses/NotFound' }
 
   /api/v1/communities/{id}/treasury:
@@ -286,10 +339,28 @@ paths:
     get:
       tags: [Treasury]
       summary: Get treasury balances
-      description: Returns the issuer account's on-chain Stellar balances.
+      description: Returns the issuer account's on-chain Stellar balances, fetched live from Horizon.
       responses:
         '200':
           description: Treasury balances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      account: { $ref: '#/components/schemas/StellarKey' }
+                      balances:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            asset_type: { type: string }
+                            asset_code: { type: string }
+                            asset_issuer: { type: string }
+                            balance: { type: string }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /api/v1/tokens/issue:
@@ -499,6 +570,14 @@ components:
         avatar_url: { type: string, nullable: true }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    Member:
+      type: object
+      properties:
+        stellar_address: { $ref: '#/components/schemas/StellarKey' }
+        role:
+          type: string
+          enum: [admin, treasurer, member, observer]
+        joined_at: { type: string, format: date-time }
     CommunityDetail:
       allOf:
         - $ref: '#/components/schemas/Community'
