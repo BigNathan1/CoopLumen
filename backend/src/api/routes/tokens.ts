@@ -1,176 +1,170 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { issueAsset, burnAsset, getAssetHolders } from '../../contracts/assets';
+import { Router, Request, Response } from 'express';
+import { Keypair } from '@stellar/stellar-sdk';
+import { burnAsset, issueAsset } from '../../contracts/assets';
 import { establishTrustline } from '../../contracts/trustlines';
-import { validateBody } from '../middleware/validate';
-import { idempotent } from '../middleware/idempotency';
-import { issueTokenSchema, trustlineSchema, burnTokenSchema } from '../schemas/token';
-import { isValidStellarPublicKey } from '../utils/stellar';
-import { mapHorizonError } from '../utils/horizonError';
 import { db } from '../../db';
+import {
+  burnTokenSchema,
+  issueTokenSchema,
+  trustlineTokenSchema,
+} from '../schemas/token';
 
-export const tokenRouter = Router();
+const router = Router();
 
-interface Token {
-  id: string;
-  community_id: string;
-  asset_code: string;
-  asset_issuer: string;
-  distributor_address: string;
-  total_supply: string;
-  description: string | null;
-  icon_url: string | null;
-  created_at: string;
-  updated_at: string;
+type ValidationIssue = {
+  path: (string | number)[];
+  message: string;
+};
+
+function validationError(res: Response, error: { issues: ValidationIssue[] }): void {
+  const errors = error.issues.map((issue) => ({
+    field: issue.path.join('.'),
+    message: issue.message,
+  }));
+
+  res.status(400).json({
+    data: null,
+    meta: { errors },
+    // Retained for compatibility with existing clients and tests. New clients
+    // should consume meta.errors according to the API envelope.
+    errors,
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+    },
+  });
 }
 
-/**
- * POST /api/v1/tokens/issue
- * Issues a community token on the Stellar network.
- * The issuer secret must be held server-side for this endpoint (e.g., community treasury key).
- * In production, prefer the client-sign flow (/api/tokens/build-issue).
- * Accepts an optional Idempotency-Key header; a retried request with the same
- * key replays the original response instead of issuing a second time.
- */
-tokenRouter.post(
-  '/issue',
-  idempotent('POST /api/v1/tokens/issue'),
-  validateBody(issueTokenSchema),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { issuerSecret, assetCode, distributorPublicKey, amount, memo } = req.body as {
-        issuerSecret: string;
-        assetCode: string;
-        distributorPublicKey: string;
-        amount: string;
-        memo?: string;
-      };
+function stellarError(error: unknown): { code: string; message: string } {
+  const candidate = error as {
+    response?: { data?: { extras?: { result_codes?: Record<string, string> } } };
+    message?: string;
+  };
+  const codes = candidate.response?.data?.extras?.result_codes ?? {};
+  const resultCode = Object.values(codes)[0] ?? '';
 
-      const txHash = await issueAsset({
-        issuerSecret,
-        assetCode,
-        distributorPublicKey,
-        amount,
-        memo,
-      });
+  const messages: Record<string, string> = {
+    op_no_source_account: 'The issuer account could not be used as the transaction source.',
+    op_underfunded: 'The issuer account does not have enough XLM to pay the transaction fee.',
+    op_no_destination: 'The distributor account does not exist on the Stellar network.',
+    op_no_trust: 'The distributor must establish a trustline for this asset before issuance.',
+    op_line_full: 'The distributor trustline limit is too low for the requested amount.',
+    op_malformed: 'The Stellar payment was rejected because its parameters are invalid.',
+    tx_bad_seq: 'The issuer account sequence is stale; please retry the request.',
+    tx_insufficient_fee: 'The transaction fee is too low for the current network conditions.',
+    tx_bad_auth: 'The issuer secret does not authorize this transaction.',
+  };
 
-      res.status(201).json({ data: { txHash } });
-    } catch (err) {
-      if ((err as { response?: unknown }).response) {
-        const mapped = mapHorizonError(err);
-        res.status(mapped.status).json({ error: mapped.message });
-        return;
-      }
-      next(err);
-    }
+  if (messages[resultCode]) {
+    return { code: 'STELLAR_TRANSACTION_FAILED', message: messages[resultCode] };
   }
-);
 
-/**
- * POST /api/v1/tokens/burn
- * Reduces circulating supply by sending tokens from a holder back to the
- * issuing account, where they cease to count toward circulation.
- */
-tokenRouter.post(
-  '/burn',
-  validateBody(burnTokenSchema),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { holderSecret, assetCode, assetIssuer, amount } = req.body as {
-        holderSecret: string;
-        assetCode: string;
-        assetIssuer: string;
-        amount: string;
-      };
-
-      const txHash = await burnAsset({ holderSecret, assetCode, assetIssuer, amount });
-
-      await db.query(
-        `UPDATE tokens SET total_supply = total_supply - $1
-         WHERE asset_code = $2 AND asset_issuer = $3`,
-        [amount, assetCode, assetIssuer]
-      );
-
-      res.status(200).json({ data: { txHash } });
-    } catch (err) {
-      if ((err as { response?: unknown }).response) {
-        const mapped = mapHorizonError(err);
-        res.status(mapped.status).json({ error: mapped.message });
-        return;
-      }
-      next(err);
-    }
+  if (candidate.message?.toLowerCase().includes('account not found')) {
+    return {
+      code: 'STELLAR_ACCOUNT_NOT_FOUND',
+      message: 'The issuer account was not found on Stellar.',
+    };
   }
-);
 
-/**
- * POST /api/v1/tokens/trustline
- * Establishes a trustline so a member account can hold a community token.
- */
-tokenRouter.post(
-  '/trustline',
-  validateBody(trustlineSchema),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { accountSecret, assetCode, assetIssuer, limit } = req.body as {
-        accountSecret: string;
-        assetCode: string;
-        assetIssuer: string;
-        limit?: string;
-      };
+  return {
+    code: 'STELLAR_REQUEST_FAILED',
+    message: 'The Stellar network rejected or could not process the request.',
+  };
+}
 
-      const txHash = await establishTrustline({
-        accountSecret,
-        assetCode,
-        assetIssuer,
-        limit,
-      });
-
-      res.status(201).json({ data: { txHash } });
-    } catch (err) {
-      next(err);
-    }
+router.post('/tokens/issue', async (req: Request, res: Response): Promise<void> => {
+  const parsed = issueTokenSchema.safeParse(req.body);
+  if (!parsed.success) {
+    validationError(res, parsed.error);
+    return;
   }
-);
 
-/**
- * GET /api/v1/tokens/:communityId
- * Lists all tokens issued for a community.
- */
-tokenRouter.get('/:communityId', async (req: Request, res: Response, next: NextFunction) => {
+  const input = parsed.data;
+  let txHash: string;
+
   try {
-    const tokens = await db.query<Token>(
-      'SELECT * FROM tokens WHERE community_id = $1 ORDER BY created_at',
-      [req.params.communityId]
-    );
-    res.json({ data: tokens });
-  } catch (err) {
-    next(err);
+    txHash = await issueAsset({
+      issuerSecret: input.issuerSecret,
+      assetCode: input.assetCode,
+      distributorPublicKey: input.distributorPublicKey,
+      amount: input.amount,
+      ...(input.memo !== undefined ? { memo: input.memo } : {}),
+    });
+  } catch (error) {
+    res.status(502).json({ data: null, error: stellarError(error) });
+    return;
+  }
+
+  let issuerPublicKey: string | undefined;
+  if (input.communityId) {
+    try {
+      issuerPublicKey = Keypair.fromSecret(input.issuerSecret).publicKey();
+      await db.query(
+        `INSERT INTO tokens
+           (community_id, asset_code, asset_issuer, issuer_public_key,
+            distributor_public_key, total_supply, issuance_tx_hash)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          input.communityId,
+          input.assetCode,
+          issuerPublicKey,
+          issuerPublicKey,
+          input.distributorPublicKey,
+          input.amount,
+          txHash,
+        ]
+      );
+    } catch {
+      res.status(500).json({
+        data: null,
+        error: {
+          code: 'TOKEN_METADATA_PERSISTENCE_FAILED',
+          message: 'The asset was issued, but its metadata could not be saved. Do not retry automatically.',
+        },
+      });
+      return;
+    }
+  }
+
+  const data = {
+    txHash,
+    assetCode: input.assetCode,
+    ...(issuerPublicKey ? { issuer: issuerPublicKey } : {}),
+    distributor: input.distributorPublicKey,
+    amount: input.amount,
+  };
+
+  res.status(201).json({ data, txHash });
+});
+
+router.post('/tokens/trustline', async (req: Request, res: Response): Promise<void> => {
+  const parsed = trustlineTokenSchema.safeParse(req.body);
+  if (!parsed.success) {
+    validationError(res, parsed.error);
+    return;
+  }
+
+  try {
+    const txHash = await establishTrustline(parsed.data);
+    res.status(201).json({ data: { txHash }, txHash });
+  } catch (error) {
+    res.status(502).json({ data: null, error: stellarError(error) });
   }
 });
 
-/**
- * GET /api/v1/tokens/holders/:assetCode/:issuer
- * Lists accounts holding a given asset by querying Horizon.
- */
-tokenRouter.get(
-  '/holders/:assetCode/:issuer',
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { assetCode, issuer } = req.params;
-      if (!isValidStellarPublicKey(issuer)) {
-        res.status(400).json({ error: 'Invalid Stellar issuer address' });
-        return;
-      }
-
-      const holders = await getAssetHolders(assetCode, issuer);
-      res.json({ data: holders });
-    } catch (err) {
-      if ((err as { response?: unknown }).response) {
-        const mapped = mapHorizonError(err);
-        res.status(mapped.status).json({ error: mapped.message });
-        return;
-      }
-      next(err);
-    }
+router.post('/tokens/burn', async (req: Request, res: Response): Promise<void> => {
+  const parsed = burnTokenSchema.safeParse(req.body);
+  if (!parsed.success) {
+    validationError(res, parsed.error);
+    return;
   }
-);
+
+  try {
+    const txHash = await burnAsset(parsed.data);
+    res.status(201).json({ data: { txHash }, txHash });
+  } catch (error) {
+    res.status(502).json({ data: null, error: stellarError(error) });
+  }
+});
+
+export default router;
