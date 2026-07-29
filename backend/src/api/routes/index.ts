@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { communityRouter } from './communities';
 import { tokenRouter } from './tokens';
+import { tokenTransferRouter } from './tokenTransfer';
 import { balanceRouter } from './balances';
 import { loanRouter } from './loans';
 
@@ -12,6 +13,7 @@ import { loanRouter } from './loans';
 export const apiRouter = Router();
 
 apiRouter.use('/communities', communityRouter);
+apiRouter.use('/tokens', tokenTransferRouter);
 apiRouter.use('/tokens', tokenRouter);
 apiRouter.use('/balances', balanceRouter);
 apiRouter.use('/loans', loanRouter);

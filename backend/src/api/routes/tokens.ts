@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { Keypair } from '@stellar/stellar-sdk';
 import { z } from 'zod';
-import { issueAsset, burnAsset, getAssetHolders } from '../../contracts/assets';
+import { issueAsset, burnAsset, getAssetHolders, getAssetSupply } from '../../contracts/assets';
 import { establishTrustline } from '../../contracts/trustlines';
 import { validateBody } from '../middleware/validate';
 import { idempotent } from '../middleware/idempotency';
@@ -254,6 +254,43 @@ tokenRouter.get(
       if ((err as { response?: unknown }).response) {
         const mapped = mapHorizonError(err);
         res.status(mapped.status).json({ error: mapped.message });
+        return;
+      }
+      next(err);
+    }
+  }
+);
+
+/**
+ * GET /api/v1/tokens/supply/:assetCode/:issuer
+ * Returns the current circulating supply Horizon reports for an issued asset.
+ */
+tokenRouter.get(
+  '/supply/:assetCode/:issuer',
+  async (req: Request, res: Response, next: NextFunction) => {
+    const parsed = tokenParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: 'Invalid request parameters',
+        meta: {
+          errors: parsed.error.issues.map((issue) => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
+      });
+      return;
+    }
+
+    try {
+      const supply = await getAssetSupply(parsed.data.assetCode, parsed.data.issuer);
+      res.json({ data: { assetCode: parsed.data.assetCode, issuer: parsed.data.issuer, supply } });
+    } catch (err) {
+      if ((err as { response?: unknown }).response) {
+        res.status(502).json({
+          data: null,
+          error: 'Horizon is temporarily unavailable. Please try again later.',
+        });
         return;
       }
       next(err);
