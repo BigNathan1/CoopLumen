@@ -1,8 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { Keypair } from '@stellar/stellar-sdk';
-import { db } from '../../db';
-import { burnAsset, getAssetHolders, issueAsset } from '../../contracts/assets';
+import { burnAsset, issueAsset } from '../../contracts/assets';
 import { establishTrustline } from '../../contracts/trustlines';
+import { db } from '../../db';
 import {
   burnTokenSchema,
   issueTokenSchema,
@@ -11,106 +11,136 @@ import {
 
 const router = Router();
 
-function validationError(res: Response, errors: unknown): Response {
-  const response = {
+type ValidationIssue = {
+  path: (string | number)[];
+  message: string;
+};
+
+function validationError(res: Response, error: { issues: ValidationIssue[] }): void {
+  const errors = error.issues.map((issue) => ({
+    field: issue.path.join('.'),
+    message: issue.message,
+  }));
+
+  res.status(400).json({
     data: null,
     meta: { errors },
-    error: 'Validation failed',
-    // Retained for compatibility with existing clients and repository tests.
+    // Retained for compatibility with existing clients and tests. New clients
+    // should consume meta.errors according to the API envelope.
     errors,
-  };
-  return res.status(400).json(response);
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'Request validation failed',
+    },
+  });
 }
 
-function stellarError(error: unknown): string {
-  const value = error as {
+function stellarError(error: unknown): { code: string; message: string } {
+  const candidate = error as {
     response?: { data?: { extras?: { result_codes?: Record<string, string> } } };
     message?: string;
   };
-  const codes = value.response?.data?.extras?.result_codes;
-  const code = codes ? Object.values(codes).join(',') : '';
+  const codes = candidate.response?.data?.extras?.result_codes ?? {};
+  const resultCode = Object.values(codes)[0] ?? '';
 
-  if (code.includes('op_underfunded') || code.includes('tx_insufficient_balance')) {
-    return 'The issuer account does not have enough XLM to submit this transaction';
-  }
-  if (code.includes('op_no_trust')) {
-    return 'The distributor account must establish a trustline for this asset first';
-  }
-  if (code.includes('op_malformed') || code.includes('tx_bad_seq')) {
-    return 'The Stellar transaction was malformed or has an invalid sequence number';
-  }
-  if (code.includes('op_not_authorized')) {
-    return 'The issuer is not authorized to issue this asset';
-  }
-  if (code.includes('op_line_full')) {
-    return 'The distributor trustline limit is too low for this issuance';
-  }
-  if (code.includes('tx_bad_auth')) {
-    return 'The supplied Stellar secret key could not authorize the transaction';
+  const messages: Record<string, string> = {
+    op_no_source_account: 'The issuer account could not be used as the transaction source.',
+    op_underfunded: 'The issuer account does not have enough XLM to pay the transaction fee.',
+    op_no_destination: 'The distributor account does not exist on the Stellar network.',
+    op_no_trust: 'The distributor must establish a trustline for this asset before issuance.',
+    op_line_full: 'The distributor trustline limit is too low for the requested amount.',
+    op_malformed: 'The Stellar payment was rejected because its parameters are invalid.',
+    tx_bad_seq: 'The issuer account sequence is stale; please retry the request.',
+    tx_insufficient_fee: 'The transaction fee is too low for the current network conditions.',
+    tx_bad_auth: 'The issuer secret does not authorize this transaction.',
+  };
+
+  if (messages[resultCode]) {
+    return { code: 'STELLAR_TRANSACTION_FAILED', message: messages[resultCode] };
   }
 
-  return 'The Stellar transaction could not be submitted';
+  if (candidate.message?.toLowerCase().includes('account not found')) {
+    return {
+      code: 'STELLAR_ACCOUNT_NOT_FOUND',
+      message: 'The issuer account was not found on Stellar.',
+    };
+  }
+
+  return {
+    code: 'STELLAR_REQUEST_FAILED',
+    message: 'The Stellar network rejected or could not process the request.',
+  };
 }
 
-router.post('/issue', async (req: Request, res: Response): Promise<void> => {
+router.post('/tokens/issue', async (req: Request, res: Response): Promise<void> => {
   const parsed = issueTokenSchema.safeParse(req.body);
   if (!parsed.success) {
-    validationError(res, parsed.error.flatten().fieldErrors);
+    validationError(res, parsed.error);
     return;
   }
 
-  const { communityId, issuerSecret, assetCode, distributorPublicKey, amount, memo } = parsed.data;
+  const input = parsed.data;
+  let txHash: string;
 
   try {
-    const txHash = await issueAsset({
-      issuerSecret,
-      assetCode,
-      distributorPublicKey,
-      amount,
-      ...(memo !== undefined ? { memo } : {}),
+    txHash = await issueAsset({
+      issuerSecret: input.issuerSecret,
+      assetCode: input.assetCode,
+      distributorPublicKey: input.distributorPublicKey,
+      amount: input.amount,
+      ...(input.memo !== undefined ? { memo: input.memo } : {}),
     });
-
-    // A community is optional for backwards compatibility with the original
-    // issuance endpoint. When supplied, the confirmed transaction is followed
-    // by persistence of the canonical off-chain token metadata.
-    if (communityId) {
-      const issuer = Keypair.fromSecret(issuerSecret).publicKey();
-      await db.query(
-        `INSERT INTO tokens (community_id, asset_code, asset_issuer, total_supply)
-         VALUES ($1, $2, $3, $4)`,
-        [communityId, assetCode, issuer, amount]
-      );
-    }
-
-    res.status(201).json({ data: { txHash }, txHash });
   } catch (error) {
-    if (error instanceof Error && error.message.includes('duplicate')) {
-      res.status(409).json({ data: null, error: 'A token with this metadata already exists' });
+    res.status(502).json({ data: null, error: stellarError(error) });
+    return;
+  }
+
+  let issuerPublicKey: string | undefined;
+  if (input.communityId) {
+    try {
+      issuerPublicKey = Keypair.fromSecret(input.issuerSecret).publicKey();
+      await db.query(
+        `INSERT INTO tokens
+           (community_id, asset_code, asset_issuer, issuer_public_key,
+            distributor_public_key, total_supply, issuance_tx_hash)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          input.communityId,
+          input.assetCode,
+          issuerPublicKey,
+          issuerPublicKey,
+          input.distributorPublicKey,
+          input.amount,
+          txHash,
+        ]
+      );
+    } catch {
+      res.status(500).json({
+        data: null,
+        error: {
+          code: 'TOKEN_METADATA_PERSISTENCE_FAILED',
+          message: 'The asset was issued, but its metadata could not be saved. Do not retry automatically.',
+        },
+      });
       return;
     }
-    res.status(502).json({ data: null, error: stellarError(error) });
   }
+
+  const data = {
+    txHash,
+    assetCode: input.assetCode,
+    ...(issuerPublicKey ? { issuer: issuerPublicKey } : {}),
+    distributor: input.distributorPublicKey,
+    amount: input.amount,
+  };
+
+  res.status(201).json({ data, txHash });
 });
 
-router.post('/burn', async (req: Request, res: Response): Promise<void> => {
-  const parsed = burnTokenSchema.safeParse(req.body);
-  if (!parsed.success) {
-    validationError(res, parsed.error.flatten().fieldErrors);
-    return;
-  }
-
-  try {
-    const txHash = await burnAsset(parsed.data);
-    res.status(201).json({ data: { txHash }, txHash });
-  } catch (error) {
-    res.status(502).json({ data: null, error: stellarError(error) });
-  }
-});
-
-router.post('/trustline', async (req: Request, res: Response): Promise<void> => {
+router.post('/tokens/trustline', async (req: Request, res: Response): Promise<void> => {
   const parsed = trustlineTokenSchema.safeParse(req.body);
   if (!parsed.success) {
-    validationError(res, parsed.error.flatten().fieldErrors);
+    validationError(res, parsed.error);
     return;
   }
 
@@ -122,29 +152,19 @@ router.post('/trustline', async (req: Request, res: Response): Promise<void> => 
   }
 });
 
-router.get('/:communityId', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const result = await db.query(
-      `SELECT id, community_id, asset_code, asset_issuer, total_supply, created_at
-       FROM tokens
-       WHERE community_id = $1
-       ORDER BY created_at DESC`,
-      [req.params.communityId]
-    );
-    res.json({ data: result.rows });
-  } catch {
-    res.status(500).json({ data: null, error: 'Unable to retrieve community tokens' });
+router.post('/tokens/burn', async (req: Request, res: Response): Promise<void> => {
+  const parsed = burnTokenSchema.safeParse(req.body);
+  if (!parsed.success) {
+    validationError(res, parsed.error);
+    return;
   }
-});
 
-router.get('/holders/:assetCode/:issuer', async (req: Request, res: Response): Promise<void> => {
   try {
-    const holders = await getAssetHolders(req.params.assetCode, req.params.issuer);
-    res.json({ data: holders });
+    const txHash = await burnAsset(parsed.data);
+    res.status(201).json({ data: { txHash }, txHash });
   } catch (error) {
     res.status(502).json({ data: null, error: stellarError(error) });
   }
 });
 
-export { router as tokensRouter };
 export default router;
