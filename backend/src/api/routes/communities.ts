@@ -549,22 +549,26 @@ communityRouter.delete('/:id/members/:address', writeLimiter, async (req, res, n
  * @returns {404} Community not found or soft-deleted.
  * @see docs/openapi.yaml — GET /api/v1/communities/{id}/treasury
  */
-communityRouter.get('/:id/treasury', validateParams(communityIdParamsSchema), async (req, res, next) => {
-  try {
-    const [community] = await db.query<Community>(
-      'SELECT issuer_public_key FROM communities WHERE id = $1 AND deleted_at IS NULL',
-      [req.params.id]
-    );
-    if (!community) {
-      res.status(404).json({ error: 'Community not found' });
-      return;
+communityRouter.get(
+  '/:id/treasury',
+  validateParams(communityIdParamsSchema),
+  async (req, res, next) => {
+    try {
+      const [community] = await db.query<Community>(
+        'SELECT issuer_public_key FROM communities WHERE id = $1 AND deleted_at IS NULL',
+        [req.params.id]
+      );
+      if (!community) {
+        res.status(404).json({ error: 'Community not found' });
+        return;
+      }
+      const balances = await StellarService.getAccountBalance(community.issuer_public_key);
+      res.json({ data: { account: community.issuer_public_key, balances } });
+    } catch (err) {
+      next(err);
     }
-    const balances = await StellarService.getAccountBalance(community.issuer_public_key);
-    res.json({ data: { account: community.issuer_public_key, balances } });
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 /**
  * @route POST /api/v1/communities/:id/avatar

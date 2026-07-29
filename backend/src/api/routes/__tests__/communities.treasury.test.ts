@@ -33,9 +33,7 @@ describe('GET /api/v1/communities/:id/treasury', () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('Validation failed');
     expect(res.body.meta.errors).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ path: 'id', message: expect.any(String) }),
-      ])
+      expect.arrayContaining([expect.objectContaining({ path: 'id', message: expect.any(String) })])
     );
   });
 
@@ -49,7 +47,12 @@ describe('GET /api/v1/communities/:id/treasury', () => {
   it('returns 200 with account and balances for a valid community', async () => {
     const balances = [
       { asset_type: 'native', balance: '100.0000000' },
-      { asset_type: 'credit_alphanum4', asset_code: 'COOP', asset_issuer: validKey, balance: '5000.00' },
+      {
+        asset_type: 'credit_alphanum4',
+        asset_code: 'COOP',
+        asset_issuer: validKey,
+        balance: '5000.00',
+      },
     ];
 
     mockDb.query.mockResolvedValueOnce([{ issuer_public_key: validKey }]);
