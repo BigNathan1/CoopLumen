@@ -9,6 +9,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Test coverage for `GET /api/health` (and its unversioned `/health` alias) asserting the exact `{ status, db, stellar, uptime }` response shape, the `503`/`degraded` path when the database is unreachable, the independent `stellar: 'error'` path when only Horizon is unreachable, and that a rejected ping is treated as unreachable rather than propagating
+
 ### Fixed
 
 - `POST /api/v1/tokens/issue`, `POST /api/v1/tokens/burn`, and `POST /api/v1/tokens/trustline` now return `{ data: { txHash } }` instead of a bare `{ txHash }`, matching the API's `{ data, meta?, error? }` response envelope
