@@ -9,6 +9,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Expanded the community CRUD integration suite (`backend/src/api/routes/__tests__/communities.integration.test.ts`, real DB, gated on `DATABASE_URL`) with coverage for: a `409` on duplicate name during update, the `community_created` `transactions_log` row surviving a real insert, a `404` on the avatar endpoint for a non-existent community, fetching a single member by address, a `400` on a structurally invalid Stellar address in the member path, updating and removing a member, and a `404` when updating a member that does not exist
+
 ### Fixed
 
 - `POST /api/v1/tokens/issue`, `POST /api/v1/tokens/burn`, and `POST /api/v1/tokens/trustline` now return `{ data: { txHash } }` instead of a bare `{ txHash }`, matching the API's `{ data, meta?, error? }` response envelope
