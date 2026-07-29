@@ -36,14 +36,16 @@ export const trustlineTokenSchema = z.object({
   accountSecret: stellarSecretKey,
   assetCode,
   assetIssuer: stellarPublicKey,
-  limit: amount.optional(),
+  amount: decimalAmount.refine((value) => Number(value) > 0, {
+    message: 'Amount must be greater than zero',
+  }),
 });
 
 export const burnTokenSchema = z.object({
   holderSecret: stellarSecretKey,
   assetCode,
   assetIssuer: stellarPublicKey,
-  amount,
+  limit: decimalAmount.optional(),
 });
 
 export type IssueTokenInput = z.infer<typeof issueTokenSchema>;
