@@ -9,6 +9,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Structured JSDoc (`@route`, `@access`, `@param`, `@returns`, `@see`) on every `backend/src/api/routes/communities.ts` handler, replacing prose-only comments
+- `docs/openapi.yaml`: a `Member` schema, response content schemas for the member list/add/get/update/delete endpoints (previously description-only), a response schema for the treasury balances endpoint, and documented `400` responses for the structurally-invalid-Stellar-address path on the member get/update/delete endpoints
+
 ### Fixed
 
 - `POST /api/v1/tokens/issue`, `POST /api/v1/tokens/burn`, and `POST /api/v1/tokens/trustline` now return `{ data: { txHash } }` instead of a bare `{ txHash }`, matching the API's `{ data, meta?, error? }` response envelope
