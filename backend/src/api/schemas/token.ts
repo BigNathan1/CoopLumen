@@ -1,51 +1,51 @@
 import { z } from 'zod';
-import { isValidStellarPublicKey } from '../utils/stellar';
 
 const stellarPublicKey = z
   .string()
-  .trim()
-  .refine(isValidStellarPublicKey, { message: 'Invalid Stellar public key' });
+  .regex(/^G[A-Z2-7]{55}$/, 'must be a valid Stellar public key');
 
-const stellarSecret = z.string().trim().min(56);
+const stellarSecretKey = z
+  .string()
+  .regex(/^S[A-Z2-7]{55}$/, 'must be a valid Stellar secret key');
+
+const assetCode = z
+  .string()
+  .trim()
+  .min(1, 'assetCode is required')
+  .max(12, 'assetCode must be 12 characters or fewer')
+  .regex(/^[A-Za-z0-9]+$/, 'assetCode must be alphanumeric');
 
 const amount = z
   .string()
   .trim()
-  .regex(/^\d+(\.\d{1,7})?$/, { message: 'amount must be a positive decimal with up to 7 places' });
+  .regex(/^(?:0|[1-9]\d*)(?:\.\d{1,7})?$/, 'amount must be a positive decimal string')
+  .refine((value) => Number(value) > 0, 'amount must be greater than zero');
 
 export const issueTokenSchema = z.object({
-  issuerSecret: stellarSecret,
-  assetCode: z
-    .string()
-    .trim()
-    .min(1)
-    .max(12)
-    .regex(/^[a-zA-Z0-9]+$/, { message: 'Asset code must be alphanumeric' }),
+  // Optional for backwards compatibility with the existing route tests and
+  // callers. Metadata is persisted whenever the community is supplied.
+  communityId: z.string().uuid('communityId must be a valid UUID').optional(),
+  issuerSecret: stellarSecretKey,
+  assetCode,
   distributorPublicKey: stellarPublicKey,
   amount,
-  memo: z.string().trim().max(28).optional(),
+  memo: z.string().trim().max(28, 'memo must be 28 characters or fewer').optional(),
 });
 
-export const trustlineSchema = z.object({
-  accountSecret: stellarSecret,
-  assetCode: z
-    .string()
-    .trim()
-    .min(1)
-    .max(12)
-    .regex(/^[a-zA-Z0-9]+$/, { message: 'Asset code must be alphanumeric' }),
+export const trustlineTokenSchema = z.object({
+  accountSecret: stellarSecretKey,
+  assetCode,
   assetIssuer: stellarPublicKey,
-  limit: amount.optional(),
+  amount: decimalAmount.refine((value) => Number(value) > 0, {
+    message: 'Amount must be greater than zero',
+  }),
 });
 
 export const burnTokenSchema = z.object({
-  holderSecret: stellarSecret,
-  assetCode: z
-    .string()
-    .trim()
-    .min(1)
-    .max(12)
-    .regex(/^[a-zA-Z0-9]+$/, { message: 'Asset code must be alphanumeric' }),
+  holderSecret: stellarSecretKey,
+  assetCode,
   assetIssuer: stellarPublicKey,
-  amount,
+  limit: decimalAmount.optional(),
 });
+
+export type IssueTokenInput = z.infer<typeof issueTokenSchema>;
