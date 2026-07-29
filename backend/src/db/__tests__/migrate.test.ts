@@ -29,7 +29,7 @@ function migrationEntry(name: string): {
 }
 
 function createClient(appliedRows: Array<{ name: string; checksum: string | null }>) {
-  const query = jest.fn(async (sql: string) => {
+  const query = jest.fn(async (sql: string, _params?: unknown[]) => {
     if (sql.includes('SELECT name, checksum FROM schema_migrations')) {
       return { rows: appliedRows };
     }

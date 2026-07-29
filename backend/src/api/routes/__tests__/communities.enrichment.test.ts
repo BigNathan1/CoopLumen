@@ -48,7 +48,8 @@ describe('GET /api/v1/communities/:id enrichment', () => {
           description: null,
           icon_url: null,
         },
-      ]);
+      ])
+      .mockResolvedValueOnce([{ count: 12 }]);
 
     const response = await request(app).get(`/api/v1/communities/${communityId}`);
 
