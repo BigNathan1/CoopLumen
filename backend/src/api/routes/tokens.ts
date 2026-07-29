@@ -124,6 +124,10 @@ router.post('/tokens/issue', async (req: Request, res: Response): Promise<void> 
       });
       return;
     }
+
+    res.status(200).json({ data: rows[0] });
+  } catch (error) {
+    next(error);
   }
 
   const data = {
