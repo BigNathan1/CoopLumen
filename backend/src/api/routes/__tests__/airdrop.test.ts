@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { Keypair } from '@stellar/stellar-sdk';
+import { Account, Keypair } from '@stellar/stellar-sdk';
 import app from '../../../app';
 import { db } from '../../../db';
 import { StellarService } from '../../../contracts/stellar';
@@ -44,7 +44,7 @@ describe('POST /api/v1/tokens/airdrop', () => {
       .mockResolvedValueOnce([{ asset_code: 'TDAO', asset_issuer: issuer.publicKey() }])
       .mockResolvedValueOnce([{ stellar_address: memberOne }, { stellar_address: memberTwo }]);
 
-    const loadAccount = jest.fn().mockResolvedValue({ accountId: issuer.publicKey() });
+    const loadAccount = jest.fn().mockImplementation(() => new Account(issuer.publicKey(), '1'));
     const submitTransaction = jest
       .fn()
       .mockResolvedValueOnce({ hash: 'hash-one' })
@@ -52,7 +52,7 @@ describe('POST /api/v1/tokens/airdrop', () => {
     mockStellar.getServer.mockReturnValue({ loadAccount, submitTransaction } as never);
 
     const response = await request(app).post('/api/v1/tokens/airdrop').send({
-      communityId: '00000000-0000-0000-0000-000000000001',
+      communityId: '11111111-1111-4111-8111-111111111111',
       amount: '12.5',
       issuerSecret: issuer.secret(),
     });
