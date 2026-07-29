@@ -9,7 +9,13 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Test coverage confirming `POST /api/v1/communities` records a `community_created` `transactions_log` entry (`community_id`, `actor_address`, and `metadata`) in the same database transaction as the community insert
+
 ### Fixed
+
+- `POST /api/v1/communities` unit test for the invalid-payload case now asserts against `meta.errors`, matching the validation-error envelope the middleware actually returns, instead of a stale top-level `errors` field
 
 - `POST /api/v1/tokens/issue`, `POST /api/v1/tokens/burn`, and `POST /api/v1/tokens/trustline` now return `{ data: { txHash } }` instead of a bare `{ txHash }`, matching the API's `{ data, meta?, error? }` response envelope
 - The repayment-overflow `400` on `POST /api/v1/loans/:id/repay` and the validation-failure `400` from `validateBody` now nest their extra fields (`outstanding`, `errors`) under `meta` instead of returning them alongside `error` at the top level
