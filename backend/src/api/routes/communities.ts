@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { db } from '../../db';
 import { StellarService } from '../../contracts/stellar';
 import { parsePagination, pageMeta, parseSort, queryString } from '../utils/http';
@@ -320,10 +321,19 @@ communityRouter.put(
  * @description Soft-deletes a community by setting `deleted_at`.
  * @param {string} id - Community UUID.
  * @returns {200} `{ data: { id, deleted: true } }`
+ * @returns {400} `:id` is not a valid UUID.
  * @returns {404} Community not found or already soft-deleted.
  * @see docs/openapi.yaml — DELETE /api/v1/communities/{id}
  */
 communityRouter.delete('/:id', writeLimiter, async (req, res, next) => {
+  if (!z.string().uuid().safeParse(req.params.id).success) {
+    res.status(400).json({
+      error: 'Validation failed',
+      meta: { errors: [{ path: 'id', message: 'id must be a valid UUID' }] },
+    });
+    return;
+  }
+
   try {
     const result = await db.query<{ id: string }>(
       'UPDATE communities SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id',
