@@ -35,6 +35,10 @@ export interface AssetHolder {
   balance: string;
 }
 
+/**
+ * Issues a new community token on the Stellar network.
+ * The issuer account creates the asset and sends initial supply to a distributor.
+ */
 export async function issueAsset(params: IssueAssetParams): Promise<string> {
   const { issuerSecret, assetCode, distributorPublicKey, amount, memo } = params;
 
@@ -69,6 +73,11 @@ export async function issueAsset(params: IssueAssetParams): Promise<string> {
   return result.hash;
 }
 
+/**
+ * Burns tokens by sending them back to the issuing account. Stellar assets
+ * held by their own issuer are not part of circulating supply, so a payment
+ * to the issuer permanently reduces total supply (the issuer never resends it).
+ */
 export async function burnAsset(params: BurnAssetParams): Promise<string> {
   const { holderSecret, assetCode, assetIssuer, amount } = params;
 
@@ -133,12 +142,7 @@ export async function getAssetHolders(
 /** Returns the circulating supply reported by Horizon for an issued asset. */
 export async function getAssetSupply(assetCode: string, assetIssuer: string): Promise<string> {
   const server = StellarService.getServer();
-  const page = await server
-    .assets()
-    .forCode(assetCode)
-    .forIssuer(assetIssuer)
-    .limit(1)
-    .call();
+  const page = await server.assets().forCode(assetCode).forIssuer(assetIssuer).limit(1).call();
 
   return page.records[0]?.amount ?? '0.0000000';
 }
