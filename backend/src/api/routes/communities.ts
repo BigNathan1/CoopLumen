@@ -31,9 +31,16 @@ interface Community {
 const VALID_ROLES = ['admin', 'treasurer', 'member', 'observer'];
 
 /**
- * GET /api/v1/communities
- * Paginated, searchable, sortable list of communities.
- * Query: page, limit, search, sortBy (created_at|name|updated_at), order (asc|desc)
+ * @route GET /api/v1/communities
+ * @access Public
+ * @description Paginated, searchable, sortable list of communities.
+ * @param {number} [page] - 1-based page number.
+ * @param {number} [limit] - Page size, capped at 100.
+ * @param {string} [search] - Full-text search over name and description.
+ * @param {string} [sortBy=created_at] - One of created_at | name | updated_at.
+ * @param {string} [order=desc] - One of asc | desc.
+ * @returns {200} `{ data: Community[], meta: PageMeta }`
+ * @see docs/openapi.yaml — GET /api/v1/communities
  */
 communityRouter.get('/', async (req, res, next) => {
   try {
@@ -71,9 +78,17 @@ communityRouter.get('/', async (req, res, next) => {
 });
 
 /**
- * GET /api/v1/communities/search
- * Dedicated full-text search over community name and description.
- * Query: q (required), page, limit, sortBy (created_at|name|updated_at), order (asc|desc)
+ * @route GET /api/v1/communities/search
+ * @access Public
+ * @description Dedicated full-text search over community name and description.
+ * @param {string} q - Required search query text; 400 if missing or blank.
+ * @param {number} [page] - 1-based page number.
+ * @param {number} [limit] - Page size, capped at 100.
+ * @param {string} [sortBy=created_at] - One of created_at | name | updated_at.
+ * @param {string} [order=desc] - One of asc | desc.
+ * @returns {200} `{ data: Community[], meta: PageMeta }`
+ * @returns {400} Missing or blank `q` query parameter.
+ * @see docs/openapi.yaml — GET /api/v1/communities/search
  */
 communityRouter.get('/search', async (req, res, next) => {
   try {
@@ -109,8 +124,13 @@ communityRouter.get('/search', async (req, res, next) => {
 });
 
 /**
- * GET /api/v1/communities/:id
- * Single community enriched with member count, token list, and statistics.
+ * @route GET /api/v1/communities/:id
+ * @access Public
+ * @description Single community enriched with member count, token list, and statistics.
+ * @param {string} id - Community UUID.
+ * @returns {200} `{ data: CommunityDetail }`
+ * @returns {404} Community not found or soft-deleted.
+ * @see docs/openapi.yaml — GET /api/v1/communities/{id}
  */
 communityRouter.get('/:id', async (req, res, next) => {
   try {
@@ -162,8 +182,19 @@ communityRouter.get('/:id', async (req, res, next) => {
 });
 
 /**
- * POST /api/v1/communities
- * Registers a new community and records a `community_created` audit event.
+ * @route POST /api/v1/communities
+ * @access Public
+ * @description Registers a new community and records a `community_created` audit
+ * event to `transactions_log` in the same database transaction as the insert.
+ * @param {string} body.name - 2-64 characters, must be unique among active communities.
+ * @param {string} [body.description] - Up to 500 characters.
+ * @param {string} body.issuerPublicKey - Stellar StrKey of the treasury/issuer account.
+ * @param {string} body.assetCode - 1-12 character Stellar asset code.
+ * @param {string} body.assetIssuer - Stellar StrKey of the asset issuer.
+ * @returns {201} `{ data: Community }`
+ * @returns {400} Validation failure (Zod), errors nested under `meta.errors`.
+ * @returns {409} Community name already taken.
+ * @see docs/openapi.yaml — POST /api/v1/communities
  */
 communityRouter.post(
   '/',
@@ -212,8 +243,17 @@ communityRouter.post(
 );
 
 /**
- * PUT /api/v1/communities/:id
- * Updates name, description, and/or per-community settings.
+ * @route PUT /api/v1/communities/:id
+ * @access Public
+ * @description Updates name, description, and/or per-community settings.
+ * @param {string} id - Community UUID.
+ * @param {string} [body.name] - 2-64 characters, must be unique among active communities.
+ * @param {string|null} [body.description] - Up to 500 characters.
+ * @param {object} [body.settings] - Upserted into `community_settings`.
+ * @returns {200} `{ data: Community }`
+ * @returns {404} Community not found or soft-deleted.
+ * @returns {409} Community name already taken by another community.
+ * @see docs/openapi.yaml — PUT /api/v1/communities/{id}
  */
 communityRouter.put(
   '/:id',
@@ -275,8 +315,13 @@ communityRouter.put(
 );
 
 /**
- * DELETE /api/v1/communities/:id
- * Soft-deletes a community by setting `deleted_at`.
+ * @route DELETE /api/v1/communities/:id
+ * @access Public
+ * @description Soft-deletes a community by setting `deleted_at`.
+ * @param {string} id - Community UUID.
+ * @returns {200} `{ data: { id, deleted: true } }`
+ * @returns {404} Community not found or already soft-deleted.
+ * @see docs/openapi.yaml — DELETE /api/v1/communities/{id}
  */
 communityRouter.delete('/:id', writeLimiter, async (req, res, next) => {
   try {
@@ -295,8 +340,15 @@ communityRouter.delete('/:id', writeLimiter, async (req, res, next) => {
 });
 
 /**
- * GET /api/v1/communities/:id/members
- * Paginated member list with optional role filter.
+ * @route GET /api/v1/communities/:id/members
+ * @access Public
+ * @description Paginated member list with optional role filter.
+ * @param {string} id - Community UUID.
+ * @param {number} [page] - 1-based page number.
+ * @param {number} [limit] - Page size, capped at 100.
+ * @param {string} [role] - One of admin | treasurer | member | observer; ignored if unrecognized.
+ * @returns {200} `{ data: Member[], meta: PageMeta }`
+ * @see docs/openapi.yaml — GET /api/v1/communities/{id}/members
  */
 communityRouter.get('/:id/members', async (req, res, next) => {
   try {
@@ -331,8 +383,17 @@ communityRouter.get('/:id/members', async (req, res, next) => {
 });
 
 /**
- * POST /api/v1/communities/:id/members
- * Adds a member after validating the Stellar address.
+ * @route POST /api/v1/communities/:id/members
+ * @access Public
+ * @description Adds a member after validating the Stellar address. Re-adding a
+ * previously removed address reactivates it rather than failing on conflict.
+ * @param {string} id - Community UUID.
+ * @param {string} body.stellarAddress - 56-character Stellar StrKey.
+ * @param {string} [body.role=member] - One of admin | treasurer | member | observer.
+ * @returns {201} `{ data: Member }`
+ * @returns {400} Validation failure (Zod), errors nested under `meta.errors`.
+ * @returns {404} Community not found or soft-deleted.
+ * @see docs/openapi.yaml — POST /api/v1/communities/{id}/members
  */
 communityRouter.post(
   '/:id/members',
@@ -367,8 +428,15 @@ communityRouter.post(
 );
 
 /**
- * GET /api/v1/communities/:id/members/:address
- * Fetches a single member's details.
+ * @route GET /api/v1/communities/:id/members/:address
+ * @access Public
+ * @description Fetches a single member's details.
+ * @param {string} id - Community UUID.
+ * @param {string} address - Stellar StrKey; rejected with 400 if not structurally valid.
+ * @returns {200} `{ data: Member }`
+ * @returns {400} `address` is not a structurally valid Stellar StrKey.
+ * @returns {404} Member not found or soft-removed.
+ * @see docs/openapi.yaml — GET /api/v1/communities/{id}/members/{address}
  */
 communityRouter.get('/:id/members/:address', async (req, res, next) => {
   try {
@@ -394,8 +462,16 @@ communityRouter.get('/:id/members/:address', async (req, res, next) => {
 });
 
 /**
- * PUT /api/v1/communities/:id/members/:address
- * Updates a member's role.
+ * @route PUT /api/v1/communities/:id/members/:address
+ * @access Public
+ * @description Updates a member's role.
+ * @param {string} id - Community UUID.
+ * @param {string} address - Stellar StrKey; rejected with 400 if not structurally valid.
+ * @param {string} body.role - One of admin | treasurer | member | observer.
+ * @returns {200} `{ data: Member }`
+ * @returns {400} Invalid `role`, or `address` is not a structurally valid Stellar StrKey.
+ * @returns {404} Member not found or soft-removed.
+ * @see docs/openapi.yaml — PUT /api/v1/communities/{id}/members/{address}
  */
 communityRouter.put(
   '/:id/members/:address',
@@ -428,8 +504,15 @@ communityRouter.put(
 );
 
 /**
- * DELETE /api/v1/communities/:id/members/:address
- * Soft-removes a member from the community.
+ * @route DELETE /api/v1/communities/:id/members/:address
+ * @access Public
+ * @description Soft-removes a member from the community; the address can be re-added later.
+ * @param {string} id - Community UUID.
+ * @param {string} address - Stellar StrKey; rejected with 400 if not structurally valid.
+ * @returns {200} `{ data: { stellar_address, removed: true } }`
+ * @returns {400} `address` is not a structurally valid Stellar StrKey.
+ * @returns {404} Member not found or already soft-removed.
+ * @see docs/openapi.yaml — DELETE /api/v1/communities/{id}/members/{address}
  */
 communityRouter.delete('/:id/members/:address', writeLimiter, async (req, res, next) => {
   try {
@@ -456,8 +539,14 @@ communityRouter.delete('/:id/members/:address', writeLimiter, async (req, res, n
 });
 
 /**
- * GET /api/v1/communities/:id/treasury
- * Returns the treasury (issuer) account's on-chain balances.
+ * @route GET /api/v1/communities/:id/treasury
+ * @access Public
+ * @description Returns the treasury (issuer) account's on-chain balances, fetched
+ * live from Stellar Horizon via {@link StellarService.getAccountBalance}.
+ * @param {string} id - Community UUID.
+ * @returns {200} `{ data: { account, balances } }`
+ * @returns {404} Community not found or soft-deleted.
+ * @see docs/openapi.yaml — GET /api/v1/communities/{id}/treasury
  */
 communityRouter.get('/:id/treasury', async (req, res, next) => {
   try {
@@ -477,8 +566,15 @@ communityRouter.get('/:id/treasury', async (req, res, next) => {
 });
 
 /**
- * POST /api/v1/communities/:id/avatar
- * Sets the community's avatar image URL.
+ * @route POST /api/v1/communities/:id/avatar
+ * @access Public
+ * @description Sets the community's avatar image URL.
+ * @param {string} id - Community UUID.
+ * @param {string} body.avatarUrl - Absolute URL, up to 2048 characters.
+ * @returns {200} `{ data: { id, avatar_url } }`
+ * @returns {400} Validation failure (Zod), errors nested under `meta.errors`.
+ * @returns {404} Community not found or soft-deleted.
+ * @see docs/openapi.yaml — POST /api/v1/communities/{id}/avatar
  */
 communityRouter.post(
   '/:id/avatar',
