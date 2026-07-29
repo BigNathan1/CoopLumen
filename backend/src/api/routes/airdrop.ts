@@ -1,4 +1,4 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { Asset, Keypair, Operation, TransactionBuilder, BASE_FEE } from '@stellar/stellar-sdk';
 import { db } from '../../db';
@@ -47,7 +47,8 @@ function horizonMessage(error: unknown): string {
   const messages: Record<string, string> = {
     tx_bad_auth: 'The issuer secret cannot authorize this transaction.',
     tx_bad_seq: 'The issuer account sequence is stale; please retry the airdrop.',
-    tx_insufficient_balance: 'The issuer account does not have enough funds to pay transaction fees.',
+    tx_insufficient_balance:
+      'The issuer account does not have enough funds to pay transaction fees.',
     op_no_trust: 'One or more recipients have not established a trustline for this token.',
     op_underfunded: 'The issuer account does not have enough token balance for the airdrop.',
     op_line_full: 'One or more recipients would exceed their trustline limit.',
@@ -60,7 +61,7 @@ function horizonMessage(error: unknown): string {
     : 'The Stellar network rejected the airdrop. Verify the issuer account, trustlines, and balance.';
 }
 
-router.post('/', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+router.post('/', async (req: Request, res: Response): Promise<void> => {
   const parsed = airdropSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
@@ -93,7 +94,9 @@ router.post('/', async (req: Request, res: Response, next: NextFunction): Promis
     );
 
     if (members.length === 0) {
-      res.status(400).json({ data: null, error: 'Community has no members to receive the airdrop' });
+      res
+        .status(400)
+        .json({ data: null, error: 'Community has no members to receive the airdrop' });
       return;
     }
 

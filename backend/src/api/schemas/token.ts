@@ -1,12 +1,8 @@
 import { z } from 'zod';
 
-const stellarPublicKey = z
-  .string()
-  .regex(/^G[A-Z2-7]{55}$/, 'must be a valid Stellar public key');
+const stellarPublicKey = z.string().regex(/^G[A-Z2-7]{55}$/, 'must be a valid Stellar public key');
 
-const stellarSecretKey = z
-  .string()
-  .regex(/^S[A-Z2-7]{55}$/, 'must be a valid Stellar secret key');
+const stellarSecretKey = z.string().regex(/^S[A-Z2-7]{55}$/, 'must be a valid Stellar secret key');
 
 const assetCode = z
   .string()
@@ -36,16 +32,14 @@ export const trustlineTokenSchema = z.object({
   accountSecret: stellarSecretKey,
   assetCode,
   assetIssuer: stellarPublicKey,
-  amount: decimalAmount.refine((value) => Number(value) > 0, {
-    message: 'Amount must be greater than zero',
-  }),
+  limit: amount.optional(),
 });
 
 export const burnTokenSchema = z.object({
   holderSecret: stellarSecretKey,
   assetCode,
   assetIssuer: stellarPublicKey,
-  limit: decimalAmount.optional(),
+  amount,
 });
 
 export type IssueTokenInput = z.infer<typeof issueTokenSchema>;
