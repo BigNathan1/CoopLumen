@@ -1,14 +1,26 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import { Keypair } from '@stellar/stellar-sdk';
+import { z } from 'zod';
 import { issueAsset, burnAsset, getAssetHolders } from '../../contracts/assets';
 import { establishTrustline } from '../../contracts/trustlines';
 import { validateBody } from '../middleware/validate';
 import { idempotent } from '../middleware/idempotency';
-import { issueTokenSchema, trustlineSchema, burnTokenSchema } from '../schemas/token';
+import { issueTokenSchema, trustlineTokenSchema, burnTokenSchema } from '../schemas/token';
 import { isValidStellarPublicKey } from '../utils/stellar';
 import { mapHorizonError } from '../utils/horizonError';
 import { db } from '../../db';
 
 export const tokenRouter = Router();
+
+const tokenParamsSchema = z.object({
+  assetCode: z
+    .string()
+    .trim()
+    .min(1, 'assetCode is required')
+    .max(12, 'assetCode must be 12 characters or fewer')
+    .regex(/^[A-Za-z0-9]+$/, 'assetCode must be alphanumeric'),
+  issuer: z.string().refine(isValidStellarPublicKey, 'issuer must be a valid Stellar public key'),
+});
 
 interface Token {
   id: string;
@@ -30,6 +42,8 @@ interface Token {
  * In production, prefer the client-sign flow (/api/tokens/build-issue).
  * Accepts an optional Idempotency-Key header; a retried request with the same
  * key replays the original response instead of issuing a second time.
+ * When `communityId` is supplied, the issued token's metadata is persisted to
+ * the `tokens` table so it is immediately visible via GET /:communityId.
  */
 tokenRouter.post(
   '/issue',
@@ -37,13 +51,15 @@ tokenRouter.post(
   validateBody(issueTokenSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { issuerSecret, assetCode, distributorPublicKey, amount, memo } = req.body as {
-        issuerSecret: string;
-        assetCode: string;
-        distributorPublicKey: string;
-        amount: string;
-        memo?: string;
-      };
+      const { communityId, issuerSecret, assetCode, distributorPublicKey, amount, memo } =
+        req.body as {
+          communityId?: string;
+          issuerSecret: string;
+          assetCode: string;
+          distributorPublicKey: string;
+          amount: string;
+          memo?: string;
+        };
 
       const txHash = await issueAsset({
         issuerSecret,
@@ -52,6 +68,38 @@ tokenRouter.post(
         amount,
         memo,
       });
+
+      let issuerPublicKey: string | undefined;
+      if (communityId) {
+        try {
+          issuerPublicKey = Keypair.fromSecret(issuerSecret).publicKey();
+          await db.query(
+            `INSERT INTO tokens
+               (community_id, asset_code, asset_issuer, issuer_public_key,
+                distributor_public_key, total_supply, issuance_tx_hash)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [
+              communityId,
+              assetCode,
+              issuerPublicKey,
+              issuerPublicKey,
+              distributorPublicKey,
+              amount,
+              txHash,
+            ]
+          );
+        } catch {
+          res.status(500).json({
+            data: null,
+            error: {
+              code: 'TOKEN_METADATA_PERSISTENCE_FAILED',
+              message:
+                'The asset was issued, but its metadata could not be saved. Do not retry automatically.',
+            },
+          });
+          return;
+        }
+      }
 
       res.status(201).json({ data: { txHash } });
     } catch (err) {
@@ -108,7 +156,7 @@ tokenRouter.post(
  */
 tokenRouter.post(
   '/trustline',
-  validateBody(trustlineSchema),
+  validateBody(trustlineTokenSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { accountSecret, assetCode, assetIssuer, limit } = req.body as {
@@ -131,6 +179,44 @@ tokenRouter.post(
     }
   }
 );
+
+/**
+ * GET /api/v1/tokens/:assetCode/:issuer
+ * Fetches metadata for a single token by its community's primary asset.
+ */
+tokenRouter.get('/:assetCode/:issuer', async (req: Request, res: Response, next: NextFunction) => {
+  const parsed = tokenParamsSchema.safeParse(req.params);
+  if (!parsed.success) {
+    res.status(400).json({
+      error: 'Validation failed',
+      meta: {
+        errors: parsed.error.issues.map((issue) => ({
+          path: issue.path.join('.'),
+          message: issue.message,
+        })),
+      },
+    });
+    return;
+  }
+
+  try {
+    const [token] = await db.query(
+      `SELECT id, asset_code, asset_issuer, name, description
+         FROM communities
+         WHERE asset_code = $1 AND asset_issuer = $2`,
+      [parsed.data.assetCode, parsed.data.issuer]
+    );
+
+    if (!token) {
+      res.status(404).json({ data: null, error: 'Token not found' });
+      return;
+    }
+
+    res.json({ data: token });
+  } catch (err) {
+    next(err);
+  }
+});
 
 /**
  * GET /api/v1/tokens/:communityId

@@ -1,57 +1,293 @@
 openapi: 3.0.3
 info:
-  title: CoopLumen API — Communities
-  description: REST API for managing CoopLumen communities, including soft deletion.
+  title: CoopLumen API
+  description: REST API for CoopLumen communities and Stellar assets.
   version: 0.1.0
-  license:
-    name: MIT
-
 servers:
   - url: http://localhost:4000
-    description: Local development
 
 tags:
-  - name: Communities
-    description: Community registration and management
+  - name: Tokens
+    description: Community token metadata and operations
 
 paths:
-  /api/v1/communities/{id}:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        description: Community UUID.
-        schema:
-          type: string
-          format: uuid
-    delete:
-      tags: [Communities]
-      summary: Soft-delete a community
-      description: Sets deleted_at on the community. Deleted communities are excluded from subsequent reads and listings.
+  /api/v1/tokens/{assetCode}/{issuer}:
+    get:
+      tags: [Tokens]
+      summary: Get token metadata
+      description: Returns the off-chain metadata for one Stellar custom asset.
+      parameters:
+        - name: assetCode
+          in: path
+          required: true
+          description: Stellar asset code.
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9]{1,12}$'
+        - name: issuer
+          in: path
+          required: true
+          description: Stellar public key of the asset issuer.
+          schema:
+            type: string
+            pattern: '^G[A-Z2-7]{55}$'
       responses:
         '200':
-          description: Community soft-deleted
+          description: Token metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenMetadataResponse'
+        '400':
+          description: Missing required "q" query parameter
+
+  /api/v1/communities/{id}:
+    parameters:
+      - $ref: '#/components/parameters/CommunityId'
+    get:
+      tags: [Communities]
+      summary: Get a community
+      description: Enriched with member count, token list, and statistics.
+      responses:
+        '200':
+          description: Community detail
           content:
             application/json:
               schema:
                 type: object
-                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CommunityDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Communities]
+      summary: Update a community
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateCommunity' }
+      responses:
+        '200':
+          description: Updated community
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Community name already taken
+    delete:
+      tags: [Communities]
+      summary: Soft-delete a community
+      responses:
+        '200':
+          description: Community soft-deleted
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/communities/{id}/avatar:
+    parameters:
+      - $ref: '#/components/parameters/CommunityId'
+    post:
+      tags: [Communities]
+      summary: Set community avatar URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [avatarUrl]
+              properties:
+                avatarUrl:
+                  type: string
+                  format: uri
+                  maxLength: 2048
+      responses:
+        '200':
+          description: Avatar updated
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/communities/{id}/members:
+    parameters:
+      - $ref: '#/components/parameters/CommunityId'
+    get:
+      tags: [Members]
+      summary: List members
+      description: Paginated member list for a community, optionally filtered by role.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [admin, treasurer, member, observer]
+          description: Restricts the list to a single role. Unrecognized values are ignored.
+      responses:
+        '200':
+          description: A page of members
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Member' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+    post:
+      tags: [Members]
+      summary: Add a member
+      description: >
+        Adds a member to the community. Re-adding a previously removed
+        (soft-deleted) address reactivates it with the given role instead of
+        failing on the unique constraint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stellarAddress]
+              properties:
+                stellarAddress: { $ref: '#/components/schemas/StellarKey' }
+                role:
+                  type: string
+                  enum: [admin, treasurer, member, observer]
+                  default: member
+      responses:
+        '201':
+          description: Member added
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Member' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/communities/{id}/members/{address}:
+    parameters:
+      - $ref: '#/components/parameters/CommunityId'
+      - name: address
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/StellarKey' }
+        description: Stellar public key of the member. Rejected with 400 if not a structurally valid 56-character StrKey.
+    get:
+      tags: [Members]
+      summary: Get a member
+      responses:
+        '200':
+          description: Member detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Member' }
+        '400':
+          description: The address path parameter is not a structurally valid Stellar StrKey
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Members]
+      summary: Update a member's role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [admin, treasurer, member, observer]
+      responses:
+        '200':
+          description: Member updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Member' }
+        '400':
+          description: >
+            The role in the request body failed validation, or the address
+            path parameter is not a structurally valid Stellar StrKey
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Members]
+      summary: Remove a member
+      description: Soft-removes a member; the address can be re-added later via POST.
+      responses:
+        '200':
+          description: Member soft-removed
+          content:
+            application/json:
+              schema:
+                type: object
                 properties:
                   data:
                     type: object
-                    required: [deleted]
                     properties:
-                      deleted:
-                        type: boolean
-                        example: true
+                      stellar_address: { $ref: '#/components/schemas/StellarKey' }
+                      removed: { type: boolean, example: true }
         '400':
-          description: Invalid community UUID
+          description: The address path parameter is not a structurally valid Stellar StrKey
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/communities/{id}/treasury:
+    parameters:
+      - $ref: '#/components/parameters/CommunityId'
+    get:
+      tags: [Treasury]
+      summary: Get treasury balances
+      description: Returns the issuer account's on-chain Stellar balances, fetched live from Horizon.
+      responses:
+        '200':
+          description: Treasury balances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      account: { $ref: '#/components/schemas/StellarKey' }
+                      balances:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            asset_type: { type: string }
+                            asset_code: { type: string }
+                            asset_issuer: { type: string }
+                            balance: { type: string }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/tokens/issue:
+    post:
+      tags: [Tokens]
+      summary: Issue a community token
+      description: >
+        Issues a community token on the Stellar network. Accepts an optional
+        Idempotency-Key header; a retried request with the same key replays
+        the original response instead of issuing a second time.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IssueToken' }
+      responses:
+        '201':
+          description: Token issued
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Community not found or already deleted
+          description: Token not found
           content:
             application/json:
               schema:
@@ -59,12 +295,130 @@ paths:
 
 components:
   schemas:
+    StellarKey:
+      type: string
+      description: A 56-character Stellar StrKey public key.
+      pattern: '^G[A-Z2-7]{55}$'
+    Health:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        db: { type: string, example: ok }
+        stellar: { type: string, example: ok }
+        uptime: { type: integer }
+        version: { type: string }
+    Community:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        issuer_public_key: { $ref: '#/components/schemas/StellarKey' }
+        asset_code: { type: string }
+        asset_issuer: { $ref: '#/components/schemas/StellarKey' }
+        avatar_url: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Member:
+      type: object
+      properties:
+        stellar_address: { $ref: '#/components/schemas/StellarKey' }
+        role:
+          type: string
+          enum: [admin, treasurer, member, observer]
+        joined_at: { type: string, format: date-time }
+    CommunityDetail:
+      allOf:
+        - $ref: '#/components/schemas/Community'
+        - type: object
+          properties:
+            member_count: { type: integer }
+            tokens:
+              type: array
+              items: { type: object }
+            stats:
+              type: object
+              properties:
+                total_transactions: { type: integer }
+                total_token_supply: { type: number }
+    CreateCommunity:
+      type: object
+      required: [name, issuerPublicKey, assetCode, assetIssuer]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 64 }
+        description: { type: string, maxLength: 500 }
+        issuerPublicKey: { $ref: '#/components/schemas/StellarKey' }
+        assetCode: { type: string, minLength: 1, maxLength: 12 }
+        assetIssuer: { $ref: '#/components/schemas/StellarKey' }
+    UpdateCommunity:
+      type: object
+      properties:
+        name: { type: string, minLength: 2, maxLength: 64 }
+        description: { type: string, nullable: true, maxLength: 500 }
+        settings: { type: object, additionalProperties: true }
+    PageMeta:
+      type: object
+      properties:
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        pages: { type: integer }
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+    Token:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        community_id: { type: string, format: uuid }
+        asset_code: { type: string }
+        asset_issuer: { $ref: '#/components/schemas/StellarKey' }
+        distributor_address: { $ref: '#/components/schemas/StellarKey' }
+        total_supply: { type: string }
+        description: { type: string, nullable: true }
+        icon_url: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    BurnToken:
+      type: object
+      required: [asset_code, asset_issuer]
+      properties:
+        id:
+          type: string
+        community_id:
+          type: string
+          format: uuid
+        asset_code:
+          type: string
+        asset_issuer:
+          type: string
+        name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    TokenMetadataResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/TokenMetadata'
     ErrorResponse:
       type: object
-      required: [error]
+      required: [data, error]
       properties:
-        error:
-          type: string
+        data:
+          nullable: true
         meta:
           type: object
           additionalProperties: true
+        error:
+          type: string

@@ -93,7 +93,7 @@ describe('POST /api/v1/loans', () => {
   it('rejects an invalid payload', async () => {
     const res = await request(app).post('/api/v1/loans').send({});
     expect(res.status).toBe(400);
-    expect(res.body.errors).toBeDefined();
+    expect(res.body.meta.errors).toBeDefined();
   });
 
   it('rejects an invalid Stellar address', async () => {
