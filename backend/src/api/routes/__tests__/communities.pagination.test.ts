@@ -27,13 +27,9 @@ describe('GET /api/v1/communities/:id/members pagination', () => {
       role: 'member',
     };
 
-    mockDb.query
-      .mockResolvedValueOnce([{ count: 3 }])
-      .mockResolvedValueOnce([member]);
+    mockDb.query.mockResolvedValueOnce([{ count: 3 }]).mockResolvedValueOnce([member]);
 
-    const res = await request(app).get(
-      `/api/v1/communities/${communityId}/members?page=2&limit=1`
-    );
+    const res = await request(app).get(`/api/v1/communities/${communityId}/members?page=2&limit=1`);
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
