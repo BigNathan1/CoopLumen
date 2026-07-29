@@ -39,3 +39,8 @@ export const updateMemberSchema = z.object({
 export const setAvatarSchema = z.object({
   avatarUrl: z.string().trim().url({ message: 'avatarUrl must be a valid URL' }).max(2048),
 });
+
+/** Validates the `:id` path parameter on treasury and other community routes. */
+export const communityIdParamsSchema = z.object({
+  id: z.string().uuid({ message: 'Community ID must be a valid UUID' }),
+});

@@ -25,3 +25,28 @@ export function validateBody<T>(schema: ZodType<T>) {
     next();
   };
 }
+
+/**
+ * Returns middleware that validates `req.params` against a Zod schema. On
+ * success the parsed (and coerced) value replaces `req.params`; on failure it
+ * responds with 400 and a list of field errors.
+ */
+export function validateParams<T>(schema: ZodType<T>) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const result = schema.safeParse(req.params);
+    if (!result.success) {
+      res.status(400).json({
+        error: 'Validation failed',
+        meta: {
+          errors: result.error.issues.map((issue) => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
+      });
+      return;
+    }
+    req.params = result.data as Record<string, string>;
+    next();
+  };
+}
