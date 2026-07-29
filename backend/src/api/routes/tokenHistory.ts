@@ -1,4 +1,4 @@
-import { Asset, Keypair } from '@stellar/stellar-sdk';
+import { Keypair } from '@stellar/stellar-sdk';
 import { NextFunction, Request, Response, Router } from 'express';
 import { z } from 'zod';
 import { StellarService } from '../../contracts/stellar';
@@ -9,17 +9,14 @@ const assetHistoryParamsSchema = z.object({
     .min(1)
     .max(12)
     .regex(/^[A-Za-z0-9]+$/, 'Asset code must be alphanumeric'),
-  issuer: z.string().refine(
-    (value) => {
-      try {
-        Keypair.fromPublicKey(value);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    'Issuer must be a valid Stellar public key'
-  ),
+  issuer: z.string().refine((value) => {
+    try {
+      Keypair.fromPublicKey(value);
+      return true;
+    } catch {
+      return false;
+    }
+  }, 'Issuer must be a valid Stellar public key'),
 });
 
 export const tokenHistoryRouter = Router();
@@ -45,15 +42,26 @@ tokenHistoryRouter.get(
 
     const { assetCode, issuer } = parsed.data;
 
+    // Horizon has no "operations/payments for an asset" endpoint; the issuer
+    // account is the canonical source of an asset's activity, so its payment
+    // history filtered to this asset is the closest available proxy.
     StellarService.getServer()
-      .operations()
-      .forAsset(new Asset(assetCode, issuer))
+      .payments()
+      .forAccount(issuer)
       .limit(20)
       .order('desc')
       .call()
       .then((page) => {
+        const records = page.records.filter(
+          (record) =>
+            'asset_code' in record &&
+            record.asset_code === assetCode &&
+            'asset_issuer' in record &&
+            record.asset_issuer === issuer
+        );
+
         res.status(200).json({
-          data: page.records,
+          data: records,
           meta: {
             assetCode,
             issuer,

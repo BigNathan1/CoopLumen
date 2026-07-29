@@ -18,28 +18,37 @@ beforeEach(() => {
 });
 
 describe('GET /api/v1/tokens/history/:assetCode/:issuer', () => {
-  it('returns the asset operation history from Horizon', async () => {
+  it('returns the asset payment history from Horizon, filtered to the asset', async () => {
     const records = [
       {
         id: 'operation-1',
         type: 'payment',
         transaction_hash: 'transaction-1',
+        asset_code: 'ECO',
+        asset_issuer: issuer,
+      },
+      {
+        id: 'operation-2',
+        type: 'payment',
+        transaction_hash: 'transaction-2',
+        asset_code: 'OTHER',
+        asset_issuer: issuer,
       },
     ];
     const call = jest.fn().mockResolvedValue({ records });
     const order = jest.fn().mockReturnValue({ call });
     const limit = jest.fn().mockReturnValue({ order });
-    const forAsset = jest.fn().mockReturnValue({ limit });
+    const forAccount = jest.fn().mockReturnValue({ limit });
     mockGetServer.mockReturnValue({
-      operations: jest.fn().mockReturnValue({ forAsset }),
+      payments: jest.fn().mockReturnValue({ forAccount }),
     });
 
     const response = await request(app).get(`/api/v1/tokens/history/ECO/${issuer}`);
 
     expect(response.status).toBe(200);
-    expect(response.body.data).toEqual(records);
+    expect(response.body.data).toEqual([records[0]]);
     expect(response.body.meta).toEqual({ assetCode: 'ECO', issuer, limit: 20 });
-    expect(forAsset).toHaveBeenCalledTimes(1);
+    expect(forAccount).toHaveBeenCalledWith(issuer);
     expect(limit).toHaveBeenCalledWith(20);
     expect(order).toHaveBeenCalledWith('desc');
   });
