@@ -5,7 +5,11 @@ jest.mock('../db', () => ({
   db: {
     connect: jest.fn().mockResolvedValue(undefined),
     ping: jest.fn().mockResolvedValue(true),
-    query: jest.fn().mockResolvedValue([]),
+    query: jest
+      .fn()
+      .mockImplementation((sql: string) =>
+        Promise.resolve(sql.includes('COUNT(*)') ? [{ count: 0 }] : [])
+      ),
     transaction: jest.fn(),
   },
 }));

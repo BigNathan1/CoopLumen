@@ -139,9 +139,7 @@ describe('POST /api/v1/communities', () => {
       .fn()
       .mockResolvedValueOnce({ rows: [community] }) // INSERT INTO communities
       .mockResolvedValueOnce({ rows: [] }); // INSERT INTO transactions_log
-    mockDb.transaction.mockImplementationOnce(async (fn) =>
-      fn({ query: clientQuery } as never)
-    );
+    mockDb.transaction.mockImplementationOnce(async (fn) => fn({ query: clientQuery } as never));
 
     const res = await request(app).post('/api/v1/communities').send({
       name: 'EcoDAO',

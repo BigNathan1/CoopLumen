@@ -43,20 +43,20 @@ describe('GET /api/v1/tokens/:assetCode/:issuer', () => {
       name: 'Eco Token',
       description: 'Community ecological token',
     };
-    mockQuery.mockResolvedValueOnce({ rows: [token] });
+    mockQuery.mockResolvedValueOnce([token]);
 
     const response = await request(app).get(`/api/v1/tokens/ECO/${issuer}`);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ data: token });
-    expect(mockQuery).toHaveBeenCalledWith(
-      expect.stringContaining('FROM communities'),
-      ['ECO', issuer]
-    );
+    expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('FROM communities'), [
+      'ECO',
+      issuer,
+    ]);
   });
 
   it('returns a structured 404 when the token does not exist', async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [] });
+    mockQuery.mockResolvedValueOnce([]);
 
     const response = await request(app).get(`/api/v1/tokens/ECO/${issuer}`);
 
