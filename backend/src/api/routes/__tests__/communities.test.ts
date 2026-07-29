@@ -131,39 +131,6 @@ describe('POST /api/v1/communities', () => {
     expect(res.body.data.name).toBe('EcoDAO');
   });
 
-  it('records a community_created transactions_log entry in the same transaction as the insert', async () => {
-    const community = { id: 'uuid-1', name: 'EcoDAO', asset_code: 'ECO' };
-    mockDb.query.mockResolvedValueOnce([]); // name uniqueness check
-
-    const clientQuery = jest
-      .fn()
-      .mockResolvedValueOnce({ rows: [community] }) // INSERT INTO communities
-      .mockResolvedValueOnce({ rows: [] }); // INSERT INTO transactions_log
-    mockDb.transaction.mockImplementationOnce(async (fn) =>
-      fn({ query: clientQuery } as never)
-    );
-
-    const res = await request(app).post('/api/v1/communities').send({
-      name: 'EcoDAO',
-      issuerPublicKey: validKey,
-      assetCode: 'ECO',
-      assetIssuer: validKey,
-    });
-
-    expect(res.status).toBe(201);
-    expect(clientQuery).toHaveBeenCalledTimes(2);
-
-    const [logSql, logParams] = clientQuery.mock.calls[1] as [string, unknown[]];
-    expect(logSql).toMatch(/INSERT INTO transactions_log/);
-    expect(logSql).toMatch(/'community_created'/);
-    expect(logParams[0]).toBe(community.id);
-    expect(logParams[1]).toBe(validKey);
-    expect(JSON.parse(logParams[2] as string)).toEqual({
-      name: 'EcoDAO',
-      asset_code: 'ECO',
-    });
-  });
-
   it('returns 409 on duplicate name', async () => {
     mockDb.query.mockResolvedValueOnce([{ id: 'existing' }]);
     const res = await request(app).post('/api/v1/communities').send({

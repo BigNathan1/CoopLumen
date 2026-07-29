@@ -1,66 +1,79 @@
 import request from 'supertest';
 import { Keypair } from '@stellar/stellar-sdk';
 import app from '../../../app';
-import { db } from '../../../db';
+import { issueAsset } from '../../../contracts/assets';
+import { establishTrustline } from '../../../contracts/trustlines';
 
-jest.mock('../../../db', () => ({
-  db: {
-    query: jest.fn(),
-    ping: jest.fn(),
-  },
+jest.mock('../../../contracts/assets', () => ({
+  issueAsset: jest.fn(),
+}));
+jest.mock('../../../contracts/trustlines', () => ({
+  establishTrustline: jest.fn(),
 }));
 
-const mockQuery = db.query as jest.Mock;
+const mockIssueAsset = issueAsset as jest.Mock;
+const mockEstablishTrustline = establishTrustline as jest.Mock;
+const distributor = Keypair.random().publicKey();
 const issuer = Keypair.random().publicKey();
 
-describe('GET /api/v1/tokens/:assetCode/:issuer', () => {
-  beforeEach(() => {
-    jest.resetAllMocks();
+beforeEach(() => {
+  jest.resetAllMocks();
+});
+
+describe('POST /api/v1/tokens/issue', () => {
+  it('returns 400 on invalid payload', async () => {
+    const res = await request(app).post('/api/v1/tokens/issue').send({});
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toBeDefined();
   });
 
-  it('rejects an invalid asset code', async () => {
-    const response = await request(app).get(`/api/v1/tokens/not-valid!/${issuer}`);
-
-    expect(response.status).toBe(400);
-    expect(response.body.error).toBe('Validation failed');
-    expect(response.body.meta.errors).toBeDefined();
-    expect(mockQuery).not.toHaveBeenCalled();
+  it('returns 400 when amount is not a valid decimal string', async () => {
+    const res = await request(app)
+      .post('/api/v1/tokens/issue')
+      .send({
+        issuerSecret: 'S'.repeat(56),
+        assetCode: 'ECO',
+        distributorPublicKey: distributor,
+        amount: 'not-a-number',
+      });
+    expect(res.status).toBe(400);
   });
 
-  it('rejects an invalid issuer', async () => {
-    const response = await request(app).get('/api/v1/tokens/ECO/not-a-stellar-key');
-
-    expect(response.status).toBe(400);
-    expect(response.body.error).toBe('Validation failed');
-    expect(mockQuery).not.toHaveBeenCalled();
-  });
-
-  it('returns token metadata for a valid asset pair', async () => {
-    const token = {
-      id: 'community-1',
-      asset_code: 'ECO',
-      asset_issuer: issuer,
-      name: 'Eco Token',
-      description: 'Community ecological token',
-    };
-    mockQuery.mockResolvedValueOnce({ rows: [token] });
-
-    const response = await request(app).get(`/api/v1/tokens/ECO/${issuer}`);
-
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual({ data: token });
-    expect(mockQuery).toHaveBeenCalledWith(
-      expect.stringContaining('FROM communities'),
-      ['ECO', issuer]
+  it('issues a token with a valid payload', async () => {
+    mockIssueAsset.mockResolvedValueOnce('tx-hash-1');
+    const res = await request(app)
+      .post('/api/v1/tokens/issue')
+      .send({
+        issuerSecret: 'S'.repeat(56),
+        assetCode: 'ECO',
+        distributorPublicKey: distributor,
+        amount: '100.0000000',
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.data.txHash).toBe('tx-hash-1');
+    expect(mockIssueAsset).toHaveBeenCalledWith(
+      expect.objectContaining({ assetCode: 'ECO', amount: '100.0000000' })
     );
   });
+});
 
-  it('returns a structured 404 when the token does not exist', async () => {
-    mockQuery.mockResolvedValueOnce({ rows: [] });
+describe('POST /api/v1/tokens/trustline', () => {
+  it('returns 400 on invalid payload', async () => {
+    const res = await request(app).post('/api/v1/tokens/trustline').send({});
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toBeDefined();
+  });
 
-    const response = await request(app).get(`/api/v1/tokens/ECO/${issuer}`);
-
-    expect(response.status).toBe(404);
-    expect(response.body).toEqual({ data: null, error: 'Token not found' });
+  it('establishes a trustline with a valid payload', async () => {
+    mockEstablishTrustline.mockResolvedValueOnce('tx-hash-2');
+    const res = await request(app)
+      .post('/api/v1/tokens/trustline')
+      .send({
+        accountSecret: 'S'.repeat(56),
+        assetCode: 'ECO',
+        assetIssuer: issuer,
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.data.txHash).toBe('tx-hash-2');
   });
 });
