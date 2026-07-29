@@ -163,26 +163,6 @@ erDiagram
     timestamptz updated_at
   }
 
-  multisig_requests {
-    uuid id PK
-    uuid community_id FK
-    text proposer_address
-    text action
-    text title
-    text description
-    jsonb payload
-    text transaction_xdr
-    int required_signatures
-    int current_signatures
-    text status
-    text stellar_tx_hash UK
-    text rejection_reason
-    timestamptz expires_at
-    timestamptz executed_at
-    timestamptz created_at
-    timestamptz updated_at
-  }
-
   audit_log {
     uuid id PK
     text actor_address
@@ -338,12 +318,12 @@ CHECK constraints — these mirror the request validation in `backend/src/api/sc
 
 Indexes:
 
-| Index                               | Definition                                   | Serves                                       |
-| ----------------------------------- | -------------------------------------------- | -------------------------------------------- | --- | --- | ------------- | ---------------- |
-| `communities_name_key`              | `UNIQUE (name)`                              | duplicate-name 409s                          |
-| `idx_communities_active_created_at` | `(created_at DESC) WHERE deleted_at IS NULL` | default community listing                    |
-| `idx_communities_asset`             | `(asset_code, asset_issuer)`                 | resolving a community from its Stellar asset |
-| `idx_communities_fts`               | GIN over `to_tsvector(name                   |                                              | ' ' |     | description)` | full-text search |
+| Index                               | Definition                                                | Serves                                        |
+| ----------------------------------- | ---------------------------------------------------------- | ---------------------------------------------- |
+| `communities_name_key`              | `UNIQUE (name)`                                             | duplicate-name 409s                            |
+| `idx_communities_active_created_at` | `(created_at DESC) WHERE deleted_at IS NULL`                | default community listing                      |
+| `idx_communities_asset`             | `(asset_code, asset_issuer)`                                | resolving a community from its Stellar asset   |
+| `idx_communities_fts`               | GIN over `to_tsvector(name \| ' ' \| description)`          | full-text search                               |
 
 ---
 
@@ -688,43 +668,10 @@ Unique constraint: `(community_id, stellar_address)` — one KYC record per addr
 
 ---
 
-### `multisig_requests`
-
-A treasury action awaiting co-signer approval. The row is the off-chain coordination record — it holds the proposed Stellar transaction envelope while signatures are collected. The network remains the authority on whether that envelope is actually executable.
-
-Dormant until the multisig phase activates it.
-
-| Column                | Type          | Notes                                                                                           |
-| --------------------- | ------------- | ----------------------------------------------------------------------------------------------- |
-| `id`                  | `UUID`        | PK                                                                                              |
-| `community_id`        | `UUID`        | FK → `communities(id) ON DELETE CASCADE`                                                        |
-| `proposer_address`    | `TEXT`        | Stellar address that opened the request                                                         |
-| `action`              | `TEXT`        | `payment \| token_issue \| trustline \| settings_update \| member_role_change \| signer_update` |
-| `title`               | `TEXT`        | Short human-readable summary                                                                    |
-| `description`         | `TEXT`        | Nullable — rationale shown to co-signers                                                        |
-| `payload`             | `JSONB`       | Action-specific parameters. GIN-indexed                                                         |
-| `transaction_xdr`     | `TEXT`        | Nullable — base64 Stellar transaction envelope, unsigned or partially signed                    |
-| `required_signatures` | `INTEGER`     | `>= 1` — threshold in force when the request was opened                                         |
-| `current_signatures`  | `INTEGER`     | `0 .. required_signatures`                                                                      |
-| `status`              | `TEXT`        | `pending \| approved \| rejected \| executed \| expired \| cancelled`                           |
-| `stellar_tx_hash`     | `TEXT`        | Unique, nullable — set on execution                                                             |
-| `rejection_reason`    | `TEXT`        | Nullable                                                                                        |
-| `expires_at`          | `TIMESTAMPTZ` | Nullable — partial index drives the expiry sweep                                                |
-| `executed_at`         | `TIMESTAMPTZ` | Nullable — non-null only when `status = 'executed'`                                             |
-| `created_at`          | `TIMESTAMPTZ` |                                                                                                 |
-| `updated_at`          | `TIMESTAMPTZ` | Auto-updated by trigger                                                                         |
-
-Only an executed request carries an on-chain result: `status = 'executed'` requires both `executed_at` and `stellar_tx_hash`, and every other status requires `executed_at` to be null.
-
-Indexes: `(community_id, status, created_at DESC)`, `proposer_address`, partial on `expires_at` where the request is still pending, GIN on `payload`.
-
----
-
 ## Foreign Key `ON DELETE` Summary
 
 | Child table          | FK column      | References        | Behaviour           |
 | -------------------- | -------------- | ----------------- | ------------------- |
-| `members`            | `community_id` | `communities(id)` | CASCADE             |
 | `members`            | `community_id` | `communities(id)` | CASCADE             |
 | `loans`              | `community_id` | `communities(id)` | CASCADE (migration 019) |
 | `payments`           | `community_id` | `communities(id)` | SET NULL (nullable) |
