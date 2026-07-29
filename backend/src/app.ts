@@ -33,6 +33,7 @@ const healthHandler = (_req: Request, res: Response, next: NextFunction): void =
     .catch(next);
 };
 
+// Health checks stay unversioned so infra probes have a stable path.
 app.get('/health', healthHandler);
 app.get('/api/health', healthHandler);
 

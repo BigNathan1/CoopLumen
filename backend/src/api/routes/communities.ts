@@ -352,12 +352,21 @@ communityRouter.delete('/:id', writeLimiter, async (req, res, next) => {
  */
 communityRouter.get('/:id/members', async (req, res, next) => {
   try {
-    const pagination = parsePagination(req);
     const role = queryString(req.query.role).trim();
+    if (role && !VALID_ROLES.includes(role)) {
+      res.status(400).json({
+        error: 'Validation failed',
+        meta: {
+          errors: [{ path: 'role', message: `role must be one of: ${VALID_ROLES.join(', ')}` }],
+        },
+      });
+      return;
+    }
 
+    const pagination = parsePagination(req);
     const clauses = ['community_id = $1', 'deleted_at IS NULL'];
     const params: unknown[] = [req.params.id];
-    if (role && VALID_ROLES.includes(role)) {
+    if (role) {
       params.push(role);
       clauses.push(`role = $${params.length}`);
     }
