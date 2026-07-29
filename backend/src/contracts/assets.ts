@@ -23,6 +23,18 @@ export interface AssetDetails {
   asset: Asset;
 }
 
+export interface BurnAssetParams {
+  holderSecret: string;
+  assetCode: string;
+  assetIssuer: string;
+  amount: string;
+}
+
+export interface AssetHolder {
+  account: string;
+  balance: string;
+}
+
 /**
  * Issues a new community token on the Stellar network.
  * The issuer account creates the asset and sends initial supply to a distributor.
@@ -59,6 +71,65 @@ export async function issueAsset(params: IssueAssetParams): Promise<string> {
 
   const result = await server.submitTransaction(tx);
   return result.hash;
+}
+
+/**
+ * Burns tokens by sending them back to the issuing account. Stellar assets
+ * held by their own issuer are not part of circulating supply, so a payment
+ * to the issuer permanently reduces total supply (the issuer never resends it).
+ */
+export async function burnAsset(params: BurnAssetParams): Promise<string> {
+  const { holderSecret, assetCode, assetIssuer, amount } = params;
+
+  const holderKeypair = Keypair.fromSecret(holderSecret);
+  const server = StellarService.getServer();
+  const network = StellarService.getNetwork();
+
+  const holderAccount = await server.loadAccount(holderKeypair.publicKey());
+  const asset = new Asset(assetCode, assetIssuer);
+
+  const tx = new TransactionBuilder(holderAccount, {
+    fee: BASE_FEE,
+    networkPassphrase: network,
+  })
+    .addOperation(
+      Operation.payment({
+        destination: assetIssuer,
+        asset,
+        amount,
+      })
+    )
+    .setTimeout(30)
+    .build();
+
+  tx.sign(holderKeypair);
+
+  const result = await server.submitTransaction(tx);
+  return result.hash;
+}
+
+/** Lists accounts holding a given asset by querying Horizon's asset endpoint. */
+export async function getAssetHolders(assetCode: string, assetIssuer: string): Promise<AssetHolder[]> {
+  const server = StellarService.getServer();
+  const asset = new Asset(assetCode, assetIssuer);
+
+  const holders: AssetHolder[] = [];
+  let page = await server.accounts().forAsset(asset).limit(200).call();
+
+  while (page.records.length > 0) {
+    for (const account of page.records) {
+      const balanceLine = account.balances.find(
+        (b) => b.asset_type !== 'native' && 'asset_code' in b && b.asset_code === assetCode && b.asset_issuer === assetIssuer
+      );
+      if (balanceLine) {
+        holders.push({ account: account.account_id, balance: balanceLine.balance });
+      }
+    }
+    if (page.records.length < 200) break;
+    page = await page.next();
+  }
+
+  return holders;
 }
 
 export function buildAsset(code: string, issuer: string): AssetDetails {

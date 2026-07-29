@@ -4,6 +4,7 @@ import { StellarService } from '../../contracts/stellar';
 import { parsePagination, pageMeta, parseSort, queryString } from '../utils/http';
 import { validateBody } from '../middleware/validate';
 import { writeLimiter } from '../middleware/rateLimit';
+import { isValidStellarPublicKey } from '../utils/stellar';
 import {
   createCommunitySchema,
   updateCommunitySchema,
@@ -49,6 +50,44 @@ communityRouter.get('/', async (req, res, next) => {
       );
     }
     const where = `WHERE ${clauses.join(' AND ')}`;
+
+    const [{ count }] = await db.query<{ count: number }>(
+      `SELECT COUNT(*)::int AS count FROM communities ${where}`,
+      params
+    );
+
+    const listParams = [...params, pagination.limit, pagination.offset];
+    const communities = await db.query<Community>(
+      `SELECT * FROM communities ${where}
+       ORDER BY ${sortBy} ${order}
+       LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
+      listParams
+    );
+
+    res.json({ data: communities, meta: pageMeta(count, pagination) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/v1/communities/search
+ * Dedicated full-text search over community name and description.
+ * Query: q (required), page, limit, sortBy (created_at|name|updated_at), order (asc|desc)
+ */
+communityRouter.get('/search', async (req, res, next) => {
+  try {
+    const q = queryString(req.query.q).trim();
+    if (!q) {
+      res.status(400).json({ error: 'Query parameter "q" is required' });
+      return;
+    }
+
+    const pagination = parsePagination(req);
+    const { sortBy, order } = parseSort(req, ['created_at', 'name', 'updated_at'], 'created_at');
+
+    const where = `WHERE deleted_at IS NULL AND to_tsvector('english', name || ' ' || COALESCE(description, '')) @@ plainto_tsquery('english', $1)`;
+    const params: unknown[] = [q];
 
     const [{ count }] = await db.query<{ count: number }>(
       `SELECT COUNT(*)::int AS count FROM communities ${where}`,
@@ -312,14 +351,15 @@ communityRouter.post(
         return;
       }
 
-      await db.query(
+      const result = await db.query<{ stellar_address: string; role: string; joined_at: string }>(
         `INSERT INTO members (community_id, stellar_address, role)
          VALUES ($1, $2, $3)
          ON CONFLICT (community_id, stellar_address)
-         DO UPDATE SET role = EXCLUDED.role, deleted_at = NULL`,
+         DO UPDATE SET role = EXCLUDED.role, deleted_at = NULL
+         RETURNING stellar_address, role, joined_at`,
         [req.params.id, stellarAddress, role ?? 'member']
       );
-      res.status(201).json({ data: { message: 'Member added' } });
+      res.status(201).json({ data: result[0] });
     } catch (err) {
       next(err);
     }
@@ -332,6 +372,12 @@ communityRouter.post(
  */
 communityRouter.get('/:id/members/:address', async (req, res, next) => {
   try {
+    // Validate Stellar address in path parameter
+    if (!isValidStellarPublicKey(req.params.address)) {
+      res.status(400).json({ error: 'Invalid Stellar address' });
+      return;
+    }
+
     const [member] = await db.query<{ stellar_address: string; role: string; joined_at: string }>(
       `SELECT stellar_address, role, joined_at FROM members
        WHERE community_id = $1 AND stellar_address = $2 AND deleted_at IS NULL`,
@@ -357,11 +403,17 @@ communityRouter.put(
   validateBody(updateMemberSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      // Validate Stellar address in path parameter
+      if (!isValidStellarPublicKey(req.params.address)) {
+        res.status(400).json({ error: 'Invalid Stellar address' });
+        return;
+      }
+
       const { role } = req.body as { role: string };
-      const result = await db.query<{ stellar_address: string; role: string }>(
+      const result = await db.query<{ stellar_address: string; role: string; joined_at: string }>(
         `UPDATE members SET role = $1
          WHERE community_id = $2 AND stellar_address = $3 AND deleted_at IS NULL
-         RETURNING stellar_address, role`,
+         RETURNING stellar_address, role, joined_at`,
         [role, req.params.id, req.params.address]
       );
       if (result.length === 0) {
@@ -381,6 +433,12 @@ communityRouter.put(
  */
 communityRouter.delete('/:id/members/:address', writeLimiter, async (req, res, next) => {
   try {
+    // Validate Stellar address in path parameter
+    if (!isValidStellarPublicKey(req.params.address)) {
+      res.status(400).json({ error: 'Invalid Stellar address' });
+      return;
+    }
+
     const result = await db.query<{ stellar_address: string }>(
       `UPDATE members SET deleted_at = NOW()
        WHERE community_id = $1 AND stellar_address = $2 AND deleted_at IS NULL

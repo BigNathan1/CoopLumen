@@ -22,6 +22,8 @@ tags:
     description: Community membership management
   - name: Treasury
     description: On-chain treasury balances
+  - name: Tokens
+    description: Community token issuance, burning, and holder queries
 
 paths:
   /api/health:
@@ -95,6 +97,46 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '409':
           description: Community name already taken
+
+  /api/v1/communities/search:
+    get:
+      tags: [Communities]
+      summary: Search communities
+      description: Dedicated full-text search over community name and description.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+          description: Search query text.
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [created_at, name, updated_at]
+            default: created_at
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: A page of matching communities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Community' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '400':
+          description: Missing required "q" query parameter
 
   /api/v1/communities/{id}:
     parameters:
@@ -250,6 +292,147 @@ paths:
           description: Treasury balances
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /api/v1/tokens/issue:
+    post:
+      tags: [Tokens]
+      summary: Issue a community token
+      description: >
+        Issues a community token on the Stellar network. Accepts an optional
+        Idempotency-Key header; a retried request with the same key replays
+        the original response instead of issuing a second time.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IssueToken' }
+      responses:
+        '201':
+          description: Token issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      txHash: { type: string }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '422':
+          description: Stellar transaction rejected (e.g. insufficient balance)
+        '502':
+          description: Stellar network error
+
+  /api/v1/tokens/trustline:
+    post:
+      tags: [Tokens]
+      summary: Establish a trustline
+      description: >
+        Establishes a trustline so a member account can hold a community token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Trustline' }
+      responses:
+        '201':
+          description: Trustline established
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      txHash: { type: string }
+        '400': { $ref: '#/components/responses/ValidationError' }
+
+  /api/v1/tokens/burn:
+    post:
+      tags: [Tokens]
+      summary: Burn tokens
+      description: >
+        Reduces circulating supply by sending tokens from a holder account back
+        to the issuing account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BurnToken' }
+      responses:
+        '200':
+          description: Tokens burned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      txHash: { type: string }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '422':
+          description: Stellar transaction rejected (e.g. insufficient balance)
+        '502':
+          description: Stellar network error
+
+  /api/v1/tokens/{communityId}:
+    get:
+      tags: [Tokens]
+      summary: List tokens for a community
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: A list of tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Token' }
+
+  /api/v1/tokens/holders/{assetCode}/{issuer}:
+    get:
+      tags: [Tokens]
+      summary: List token holders
+      description: Queries Horizon for all accounts currently holding the given asset.
+      parameters:
+        - name: assetCode
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 12 }
+        - name: issuer
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/StellarKey' }
+      responses:
+        '200':
+          description: A list of holders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        account: { $ref: '#/components/schemas/StellarKey' }
+                        balance: { type: string }
+        '400':
+          description: Invalid Stellar issuer address
+        '502':
+          description: Stellar network error
+
 components:
   parameters:
     Page:
@@ -280,13 +463,16 @@ components:
             type: object
             properties:
               error: { type: string }
-              errors:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    path: { type: string }
-                    message: { type: string }
+              meta:
+                type: object
+                properties:
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path: { type: string }
+                        message: { type: string }
 
   schemas:
     StellarKey:
@@ -353,3 +539,53 @@ components:
       type: object
       properties:
         error: { type: string }
+    Token:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        community_id: { type: string, format: uuid }
+        asset_code: { type: string }
+        asset_issuer: { $ref: '#/components/schemas/StellarKey' }
+        distributor_address: { $ref: '#/components/schemas/StellarKey' }
+        total_supply: { type: string }
+        description: { type: string, nullable: true }
+        icon_url: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    BurnToken:
+      type: object
+      required: [holderSecret, assetCode, assetIssuer, amount]
+      properties:
+        holderSecret:
+          type: string
+          description: Secret key of the account holding the tokens to burn.
+        assetCode: { type: string, minLength: 1, maxLength: 12 }
+        assetIssuer: { $ref: '#/components/schemas/StellarKey' }
+        amount:
+          type: string
+          description: Positive decimal amount, up to 7 places.
+    IssueToken:
+      type: object
+      required: [issuerSecret, assetCode, distributorPublicKey, amount]
+      properties:
+        issuerSecret:
+          type: string
+          description: Secret key of the community treasury (issuer) account.
+        assetCode: { type: string, minLength: 1, maxLength: 12 }
+        distributorPublicKey: { $ref: '#/components/schemas/StellarKey' }
+        amount:
+          type: string
+          description: Positive decimal amount, up to 7 places.
+        memo: { type: string, maxLength: 28 }
+    Trustline:
+      type: object
+      required: [accountSecret, assetCode, assetIssuer]
+      properties:
+        accountSecret:
+          type: string
+          description: Secret key of the account establishing the trustline.
+        assetCode: { type: string, minLength: 1, maxLength: 12 }
+        assetIssuer: { $ref: '#/components/schemas/StellarKey' }
+        limit:
+          type: string
+          description: Optional trustline limit, up to 7 decimal places.

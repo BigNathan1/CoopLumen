@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { query } from 'express-validator';
 import { StellarService } from '../../contracts/stellar';
 import { db } from '../../db';
+import { parsePagination, pageMeta } from '../utils/http';
 
 export const balanceRouter = Router();
 
@@ -9,19 +9,15 @@ export const balanceRouter = Router();
  * GET /api/v1/balances/:publicKey
  * Returns all asset balances for a Stellar account.
  */
-balanceRouter.get(
-  '/:publicKey',
-  [query('publicKey').optional()],
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { publicKey } = req.params;
-      const balances = await StellarService.getAccountBalance(publicKey);
-      res.json({ data: balances });
-    } catch (err) {
-      next(err);
-    }
+balanceRouter.get('/:publicKey', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { publicKey } = req.params;
+    const balances = await StellarService.getAccountBalance(publicKey);
+    res.json({ data: balances });
+  } catch (err) {
+    next(err);
   }
-);
+});
 
 /**
  * GET /api/v1/balances/:publicKey/loans
@@ -30,6 +26,13 @@ balanceRouter.get(
 balanceRouter.get('/:publicKey/loans', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { publicKey } = req.params;
+    const pagination = parsePagination(req);
+
+    const [{ count }] = await db.query<{ count: number }>(
+      'SELECT COUNT(*)::int AS count FROM loans WHERE borrower_address = $1 OR lender_address = $1',
+      [publicKey]
+    );
+
     const loans = await db.query<{
       id: string;
       community_id: string;
@@ -43,10 +46,11 @@ balanceRouter.get('/:publicKey/loans', async (req: Request, res: Response, next:
     }>(
       `SELECT * FROM loans
          WHERE borrower_address = $1 OR lender_address = $1
-         ORDER BY created_at DESC`,
-      [publicKey]
+         ORDER BY created_at DESC
+         LIMIT $2 OFFSET $3`,
+      [publicKey, pagination.limit, pagination.offset]
     );
-    res.json({ data: loans });
+    res.json({ data: loans, meta: pageMeta(count, pagination) });
   } catch (err) {
     next(err);
   }
@@ -60,11 +64,18 @@ balanceRouter.get(
   '/community/:communityId/loans',
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const loans = await db.query(
-        'SELECT * FROM loans WHERE community_id = $1 ORDER BY created_at DESC',
+      const pagination = parsePagination(req);
+
+      const [{ count }] = await db.query<{ count: number }>(
+        'SELECT COUNT(*)::int AS count FROM loans WHERE community_id = $1',
         [req.params.communityId]
       );
-      res.json({ data: loans });
+
+      const loans = await db.query(
+        'SELECT * FROM loans WHERE community_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3',
+        [req.params.communityId, pagination.limit, pagination.offset]
+      );
+      res.json({ data: loans, meta: pageMeta(count, pagination) });
     } catch (err) {
       next(err);
     }

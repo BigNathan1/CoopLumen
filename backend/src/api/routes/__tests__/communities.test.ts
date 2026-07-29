@@ -47,6 +47,35 @@ describe('GET /api/v1/communities', () => {
   });
 });
 
+describe('GET /api/v1/communities/search', () => {
+  it('returns 400 when "q" is missing', async () => {
+    const res = await request(app).get('/api/v1/communities/search');
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when "q" is blank', async () => {
+    const res = await request(app).get('/api/v1/communities/search?q=%20');
+    expect(res.status).toBe(400);
+  });
+
+  it('returns matching communities with pagination meta', async () => {
+    const community = {
+      id: 'uuid-1',
+      name: 'EcoDAO',
+      asset_code: 'ECO',
+      asset_issuer: validKey,
+      issuer_public_key: validKey,
+      description: 'An eco community',
+    };
+    mockDb.query.mockResolvedValueOnce([{ count: 1 }]).mockResolvedValueOnce([community]);
+    const res = await request(app).get('/api/v1/communities/search?q=eco');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].name).toBe('EcoDAO');
+    expect(res.body.meta).toEqual({ total: 1, page: 1, limit: 20, pages: 1 });
+  });
+});
+
 describe('GET /api/v1/communities/:id', () => {
   it('returns 404 when not found', async () => {
     mockDb.query.mockResolvedValueOnce([]);
@@ -168,20 +197,34 @@ describe('members', () => {
   it('adds a valid member', async () => {
     mockDb.query
       .mockResolvedValueOnce([{ id: 'uuid-1' }]) // community exists
-      .mockResolvedValueOnce([]); // insert
+      .mockResolvedValueOnce([
+        { stellar_address: validKey, role: 'treasurer', joined_at: '2024-01-01T00:00:00Z' },
+      ]); // insert
     const res = await request(app)
       .post('/api/v1/communities/uuid-1/members')
       .send({ stellarAddress: validKey, role: 'treasurer' });
     expect(res.status).toBe(201);
+    expect(res.body.data.stellar_address).toBe(validKey);
+    expect(res.body.data.role).toBe('treasurer');
   });
 
   it('updates a member role', async () => {
-    mockDb.query.mockResolvedValueOnce([{ stellar_address: validKey, role: 'admin' }]);
+    mockDb.query.mockResolvedValueOnce([
+      { stellar_address: validKey, role: 'admin', joined_at: '2024-01-01T00:00:00Z' },
+    ]);
     const res = await request(app)
       .put(`/api/v1/communities/uuid-1/members/${validKey}`)
       .send({ role: 'admin' });
     expect(res.status).toBe(200);
     expect(res.body.data.role).toBe('admin');
+    expect(res.body.data.joined_at).toBe('2024-01-01T00:00:00Z');
+  });
+
+  it('rejects an invalid Stellar address in path parameter for update', async () => {
+    const res = await request(app)
+      .put('/api/v1/communities/uuid-1/members/invalid-address')
+      .send({ role: 'admin' });
+    expect(res.status).toBe(400);
   });
 
   it('soft-removes a member', async () => {
@@ -189,6 +232,16 @@ describe('members', () => {
     const res = await request(app).delete(`/api/v1/communities/uuid-1/members/${validKey}`);
     expect(res.status).toBe(200);
     expect(res.body.data.removed).toBe(true);
+  });
+
+  it('rejects an invalid Stellar address in path parameter for delete', async () => {
+    const res = await request(app).delete('/api/v1/communities/uuid-1/members/invalid-address');
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects an invalid Stellar address in path parameter for get', async () => {
+    const res = await request(app).get('/api/v1/communities/uuid-1/members/invalid-address');
+    expect(res.status).toBe(400);
   });
 });
 

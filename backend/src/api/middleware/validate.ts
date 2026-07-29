@@ -12,10 +12,12 @@ export function validateBody<T>(schema: ZodType<T>) {
     if (!result.success) {
       res.status(400).json({
         error: 'Validation failed',
-        errors: result.error.issues.map((issue) => ({
-          path: issue.path.join('.'),
-          message: issue.message,
-        })),
+        meta: {
+          errors: result.error.issues.map((issue) => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
       });
       return;
     }
