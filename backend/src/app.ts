@@ -5,6 +5,7 @@ import { apiRouter } from './api/routes';
 import { errorHandler } from './api/middleware/errorHandler';
 import { notFound } from './api/middleware/notFound';
 import { requestLogger } from './api/middleware/requestLogger';
+import { communityWriteLimiter } from './api/middleware/rateLimit';
 import { db } from './db';
 import { StellarService } from './contracts/stellar';
 
@@ -34,6 +35,10 @@ const healthHandler = (_req: Request, res: Response, next: NextFunction): void =
 // Health checks stay unversioned so infra probes have a stable path.
 app.get('/health', healthHandler);
 app.get('/api/health', healthHandler);
+
+// Apply the community write limit to every nested community resource endpoint.
+// The limiter itself skips GET, HEAD, and OPTIONS requests.
+app.use('/api/v1/communities', communityWriteLimiter);
 
 // All resource routes live under the /api/v1 version prefix.
 app.use('/api/v1', apiRouter);
