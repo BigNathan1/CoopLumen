@@ -28,7 +28,11 @@ export const updateCommunitySchema = z
     settings: z.record(z.string(), z.unknown()).optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.name === undefined && value.description === undefined && value.settings === undefined) {
+    if (
+      value.name === undefined &&
+      value.description === undefined &&
+      value.settings === undefined
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['requestBody'],

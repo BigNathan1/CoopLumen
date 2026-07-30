@@ -259,7 +259,9 @@ describe('POST /api/v1/communities', () => {
 
   it('returns a sanitized 500 when community creation fails in the database', async () => {
     mockDb.query.mockResolvedValueOnce([]);
-    mockDb.transaction.mockRejectedValueOnce(new Error('duplicate key value violates unique constraint'));
+    mockDb.transaction.mockRejectedValueOnce(
+      new Error('duplicate key value violates unique constraint')
+    );
 
     const res = await request(app).post('/api/v1/communities').send({
       name: 'EcoDAO',
