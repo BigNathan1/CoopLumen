@@ -64,7 +64,9 @@ router.post('/transfer', async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     const sourcePublicKey = getTransactionSource(transaction);
     const account =
-      sourcePublicKey !== undefined ? await StellarService.loadAccount(sourcePublicKey).catch(() => null) : null;
+      sourcePublicKey !== undefined
+        ? await StellarService.loadAccount(sourcePublicKey).catch(() => null)
+        : null;
     const mapped = mapHorizonError(error, {
       requiredXlm: getRequiredXlmForTransaction(transaction),
       currentBalance: account ? getNativeBalance(account) : undefined,

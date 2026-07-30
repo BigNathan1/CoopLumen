@@ -55,8 +55,12 @@ function parseRetryAfterMs(retryAfter: string | null | undefined): number | null
 function readRetryAfterHeader(headers: RetryHeaders | undefined): string | null {
   if (!headers) return null;
 
-  if (typeof (headers as { get?: (name: string) => string | null | undefined }).get === 'function') {
-    return (headers as { get: (name: string) => string | null | undefined }).get('retry-after') ?? null;
+  if (
+    typeof (headers as { get?: (name: string) => string | null | undefined }).get === 'function'
+  ) {
+    return (
+      (headers as { get: (name: string) => string | null | undefined }).get('retry-after') ?? null
+    );
   }
 
   const headerValue = (headers as Record<string, unknown>)['retry-after'];
@@ -147,9 +151,10 @@ class StellarServiceClass {
           throw error;
         }
 
-        const retryAfterMs = parseRetryAfterMs(readRetryAfterHeader(horizonError.response?.headers));
-        const delayMs =
-          retryAfterMs ?? HORIZON_RETRY_CONFIG.baseDelayMs * 2 ** (attempt - 1);
+        const retryAfterMs = parseRetryAfterMs(
+          readRetryAfterHeader(horizonError.response?.headers)
+        );
+        const delayMs = retryAfterMs ?? HORIZON_RETRY_CONFIG.baseDelayMs * 2 ** (attempt - 1);
 
         logger.warn('Retrying Horizon request', {
           operationName,

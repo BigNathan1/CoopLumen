@@ -46,15 +46,15 @@ function setMockServer(server: unknown): void {
 }
 
 function runTimeoutsImmediately(): jest.SpyInstance {
-  return jest
-    .spyOn(global, 'setTimeout')
-    .mockImplementation(((callback: (...args: unknown[]) => void) => {
-      if (typeof callback === 'function') {
-        callback();
-      }
+  return jest.spyOn(global, 'setTimeout').mockImplementation(((
+    callback: (...args: unknown[]) => void
+  ) => {
+    if (typeof callback === 'function') {
+      callback();
+    }
 
-      return 0 as unknown as ReturnType<typeof setTimeout>;
-    }) as typeof setTimeout);
+    return 0 as unknown as ReturnType<typeof setTimeout>;
+  }) as typeof setTimeout);
 }
 
 describe('balance routes', () => {
@@ -200,7 +200,9 @@ describe('balance routes', () => {
         .mockResolvedValueOnce([{ count: 1 }])
         .mockResolvedValueOnce([{ id: 'loan-1', borrower_address: publicKey }]);
 
-      const response = await request(app).get(`/api/v1/balances/${publicKey}/loans?page=1&limit=10`);
+      const response = await request(app).get(
+        `/api/v1/balances/${publicKey}/loans?page=1&limit=10`
+      );
 
       expect(response.status).toBe(200);
       expect(response.body.data).toHaveLength(1);
@@ -230,7 +232,9 @@ describe('balance routes', () => {
     });
 
     it('validates the community id and pagination query parameters', async () => {
-      const response = await request(app).get('/api/v1/balances/community/not-a-uuid/loans?limit=0');
+      const response = await request(app).get(
+        '/api/v1/balances/community/not-a-uuid/loans?limit=0'
+      );
 
       expect(response.status).toBe(400);
       expect(response.body.data).toBeNull();

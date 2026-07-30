@@ -41,15 +41,15 @@ function setMockServer(server: unknown): void {
 }
 
 function runTimeoutsImmediately(): jest.SpyInstance {
-  return jest
-    .spyOn(global, 'setTimeout')
-    .mockImplementation(((callback: (...args: unknown[]) => void) => {
-      if (typeof callback === 'function') {
-        callback();
-      }
+  return jest.spyOn(global, 'setTimeout').mockImplementation(((
+    callback: (...args: unknown[]) => void
+  ) => {
+    if (typeof callback === 'function') {
+      callback();
+    }
 
-      return 0 as unknown as ReturnType<typeof setTimeout>;
-    }) as typeof setTimeout);
+    return 0 as unknown as ReturnType<typeof setTimeout>;
+  }) as typeof setTimeout);
 }
 
 describe('POST /api/v1/tokens/airdrop', () => {

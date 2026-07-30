@@ -38,10 +38,7 @@ const TRANSACTION_MESSAGES: Record<string, string> = {
 };
 
 /** Maps a Horizon/Stellar SDK submission error to a clear, actionable message. */
-export function mapHorizonError(
-  err: unknown,
-  details?: InsufficientBalanceDetails
-): MappedError {
+export function mapHorizonError(err: unknown, details?: InsufficientBalanceDetails): MappedError {
   const horizonErr = err as HorizonErrorShape;
   const resultCodes = horizonErr?.response?.data?.extras?.result_codes;
 

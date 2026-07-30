@@ -10,7 +10,9 @@ import { mapHorizonError } from '../utils/horizonError';
 export const balanceRouter = Router();
 
 const balanceParamsSchema = z.object({
-  publicKey: z.string().refine(isValidStellarPublicKey, 'publicKey must be a valid Stellar public key'),
+  publicKey: z
+    .string()
+    .refine(isValidStellarPublicKey, 'publicKey must be a valid Stellar public key'),
 });
 
 const communityBalanceParamsSchema = z.object({

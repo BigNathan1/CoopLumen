@@ -112,7 +112,10 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       txHashes.push(result.hash);
     }
 
-    await invalidateBalanceCache([issuer.publicKey(), ...members.map((member) => member.stellar_address)]);
+    await invalidateBalanceCache([
+      issuer.publicKey(),
+      ...members.map((member) => member.stellar_address),
+    ]);
 
     res.status(200).json({
       data: {

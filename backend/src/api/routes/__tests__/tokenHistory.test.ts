@@ -7,14 +7,17 @@ jest.mock('../../../contracts/stellar', () => ({
   StellarService: {
     getServer: jest.fn(),
     ping: jest.fn().mockResolvedValue(true),
+    call: jest.fn(),
   },
 }));
 
 const mockGetServer = StellarService.getServer as jest.Mock;
+const mockCall = StellarService.call as jest.Mock;
 const issuer = Keypair.random().publicKey();
 
 beforeEach(() => {
   jest.resetAllMocks();
+  mockCall.mockImplementation((_name: string, request: () => unknown) => request());
 });
 
 describe('GET /api/v1/tokens/history/:assetCode/:issuer', () => {

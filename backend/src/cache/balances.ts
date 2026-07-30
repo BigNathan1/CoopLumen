@@ -47,7 +47,11 @@ export async function cacheBalances(
 }
 
 export async function invalidateBalanceCache(publicKeys: Array<string | undefined>): Promise<void> {
-  const uniquePublicKeys = [...new Set(publicKeys.filter((value): value is string => Boolean(value)))];
+  const uniquePublicKeys = [
+    ...new Set(publicKeys.filter((value): value is string => Boolean(value))),
+  ];
 
-  await Promise.all(uniquePublicKeys.map((publicKey) => redisCache.del(getBalanceCacheKey(publicKey))));
+  await Promise.all(
+    uniquePublicKeys.map((publicKey) => redisCache.del(getBalanceCacheKey(publicKey)))
+  );
 }

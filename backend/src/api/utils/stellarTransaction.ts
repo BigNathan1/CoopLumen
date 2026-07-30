@@ -49,12 +49,16 @@ function isNativeAsset(operation: TransactionLike['operations'][number]): boolea
   return false;
 }
 
-export function getNativeBalance(account: { balances: Array<{ asset_type: string; balance: string }> }): string | undefined {
+export function getNativeBalance(account: {
+  balances: Array<{ asset_type: string; balance: string }>;
+}): string | undefined {
   return account.balances.find((balance) => balance.asset_type === 'native')?.balance;
 }
 
 export function getTransactionSource(transaction: TransactionLike): string | undefined {
-  const operationSource = extractAccountId(transaction.operations[0]?.source as string | AccountLike | undefined);
+  const operationSource = extractAccountId(
+    transaction.operations[0]?.source as string | AccountLike | undefined
+  );
   return operationSource ?? extractAccountId(transaction.source);
 }
 
