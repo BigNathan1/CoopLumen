@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { db } from '../../db';
 import { StellarService } from '../../contracts/stellar';
 import { parsePagination, pageMeta, parseSort, queryString } from '../utils/http';
@@ -333,10 +334,19 @@ communityRouter.put(
  * @description Soft-deletes a community by setting `deleted_at`.
  * @param {string} id - Community UUID.
  * @returns {200} `{ data: { id, deleted: true } }`
+ * @returns {400} `:id` is not a valid UUID.
  * @returns {404} Community not found or already soft-deleted.
  * @see docs/openapi.yaml — DELETE /api/v1/communities/{id}
  */
 communityRouter.delete('/:id', writeLimiter, async (req, res, next) => {
+  if (!z.string().uuid().safeParse(req.params.id).success) {
+    res.status(400).json({
+      error: 'Validation failed',
+      meta: { errors: [{ path: 'id', message: 'id must be a valid UUID' }] },
+    });
+    return;
+  }
+
   try {
     const result = await db.query<{ id: string }>(
       'UPDATE communities SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id',
@@ -365,12 +375,21 @@ communityRouter.delete('/:id', writeLimiter, async (req, res, next) => {
  */
 communityRouter.get('/:id/members', async (req, res, next) => {
   try {
-    const pagination = parsePagination(req);
     const role = queryString(req.query.role).trim();
+    if (role && !VALID_ROLES.includes(role)) {
+      res.status(400).json({
+        error: 'Validation failed',
+        meta: {
+          errors: [{ path: 'role', message: `role must be one of: ${VALID_ROLES.join(', ')}` }],
+        },
+      });
+      return;
+    }
 
+    const pagination = parsePagination(req);
     const clauses = ['community_id = $1', 'deleted_at IS NULL'];
     const params: unknown[] = [req.params.id];
-    if (role && VALID_ROLES.includes(role)) {
+    if (role) {
       params.push(role);
       clauses.push(`role = $${params.length}`);
     }

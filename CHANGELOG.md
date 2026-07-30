@@ -12,7 +12,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - `GET /api/v1/communities` pagination support via `page`, `limit`, and `offset` query parameters. When `offset` is provided, it takes precedence for querying and calculates the appropriate page in the metadata.
-
+- `npm run db:status` command showing which migrations are applied vs pending, with drift detection (#50)
+- `backend/src/db/migrations/007_create_loan_repayments.sql`, an idempotent migration matching the loan repayments audit trail schema against the migration number originally requested in issue #33 (the `loan_events` table itself already shipped in migration 006)
+- `backend/src/db/migrations/012_create_community_settings.sql`, an idempotent migration matching the per-community JSON config schema against the migration number originally requested in issue #38 (the `community_settings` table itself already shipped in migration 010)
+- `backend/src/db/migrations/004_create_tokens.sql`, an idempotent migration matching the on-chain token metadata schema against the migration number originally requested in issue #30 (the `tokens` table itself already shipped in migration 007)
 - `GET /api/v1/communities/:id/treasury` returning the treasury Stellar account balance with Zod UUID validation (#076)
 - `validateParams` middleware for Zod-based path parameter validation
 - `communityIdParamsSchema` Zod schema for community `:id` UUID validation
@@ -21,5 +24,6 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `docs/database.md`: removed a duplicated `multisig_requests` block from the ERD, a duplicated `multisig_requests` table section, a duplicated `members` row in the foreign-key summary, and repaired the `communities` indexes table, whose `idx_communities_fts` row had unescaped `|` characters splitting it across extra columns
 - `POST /api/v1/tokens/issue`, `POST /api/v1/tokens/burn`, and `POST /api/v1/tokens/trustline` now return `{ data: { txHash } }` instead of a bare `{ txHash }`, matching the API's `{ data, meta?, error? }` response envelope
 - The repayment-overflow `400` on `POST /api/v1/loans/:id/repay` and the validation-failure `400` from `validateBody` now nest their extra fields (`outstanding`, `errors`) under `meta` instead of returning them alongside `error` at the top level
