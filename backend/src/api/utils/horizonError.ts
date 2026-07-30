@@ -12,6 +12,14 @@ interface HorizonErrorShape {
 export interface MappedError {
   status: number;
   message: string;
+  code?: string;
+  requiredXlm?: string;
+  currentBalance?: string;
+}
+
+export interface InsufficientBalanceDetails {
+  requiredXlm?: string;
+  currentBalance?: string;
 }
 
 const OPERATION_MESSAGES: Record<string, string> = {
@@ -30,7 +38,10 @@ const TRANSACTION_MESSAGES: Record<string, string> = {
 };
 
 /** Maps a Horizon/Stellar SDK submission error to a clear, actionable message. */
-export function mapHorizonError(err: unknown): MappedError {
+export function mapHorizonError(
+  err: unknown,
+  details?: InsufficientBalanceDetails
+): MappedError {
   const horizonErr = err as HorizonErrorShape;
   const resultCodes = horizonErr?.response?.data?.extras?.result_codes;
 
@@ -42,6 +53,16 @@ export function mapHorizonError(err: unknown): MappedError {
   }
 
   if (resultCodes?.transaction && TRANSACTION_MESSAGES[resultCodes.transaction]) {
+    if (resultCodes.transaction === 'tx_insufficient_balance') {
+      return {
+        status: 402,
+        code: 'INSUFFICIENT_BALANCE',
+        message: TRANSACTION_MESSAGES[resultCodes.transaction],
+        requiredXlm: details?.requiredXlm,
+        currentBalance: details?.currentBalance,
+      };
+    }
+
     return { status: 422, message: TRANSACTION_MESSAGES[resultCodes.transaction] };
   }
 

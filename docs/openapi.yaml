@@ -9,8 +9,118 @@ servers:
 tags:
   - name: Tokens
     description: Community token metadata and operations
+  - name: Balances
+    description: Stellar account balances and related balance views
+  - name: Transactions
+    description: Stellar transaction submission endpoints
 
 paths:
+  /api/v1/balances/{publicKey}:
+    parameters:
+      - name: publicKey
+        in: path
+        required: true
+        description: Stellar public key of the account to inspect.
+        schema:
+          $ref: '#/components/schemas/StellarKey'
+    get:
+      tags: [Balances]
+      summary: Get account balances
+      description: >
+        Returns all on-chain balances for a Stellar account. Successful responses
+        may be served from a Redis cache for up to 5 seconds; the response body
+        itself is unchanged.
+      responses:
+        '200':
+          description: Account balances
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502':
+          description: Horizon is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/tokens/transfer:
+    post:
+      tags: [Transactions]
+      summary: Submit a signed Stellar payment transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenTransferRequest'
+      responses:
+        '200':
+          description: Payment submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenTransferResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '402':
+          description: The source account does not have enough XLM for the payment and fee
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsufficientBalanceResponse'
+        '422':
+          description: The Stellar network rejected the signed transaction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Horizon is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/tokens/airdrop:
+    post:
+      tags: [Transactions]
+      summary: Airdrop a community token to all community members
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AirdropRequest'
+      responses:
+        '200':
+          description: Airdrop submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AirdropResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '402':
+          description: The issuer account does not have enough XLM for transaction fees
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsufficientBalanceResponse'
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: The Stellar network rejected the airdrop transaction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Horizon is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/tokens/{assetCode}/{issuer}:
     get:
       tags: [Tokens]
@@ -294,11 +404,39 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
 components:
+  responses:
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+    NotFound:
+      description: Requested resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
     StellarKey:
       type: string
       description: A 56-character Stellar StrKey public key.
       pattern: '^G[A-Z2-7]{55}$'
+    BalanceLine:
+      type: object
+      properties:
+        asset_type: { type: string }
+        asset_code: { type: string, nullable: true }
+        asset_issuer: { type: string, nullable: true }
+        balance: { type: string }
+    BalanceResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BalanceLine'
     Health:
       type: object
       properties:
@@ -363,10 +501,101 @@ components:
         page: { type: integer }
         limit: { type: integer }
         pages: { type: integer }
+    ValidationIssue:
+      type: object
+      properties:
+        path:
+          oneOf:
+            - type: string
+            - type: array
+              items: { type: string }
+        message: { type: string }
+    ValidationErrorResponse:
+      type: object
+      required: [data, error]
+      properties:
+        data:
+          nullable: true
+        meta:
+          type: object
+          properties:
+            errors:
+              type: array
+              items:
+                $ref: '#/components/schemas/ValidationIssue'
+        error:
+          oneOf:
+            - type: string
+            - type: object
+              additionalProperties: true
     Error:
       type: object
       properties:
         error: { type: string }
+    TokenTransferRequest:
+      type: object
+      required: [signedXdr]
+      properties:
+        signedXdr:
+          type: string
+          minLength: 1
+          maxLength: 100000
+    TokenTransferResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          properties:
+            txHash: { type: string }
+    AirdropRequest:
+      type: object
+      required: [communityId, amount, issuerSecret]
+      properties:
+        communityId:
+          type: string
+          format: uuid
+        amount:
+          type: string
+          description: Positive decimal amount with up to 7 fractional digits.
+        issuerSecret:
+          type: string
+          description: Stellar secret key for the issuing account.
+    AirdropResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          properties:
+            amount: { type: string }
+            recipientCount: { type: integer }
+            txHashes:
+              type: array
+              items: { type: string }
+    InsufficientBalanceError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: INSUFFICIENT_BALANCE
+        message:
+          type: string
+        requiredXlm:
+          type: string
+          nullable: true
+        currentBalance:
+          type: string
+          nullable: true
+    InsufficientBalanceResponse:
+      type: object
+      required: [data, error]
+      properties:
+        data:
+          nullable: true
+        error:
+          $ref: '#/components/schemas/InsufficientBalanceError'
     Token:
       type: object
       properties:
@@ -421,4 +650,7 @@ components:
           type: object
           additionalProperties: true
         error:
-          type: string
+          oneOf:
+            - type: string
+            - type: object
+              additionalProperties: true

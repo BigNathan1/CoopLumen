@@ -45,12 +45,9 @@ tokenHistoryRouter.get(
     // Horizon has no "operations/payments for an asset" endpoint; the issuer
     // account is the canonical source of an asset's activity, so its payment
     // history filtered to this asset is the closest available proxy.
-    StellarService.getServer()
-      .payments()
-      .forAccount(issuer)
-      .limit(20)
-      .order('desc')
-      .call()
+    StellarService.call('payments.forAccount', () =>
+      StellarService.getServer().payments().forAccount(issuer).limit(20).order('desc').call()
+    )
       .then((page) => {
         const records = page.records.filter(
           (record) =>
