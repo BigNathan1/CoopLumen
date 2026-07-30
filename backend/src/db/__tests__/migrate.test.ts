@@ -104,7 +104,7 @@ describe('migration runner', () => {
   });
 
   it('reports status with applied and pending migrations', async () => {
-    const { client, query } = createClient([
+    const { client } = createClient([
       {
         name: BOOTSTRAP_NAME,
         checksum: checksumOf(
@@ -127,15 +127,12 @@ describe('migration runner', () => {
   });
 
   it('reports no pending migrations when fully up to date', async () => {
-    const mockHash = checksumOf(MIGRATION_SQL);
     const bootstrapHash = checksumOf(
       'CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW());'
     );
 
     // Write readdir to only return the files that are in the "applied" set
-    mockedFs.readdir.mockResolvedValue([
-      migrationEntry(BOOTSTRAP_NAME),
-    ]);
+    mockedFs.readdir.mockResolvedValue([migrationEntry(BOOTSTRAP_NAME)]);
 
     mockedFs.readFile.mockImplementation(async (filePath: string) => {
       const fileName = path.basename(filePath);
@@ -145,15 +142,12 @@ describe('migration runner', () => {
       throw new Error(`Unexpected file: ${fileName}`);
     });
 
-    const { client } = createClient([
-      { name: BOOTSTRAP_NAME, checksum: bootstrapHash },
-    ]);
+    const { client } = createClient([{ name: BOOTSTRAP_NAME, checksum: bootstrapHash }]);
 
     await expect(showStatus(client)).resolves.toBeUndefined();
   });
 
   it('detects drifted migrations in status output', async () => {
-    const originalHash = checksumOf(MIGRATION_SQL);
     // Tamper the checksum so the file on disk no longer matches
     const { client } = createClient([
       {
