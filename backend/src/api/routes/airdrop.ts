@@ -3,6 +3,9 @@ import { z } from 'zod';
 import { Asset, Keypair, Operation, TransactionBuilder, BASE_FEE } from '@stellar/stellar-sdk';
 import { db } from '../../db';
 import { StellarService } from '../../contracts/stellar';
+import { invalidateBalanceCache } from '../../cache/balances';
+import { mapHorizonError } from '../utils/horizonError';
+import { getNativeBalance, getRequiredXlmForFee } from '../utils/stellarTransaction';
 
 const router = Router();
 
@@ -25,42 +28,6 @@ interface MemberRow {
   stellar_address: string;
 }
 
-function horizonMessage(error: unknown): string {
-  const candidate = error as {
-    response?: {
-      data?: {
-        extras?: {
-          result_codes?: {
-            transaction?: string;
-            operations?: string[];
-          };
-        };
-      };
-    };
-    message?: string;
-  };
-
-  const transactionCode = candidate.response?.data?.extras?.result_codes?.transaction;
-  const operationCode = candidate.response?.data?.extras?.result_codes?.operations?.find(Boolean);
-  const code = transactionCode ?? operationCode;
-
-  const messages: Record<string, string> = {
-    tx_bad_auth: 'The issuer secret cannot authorize this transaction.',
-    tx_bad_seq: 'The issuer account sequence is stale; please retry the airdrop.',
-    tx_insufficient_balance:
-      'The issuer account does not have enough funds to pay transaction fees.',
-    op_no_trust: 'One or more recipients have not established a trustline for this token.',
-    op_underfunded: 'The issuer account does not have enough token balance for the airdrop.',
-    op_line_full: 'One or more recipients would exceed their trustline limit.',
-    op_no_issuer: 'The configured token issuer account does not exist on the Stellar network.',
-    op_malformed: 'The Stellar payment was rejected because its parameters are invalid.',
-  };
-
-  return code && messages[code]
-    ? messages[code]
-    : 'The Stellar network rejected the airdrop. Verify the issuer account, trustlines, and balance.';
-}
-
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   const parsed = airdropSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -71,6 +38,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     });
     return;
   }
+
+  let currentBalance: string | undefined;
 
   try {
     const { communityId, amount, issuerSecret } = parsed.data;
@@ -117,13 +86,13 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const server = StellarService.getServer();
     const network = StellarService.getNetwork();
     const asset = new Asset(community.asset_code, community.asset_issuer);
     const txHashes: string[] = [];
 
     for (const member of members) {
-      const account = await server.loadAccount(issuer.publicKey());
+      const account = await StellarService.loadAccount(issuer.publicKey());
+      currentBalance = getNativeBalance(account);
       const transaction = new TransactionBuilder(account, {
         fee: BASE_FEE,
         networkPassphrase: network,
@@ -139,9 +108,14 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
         .build();
 
       transaction.sign(issuer);
-      const result = await server.submitTransaction(transaction);
+      const result = await StellarService.submitTransaction(transaction);
       txHashes.push(result.hash);
     }
+
+    await invalidateBalanceCache([
+      issuer.publicKey(),
+      ...members.map((member) => member.stellar_address),
+    ]);
 
     res.status(200).json({
       data: {
@@ -156,7 +130,25 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    res.status(502).json({ data: null, error: horizonMessage(error) });
+    const mapped = mapHorizonError(error, {
+      requiredXlm: getRequiredXlmForFee(BASE_FEE),
+      currentBalance,
+    });
+
+    if (mapped.code === 'INSUFFICIENT_BALANCE') {
+      res.status(mapped.status).json({
+        data: null,
+        error: {
+          code: mapped.code,
+          message: mapped.message,
+          requiredXlm: mapped.requiredXlm,
+          currentBalance: mapped.currentBalance,
+        },
+      });
+      return;
+    }
+
+    res.status(mapped.status).json({ data: null, error: mapped.message });
   }
 });
 
