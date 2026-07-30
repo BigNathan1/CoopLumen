@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `npm run db:status` command showing which migrations are applied vs pending, with drift detection (#50)
 - `backend/src/db/migrations/007_create_loan_repayments.sql`, an idempotent migration matching the loan repayments audit trail schema against the migration number originally requested in issue #33 (the `loan_events` table itself already shipped in migration 006)
 - `backend/src/db/migrations/012_create_community_settings.sql`, an idempotent migration matching the per-community JSON config schema against the migration number originally requested in issue #38 (the `community_settings` table itself already shipped in migration 010)
 - `backend/src/db/migrations/004_create_tokens.sql`, an idempotent migration matching the on-chain token metadata schema against the migration number originally requested in issue #30 (the `tokens` table itself already shipped in migration 007)

@@ -299,7 +299,7 @@ export async function rollback(client: PoolClient, steps: number, dryRun: boolea
   logger.info('Rollback complete');
 }
 
-async function showStatus(client: PoolClient): Promise<void> {
+export async function showStatus(client: PoolClient): Promise<void> {
   await ensureSchemaMigrationsTable(client);
   const applied = await getAppliedMigrations(client);
   const drifted = await findDriftedMigrations(applied);
