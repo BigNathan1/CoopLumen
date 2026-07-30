@@ -50,3 +50,31 @@ export function validateParams<T>(schema: ZodType<T>) {
     next();
   };
 }
+
+/**
+ * Returns middleware that validates `req.query` against a Zod schema. On
+ * success the parsed (and coerced) value replaces `req.query`; on failure it
+ * responds with 400 and a list of field errors.
+ */
+export function validateQuery<T>(schema: ZodType<T>) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const result = schema.safeParse(req.query);
+    if (!result.success) {
+      res.status(400).json({
+        error: 'Validation failed',
+        meta: {
+          errors: result.error.issues.map((issue) => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
+      });
+      return;
+    }
+    req.query = result.data as Record<
+      string,
+      string | string[] | import('qs').ParsedQs | import('qs').ParsedQs[]
+    >;
+    next();
+  };
+}

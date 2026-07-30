@@ -206,7 +206,7 @@ describe('balance routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.data).toHaveLength(1);
-      expect(response.body.meta).toEqual({ total: 1, page: 1, limit: 10, pages: 1 });
+      expect(response.body.meta).toEqual({ total: 1, page: 1, limit: 10, pages: 1, offset: 0 });
     });
 
     it('validates public key and pagination query parameters', async () => {
@@ -228,7 +228,7 @@ describe('balance routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.data).toHaveLength(2);
-      expect(response.body.meta).toEqual({ total: 2, page: 1, limit: 20, pages: 1 });
+      expect(response.body.meta).toEqual({ total: 2, page: 1, limit: 20, pages: 1, offset: 0 });
     });
 
     it('validates the community id and pagination query parameters', async () => {
