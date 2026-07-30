@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { db } from '../../db';
 import { StellarService } from '../../contracts/stellar';
+import { logger } from '../../utils/logger';
 import { parsePagination, pageMeta, parseSort, queryString } from '../utils/http';
 import { validateBody, validateParams } from '../middleware/validate';
 import { writeLimiter } from '../middleware/rateLimit';
@@ -30,7 +31,126 @@ interface Community {
   deleted_at: string | null;
 }
 
+interface CommunityWithSettings extends Community {
+  settings: Record<string, unknown>;
+}
+
+interface CommunityDetail extends CommunityWithSettings {
+  member_count: number;
+}
+
+interface CommunityToken {
+  asset_code: string;
+  asset_issuer: string;
+  total_supply: string;
+  description: string | null;
+  icon_url: string | null;
+}
+
+interface CommunityStatisticsRow {
+  total_transactions: number;
+  total_token_supply: string;
+}
+
+interface DatabaseError extends Error {
+  code?: string;
+  constraint?: string;
+}
+
 const VALID_ROLES = ['admin', 'treasurer', 'member', 'observer'];
+const COMMUNITY_NAME_EXISTS = {
+  code: 'COMMUNITY_NAME_EXISTS',
+  message: 'A community with this name already exists.',
+} as const;
+const COMMUNITY_CREATE_FAILED = {
+  code: 'COMMUNITY_CREATE_FAILED',
+  message: 'Unable to create community.',
+} as const;
+const COMMUNITY_UPDATE_FAILED = {
+  code: 'COMMUNITY_UPDATE_FAILED',
+  message: 'Unable to update community.',
+} as const;
+
+function normalizeCommunityName(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+function isDuplicateCommunityNameError(error: unknown): error is DatabaseError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    'constraint' in error &&
+    (error as DatabaseError).code === '23505' &&
+    (error as DatabaseError).constraint === 'communities_name_key'
+  );
+}
+
+function duplicateCommunityNameResponse(res: Response): void {
+  res.status(409).json({
+    data: null,
+    error: COMMUNITY_NAME_EXISTS,
+  });
+}
+
+function databaseFailureResponse(
+  res: Response,
+  status: 500,
+  error: typeof COMMUNITY_CREATE_FAILED | typeof COMMUNITY_UPDATE_FAILED
+): void {
+  res.status(status).json({
+    data: null,
+    error,
+  });
+}
+
+async function findCommunityByNormalizedName(
+  name: string,
+  excludeId?: string
+): Promise<{ id: string } | undefined> {
+  const params: unknown[] = [normalizeCommunityName(name)];
+  let sql =
+    'SELECT id FROM communities WHERE LOWER(BTRIM(name)) = $1 AND deleted_at IS NULL';
+
+  if (excludeId) {
+    params.push(excludeId);
+    sql += ` AND id <> $${params.length}`;
+  }
+
+  const [existing] = await db.query<{ id: string }>(sql, params);
+  return existing;
+}
+
+async function getCommunityWithSettings(id: string): Promise<CommunityWithSettings | undefined> {
+  const [community] = await db.query<CommunityWithSettings>(
+    `SELECT c.*, COALESCE(cs.settings, '{}'::jsonb) AS settings
+     FROM communities c
+     LEFT JOIN community_settings cs ON cs.community_id = c.id
+     WHERE c.id = $1 AND c.deleted_at IS NULL`,
+    [id]
+  );
+
+  return community;
+}
+
+async function getCommunityDetail(id: string): Promise<CommunityDetail | undefined> {
+  const [community] = await db.query<CommunityDetail>(
+    `SELECT c.*,
+            COALESCE(cs.settings, '{}'::jsonb) AS settings,
+            COALESCE(member_counts.member_count, 0)::int AS member_count
+     FROM communities c
+     LEFT JOIN community_settings cs ON cs.community_id = c.id
+     LEFT JOIN LATERAL (
+       SELECT COUNT(*)::int AS member_count
+       FROM members m
+       WHERE m.community_id = c.id AND m.deleted_at IS NULL
+     ) member_counts ON TRUE
+     WHERE c.id = $1 AND c.deleted_at IS NULL`,
+    [id]
+  );
+
+  return community;
+}
 
 /**
  * @route GET /api/v1/communities
@@ -134,47 +254,38 @@ communityRouter.get('/search', async (req, res, next) => {
  * @returns {404} Community not found or soft-deleted.
  * @see docs/openapi.yaml — GET /api/v1/communities/{id}
  */
-communityRouter.get('/:id', async (req, res, next) => {
+communityRouter.get('/:id', validateParams(communityIdParamsSchema), async (req, res, next) => {
   try {
-    const [community] = await db.query<Community>(
-      'SELECT * FROM communities WHERE id = $1 AND deleted_at IS NULL',
-      [req.params.id]
-    );
+    const community = await getCommunityDetail(req.params.id);
     if (!community) {
-      res.status(404).json({ error: 'Community not found' });
+      res.status(404).json({ data: null, error: 'Community not found' });
       return;
     }
 
-    const [{ count: memberCount }] = await db.query<{ count: number }>(
-      'SELECT COUNT(*)::int AS count FROM members WHERE community_id = $1 AND deleted_at IS NULL',
-      [community.id]
-    );
-    const tokens = await db.query<{
-      asset_code: string;
-      asset_issuer: string;
-      total_supply: string;
-      description: string | null;
-      icon_url: string | null;
-    }>(
-      `SELECT asset_code, asset_issuer, total_supply, description, icon_url
-       FROM tokens WHERE community_id = $1`,
-      [community.id]
-    );
-    const [{ count: txCount }] = await db.query<{ count: number }>(
-      'SELECT COUNT(*)::int AS count FROM transactions_log WHERE community_id = $1',
-      [community.id]
-    );
-
-    const totalSupply = tokens.reduce((sum, t) => sum + Number(t.total_supply), 0);
+    const [tokens, [statisticsRow]] = await Promise.all([
+      db.query<CommunityToken>(
+        `SELECT asset_code, asset_issuer, total_supply, description, icon_url
+         FROM tokens
+         WHERE community_id = $1`,
+        [community.id]
+      ),
+      db.query<CommunityStatisticsRow>(
+        `SELECT
+           COALESCE((SELECT COUNT(*)::int FROM transactions_log WHERE community_id = $1), 0) AS total_transactions,
+           COALESCE((SELECT SUM(total_supply) FROM tokens WHERE community_id = $1), 0)::text AS total_token_supply`,
+        [community.id]
+      ),
+    ]);
 
     res.json({
       data: {
-        ...community,
-        member_count: memberCount,
-        tokens,
-        stats: {
-          total_transactions: txCount,
-          total_token_supply: totalSupply,
+        community: {
+          ...community,
+          tokens,
+        },
+        statistics: {
+          totalTransactions: statisticsRow.total_transactions,
+          totalTokenSupply: Number(statisticsRow.total_token_supply),
         },
       },
     });
@@ -202,7 +313,7 @@ communityRouter.post(
   '/',
   writeLimiter,
   validateBody(createCommunitySchema),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response) => {
     try {
       const { name, description, issuerPublicKey, assetCode, assetIssuer } = req.body as {
         name: string;
@@ -212,12 +323,9 @@ communityRouter.post(
         assetIssuer: string;
       };
 
-      const [existing] = await db.query<Community>(
-        'SELECT id FROM communities WHERE name = $1 AND deleted_at IS NULL',
-        [name]
-      );
+      const existing = await findCommunityByNormalizedName(name);
       if (existing) {
-        res.status(409).json({ error: 'Community name already taken' });
+        duplicateCommunityNameResponse(res);
         return;
       }
 
@@ -237,9 +345,18 @@ communityRouter.post(
         return created;
       });
 
-      res.status(201).json({ data: community });
+      res.status(201).json({ data: { ...community, settings: {} } });
     } catch (err) {
-      next(err);
+      if (isDuplicateCommunityNameError(err)) {
+        duplicateCommunityNameResponse(res);
+        return;
+      }
+
+      logger.error('Failed to create community', {
+        name: req.body?.name,
+        error: err instanceof Error ? err.message : 'Unknown error',
+      });
+      databaseFailureResponse(res, 500, COMMUNITY_CREATE_FAILED);
     }
   }
 );
@@ -260,8 +377,9 @@ communityRouter.post(
 communityRouter.put(
   '/:id',
   writeLimiter,
+  validateParams(communityIdParamsSchema),
   validateBody(updateCommunitySchema),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response) => {
     try {
       const { name, description, settings } = req.body as {
         name?: string;
@@ -269,22 +387,19 @@ communityRouter.put(
         settings?: Record<string, unknown>;
       };
 
-      const [community] = await db.query<Community>(
-        'SELECT * FROM communities WHERE id = $1 AND deleted_at IS NULL',
-        [req.params.id]
-      );
+      const community = await getCommunityWithSettings(req.params.id);
       if (!community) {
-        res.status(404).json({ error: 'Community not found' });
+        res.status(404).json({ data: null, error: 'Community not found' });
         return;
       }
 
-      if (name && name !== community.name) {
-        const [dup] = await db.query<Community>(
-          'SELECT id FROM communities WHERE name = $1 AND deleted_at IS NULL AND id <> $2',
-          [name, community.id]
-        );
+      if (
+        name !== undefined &&
+        normalizeCommunityName(name) !== normalizeCommunityName(community.name)
+      ) {
+        const dup = await findCommunityByNormalizedName(name, community.id);
         if (dup) {
-          res.status(409).json({ error: 'Community name already taken' });
+          duplicateCommunityNameResponse(res);
           return;
         }
       }
@@ -292,13 +407,19 @@ communityRouter.put(
       const updated = await db.transaction(async (client) => {
         const result = await client.query<Community>(
           `UPDATE communities
-           SET name = COALESCE($1, name),
-               description = COALESCE($2, description)
-           WHERE id = $3
+           SET name = CASE WHEN $1::boolean THEN $2 ELSE name END,
+               description = CASE WHEN $3::boolean THEN $4 ELSE description END
+           WHERE id = $5
            RETURNING *`,
-          [name ?? null, description === undefined ? null : description, community.id]
+          [
+            name !== undefined,
+            name ?? null,
+            description !== undefined,
+            description ?? null,
+            community.id,
+          ]
         );
-        if (settings) {
+        if (settings !== undefined) {
           await client.query(
             `INSERT INTO community_settings (community_id, settings)
              VALUES ($1, $2)
@@ -306,12 +427,25 @@ communityRouter.put(
             [community.id, JSON.stringify(settings)]
           );
         }
-        return result.rows[0];
+
+        return {
+          ...result.rows[0],
+          settings: settings ?? community.settings,
+        };
       });
 
       res.json({ data: updated });
     } catch (err) {
-      next(err);
+      if (isDuplicateCommunityNameError(err)) {
+        duplicateCommunityNameResponse(res);
+        return;
+      }
+
+      logger.error('Failed to update community', {
+        communityId: req.params.id,
+        error: err instanceof Error ? err.message : 'Unknown error',
+      });
+      databaseFailureResponse(res, 500, COMMUNITY_UPDATE_FAILED);
     }
   }
 );

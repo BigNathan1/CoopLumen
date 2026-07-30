@@ -79,21 +79,64 @@ describe('GET /api/v1/communities/search', () => {
 describe('GET /api/v1/communities/:id', () => {
   it('returns 404 when not found', async () => {
     mockDb.query.mockResolvedValueOnce([]);
-    const res = await request(app).get('/api/v1/communities/uuid-x');
+    const res = await request(app).get('/api/v1/communities/11111111-1111-4111-8111-111111111111');
     expect(res.status).toBe(404);
+    expect(res.body).toEqual({ data: null, error: 'Community not found' });
   });
 
-  it('enriches the community with member count, tokens, and stats', async () => {
+  it('enriches the community with tokens, settings, and statistics', async () => {
     mockDb.query
-      .mockResolvedValueOnce([{ id: 'uuid-1', name: 'TestDAO', issuer_public_key: validKey }]) // community
-      .mockResolvedValueOnce([{ count: 3 }]) // member count
+      .mockResolvedValueOnce([
+        {
+          id: '11111111-1111-4111-8111-111111111111',
+          name: 'TestDAO',
+          issuer_public_key: validKey,
+          asset_code: 'TDAO',
+          asset_issuer: validKey,
+          description: null,
+          avatar_url: null,
+          created_at: '2026-01-01T00:00:00.000Z',
+          updated_at: '2026-01-01T00:00:00.000Z',
+          deleted_at: null,
+          settings: { quorum: 0.6 },
+          member_count: 3,
+        },
+      ]) // community
       .mockResolvedValueOnce([{ asset_code: 'TDAO', total_supply: '100.0000000' }]) // tokens
-      .mockResolvedValueOnce([{ count: 5 }]); // tx count
-    const res = await request(app).get('/api/v1/communities/uuid-1');
+      .mockResolvedValueOnce([{ total_transactions: 5, total_token_supply: '100.0000000' }]); // stats
+    const res = await request(app).get('/api/v1/communities/11111111-1111-4111-8111-111111111111');
     expect(res.status).toBe(200);
-    expect(res.body.data.member_count).toBe(3);
-    expect(res.body.data.tokens).toHaveLength(1);
-    expect(res.body.data.stats).toEqual({ total_transactions: 5, total_token_supply: 100 });
+    expect(res.body.data.community.member_count).toBe(3);
+    expect(res.body.data.community.settings).toEqual({ quorum: 0.6 });
+    expect(res.body.data.community.tokens).toHaveLength(1);
+    expect(res.body.data.statistics).toEqual({ totalTransactions: 5, totalTokenSupply: 100 });
+  });
+
+  it('returns zero statistics when a community has no tokens or transactions', async () => {
+    mockDb.query
+      .mockResolvedValueOnce([
+        {
+          id: '11111111-1111-4111-8111-111111111111',
+          name: 'ZeroDAO',
+          issuer_public_key: validKey,
+          asset_code: 'ZERO',
+          asset_issuer: validKey,
+          description: null,
+          avatar_url: null,
+          created_at: '2026-01-01T00:00:00.000Z',
+          updated_at: '2026-01-01T00:00:00.000Z',
+          deleted_at: null,
+          settings: {},
+          member_count: 0,
+        },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ total_transactions: 0, total_token_supply: '0' }]);
+
+    const res = await request(app).get('/api/v1/communities/11111111-1111-4111-8111-111111111111');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.statistics).toEqual({ totalTransactions: 0, totalTokenSupply: 0 });
   });
 });
 
@@ -129,6 +172,7 @@ describe('POST /api/v1/communities', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.data.name).toBe('EcoDAO');
+    expect(res.body.data.settings).toEqual({});
   });
 
   it('records a community_created transactions_log entry in the same transaction as the insert', async () => {
@@ -171,24 +215,137 @@ describe('POST /api/v1/communities', () => {
       assetIssuer: validKey,
     });
     expect(res.status).toBe(409);
+    expect(res.body).toEqual({
+      data: null,
+      error: {
+        code: 'COMMUNITY_NAME_EXISTS',
+        message: 'A community with this name already exists.',
+      },
+    });
+  });
+
+  it('returns 409 on a duplicate name match after normalization', async () => {
+    mockDb.query.mockResolvedValueOnce([{ id: 'existing' }]);
+    const res = await request(app).post('/api/v1/communities').send({
+      name: '  ecodao  ',
+      issuerPublicKey: validKey,
+      assetCode: 'ECO',
+      assetIssuer: validKey,
+    });
+    expect(res.status).toBe(409);
+  });
+
+  it('returns a sanitized 500 when community creation fails in the database', async () => {
+    mockDb.query.mockResolvedValueOnce([]);
+    mockDb.transaction.mockRejectedValueOnce(new Error('duplicate key value violates unique constraint'));
+
+    const res = await request(app).post('/api/v1/communities').send({
+      name: 'EcoDAO',
+      issuerPublicKey: validKey,
+      assetCode: 'ECO',
+      assetIssuer: validKey,
+    });
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({
+      data: null,
+      error: {
+        code: 'COMMUNITY_CREATE_FAILED',
+        message: 'Unable to create community.',
+      },
+    });
   });
 });
 
 describe('PUT /api/v1/communities/:id', () => {
   it('returns 404 when the community does not exist', async () => {
     mockDb.query.mockResolvedValueOnce([]);
-    const res = await request(app).put('/api/v1/communities/uuid-x').send({ name: 'New Name' });
+    const res = await request(app)
+      .put('/api/v1/communities/11111111-1111-4111-8111-111111111111')
+      .send({ name: 'New Name' });
     expect(res.status).toBe(404);
+    expect(res.body).toEqual({ data: null, error: 'Community not found' });
   });
 
-  it('updates an existing community', async () => {
+  it('rejects an invalid community id', async () => {
+    const res = await request(app).put('/api/v1/communities/not-a-uuid').send({ name: 'New Name' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Validation failed');
+  });
+
+  it('rejects an empty update payload', async () => {
+    const res = await request(app)
+      .put('/api/v1/communities/11111111-1111-4111-8111-111111111111')
+      .send({});
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: 'requestBody',
+          message: 'At least one of name, description, or settings must be provided',
+        }),
+      ])
+    );
+  });
+
+  it('updates the community name', async () => {
     mockDb.query
-      .mockResolvedValueOnce([{ id: 'uuid-1', name: 'Old' }]) // exists
+      .mockResolvedValueOnce([{ id: 'uuid-1', name: 'Old', settings: {} }]) // exists
       .mockResolvedValueOnce([]); // duplicate-name check
-    mockDb.transaction.mockResolvedValueOnce({ id: 'uuid-1', name: 'New Name' });
-    const res = await request(app).put('/api/v1/communities/uuid-1').send({ name: 'New Name' });
+    mockDb.transaction.mockResolvedValueOnce({ id: 'uuid-1', name: 'New Name', settings: {} });
+    const res = await request(app)
+      .put('/api/v1/communities/11111111-1111-4111-8111-111111111111')
+      .send({ name: 'New Name' });
     expect(res.status).toBe(200);
     expect(res.body.data.name).toBe('New Name');
+  });
+
+  it('updates the community description', async () => {
+    mockDb.query.mockResolvedValueOnce([{ id: 'uuid-1', name: 'Old', settings: {} }]);
+    mockDb.transaction.mockResolvedValueOnce({
+      id: 'uuid-1',
+      name: 'Old',
+      description: 'Updated description',
+      settings: {},
+    });
+
+    const res = await request(app)
+      .put('/api/v1/communities/11111111-1111-4111-8111-111111111111')
+      .send({ description: 'Updated description' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.description).toBe('Updated description');
+  });
+
+  it('updates the community settings', async () => {
+    const settings = { loanLimit: 1500, quorum: 0.75 };
+    mockDb.query.mockResolvedValueOnce([{ id: 'uuid-1', name: 'Old', settings: { quorum: 0.6 } }]);
+    mockDb.transaction.mockResolvedValueOnce({
+      id: 'uuid-1',
+      name: 'Old',
+      description: 'Desc',
+      settings,
+    });
+
+    const res = await request(app)
+      .put('/api/v1/communities/11111111-1111-4111-8111-111111111111')
+      .send({ settings });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.settings).toEqual(settings);
+  });
+
+  it('returns 409 when updating to a duplicate name', async () => {
+    mockDb.query
+      .mockResolvedValueOnce([{ id: 'uuid-1', name: 'Old', settings: {} }])
+      .mockResolvedValueOnce([{ id: 'uuid-2' }]);
+
+    const res = await request(app)
+      .put('/api/v1/communities/11111111-1111-4111-8111-111111111111')
+      .send({ name: 'Existing DAO' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('COMMUNITY_NAME_EXISTS');
   });
 });
 

@@ -21,11 +21,21 @@ export const createCommunitySchema = z.object({
   assetIssuer: stellarPublicKey,
 });
 
-export const updateCommunitySchema = z.object({
-  name: z.string().trim().min(2).max(64).optional(),
-  description: z.string().trim().max(500).nullable().optional(),
-  settings: z.record(z.string(), z.unknown()).optional(),
-});
+export const updateCommunitySchema = z
+  .object({
+    name: z.string().trim().min(2).max(64).optional(),
+    description: z.string().trim().max(500).nullable().optional(),
+    settings: z.record(z.string(), z.unknown()).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.name === undefined && value.description === undefined && value.settings === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['requestBody'],
+        message: 'At least one of name, description, or settings must be provided',
+      });
+    }
+  });
 
 export const addMemberSchema = z.object({
   stellarAddress: stellarPublicKey,
