@@ -41,6 +41,69 @@ paths:
         '400':
           description: Missing required "q" query parameter
 
+  /api/v1/communities:
+    get:
+      tags: [Communities]
+      summary: List communities
+      description: Paginated, searchable, sortable list of active communities.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Full-text search over name and description.
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [created_at, name, updated_at]
+            default: created_at
+          description: Field to sort results by.
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [ASC, DESC, asc, desc]
+            default: DESC
+          description: Sort direction.
+      responses:
+        '200':
+          description: A page of active communities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Community' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+    post:
+      tags: [Communities]
+      summary: Create a community
+      description: Registers a new community and records a community_created audit event.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateCommunity' }
+      responses:
+        '201':
+          description: Community created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Community' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409':
+          description: Community name already taken
+
   /api/v1/communities/{id}:
     parameters:
       - $ref: '#/components/parameters/CommunityId'
@@ -294,6 +357,52 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
 components:
+  parameters:
+    CommunityId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: The UUID of the community.
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      description: 1-based page number.
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      description: Page size.
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+      description: Query offset (skips the first N results).
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ValidationError:
+      description: Input validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
     StellarKey:
       type: string
@@ -363,6 +472,7 @@ components:
         page: { type: integer }
         limit: { type: integer }
         pages: { type: integer }
+        offset: { type: integer }
     Error:
       type: object
       properties:

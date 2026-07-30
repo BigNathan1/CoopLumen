@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { db } from '../../db';
 import { StellarService } from '../../contracts/stellar';
 import { parsePagination, pageMeta, parseSort, queryString } from '../utils/http';
-import { validateBody, validateParams } from '../middleware/validate';
+import { validateBody, validateParams, validateQuery } from '../middleware/validate';
 import { writeLimiter } from '../middleware/rateLimit';
 import { isValidStellarPublicKey } from '../utils/stellar';
 import {
@@ -12,6 +12,7 @@ import {
   updateMemberSchema,
   setAvatarSchema,
   communityIdParamsSchema,
+  getCommunitiesQuerySchema,
 } from '../schemas/community';
 
 export const communityRouter = Router();
@@ -43,11 +44,19 @@ const VALID_ROLES = ['admin', 'treasurer', 'member', 'observer'];
  * @returns {200} `{ data: Community[], meta: PageMeta }`
  * @see docs/openapi.yaml — GET /api/v1/communities
  */
-communityRouter.get('/', async (req, res, next) => {
+communityRouter.get('/', validateQuery(getCommunitiesQuerySchema), async (req, res, next) => {
   try {
-    const pagination = parsePagination(req);
-    const { sortBy, order } = parseSort(req, ['created_at', 'name', 'updated_at'], 'created_at');
-    const search = queryString(req.query.search).trim();
+    const query = req.query as unknown as {
+      page: number;
+      limit: number;
+      offset?: number;
+      search: string;
+      sortBy: 'created_at' | 'name' | 'updated_at';
+      order: 'ASC' | 'DESC';
+    };
+    const { page: queryPage, limit, offset: queryOffset, search, sortBy, order } = query;
+    const offset = queryOffset ?? (queryPage - 1) * limit;
+    const page = queryOffset !== undefined ? Math.floor(queryOffset / limit) + 1 : queryPage;
 
     const clauses = ['deleted_at IS NULL'];
     const params: unknown[] = [];
@@ -64,15 +73,18 @@ communityRouter.get('/', async (req, res, next) => {
       params
     );
 
-    const listParams = [...params, pagination.limit, pagination.offset];
+    const listParams = [...params, limit, offset];
     const communities = await db.query<Community>(
       `SELECT * FROM communities ${where}
-       ORDER BY ${sortBy} ${order}
-       LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
+         ORDER BY ${sortBy} ${order}
+         LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
       listParams
     );
 
-    res.json({ data: communities, meta: pageMeta(count, pagination) });
+    res.json({
+      data: communities,
+      meta: pageMeta(count, { page, limit, offset }),
+    });
   } catch (err) {
     next(err);
   }
@@ -549,22 +561,26 @@ communityRouter.delete('/:id/members/:address', writeLimiter, async (req, res, n
  * @returns {404} Community not found or soft-deleted.
  * @see docs/openapi.yaml — GET /api/v1/communities/{id}/treasury
  */
-communityRouter.get('/:id/treasury', validateParams(communityIdParamsSchema), async (req, res, next) => {
-  try {
-    const [community] = await db.query<Community>(
-      'SELECT issuer_public_key FROM communities WHERE id = $1 AND deleted_at IS NULL',
-      [req.params.id]
-    );
-    if (!community) {
-      res.status(404).json({ error: 'Community not found' });
-      return;
+communityRouter.get(
+  '/:id/treasury',
+  validateParams(communityIdParamsSchema),
+  async (req, res, next) => {
+    try {
+      const [community] = await db.query<Community>(
+        'SELECT issuer_public_key FROM communities WHERE id = $1 AND deleted_at IS NULL',
+        [req.params.id]
+      );
+      if (!community) {
+        res.status(404).json({ error: 'Community not found' });
+        return;
+      }
+      const balances = await StellarService.getAccountBalance(community.issuer_public_key);
+      res.json({ data: { account: community.issuer_public_key, balances } });
+    } catch (err) {
+      next(err);
     }
-    const balances = await StellarService.getAccountBalance(community.issuer_public_key);
-    res.json({ data: { account: community.issuer_public_key, balances } });
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 /**
  * @route POST /api/v1/communities/:id/avatar

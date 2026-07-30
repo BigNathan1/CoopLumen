@@ -26,7 +26,7 @@ describe('GET /api/v1/communities', () => {
     const res = await request(app).get('/api/v1/communities');
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual([]);
-    expect(res.body.meta).toEqual({ total: 0, page: 1, limit: 20, pages: 0 });
+    expect(res.body.meta).toEqual({ total: 0, page: 1, limit: 20, pages: 0, offset: 0 });
   });
 
   it('returns communities with pagination meta', async () => {
@@ -43,7 +43,29 @@ describe('GET /api/v1/communities', () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
     expect(res.body.data[0].name).toBe('TestDAO');
-    expect(res.body.meta).toEqual({ total: 1, page: 1, limit: 10, pages: 1 });
+    expect(res.body.meta).toEqual({ total: 1, page: 1, limit: 10, pages: 1, offset: 0 });
+  });
+
+  it('returns communities with pagination meta using offset instead of page', async () => {
+    const community = {
+      id: 'uuid-2',
+      name: 'EcoDAO',
+      asset_code: 'ECO',
+      asset_issuer: validKey,
+      issuer_public_key: validKey,
+      description: null,
+    };
+    mockDb.query.mockResolvedValueOnce([{ count: 21 }]).mockResolvedValueOnce([community]);
+    const res = await request(app).get('/api/v1/communities?offset=20&limit=20');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.meta).toEqual({ total: 21, page: 2, limit: 20, pages: 2, offset: 20 });
+  });
+
+  it('rejects invalid pagination parameters with 400', async () => {
+    const res = await request(app).get('/api/v1/communities?offset=-5');
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toBeDefined();
   });
 });
 
@@ -72,7 +94,7 @@ describe('GET /api/v1/communities/search', () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
     expect(res.body.data[0].name).toBe('EcoDAO');
-    expect(res.body.meta).toEqual({ total: 1, page: 1, limit: 20, pages: 1 });
+    expect(res.body.meta).toEqual({ total: 1, page: 1, limit: 20, pages: 1, offset: 0 });
   });
 });
 
@@ -139,9 +161,7 @@ describe('POST /api/v1/communities', () => {
       .fn()
       .mockResolvedValueOnce({ rows: [community] }) // INSERT INTO communities
       .mockResolvedValueOnce({ rows: [] }); // INSERT INTO transactions_log
-    mockDb.transaction.mockImplementationOnce(async (fn) =>
-      fn({ query: clientQuery } as never)
-    );
+    mockDb.transaction.mockImplementationOnce(async (fn) => fn({ query: clientQuery } as never));
 
     const res = await request(app).post('/api/v1/communities').send({
       name: 'EcoDAO',
