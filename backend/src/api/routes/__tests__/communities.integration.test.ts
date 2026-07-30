@@ -64,6 +64,7 @@ describeIf('Community CRUD (integration)', () => {
       assetIssuer: issuer,
     });
     expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('COMMUNITY_NAME_EXISTS');
   });
 
   it('lists the community with pagination meta', async () => {
@@ -76,9 +77,12 @@ describeIf('Community CRUD (integration)', () => {
   it('fetches and enriches a single community', async () => {
     const res = await request(app).get(`/api/v1/communities/${communityId}`);
     expect(res.status).toBe(200);
-    expect(res.body.data.name).toBe('IntegrationDAO');
-    expect(res.body.data.member_count).toBe(0);
-    expect(res.body.data.stats).toBeDefined();
+    expect(res.body.data.community.name).toBe('IntegrationDAO');
+    expect(res.body.data.community.member_count).toBe(0);
+    expect(res.body.data.statistics).toEqual({
+      totalTransactions: 1,
+      totalTokenSupply: 0,
+    });
   });
 
   it('finds the community via the general list search parameter', async () => {
@@ -116,6 +120,7 @@ describeIf('Community CRUD (integration)', () => {
       .put(`/api/v1/communities/${other.body.data.id}`)
       .send({ name: 'IntegrationDAO' });
     expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('COMMUNITY_NAME_EXISTS');
   });
 
   it('records a community_created transactions_log row for the created community', async () => {
