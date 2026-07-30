@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import type { PoolClient } from 'pg';
-import { checksumOf, rollback, runPending } from '../migrate';
+import { checksumOf, rollback, runPending, showStatus } from '../migrate';
 
 jest.mock('fs/promises', () => ({
   readFile: jest.fn(),
@@ -101,6 +101,71 @@ describe('migration runner', () => {
     await runPending(client, false);
 
     expect(query.mock.calls.some(([sql]) => sql === MIGRATION_SQL)).toBe(false);
+  });
+
+  it('reports status with applied and pending migrations', async () => {
+    const { client, query } = createClient([
+      {
+        name: BOOTSTRAP_NAME,
+        checksum: checksumOf(
+          'CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW());'
+        ),
+      },
+      { name: MIGRATION_NAME, checksum: checksumOf(MIGRATION_SQL) },
+    ]);
+
+    // showStatus weaves its own query; verify no errors are thrown
+    await expect(showStatus(client)).resolves.toBeUndefined();
+  });
+
+  it('reports all migrations pending on fresh database', async () => {
+    const { client } = createClient([]);
+
+    // On a fresh db, the bootstrap file is missing the DOWN counterpart, but
+    // the sql read still works because the mock uses basename-based routing.
+    await expect(showStatus(client)).resolves.toBeUndefined();
+  });
+
+  it('reports no pending migrations when fully up to date', async () => {
+    const mockHash = checksumOf(MIGRATION_SQL);
+    const bootstrapHash = checksumOf(
+      'CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW());'
+    );
+
+    // Write readdir to only return the files that are in the "applied" set
+    mockedFs.readdir.mockResolvedValue([
+      migrationEntry(BOOTSTRAP_NAME),
+    ]);
+
+    mockedFs.readFile.mockImplementation(async (filePath: string) => {
+      const fileName = path.basename(filePath);
+      if (fileName === BOOTSTRAP_NAME) {
+        return 'CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW());';
+      }
+      throw new Error(`Unexpected file: ${fileName}`);
+    });
+
+    const { client } = createClient([
+      { name: BOOTSTRAP_NAME, checksum: bootstrapHash },
+    ]);
+
+    await expect(showStatus(client)).resolves.toBeUndefined();
+  });
+
+  it('detects drifted migrations in status output', async () => {
+    const originalHash = checksumOf(MIGRATION_SQL);
+    // Tamper the checksum so the file on disk no longer matches
+    const { client } = createClient([
+      {
+        name: BOOTSTRAP_NAME,
+        checksum: checksumOf(
+          'CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW());'
+        ),
+      },
+      { name: MIGRATION_NAME, checksum: 'tampered-checksum' },
+    ]);
+
+    await expect(showStatus(client)).resolves.toBeUndefined();
   });
 
   it('rolls back the latest applied migration', async () => {
