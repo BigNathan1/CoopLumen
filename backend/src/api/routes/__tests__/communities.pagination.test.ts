@@ -34,7 +34,7 @@ describe('GET /api/v1/communities/:id/members pagination', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
       data: [member],
-      meta: { total: 3, page: 2, limit: 1, pages: 3 },
+      meta: { total: 3, page: 2, limit: 1, pages: 3, offset: 1 },
     });
   });
 
@@ -45,6 +45,6 @@ describe('GET /api/v1/communities/:id/members pagination', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual([]);
-    expect(res.body.meta).toEqual({ total: 0, page: 1, limit: 20, pages: 0 });
+    expect(res.body.meta).toEqual({ total: 0, page: 1, limit: 20, pages: 0, offset: 0 });
   });
 });
