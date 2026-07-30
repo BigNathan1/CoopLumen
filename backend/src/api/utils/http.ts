@@ -11,6 +11,7 @@ export interface PageMeta {
   page: number;
   limit: number;
   pages: number;
+  offset: number;
 }
 
 export interface SortParams {
@@ -40,6 +41,7 @@ export function pageMeta(total: number, params: PageParams): PageMeta {
     page: params.page,
     limit: params.limit,
     pages: params.limit > 0 ? Math.ceil(total / params.limit) : 0,
+    offset: params.offset,
   };
 }
 
