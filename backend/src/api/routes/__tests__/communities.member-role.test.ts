@@ -32,7 +32,7 @@ describe('GET /api/v1/communities/:id/members role filter', () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
     expect(res.body.data[0].role).toBe('treasurer');
-    expect(res.body.meta).toEqual({ total: 1, page: 1, limit: 20, pages: 1 });
+    expect(res.body.meta).toEqual({ total: 1, page: 1, limit: 20, pages: 1, offset: 0 });
     expect(mockDb.query).toHaveBeenNthCalledWith(1, expect.stringContaining('role = $2'), [
       communityId,
       'treasurer',

@@ -4,7 +4,7 @@ import { db } from '../../db';
 import { StellarService } from '../../contracts/stellar';
 import { logger } from '../../utils/logger';
 import { parsePagination, pageMeta, parseSort, queryString } from '../utils/http';
-import { validateBody, validateParams } from '../middleware/validate';
+import { validateBody, validateParams, validateQuery } from '../middleware/validate';
 import { writeLimiter } from '../middleware/rateLimit';
 import { isValidStellarPublicKey } from '../utils/stellar';
 import {
@@ -14,6 +14,7 @@ import {
   updateMemberSchema,
   setAvatarSchema,
   communityIdParamsSchema,
+  getCommunitiesQuerySchema,
 } from '../schemas/community';
 
 export const communityRouter = Router();
@@ -164,11 +165,19 @@ async function getCommunityDetail(id: string): Promise<CommunityDetail | undefin
  * @returns {200} `{ data: Community[], meta: PageMeta }`
  * @see docs/openapi.yaml — GET /api/v1/communities
  */
-communityRouter.get('/', async (req, res, next) => {
+communityRouter.get('/', validateQuery(getCommunitiesQuerySchema), async (req, res, next) => {
   try {
-    const pagination = parsePagination(req);
-    const { sortBy, order } = parseSort(req, ['created_at', 'name', 'updated_at'], 'created_at');
-    const search = queryString(req.query.search).trim();
+    const query = req.query as unknown as {
+      page: number;
+      limit: number;
+      offset?: number;
+      search: string;
+      sortBy: 'created_at' | 'name' | 'updated_at';
+      order: 'ASC' | 'DESC';
+    };
+    const { page: queryPage, limit, offset: queryOffset, search, sortBy, order } = query;
+    const offset = queryOffset ?? (queryPage - 1) * limit;
+    const page = queryOffset !== undefined ? Math.floor(queryOffset / limit) + 1 : queryPage;
 
     const clauses = ['deleted_at IS NULL'];
     const params: unknown[] = [];
@@ -185,15 +194,18 @@ communityRouter.get('/', async (req, res, next) => {
       params
     );
 
-    const listParams = [...params, pagination.limit, pagination.offset];
+    const listParams = [...params, limit, offset];
     const communities = await db.query<Community>(
       `SELECT * FROM communities ${where}
-       ORDER BY ${sortBy} ${order}
-       LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
+         ORDER BY ${sortBy} ${order}
+         LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
       listParams
     );
 
-    res.json({ data: communities, meta: pageMeta(count, pagination) });
+    res.json({
+      data: communities,
+      meta: pageMeta(count, { page, limit, offset }),
+    });
   } catch (err) {
     next(err);
   }
