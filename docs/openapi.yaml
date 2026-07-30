@@ -7,12 +7,6 @@ servers:
   - url: http://localhost:4000
 
 tags:
-  - name: Communities
-    description: Community registration, profile, and settings operations
-  - name: Members
-    description: Community membership operations
-  - name: Treasury
-    description: Community treasury balance operations
   - name: Tokens
     description: Community token metadata and operations
   - name: Balances
@@ -21,66 +15,111 @@ tags:
     description: Stellar transaction submission endpoints
 
 paths:
-  /api/v1/communities:
+  /api/v1/balances/{publicKey}:
+    parameters:
+      - name: publicKey
+        in: path
+        required: true
+        description: Stellar public key of the account to inspect.
+        schema:
+          $ref: '#/components/schemas/StellarKey'
     get:
-      tags: [Communities]
-      summary: List communities
-      description: Paginated community list with optional full-text search and sorting.
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Limit'
-        - name: search
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Full-text search over community name and description.
-        - name: sortBy
-          in: query
-          required: false
-          schema:
-            type: string
-            enum: [created_at, name, updated_at]
-            default: created_at
-        - name: order
-          in: query
-          required: false
-          schema:
-            type: string
-            enum: [asc, desc]
-            default: desc
+      tags: [Balances]
+      summary: Get account balances
+      description: >
+        Returns all on-chain balances for a Stellar account. Successful responses
+        may be served from a Redis cache for up to 5 seconds; the response body
+        itself is unchanged.
       responses:
         '200':
-          description: Community page
+          description: Account balances
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/Community' }
-                  meta: { $ref: '#/components/schemas/PageMeta' }
+                $ref: '#/components/schemas/BalanceResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502':
+          description: Horizon is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/tokens/transfer:
     post:
-      tags: [Communities]
-      summary: Create a community
+      tags: [Transactions]
+      summary: Submit a signed Stellar payment transaction
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/CreateCommunity' }
+            schema:
+              $ref: '#/components/schemas/TokenTransferRequest'
       responses:
-        '201':
-          description: Community created
+        '200':
+          description: Payment submitted successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data: { $ref: '#/components/schemas/CommunityWithSettings' }
+                $ref: '#/components/schemas/TokenTransferResponse'
         '400': { $ref: '#/components/responses/ValidationError' }
-        '409': { $ref: '#/components/responses/CommunityNameConflict' }
-        '500': { $ref: '#/components/responses/InternalServerError' }
+        '402':
+          description: The source account does not have enough XLM for the payment and fee
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsufficientBalanceResponse'
+        '422':
+          description: The Stellar network rejected the signed transaction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Horizon is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/tokens/airdrop:
+    post:
+      tags: [Transactions]
+      summary: Airdrop a community token to all community members
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AirdropRequest'
+      responses:
+        '200':
+          description: Airdrop submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AirdropResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '402':
+          description: The issuer account does not have enough XLM for transaction fees
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsufficientBalanceResponse'
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: The Stellar network rejected the airdrop transaction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Horizon is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/v1/tokens/{assetCode}/{issuer}:
     get:
@@ -118,7 +157,7 @@ paths:
     get:
       tags: [Communities]
       summary: Get a community
-      description: Returns the community payload together with computed statistics.
+      description: Enriched with member count, token list, and statistics.
       responses:
         '200':
           description: Community detail
@@ -128,7 +167,6 @@ paths:
                 type: object
                 properties:
                   data: { $ref: '#/components/schemas/CommunityDetail' }
-        '400': { $ref: '#/components/responses/ValidationError' }
         '404': { $ref: '#/components/responses/NotFound' }
     put:
       tags: [Communities]
@@ -141,16 +179,9 @@ paths:
       responses:
         '200':
           description: Updated community
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data: { $ref: '#/components/schemas/CommunityWithSettings' }
-        '400': { $ref: '#/components/responses/ValidationError' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/CommunityNameConflict' }
-        '500': { $ref: '#/components/responses/InternalServerError' }
+        '409':
+          description: Community name already taken
     delete:
       tags: [Communities]
       summary: Soft-delete a community
@@ -426,28 +457,6 @@ components:
         avatar_url: { type: string, nullable: true }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
-    CommunitySettings:
-      type: object
-      additionalProperties: true
-    CommunityToken:
-      type: object
-      properties:
-        asset_code: { type: string }
-        asset_issuer: { $ref: '#/components/schemas/StellarKey' }
-        total_supply: { type: string }
-        description: { type: string, nullable: true }
-        icon_url: { type: string, nullable: true }
-    CommunityStatistics:
-      type: object
-      properties:
-        totalTransactions: { type: integer, minimum: 0 }
-        totalTokenSupply: { type: number, minimum: 0 }
-    CommunityWithSettings:
-      allOf:
-        - $ref: '#/components/schemas/Community'
-        - type: object
-          properties:
-            settings: { $ref: '#/components/schemas/CommunitySettings' }
     Member:
       type: object
       properties:
@@ -456,20 +465,20 @@ components:
           type: string
           enum: [admin, treasurer, member, observer]
         joined_at: { type: string, format: date-time }
-    CommunityResource:
+    CommunityDetail:
       allOf:
-        - $ref: '#/components/schemas/CommunityWithSettings'
+        - $ref: '#/components/schemas/Community'
         - type: object
           properties:
             member_count: { type: integer }
             tokens:
               type: array
-              items: { $ref: '#/components/schemas/CommunityToken' }
-    CommunityDetail:
-      type: object
-      properties:
-        community: { $ref: '#/components/schemas/CommunityResource' }
-        statistics: { $ref: '#/components/schemas/CommunityStatistics' }
+              items: { type: object }
+            stats:
+              type: object
+              properties:
+                total_transactions: { type: integer }
+                total_token_supply: { type: number }
     CreateCommunity:
       type: object
       required: [name, issuerPublicKey, assetCode, assetIssuer]
@@ -481,17 +490,10 @@ components:
         assetIssuer: { $ref: '#/components/schemas/StellarKey' }
     UpdateCommunity:
       type: object
-      minProperties: 1
       properties:
         name: { type: string, minLength: 2, maxLength: 64 }
         description: { type: string, nullable: true, maxLength: 500 }
         settings: { type: object, additionalProperties: true }
-    StructuredError:
-      type: object
-      required: [code, message]
-      properties:
-        code: { type: string }
-        message: { type: string }
     PageMeta:
       type: object
       properties:
@@ -650,61 +652,5 @@ components:
         error:
           oneOf:
             - type: string
-            - $ref: '#/components/schemas/StructuredError'
-  parameters:
-    CommunityId:
-      name: id
-      in: path
-      required: true
-      description: Community UUID.
-      schema:
-        type: string
-        format: uuid
-    Page:
-      name: page
-      in: query
-      required: false
-      schema:
-        type: integer
-        minimum: 1
-        default: 1
-    Limit:
-      name: limit
-      in: query
-      required: false
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 100
-        default: 20
-  responses:
-    ValidationError:
-      description: Request validation failed.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    NotFound:
-      description: Requested resource was not found.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    CommunityNameConflict:
-      description: A community with the same normalized name already exists.
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              data:
-                nullable: true
-                example: null
-              error:
-                $ref: '#/components/schemas/StructuredError'
-    InternalServerError:
-      description: The server could not complete the request.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
+            - type: object
+              additionalProperties: true

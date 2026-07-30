@@ -110,8 +110,7 @@ async function findCommunityByNormalizedName(
   excludeId?: string
 ): Promise<{ id: string } | undefined> {
   const params: unknown[] = [normalizeCommunityName(name)];
-  let sql =
-    'SELECT id FROM communities WHERE LOWER(BTRIM(name)) = $1 AND deleted_at IS NULL';
+  let sql = 'SELECT id FROM communities WHERE LOWER(BTRIM(name)) = $1 AND deleted_at IS NULL';
 
   if (excludeId) {
     params.push(excludeId);
@@ -365,7 +364,7 @@ communityRouter.post(
       }
 
       logger.error('Failed to create community', {
-        name: req.body?.name,
+        name: (req.body as { name?: string }).name,
         error: err instanceof Error ? err.message : 'Unknown error',
       });
       databaseFailureResponse(res, 500, COMMUNITY_CREATE_FAILED);
