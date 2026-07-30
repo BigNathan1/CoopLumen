@@ -6,16 +6,15 @@ jest.mock('../stellar', () => ({
     getServer: jest.fn(),
     getNetwork: jest.fn().mockReturnValue('Test SDF Network ; September 2015'),
     getAccountBalance: jest.fn(),
+    loadAccount: jest.fn(),
   },
 }));
 
 describe('hasTrustline', () => {
-  const mockLoadAccount = jest.fn();
+  const mockLoadAccount = StellarService.loadAccount as jest.Mock;
 
   beforeEach(() => {
-    (StellarService.getServer as jest.Mock).mockReturnValue({
-      loadAccount: mockLoadAccount,
-    });
+    mockLoadAccount.mockReset();
   });
 
   it('returns true when trustline exists', async () => {

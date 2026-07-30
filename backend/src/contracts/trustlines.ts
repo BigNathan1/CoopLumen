@@ -1,5 +1,6 @@
 import { Asset, Keypair, TransactionBuilder, Operation, BASE_FEE } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
+import { invalidateBalanceCache } from '../cache/balances';
 
 export interface TrustlineParams {
   accountSecret: string;
@@ -16,10 +17,9 @@ export async function establishTrustline(params: TrustlineParams): Promise<strin
   const { accountSecret, assetCode, assetIssuer, limit } = params;
 
   const accountKeypair = Keypair.fromSecret(accountSecret);
-  const server = StellarService.getServer();
   const network = StellarService.getNetwork();
 
-  const account = await server.loadAccount(accountKeypair.publicKey());
+  const account = await StellarService.loadAccount(accountKeypair.publicKey());
   const asset = new Asset(assetCode, assetIssuer);
 
   const tx = new TransactionBuilder(account, {
@@ -37,7 +37,8 @@ export async function establishTrustline(params: TrustlineParams): Promise<strin
 
   tx.sign(accountKeypair);
 
-  const result = await server.submitTransaction(tx);
+  const result = await StellarService.submitTransaction(tx);
+  await invalidateBalanceCache([accountKeypair.publicKey()]);
   return result.hash;
 }
 
@@ -54,8 +55,7 @@ export async function hasTrustline(
   assetCode: string,
   assetIssuer: string
 ): Promise<boolean> {
-  const server = StellarService.getServer();
-  const account = await server.loadAccount(publicKey);
+  const account = await StellarService.loadAccount(publicKey);
   return account.balances.some(
     (b) =>
       b.asset_type !== 'native' &&

@@ -8,6 +8,7 @@ import {
   Transaction,
 } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
+import { invalidateBalanceCache } from '../cache/balances';
 
 export interface PaymentParams {
   senderSecret: string;
@@ -34,10 +35,9 @@ export async function submitPayment(params: PaymentParams): Promise<string> {
   const { senderSecret, destinationPublicKey, assetCode, assetIssuer, amount, memo } = params;
 
   const senderKeypair = Keypair.fromSecret(senderSecret);
-  const server = StellarService.getServer();
   const network = StellarService.getNetwork();
 
-  const account = await server.loadAccount(senderKeypair.publicKey());
+  const account = await StellarService.loadAccount(senderKeypair.publicKey());
   const asset = assetCode === 'XLM' ? Asset.native() : new Asset(assetCode, assetIssuer);
 
   const txBuilder = new TransactionBuilder(account, {
@@ -52,7 +52,8 @@ export async function submitPayment(params: PaymentParams): Promise<string> {
   const tx = txBuilder.setTimeout(30).build();
   tx.sign(senderKeypair);
 
-  const result = await server.submitTransaction(tx);
+  const result = await StellarService.submitTransaction(tx);
+  await invalidateBalanceCache([senderKeypair.publicKey(), destinationPublicKey]);
   return result.hash;
 }
 
@@ -62,10 +63,9 @@ export async function submitPayment(params: PaymentParams): Promise<string> {
 export async function buildUnsignedPayment(params: BuildUnsignedPaymentParams): Promise<string> {
   const { senderPublicKey, destinationPublicKey, assetCode, assetIssuer, amount, memo } = params;
 
-  const server = StellarService.getServer();
   const network = StellarService.getNetwork();
 
-  const account = await server.loadAccount(senderPublicKey);
+  const account = await StellarService.loadAccount(senderPublicKey);
   const asset = assetCode === 'XLM' ? Asset.native() : new Asset(assetCode, assetIssuer);
 
   const txBuilder = new TransactionBuilder(account, {
@@ -81,9 +81,8 @@ export async function buildUnsignedPayment(params: BuildUnsignedPaymentParams): 
 }
 
 export async function submitSignedXdr(xdr: string): Promise<string> {
-  const server = StellarService.getServer();
   const network = StellarService.getNetwork();
   const tx = new Transaction(xdr, network);
-  const result = await server.submitTransaction(tx);
+  const result = await StellarService.submitTransaction(tx);
   return result.hash;
 }
