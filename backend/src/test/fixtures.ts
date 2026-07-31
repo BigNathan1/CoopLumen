@@ -1,4 +1,5 @@
 import { Pool, PoolClient } from 'pg';
+import { seedBaselineData, type SeededDatabase } from '../db/seed-data';
 
 export const TEST_ISSUER_1 = 'G' + 'A'.repeat(55);
 export const TEST_ISSUER_2 = 'G' + 'B'.repeat(55);
@@ -76,6 +77,11 @@ export async function truncateAll(client: PoolClient): Promise<void> {
       communities
     RESTART IDENTITY CASCADE
   `);
+}
+
+export async function seedTestDatabase(client: PoolClient): Promise<SeededDatabase> {
+  await truncateAll(client);
+  return seedBaselineData(client);
 }
 
 export function makeTestPool(): Pool {

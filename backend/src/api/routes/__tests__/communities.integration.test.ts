@@ -9,7 +9,7 @@ import { Keypair } from '@stellar/stellar-sdk';
 import { Pool } from 'pg';
 import app from '../../../app';
 import { db } from '../../../db';
-import { makeTestPool, truncateAll } from '../../../test/fixtures';
+import { makeTestPool, seedTestDatabase, truncateAll } from '../../../test/fixtures';
 
 const RUN = Boolean(process.env.DATABASE_URL);
 const describeIf = RUN ? describe : describe.skip;
@@ -24,7 +24,7 @@ describeIf('Community CRUD (integration)', () => {
     pool = makeTestPool();
     const client = await pool.connect();
     try {
-      await truncateAll(client);
+      await seedTestDatabase(client);
     } finally {
       client.release();
     }
@@ -70,7 +70,7 @@ describeIf('Community CRUD (integration)', () => {
   it('lists the community with pagination meta', async () => {
     const res = await request(app).get('/api/v1/communities?limit=10');
     expect(res.status).toBe(200);
-    expect(res.body.meta.total).toBeGreaterThanOrEqual(1);
+    expect(res.body.meta.total).toBeGreaterThanOrEqual(3);
     expect(res.body.data.some((c: { id: string }) => c.id === communityId)).toBe(true);
   });
 

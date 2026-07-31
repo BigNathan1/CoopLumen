@@ -325,6 +325,8 @@ Indexes:
 | `idx_communities_asset`             | `(asset_code, asset_issuer)`                                | resolving a community from its Stellar asset   |
 | `idx_communities_fts`               | GIN over `to_tsvector(name \| ' ' \| description)`          | full-text search                               |
 
+Integration tests use deterministic seed fixtures from `backend/src/test/fixtures.ts` to create and tear down the baseline `EcoDAO` and `AgriCoop` records used by the HTTP suite.
+
 ---
 
 ### `members`
