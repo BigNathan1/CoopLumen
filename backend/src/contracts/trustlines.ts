@@ -42,14 +42,6 @@ export async function establishTrustline(params: TrustlineParams): Promise<strin
   return result.hash;
 }
 
-/**
- * Removes a trustline from an account. The account balance for that
- * asset must be zero before removal succeeds on the network.
- */
-export async function removeTrustline(params: Omit<TrustlineParams, 'limit'>): Promise<string> {
-  return establishTrustline({ ...params, limit: '0' });
-}
-
 export async function hasTrustline(
   publicKey: string,
   assetCode: string,
