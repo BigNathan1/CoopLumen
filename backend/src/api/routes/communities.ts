@@ -605,7 +605,6 @@ communityRouter.post(
  */
 communityRouter.get('/:id/members/:address', async (req, res, next) => {
   try {
-    // Validate Stellar address in path parameter
     if (!isValidStellarPublicKey(req.params.address)) {
       res.status(400).json({ error: 'Invalid Stellar address' });
       return;
@@ -644,7 +643,6 @@ communityRouter.put(
   validateBody(updateMemberSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      // Validate Stellar address in path parameter
       if (!isValidStellarPublicKey(req.params.address)) {
         res.status(400).json({ error: 'Invalid Stellar address' });
         return;
@@ -681,7 +679,6 @@ communityRouter.put(
  */
 communityRouter.delete('/:id/members/:address', writeLimiter, async (req, res, next) => {
   try {
-    // Validate Stellar address in path parameter
     if (!isValidStellarPublicKey(req.params.address)) {
       res.status(400).json({ error: 'Invalid Stellar address' });
       return;
