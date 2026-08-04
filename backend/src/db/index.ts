@@ -1,8 +1,6 @@
 import { Pool, PoolClient } from 'pg';
 import { logger } from '../utils/logger';
 
-// PostgreSQL connection pool configuration
-// Environment variables with safe defaults for production readiness
 const PGPOOL_MAX = parseInt(process.env.PGPOOL_MAX ?? '10', 10);
 const PGPOOL_IDLE_TIMEOUT = parseInt(process.env.PGPOOL_IDLE_TIMEOUT ?? '30000', 10);
 const PGPOOL_CONNECTION_TIMEOUT = parseInt(process.env.PGPOOL_CONNECTION_TIMEOUT ?? '2000', 10);
