@@ -420,6 +420,7 @@ tokenRouter.get('/:assetCode/:issuer', async (req: Request, res: Response, next:
   const parsed = tokenParamsSchema.safeParse(req.params);
   if (!parsed.success) {
     res.status(400).json({
+      data: null,
       error: 'Validation failed',
       meta: {
         errors: parsed.error.issues.map((issue) => ({
@@ -476,7 +477,7 @@ tokenRouter.get(
     try {
       const { assetCode, issuer } = req.params;
       if (!isValidStellarPublicKey(issuer)) {
-        res.status(400).json({ error: 'Invalid Stellar issuer address' });
+        res.status(400).json({ data: null, error: 'Invalid Stellar issuer address' });
         return;
       }
 
@@ -485,7 +486,7 @@ tokenRouter.get(
     } catch (err) {
       if ((err as { response?: unknown }).response) {
         const mapped = mapHorizonError(err);
-        res.status(mapped.status).json({ error: mapped.message });
+        res.status(mapped.status).json({ data: null, error: mapped.message });
         return;
       }
       next(err);
@@ -503,6 +504,7 @@ tokenRouter.get(
     const parsed = tokenParamsSchema.safeParse(req.params);
     if (!parsed.success) {
       res.status(400).json({
+        data: null,
         error: 'Invalid request parameters',
         meta: {
           errors: parsed.error.issues.map((issue) => ({
