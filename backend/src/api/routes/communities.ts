@@ -227,7 +227,7 @@ communityRouter.get('/search', async (req, res, next) => {
   try {
     const q = queryString(req.query.q).trim();
     if (!q) {
-      res.status(400).json({ error: 'Query parameter "q" is required' });
+      res.status(400).json({ data: null, error: 'Query parameter "q" is required' });
       return;
     }
 
@@ -474,6 +474,7 @@ communityRouter.put(
 communityRouter.delete('/:id', writeLimiter, async (req, res, next) => {
   if (!z.string().uuid().safeParse(req.params.id).success) {
     res.status(400).json({
+      data: null,
       error: 'Validation failed',
       meta: { errors: [{ path: 'id', message: 'id must be a valid UUID' }] },
     });
@@ -486,7 +487,7 @@ communityRouter.delete('/:id', writeLimiter, async (req, res, next) => {
       [req.params.id]
     );
     if (result.length === 0) {
-      res.status(404).json({ error: 'Community not found' });
+      res.status(404).json({ data: null, error: 'Community not found' });
       return;
     }
     res.json({ data: { id: result[0].id, deleted: true } });
@@ -511,6 +512,7 @@ communityRouter.get('/:id/members', async (req, res, next) => {
     const role = queryString(req.query.role).trim();
     if (role && !VALID_ROLES.includes(role)) {
       res.status(400).json({
+        data: null,
         error: 'Validation failed',
         meta: {
           errors: [{ path: 'role', message: `role must be one of: ${VALID_ROLES.join(', ')}` }],
@@ -573,7 +575,7 @@ communityRouter.post(
         [req.params.id]
       );
       if (!community) {
-        res.status(404).json({ error: 'Community not found' });
+        res.status(404).json({ data: null, error: 'Community not found' });
         return;
       }
 
@@ -605,9 +607,8 @@ communityRouter.post(
  */
 communityRouter.get('/:id/members/:address', async (req, res, next) => {
   try {
-    // Validate Stellar address in path parameter
     if (!isValidStellarPublicKey(req.params.address)) {
-      res.status(400).json({ error: 'Invalid Stellar address' });
+      res.status(400).json({ data: null, error: 'Invalid Stellar address' });
       return;
     }
 
@@ -617,7 +618,7 @@ communityRouter.get('/:id/members/:address', async (req, res, next) => {
       [req.params.id, req.params.address]
     );
     if (!member) {
-      res.status(404).json({ error: 'Member not found' });
+      res.status(404).json({ data: null, error: 'Member not found' });
       return;
     }
     res.json({ data: member });
@@ -644,9 +645,8 @@ communityRouter.put(
   validateBody(updateMemberSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      // Validate Stellar address in path parameter
       if (!isValidStellarPublicKey(req.params.address)) {
-        res.status(400).json({ error: 'Invalid Stellar address' });
+        res.status(400).json({ data: null, error: 'Invalid Stellar address' });
         return;
       }
 
@@ -658,7 +658,7 @@ communityRouter.put(
         [role, req.params.id, req.params.address]
       );
       if (result.length === 0) {
-        res.status(404).json({ error: 'Member not found' });
+        res.status(404).json({ data: null, error: 'Member not found' });
         return;
       }
       res.json({ data: result[0] });
@@ -681,9 +681,8 @@ communityRouter.put(
  */
 communityRouter.delete('/:id/members/:address', writeLimiter, async (req, res, next) => {
   try {
-    // Validate Stellar address in path parameter
     if (!isValidStellarPublicKey(req.params.address)) {
-      res.status(400).json({ error: 'Invalid Stellar address' });
+      res.status(400).json({ data: null, error: 'Invalid Stellar address' });
       return;
     }
 
@@ -694,7 +693,7 @@ communityRouter.delete('/:id/members/:address', writeLimiter, async (req, res, n
       [req.params.id, req.params.address]
     );
     if (result.length === 0) {
-      res.status(404).json({ error: 'Member not found' });
+      res.status(404).json({ data: null, error: 'Member not found' });
       return;
     }
     res.json({ data: { stellar_address: result[0].stellar_address, removed: true } });
@@ -723,7 +722,7 @@ communityRouter.get(
         [req.params.id]
       );
       if (!community) {
-        res.status(404).json({ error: 'Community not found' });
+        res.status(404).json({ data: null, error: 'Community not found' });
         return;
       }
       const balances = await StellarService.getAccountBalance(community.issuer_public_key);
@@ -759,7 +758,7 @@ communityRouter.post(
         [avatarUrl, req.params.id]
       );
       if (result.length === 0) {
-        res.status(404).json({ error: 'Community not found' });
+        res.status(404).json({ data: null, error: 'Community not found' });
         return;
       }
       res.json({ data: result[0] });

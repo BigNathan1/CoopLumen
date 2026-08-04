@@ -4,8 +4,8 @@
 
 | Version         | Supported |
 | --------------- | --------- |
-| `main` (latest) | ✅        |
-| Older tags      | ❌        |
+| `main` (latest) | Yes       |
+| Older tags      | No        |
 
 We only provide security fixes for the latest code on `main`. If you are running an older version, please upgrade before reporting.
 
