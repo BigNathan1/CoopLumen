@@ -80,6 +80,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Error responses across `communities.ts`, `loans.ts`, `tokens.ts`, and the shared `validateBody`/`validateParams`/`validateQuery` middleware now consistently include `data: null`, matching the `{ data, meta?, error? }` envelope documented for the rest of the API
+- `docs/openapi.yaml`: added the previously undocumented Communities list/search/create, full Tokens surface (burn, trustline, community listing, holders, supply, history), Loans lifecycle, and Balances loan endpoints, and fixed several broken `$ref` pointers (`CommunityId`/`Page`/`Limit` parameters and `IssueToken`/`TokenMetadata` schemas were referenced but never defined)
 - Migration 019: `members_role_check` is now re-established with a preceding `DROP CONSTRAINT IF EXISTS`, so the role contract (`admin`/`treasurer`/`member`/`observer`) is replay-safe
 - Migration 020: notifications table integrity — Stellar address format constraint on the recipient, a `read_at >= created_at` guard, a non-blank `title` check, and table/column comments
 - Migration 017: `transactions_log.community_id` foreign key is now `ON DELETE SET NULL` instead of the default `NO ACTION`, so deleting a community no longer fails when it has logged transactions — the audit record survives with `community_id` nulled
