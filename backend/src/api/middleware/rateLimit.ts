@@ -12,7 +12,7 @@ const createWriteLimiter = () =>
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => isTest || isReadOnlyMethod(req.method),
-    message: { error: 'Too many requests, please try again later' },
+    message: { data: null, error: 'Too many requests, please try again later' },
   });
 
 /** Limits write operations to 10 requests per minute per IP. Disabled in tests. */
