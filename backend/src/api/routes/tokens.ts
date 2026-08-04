@@ -137,7 +137,7 @@ tokenRouter.post(
     } catch (err) {
       if ((err as { response?: unknown }).response) {
         const mapped = mapHorizonError(err);
-        res.status(mapped.status).json({ error: mapped.message });
+        res.status(mapped.status).json({ data: null, error: mapped.message });
         return;
       }
       next(err);
@@ -174,7 +174,7 @@ tokenRouter.post(
     } catch (err) {
       if ((err as { response?: unknown }).response) {
         const mapped = mapHorizonError(err);
-        res.status(mapped.status).json({ error: mapped.message });
+        res.status(mapped.status).json({ data: null, error: mapped.message });
         return;
       }
       next(err);
