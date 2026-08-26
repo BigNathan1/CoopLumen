@@ -83,6 +83,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/transactions/unsigned:
+    post:
+      tags: [Transactions]
+      summary: Build an unsigned Stellar payment transaction
+      description: >
+        Loads the source account and its current sequence number from Horizon,
+        then returns a single-operation payment transaction XDR for wallet signing.
+        The transaction is not signed or submitted by this endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnsignedPaymentRequest'
+      responses:
+        '200':
+          description: Unsigned payment transaction built successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnsignedPaymentResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404':
+          description: The source Stellar account does not exist on the configured network
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Horizon is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/tokens/airdrop:
     post:
       tags: [Transactions]
@@ -548,6 +583,46 @@ components:
           type: object
           properties:
             txHash: { type: string }
+    UnsignedPaymentRequest:
+      type: object
+      required: [senderPublicKey, destinationPublicKey, assetCode, amount]
+      properties:
+        senderPublicKey:
+          $ref: '#/components/schemas/StellarKey'
+        destinationPublicKey:
+          $ref: '#/components/schemas/StellarKey'
+        assetCode:
+          type: string
+          pattern: '^[A-Za-z0-9]{1,12}$'
+          description: Use XLM for the native asset.
+        assetIssuer:
+          allOf:
+            - $ref: '#/components/schemas/StellarKey'
+          description: Required for non-XLM assets and omitted for native XLM.
+        amount:
+          type: string
+          pattern: '^(?:0|[1-9]\d*)(?:\.\d{1,7})?$'
+          description: Positive decimal amount with up to 7 fractional digits.
+        memo:
+          type: string
+          description: Optional text memo of at most 28 UTF-8 bytes.
+      example:
+        senderPublicKey: GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR
+        destinationPublicKey: GCATS5YOVB6ROX2WUNKGNQ2MP3GMXDMKSG2O4N5CLX3A6W4PZGZZI55U
+        assetCode: XLM
+        amount: '10.5'
+        memo: Community payment
+    UnsignedPaymentResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [xdr]
+          properties:
+            xdr:
+              type: string
+              description: Base64-encoded unsigned Stellar transaction envelope XDR.
     AirdropRequest:
       type: object
       required: [communityId, amount, issuerSecret]
