@@ -6,6 +6,11 @@ PostgreSQL 16. All timestamps are `TIMESTAMPTZ` (UTC). UUIDs use `gen_random_uui
 
 ## ERD
 
+This diagram reflects the final schema after every migration in
+`backend/src/db/migrations/` has been applied. Tables without foreign keys
+appear as standalone entities; relationship cardinality follows column
+nullability and uniqueness constraints.
+
 ```mermaid
 erDiagram
   communities {
@@ -220,22 +225,42 @@ erDiagram
     timestamptz updated_at
   }
 
+  idempotency_keys {
+    text key PK
+    text endpoint
+    jsonb response_body
+    int status_code
+    timestamptz created_at
+  }
+
+  schema_migrations {
+    text name PK
+    timestamptz applied_at
+    text checksum
+  }
+
   communities ||--o{ members : "has"
   communities ||--o{ loans : "has"
-  communities ||--o{ payments : "has"
+  communities |o..o{ payments : "has"
   communities ||--o{ tokens : "has"
-  communities ||--o{ transactions_log : "logs"
+  communities |o..o{ transactions_log : "logs"
   communities ||--o{ reputation_scores : "tracks"
-  communities ||--|| community_settings : "has"
-  communities ||--o{ notifications : "generates"
+  communities ||--o| community_settings : "configures"
+  communities |o..o{ notifications : "generates"
   communities ||--o{ multisig_requests : "approves via"
   communities ||--o{ proposals : "governs via"
   proposals ||--o{ votes : "tallied from"
   communities ||--o{ kyc_records : "verifies"
   loans ||--o{ loan_events : "has"
-  loans ||--o{ payments : "repaid via"
-  loan_events }o--o| payments : "linked to"
+  loans |o..o{ payments : "repaid via"
+  loan_events }o..o| payments : "linked to"
 ```
+
+Cardinality markers use `||` for exactly one, `o|`/`|o` for zero or one,
+and `o{`/`}o` for zero or many. For example, a payment can exist without a
+community or loan, while every vote must belong to exactly one proposal.
+Solid lines represent required parent-child references; dotted lines represent
+nullable, non-identifying foreign keys.
 
 ---
 
@@ -267,22 +292,35 @@ Rules the runner enforces:
 
 Migration tracking table. One row per applied migration file.
 
-| Column       | Type          | Notes                                   |
-| ------------ | ------------- | --------------------------------------- |
-| `name`       | `TEXT`        | PK — migration filename                 |
-| `applied_at` | `TIMESTAMPTZ` | Commit time of the applying transaction |
-
-Indexes: `idx_schema_migrations_applied_at` on `applied_at` — the runner lists applied migrations with `ORDER BY applied_at ASC, name ASC`.
-
 | Column       | Type          | Notes                                                            |
 | ------------ | ------------- | ---------------------------------------------------------------- |
 | `name`       | `TEXT`        | PK — migration filename                                          |
 | `applied_at` | `TIMESTAMPTZ` | When the migration ran                                           |
 | `checksum`   | `TEXT`        | SHA-256 of the file as applied; NULL for pre-checksum migrations |
 
+Indexes: `idx_schema_migrations_applied_at` on `applied_at` — the runner lists applied migrations with `ORDER BY applied_at ASC, name ASC`.
+
 **Bootstrap.** `001_schema_migrations.sql` is the only definition of this table; `migrate.ts` executes that file before every run and records it as applied with `ON CONFLICT DO NOTHING`, so it never appears as pending and is never replayed. The file is fully idempotent (`CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS` / `COMMENT ON`), so running it against an already-migrated database is a no-op.
 
 **Rollback.** `npm run db:rollback` deletes a migration's `schema_migrations` row before executing its `.down.sql`, inside one transaction. That ordering is what lets `001_schema_migrations.down.sql` drop the tracking table itself.
+
+---
+
+### `idempotency_keys`
+
+Stores completed write responses by client-supplied idempotency key so a retry
+can replay the original response without repeating its side effect.
+
+| Column          | Type          | Notes                                      |
+| --------------- | ------------- | ------------------------------------------ |
+| `key`           | `TEXT`        | PK — value of the `Idempotency-Key` header |
+| `endpoint`      | `TEXT`        | Route against which the key was used       |
+| `response_body` | `JSONB`       | Original response envelope                 |
+| `status_code`   | `INTEGER`     | Original HTTP status code                  |
+| `created_at`    | `TIMESTAMPTZ` | Time the completed response was recorded   |
+
+FK constraints: none. Migration 023 creates this table idempotently with
+`CREATE TABLE IF NOT EXISTS`.
 
 ---
 
