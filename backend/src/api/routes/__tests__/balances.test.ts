@@ -218,6 +218,97 @@ describe('balance routes', () => {
     });
   });
 
+  describe('GET /api/v1/balances/:publicKey/history', () => {
+    it('returns newest-first paginated transaction history for the address', async () => {
+      const history = [
+        {
+          id: '11111111-1111-4111-8111-111111111111',
+          community_id: communityId,
+          actor_address: publicKey,
+          action: 'payment_sent',
+          stellar_tx_hash: 'stellar-hash-1',
+          metadata: { amount: '5.0000000', asset_code: 'XLM' },
+          created_at: '2026-08-26T12:00:00.000Z',
+        },
+      ];
+      mockDb.query.mockResolvedValueOnce([{ count: 3 }]).mockResolvedValueOnce(history);
+
+      const response = await request(app).get(
+        `/api/v1/balances/${publicKey}/history?page=2&limit=1`
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        data: history,
+        meta: { total: 3, page: 2, limit: 1, pages: 3, offset: 1 },
+      });
+      expect(mockDb.query).toHaveBeenNthCalledWith(
+        1,
+        expect.stringMatching(/transactions_log WHERE actor_address = \$1/),
+        [publicKey]
+      );
+      expect(mockDb.query).toHaveBeenNthCalledWith(
+        2,
+        expect.stringMatching(/ORDER BY created_at DESC[\s\S]*LIMIT \$2 OFFSET \$3/),
+        [publicKey, 1, 1]
+      );
+    });
+
+    it('returns an empty paginated response when the address has no history', async () => {
+      mockDb.query.mockResolvedValueOnce([{ count: 0 }]).mockResolvedValueOnce([]);
+
+      const response = await request(app).get(`/api/v1/balances/${publicKey}/history`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        data: [],
+        meta: { total: 0, page: 1, limit: 20, pages: 0, offset: 0 },
+      });
+    });
+
+    it('validates the public key without querying the audit log', async () => {
+      const response = await request(app).get('/api/v1/balances/not-a-key/history');
+
+      expect(response.status).toBe(400);
+      expect(response.body.data).toBeNull();
+      expect(response.body.error).toBe('Validation failed');
+      expect(response.body.meta.errors).toEqual(
+        expect.arrayContaining([expect.objectContaining({ path: 'publicKey' })])
+      );
+      expect(mockDb.query).not.toHaveBeenCalled();
+    });
+
+    it('validates pagination without querying the audit log', async () => {
+      const response = await request(app).get(
+        `/api/v1/balances/${publicKey}/history?page=0&limit=101`
+      );
+
+      expect(response.status).toBe(400);
+      expect(response.body.data).toBeNull();
+      expect(response.body.error).toBe('Validation failed');
+      expect(response.body.meta.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: 'page' }),
+          expect.objectContaining({ path: 'limit' }),
+        ])
+      );
+      expect(mockDb.query).not.toHaveBeenCalled();
+    });
+
+    it('returns an envelope-formatted error when the audit query fails', async () => {
+      mockDb.query.mockRejectedValueOnce(new Error('database connection details'));
+
+      const response = await request(app).get(`/api/v1/balances/${publicKey}/history`);
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({
+        data: null,
+        error: 'Failed to load balance history.',
+      });
+      expect(response.text).not.toContain('database connection details');
+    });
+  });
+
   describe('GET /api/v1/balances/community/:communityId/loans', () => {
     it('returns paginated loans for the community', async () => {
       mockDb.query

@@ -6,8 +6,19 @@ import { parsePagination, pageMeta } from '../utils/http';
 import { isValidStellarPublicKey } from '../utils/stellar';
 import { cacheBalances, getCachedBalances } from '../../cache/balances';
 import { mapHorizonError } from '../utils/horizonError';
+import { logger } from '../../utils/logger';
 
 export const balanceRouter = Router();
+
+interface BalanceHistoryEntry {
+  id: string;
+  community_id: string | null;
+  actor_address: string | null;
+  action: string;
+  stellar_tx_hash: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
 
 const balanceParamsSchema = z.object({
   publicKey: z
@@ -75,6 +86,50 @@ balanceRouter.get('/:publicKey', async (req: Request, res: Response, next: NextF
     }
 
     next(err);
+  }
+});
+
+/**
+ * GET /api/v1/balances/:publicKey/history
+ * Returns newest-first balance-related audit history for a Stellar address.
+ */
+balanceRouter.get('/:publicKey/history', async (req: Request, res: Response) => {
+  const parsedParams = balanceParamsSchema.safeParse(req.params);
+  if (!parsedParams.success) {
+    respondValidationError(res, parsedParams.error);
+    return;
+  }
+
+  const parsedQuery = paginationQuerySchema.safeParse(req.query);
+  if (!parsedQuery.success) {
+    respondValidationError(res, parsedQuery.error);
+    return;
+  }
+
+  try {
+    const { publicKey } = parsedParams.data;
+    const pagination = parsePagination(req);
+
+    const [{ count }] = await db.query<{ count: number }>(
+      'SELECT COUNT(*)::int AS count FROM transactions_log WHERE actor_address = $1',
+      [publicKey]
+    );
+    const history = await db.query<BalanceHistoryEntry>(
+      `SELECT id, community_id, actor_address, action, stellar_tx_hash, metadata, created_at
+         FROM transactions_log
+        WHERE actor_address = $1
+        ORDER BY created_at DESC
+        LIMIT $2 OFFSET $3`,
+      [publicKey, pagination.limit, pagination.offset]
+    );
+
+    res.json({ data: history, meta: pageMeta(count, pagination) });
+  } catch (err) {
+    logger.error('Failed to query balance history', {
+      publicKey: parsedParams.data.publicKey,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    res.status(500).json({ data: null, error: 'Failed to load balance history.' });
   }
 });
 

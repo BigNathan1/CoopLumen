@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `GET /api/v1/balances/:publicKey/history` for paginated balance-change audit history from `transactions_log` (#145).
 - `GET /api/v1/communities` pagination support via `page`, `limit`, and `offset` query parameters. When `offset` is provided, it takes precedence for querying and calculates the appropriate page in the metadata.
 - `npm run db:status` command showing which migrations are applied vs pending, with drift detection (#50)
 - `backend/src/db/migrations/007_create_loan_repayments.sql`, an idempotent migration matching the loan repayments audit trail schema against the migration number originally requested in issue #33 (the `loan_events` table itself already shipped in migration 006)

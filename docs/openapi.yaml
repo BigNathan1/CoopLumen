@@ -46,6 +46,51 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/balances/{publicKey}/history:
+    parameters:
+      - name: publicKey
+        in: path
+        required: true
+        description: Stellar public key whose audit history should be returned.
+        schema:
+          $ref: '#/components/schemas/StellarKey'
+      - name: page
+        in: query
+        description: One-based result page.
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: limit
+        in: query
+        description: Maximum history entries per page.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+    get:
+      tags: [Balances]
+      summary: Get balance-change audit history
+      description: >
+        Returns transactions_log audit entries associated with the Stellar
+        address, ordered newest first. Action-specific balance information is
+        preserved in each entry's metadata object.
+      responses:
+        '200':
+          description: Paginated balance-change audit history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceHistoryResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '500':
+          description: Audit history could not be queried
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/tokens/transfer:
     post:
       tags: [Transactions]
@@ -437,6 +482,36 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/BalanceLine'
+    BalanceHistoryEntry:
+      type: object
+      required: [id, community_id, actor_address, action, stellar_tx_hash, metadata, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        community_id: { type: string, format: uuid, nullable: true }
+        actor_address:
+          allOf:
+            - $ref: '#/components/schemas/StellarKey'
+          nullable: true
+        action:
+          type: string
+          description: Audit action such as payment_sent, token_issued, or loan_repayment.
+        stellar_tx_hash: { type: string, nullable: true }
+        metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Action-specific values such as amount, asset_code, or loan_id.
+        created_at: { type: string, format: date-time }
+    BalanceHistoryResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BalanceHistoryEntry'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
     Health:
       type: object
       properties:
@@ -501,6 +576,7 @@ components:
         page: { type: integer }
         limit: { type: integer }
         pages: { type: integer }
+        offset: { type: integer }
     ValidationIssue:
       type: object
       properties:
