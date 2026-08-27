@@ -2,8 +2,6 @@ import express, { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { apiRouter } from './api/routes';
-import { tokenHistoryRouter } from './api/routes/tokenHistory';
-import airdropRouter from './api/routes/airdrop';
 import { errorHandler } from './api/middleware/errorHandler';
 import { notFound } from './api/middleware/notFound';
 import { requestLogger } from './api/middleware/requestLogger';
@@ -41,9 +39,6 @@ app.get('/api/health', healthHandler);
 // Apply the community write limit to every nested community resource endpoint.
 // The limiter itself skips GET, HEAD, and OPTIONS requests.
 app.use('/api/v1/communities', communityWriteLimiter);
-
-app.use('/api/v1/tokens/airdrop', airdropRouter);
-app.use('/api/v1/tokens', tokenHistoryRouter);
 
 // All resource routes live under the /api/v1 version prefix.
 app.use('/api/v1', apiRouter);
