@@ -13,6 +13,14 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `POST /api/v1/transactions/unsigned` to build unsigned Stellar payment XDR for wallet signing (#146).
 - `GET /api/v1/balances/:publicKey/history` for paginated balance-change audit history from `transactions_log` (#145).
+- `GET /api/v1/communities` pagination support via `page`, `limit`, and `offset` query parameters. When `offset` is provided, it takes precedence for querying and calculates the appropriate page in the metadata.
+- `npm run db:status` command showing which migrations are applied vs pending, with drift detection (#50)
+- `backend/src/db/migrations/007_create_loan_repayments.sql`, an idempotent migration matching the loan repayments audit trail schema against the migration number originally requested in issue #33 (the `loan_events` table itself already shipped in migration 006)
+- `backend/src/db/migrations/012_create_community_settings.sql`, an idempotent migration matching the per-community JSON config schema against the migration number originally requested in issue #38 (the `community_settings` table itself already shipped in migration 010)
+- `backend/src/db/migrations/004_create_tokens.sql`, an idempotent migration matching the on-chain token metadata schema against the migration number originally requested in issue #30 (the `tokens` table itself already shipped in migration 007)
+- `GET /api/v1/communities/:id/treasury` returning the treasury Stellar account balance with Zod UUID validation (#076)
+- `validateParams` middleware for Zod-based path parameter validation
+- `communityIdParamsSchema` Zod schema for community `:id` UUID validation
 - `GET /api/v1/communities` pagination via `page`, `limit`, and `offset` query parameters; when `offset` is provided it takes precedence for querying and the response `meta.page` is back-calculated
 - `npm run db:status` command showing which migrations are applied vs pending, with drift detection
 - `GET /api/v1/communities/:id/treasury` returning the treasury Stellar account balance, with Zod UUID validation
