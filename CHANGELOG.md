@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `StellarService.loadAccountSafe(publicKey)` method for robust, type-safe account loading with comprehensive error handling that maps Horizon errors to domain-specific exceptions: `UnfundedAccountError` for non-existent accounts, `InvalidPublicKeyError` for malformed keys, and `StellarNetworkError` for network/Horizon issues. Route handlers can now safely distinguish between "account not funded yet" and "Horizon is down" without coupling to Horizon error shapes (#173)
+- Integration test script `scripts/verify-stellar-testnet.ts` (`npm run verify:stellar-testnet`) for validating `loadAccountSafe` behavior against real Stellar testnet, covering unfunded accounts, funded accounts, invalid keys, and Horizon connectivity
 - `POST /api/v1/transactions/unsigned` to build unsigned Stellar payment XDR for wallet signing (#146).
 - `GET /api/v1/balances/:publicKey/history` for paginated balance-change audit history from `transactions_log` (#145).
 - `GET /api/v1/communities` pagination support via `page`, `limit`, and `offset` query parameters. When `offset` is provided, it takes precedence for querying and calculates the appropriate page in the metadata.
