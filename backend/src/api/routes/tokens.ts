@@ -1,14 +1,23 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { Keypair } from '@stellar/stellar-sdk';
+import { Asset, Keypair, Operation, TransactionBuilder, BASE_FEE } from '@stellar/stellar-sdk';
 import { z } from 'zod';
 import { issueAsset, burnAsset, getAssetHolders, getAssetSupply } from '../../contracts/assets';
 import { establishTrustline } from '../../contracts/trustlines';
+import { db } from '../../db';
+import { invalidateBalanceCache } from '../../cache/balances';
+import { StellarService } from '../../contracts/stellar';
 import { validateBody } from '../middleware/validate';
 import { idempotent } from '../middleware/idempotency';
 import { issueTokenSchema, trustlineTokenSchema, burnTokenSchema } from '../schemas/token';
 import { isValidStellarPublicKey } from '../utils/stellar';
 import { mapHorizonError } from '../utils/horizonError';
-import { db } from '../../db';
+import {
+  getNativeBalance,
+  getRequiredXlmForFee,
+  getRequiredXlmForTransaction,
+  getTransactionDestination,
+  getTransactionSource,
+} from '../utils/stellarTransaction';
 
 export const tokenRouter = Router();
 
@@ -22,6 +31,20 @@ const tokenParamsSchema = z.object({
   issuer: z.string().refine(isValidStellarPublicKey, 'issuer must be a valid Stellar public key'),
 });
 
+const transferSchema = z.object({
+  signedXdr: z.string().trim().min(1, 'signedXdr is required').max(100_000),
+});
+
+const airdropSchema = z.object({
+  communityId: z.string().uuid(),
+  amount: z
+    .string()
+    .trim()
+    .regex(/^\d+(\.\d{1,7})?$/, 'amount must be a positive decimal with up to 7 places')
+    .refine((value) => Number(value) > 0, 'amount must be greater than zero'),
+  issuerSecret: z.string().trim().min(1, 'issuerSecret is required'),
+});
+
 interface Token {
   id: string;
   community_id: string;
@@ -33,6 +56,15 @@ interface Token {
   icon_url: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface CommunityRow {
+  asset_code: string;
+  asset_issuer: string;
+}
+
+interface MemberRow {
+  stellar_address: string;
 }
 
 /**
@@ -105,7 +137,7 @@ tokenRouter.post(
     } catch (err) {
       if ((err as { response?: unknown }).response) {
         const mapped = mapHorizonError(err);
-        res.status(mapped.status).json({ error: mapped.message });
+        res.status(mapped.status).json({ data: null, error: mapped.message });
         return;
       }
       next(err);
@@ -142,7 +174,7 @@ tokenRouter.post(
     } catch (err) {
       if ((err as { response?: unknown }).response) {
         const mapped = mapHorizonError(err);
-        res.status(mapped.status).json({ error: mapped.message });
+        res.status(mapped.status).json({ data: null, error: mapped.message });
         return;
       }
       next(err);
@@ -181,6 +213,206 @@ tokenRouter.post(
 );
 
 /**
+ * POST /api/v1/tokens/transfer
+ * Submits a client-signed payment transaction on behalf of a user.
+ */
+tokenRouter.post('/transfer', async (req: Request, res: Response): Promise<void> => {
+  const parsed = transferSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({
+      data: null,
+      meta: {
+        errors: parsed.error.issues.map((issue) => ({ path: issue.path, message: issue.message })),
+      },
+      error: 'Invalid request body',
+    });
+    return;
+  }
+
+  let transaction: ReturnType<typeof TransactionBuilder.fromXDR>;
+  try {
+    transaction = TransactionBuilder.fromXDR(parsed.data.signedXdr, StellarService.getNetwork());
+  } catch {
+    res.status(400).json({
+      data: null,
+      error: 'The signedXdr is not a valid transaction for the configured Stellar network.',
+    });
+    return;
+  }
+
+  if (transaction.operations.length !== 1 || transaction.operations[0]?.type !== 'payment') {
+    res.status(400).json({
+      data: null,
+      error: 'The signed transaction must contain exactly one payment operation.',
+    });
+    return;
+  }
+
+  try {
+    const result = await StellarService.submitTransaction(transaction);
+    await invalidateBalanceCache([
+      getTransactionSource(transaction),
+      getTransactionDestination(transaction),
+    ]);
+    res.status(200).json({ data: { txHash: result.hash } });
+  } catch (error) {
+    const sourcePublicKey = getTransactionSource(transaction);
+    const account =
+      sourcePublicKey !== undefined
+        ? await StellarService.loadAccount(sourcePublicKey).catch(() => null)
+        : null;
+    const mapped = mapHorizonError(error, {
+      requiredXlm: getRequiredXlmForTransaction(transaction),
+      currentBalance: account ? getNativeBalance(account) : undefined,
+    });
+
+    if (mapped.code === 'INSUFFICIENT_BALANCE') {
+      res.status(mapped.status).json({
+        data: null,
+        error: {
+          code: mapped.code,
+          message: mapped.message,
+          requiredXlm: mapped.requiredXlm,
+          currentBalance: mapped.currentBalance,
+        },
+      });
+      return;
+    }
+
+    res.status(mapped.status).json({ data: null, error: mapped.message });
+  }
+});
+
+/**
+ * POST /api/v1/tokens/airdrop
+ * Distributes an equal token amount from the community's issuer account to
+ * every current member.
+ */
+tokenRouter.post('/airdrop', async (req: Request, res: Response): Promise<void> => {
+  const parsed = airdropSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({
+      data: null,
+      error: 'Invalid request body',
+      meta: { errors: parsed.error.flatten().fieldErrors },
+    });
+    return;
+  }
+
+  let currentBalance: string | undefined;
+
+  try {
+    const { communityId, amount, issuerSecret } = parsed.data;
+    const communities = await db.query<CommunityRow>(
+      `SELECT asset_code, asset_issuer
+       FROM communities
+       WHERE id = $1 AND deleted_at IS NULL`,
+      [communityId]
+    );
+
+    if (communities.length === 0) {
+      res.status(404).json({ data: null, error: 'Community not found' });
+      return;
+    }
+
+    const members = await db.query<MemberRow>(
+      `SELECT stellar_address
+       FROM members
+       WHERE community_id = $1`,
+      [communityId]
+    );
+
+    if (members.length === 0) {
+      res
+        .status(400)
+        .json({ data: null, error: 'Community has no members to receive the airdrop' });
+      return;
+    }
+
+    let issuer: Keypair;
+    try {
+      issuer = Keypair.fromSecret(issuerSecret);
+    } catch {
+      res.status(400).json({ data: null, error: 'issuerSecret is not a valid Stellar secret key' });
+      return;
+    }
+
+    const community = communities[0];
+    if (issuer.publicKey() !== community.asset_issuer) {
+      res.status(400).json({
+        data: null,
+        error: 'issuerSecret does not belong to the community token issuer',
+      });
+      return;
+    }
+
+    const network = StellarService.getNetwork();
+    const asset = new Asset(community.asset_code, community.asset_issuer);
+    const txHashes: string[] = [];
+
+    for (const member of members) {
+      const account = await StellarService.loadAccount(issuer.publicKey());
+      currentBalance = getNativeBalance(account);
+      const transaction = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: network,
+      })
+        .addOperation(
+          Operation.payment({
+            destination: member.stellar_address,
+            asset,
+            amount,
+          })
+        )
+        .setTimeout(30)
+        .build();
+
+      transaction.sign(issuer);
+      const result = await StellarService.submitTransaction(transaction);
+      txHashes.push(result.hash);
+    }
+
+    await invalidateBalanceCache([
+      issuer.publicKey(),
+      ...members.map((member) => member.stellar_address),
+    ]);
+
+    res.status(200).json({
+      data: {
+        amount,
+        recipientCount: members.length,
+        txHashes,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Invalid Stellar')) {
+      res.status(400).json({ data: null, error: error.message });
+      return;
+    }
+
+    const mapped = mapHorizonError(error, {
+      requiredXlm: getRequiredXlmForFee(BASE_FEE),
+      currentBalance,
+    });
+
+    if (mapped.code === 'INSUFFICIENT_BALANCE') {
+      res.status(mapped.status).json({
+        data: null,
+        error: {
+          code: mapped.code,
+          message: mapped.message,
+          requiredXlm: mapped.requiredXlm,
+          currentBalance: mapped.currentBalance,
+        },
+      });
+      return;
+    }
+
+    res.status(mapped.status).json({ data: null, error: mapped.message });
+  }
+});
+
+/**
  * GET /api/v1/tokens/:assetCode/:issuer
  * Fetches metadata for a single token by its community's primary asset.
  */
@@ -188,6 +420,7 @@ tokenRouter.get('/:assetCode/:issuer', async (req: Request, res: Response, next:
   const parsed = tokenParamsSchema.safeParse(req.params);
   if (!parsed.success) {
     res.status(400).json({
+      data: null,
       error: 'Validation failed',
       meta: {
         errors: parsed.error.issues.map((issue) => ({
@@ -244,7 +477,7 @@ tokenRouter.get(
     try {
       const { assetCode, issuer } = req.params;
       if (!isValidStellarPublicKey(issuer)) {
-        res.status(400).json({ error: 'Invalid Stellar issuer address' });
+        res.status(400).json({ data: null, error: 'Invalid Stellar issuer address' });
         return;
       }
 
@@ -253,7 +486,7 @@ tokenRouter.get(
     } catch (err) {
       if ((err as { response?: unknown }).response) {
         const mapped = mapHorizonError(err);
-        res.status(mapped.status).json({ error: mapped.message });
+        res.status(mapped.status).json({ data: null, error: mapped.message });
         return;
       }
       next(err);
@@ -271,6 +504,7 @@ tokenRouter.get(
     const parsed = tokenParamsSchema.safeParse(req.params);
     if (!parsed.success) {
       res.status(400).json({
+        data: null,
         error: 'Invalid request parameters',
         meta: {
           errors: parsed.error.issues.map((issue) => ({
@@ -295,5 +529,44 @@ tokenRouter.get(
       }
       next(err);
     }
+  }
+);
+
+/**
+ * GET /api/v1/tokens/history/:assetCode/:issuer
+ * Returns recent payment activity for an asset. Horizon has no
+ * "operations/payments for an asset" endpoint, so the issuer account's
+ * payment history filtered to this asset is the closest available proxy.
+ */
+tokenRouter.get(
+  '/history/:assetCode/:issuer',
+  (req: Request, res: Response, next: NextFunction): void => {
+    const parsed = tokenParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      res.status(400).json({
+        data: null,
+        error: { code: 'VALIDATION_ERROR', message: 'Invalid token history parameters' },
+        meta: { errors: parsed.error.issues },
+      });
+      return;
+    }
+
+    const { assetCode, issuer } = parsed.data;
+
+    StellarService.call('payments.forAccount', () =>
+      StellarService.getServer().payments().forAccount(issuer).limit(20).order('desc').call()
+    )
+      .then((page) => {
+        const records = page.records.filter(
+          (record) =>
+            'asset_code' in record &&
+            record.asset_code === assetCode &&
+            'asset_issuer' in record &&
+            record.asset_issuer === issuer
+        );
+
+        res.status(200).json({ data: records, meta: { assetCode, issuer, limit: 20 } });
+      })
+      .catch(next);
   }
 );

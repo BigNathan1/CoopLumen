@@ -139,7 +139,7 @@ loanRouter.get('/:id', async (req, res, next) => {
   try {
     const [loan] = await db.query<Loan>('SELECT * FROM loans WHERE id = $1', [req.params.id]);
     if (!loan) {
-      res.status(404).json({ error: 'Loan not found' });
+      res.status(404).json({ data: null, error: 'Loan not found' });
       return;
     }
     const events = await db.query<LoanEvent>(
@@ -218,7 +218,7 @@ loanRouter.post(
         [communityId]
       );
       if (!community) {
-        res.status(404).json({ error: 'Community not found' });
+        res.status(404).json({ data: null, error: 'Community not found' });
         return;
       }
 
@@ -280,11 +280,13 @@ loanRouter.post(
 
       const [loan] = await db.query<Loan>('SELECT * FROM loans WHERE id = $1', [req.params.id]);
       if (!loan) {
-        res.status(404).json({ error: 'Loan not found' });
+        res.status(404).json({ data: null, error: 'Loan not found' });
         return;
       }
       if (loan.status !== 'pending') {
-        res.status(409).json({ error: `Cannot disburse a loan in status "${loan.status}"` });
+        res
+          .status(409)
+          .json({ data: null, error: `Cannot disburse a loan in status "${loan.status}"` });
         return;
       }
 
@@ -339,17 +341,20 @@ loanRouter.post(
 
       const [loan] = await db.query<Loan>('SELECT * FROM loans WHERE id = $1', [req.params.id]);
       if (!loan) {
-        res.status(404).json({ error: 'Loan not found' });
+        res.status(404).json({ data: null, error: 'Loan not found' });
         return;
       }
       if (loan.status !== 'active') {
-        res.status(409).json({ error: `Cannot repay a loan in status "${loan.status}"` });
+        res
+          .status(409)
+          .json({ data: null, error: `Cannot repay a loan in status "${loan.status}"` });
         return;
       }
 
       const outstanding = Number(loan.amount) - Number(loan.amount_repaid);
       if (Number(amount) > outstanding + 1e-7) {
         res.status(400).json({
+          data: null,
           error: 'Repayment exceeds outstanding balance',
           meta: { outstanding: outstanding.toFixed(7) },
         });
@@ -433,11 +438,13 @@ loanRouter.post(
 
       const [loan] = await db.query<Loan>('SELECT * FROM loans WHERE id = $1', [req.params.id]);
       if (!loan) {
-        res.status(404).json({ error: 'Loan not found' });
+        res.status(404).json({ data: null, error: 'Loan not found' });
         return;
       }
       if (loan.status !== 'active') {
-        res.status(409).json({ error: `Cannot default a loan in status "${loan.status}"` });
+        res
+          .status(409)
+          .json({ data: null, error: `Cannot default a loan in status "${loan.status}"` });
         return;
       }
 
@@ -482,7 +489,7 @@ loanRouter.delete('/:id', writeLimiter, async (req, res, next) => {
       [req.params.id]
     );
     if (result.length === 0) {
-      res.status(404).json({ error: 'No pending loan found to cancel' });
+      res.status(404).json({ data: null, error: 'No pending loan found to cancel' });
       return;
     }
     res.json({ data: { id: result[0].id, cancelled: true } });

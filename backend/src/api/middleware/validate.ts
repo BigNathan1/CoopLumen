@@ -11,6 +11,7 @@ export function validateBody<T>(schema: ZodType<T>) {
     const result = schema.safeParse(req.body);
     if (!result.success) {
       res.status(400).json({
+        data: null,
         error: 'Validation failed',
         meta: {
           errors: result.error.issues.map((issue) => ({
@@ -36,6 +37,7 @@ export function validateParams<T>(schema: ZodType<T>) {
     const result = schema.safeParse(req.params);
     if (!result.success) {
       res.status(400).json({
+        data: null,
         error: 'Validation failed',
         meta: {
           errors: result.error.issues.map((issue) => ({
@@ -61,6 +63,7 @@ export function validateQuery<T>(schema: ZodType<T>) {
     const result = schema.safeParse(req.query);
     if (!result.success) {
       res.status(400).json({
+        data: null,
         error: 'Validation failed',
         meta: {
           errors: result.error.issues.map((issue) => ({
