@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- In-memory, per-account sequence number cache (`contracts/sequenceCache.ts`) shared by asset issuance, burn, trustline, and airdrop payment submission, so concurrent or back-to-back Stellar submissions from the same account no longer race on a stale sequence number. Falls back to a single reload-and-retry from Horizon on `tx_bad_seq` (#169).
 - `POST /api/v1/transactions/unsigned` to build unsigned Stellar payment XDR for wallet signing (#146).
 - `GET /api/v1/balances/:publicKey/history` for paginated balance-change audit history from `transactions_log` (#145).
 - `GET /api/v1/communities` pagination support via `page`, `limit`, and `offset` query parameters. When `offset` is provided, it takes precedence for querying and calculates the appropriate page in the metadata.
