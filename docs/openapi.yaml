@@ -139,6 +139,51 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/balances/{publicKey}/history:
+    parameters:
+      - name: publicKey
+        in: path
+        required: true
+        description: Stellar public key whose audit history should be returned.
+        schema:
+          $ref: '#/components/schemas/StellarKey'
+      - name: page
+        in: query
+        description: One-based result page.
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: limit
+        in: query
+        description: Maximum history entries per page.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+    get:
+      tags: [Balances]
+      summary: Get balance-change audit history
+      description: >
+        Returns transactions_log audit entries associated with the Stellar
+        address, ordered newest first. Action-specific balance information is
+        preserved in each entry's metadata object.
+      responses:
+        '200':
+          description: Paginated balance-change audit history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceHistoryResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '500':
+          description: Audit history could not be queried
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/balances/{publicKey}/loans:
     parameters:
       - name: publicKey
@@ -216,6 +261,41 @@ paths:
                 $ref: '#/components/schemas/InsufficientBalanceResponse'
         '422':
           description: The Stellar network rejected the signed transaction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Horizon is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/transactions/unsigned:
+    post:
+      tags: [Transactions]
+      summary: Build an unsigned Stellar payment transaction
+      description: >
+        Loads the source account and its current sequence number from Horizon,
+        then returns a single-operation payment transaction XDR for wallet signing.
+        The transaction is not signed or submitted by this endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnsignedPaymentRequest'
+      responses:
+        '200':
+          description: Unsigned payment transaction built successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnsignedPaymentResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404':
+          description: The source Stellar account does not exist on the configured network
           content:
             application/json:
               schema:
@@ -996,6 +1076,36 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/BalanceLine'
+    BalanceHistoryEntry:
+      type: object
+      required: [id, community_id, actor_address, action, stellar_tx_hash, metadata, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        community_id: { type: string, format: uuid, nullable: true }
+        actor_address:
+          allOf:
+            - $ref: '#/components/schemas/StellarKey'
+          nullable: true
+        action:
+          type: string
+          description: Audit action such as payment_sent, token_issued, or loan_repayment.
+        stellar_tx_hash: { type: string, nullable: true }
+        metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Action-specific values such as amount, asset_code, or loan_id.
+        created_at: { type: string, format: date-time }
+    BalanceHistoryResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BalanceHistoryEntry'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
     Health:
       type: object
       properties:
@@ -1060,6 +1170,7 @@ components:
         page: { type: integer }
         limit: { type: integer }
         pages: { type: integer }
+        offset: { type: integer }
     ValidationIssue:
       type: object
       properties:
@@ -1107,6 +1218,46 @@ components:
           type: object
           properties:
             txHash: { type: string }
+    UnsignedPaymentRequest:
+      type: object
+      required: [senderPublicKey, destinationPublicKey, assetCode, amount]
+      properties:
+        senderPublicKey:
+          $ref: '#/components/schemas/StellarKey'
+        destinationPublicKey:
+          $ref: '#/components/schemas/StellarKey'
+        assetCode:
+          type: string
+          pattern: '^[A-Za-z0-9]{1,12}$'
+          description: Use XLM for the native asset.
+        assetIssuer:
+          allOf:
+            - $ref: '#/components/schemas/StellarKey'
+          description: Required for non-XLM assets and omitted for native XLM.
+        amount:
+          type: string
+          pattern: '^(?:0|[1-9]\d*)(?:\.\d{1,7})?$'
+          description: Positive decimal amount with up to 7 fractional digits.
+        memo:
+          type: string
+          description: Optional text memo of at most 28 UTF-8 bytes.
+      example:
+        senderPublicKey: GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR
+        destinationPublicKey: GCATS5YOVB6ROX2WUNKGNQ2MP3GMXDMKSG2O4N5CLX3A6W4PZGZZI55U
+        assetCode: XLM
+        amount: '10.5'
+        memo: Community payment
+    UnsignedPaymentResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [xdr]
+          properties:
+            xdr:
+              type: string
+              description: Base64-encoded unsigned Stellar transaction envelope XDR.
     AirdropRequest:
       type: object
       required: [communityId, amount, issuerSecret]

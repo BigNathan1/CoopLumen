@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `POST /api/v1/transactions/unsigned` to build unsigned Stellar payment XDR for wallet signing (#146).
+- `GET /api/v1/balances/:publicKey/history` for paginated balance-change audit history from `transactions_log` (#145).
 - `GET /api/v1/communities` pagination via `page`, `limit`, and `offset` query parameters; when `offset` is provided it takes precedence for querying and the response `meta.page` is back-calculated
 - `npm run db:status` command showing which migrations are applied vs pending, with drift detection
 - `GET /api/v1/communities/:id/treasury` returning the treasury Stellar account balance, with Zod UUID validation
