@@ -4,6 +4,7 @@ import { tokenRouter } from './tokens';
 import { balanceRouter } from './balances';
 import { loanRouter } from './loans';
 import { transactionRouter } from './transactions';
+import { webhookRouter } from './webhooks';
 
 /**
  * Combined API router. Mounted under the `/api/v1` version prefix in app.ts so
@@ -17,3 +18,4 @@ apiRouter.use('/tokens', tokenRouter);
 apiRouter.use('/balances', balanceRouter);
 apiRouter.use('/loans', loanRouter);
 apiRouter.use('/transactions', transactionRouter);
+apiRouter.use('/webhooks', webhookRouter);
