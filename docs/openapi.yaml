@@ -839,6 +839,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/TokenTransferResponse'
         '400': { $ref: '#/components/responses/ValidationError' }
+        '429':
+          description: Too many requests. Rate limited to 3 per minute per user.
         '500':
           description: The asset was issued but its metadata could not be persisted
           content:
@@ -1201,7 +1203,7 @@ components:
         name: { type: string, minLength: 2, maxLength: 64 }
         description: { type: string, maxLength: 500 }
         issuerPublicKey: { $ref: '#/components/schemas/StellarKey' }
-        assetCode: { type: string, minLength: 1, maxLength: 12 }
+        assetCode: { type: string, pattern: '^[A-Za-z0-9]{1,12}$' }
         assetIssuer: { $ref: '#/components/schemas/StellarKey' }
     UpdateCommunity:
       type: object
@@ -1410,7 +1412,7 @@ components:
       properties:
         communityId: { type: string, format: uuid }
         issuerSecret: { type: string }
-        assetCode: { type: string, minLength: 1, maxLength: 12 }
+        assetCode: { type: string, pattern: '^[A-Za-z0-9]{1,12}$' }
         distributorPublicKey: { $ref: '#/components/schemas/StellarKey' }
         amount: { type: string }
         memo: { type: string, maxLength: 28 }
@@ -1468,7 +1470,7 @@ components:
         borrowerAddress: { $ref: '#/components/schemas/StellarKey' }
         lenderAddress: { $ref: '#/components/schemas/StellarKey' }
         amount: { type: string }
-        assetCode: { type: string, minLength: 1, maxLength: 12 }
+        assetCode: { type: string, pattern: '^[A-Za-z0-9]{1,12}$' }
         assetIssuer: { $ref: '#/components/schemas/StellarKey' }
         purpose: { type: string, maxLength: 280 }
         dueAt: { type: string, format: date-time }

@@ -3,7 +3,7 @@ import { buildUnsignedPayment } from '../../contracts/transactions';
 import { unsignedPaymentSchema } from '../schemas/transaction';
 import { mapHorizonError } from '../utils/horizonError';
 
-export const transactionRouter = Router();
+export const transactionRouter: Router = Router();
 
 /** Build a payment transaction for signing by the source account's wallet. */
 transactionRouter.post('/unsigned', async (req: Request, res: Response): Promise<void> => {
@@ -24,11 +24,13 @@ transactionRouter.post('/unsigned', async (req: Request, res: Response): Promise
   }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
     const xdr = await buildUnsignedPayment({
       ...parsed.data,
       assetIssuer: parsed.data.assetIssuer ?? '',
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     res.status(200).json({ data: { xdr } });
   } catch (error) {
     const mapped = mapHorizonError(error);

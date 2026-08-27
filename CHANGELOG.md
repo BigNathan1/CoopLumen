@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Token `assetCode` validation explicitly enforces 1-12 alphanumeric characters, rejecting special characters and whitespace.
+- Fully documented Tokens API with JSDoc and `docs/openapi.yaml`.
+- Integration tests covering the full token flow (issue, trustline, transfer) using mocked Stellar network.
+- Rate-limiting applied to `POST /api/v1/tokens/issue`, restricting to 3 requests/minute per authenticated user (or IP).
+
 - `POST /api/v1/transactions/unsigned` to build unsigned Stellar payment XDR for wallet signing (#146).
 - `GET /api/v1/balances/:publicKey/history` for paginated balance-change audit history from `transactions_log` (#145).
 - `GET /api/v1/communities` pagination support via `page`, `limit`, and `offset` query parameters. When `offset` is provided, it takes precedence for querying and calculates the appropriate page in the metadata.

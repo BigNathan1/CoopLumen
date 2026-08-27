@@ -17,7 +17,7 @@ import {
   getCommunitiesQuerySchema,
 } from '../schemas/community';
 
-export const communityRouter = Router();
+export const communityRouter: Router = Router();
 
 interface Community {
   id: string;
