@@ -21,6 +21,8 @@ tags:
     description: Community treasury balances
   - name: Loans
     description: Peer-to-peer loan lifecycle within a community
+  - name: Prices
+    description: Public market price feeds for Stellar assets
 
 paths:
   /api/v1/communities:
@@ -140,7 +142,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   /api/v1/balances/{publicKey}/history:
-  /api/v1/balances/{publicKey}/loans:
     parameters:
       - name: publicKey
         in: path
@@ -184,51 +185,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        description: Stellar public key to look up as either borrower or lender.
-        schema:
-          $ref: '#/components/schemas/StellarKey'
-    get:
-      tags: [Balances, Loans]
-      summary: List loans involving an address
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          description: A page of loans where the address is borrower or lender
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/Loan' }
-                  meta: { $ref: '#/components/schemas/PageMeta' }
-        '400': { $ref: '#/components/responses/ValidationError' }
-
-  /api/v1/balances/community/{communityId}/loans:
-    parameters:
-      - $ref: '#/components/parameters/CommunityId'
-    get:
-      tags: [Balances, Loans]
-      summary: List loans in a community
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          description: A page of loans belonging to the community
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/Loan' }
-                  meta: { $ref: '#/components/schemas/PageMeta' }
-        '400': { $ref: '#/components/responses/ValidationError' }
 
   /api/v1/balances/{publicKey}/loans:
     parameters:
@@ -1065,6 +1021,40 @@ paths:
         '409':
           description: Loan is not in `active` status
 
+  /api/v1/prices/xlm:
+    get:
+      tags: [Prices]
+      summary: Get XLM/USD price
+      description: Returns the latest XLM/USD spot price from a public market source with caching and fallback providers.
+      parameters:
+        - name: currency
+          in: query
+          required: false
+          description: Target fiat currency. Defaults to USD.
+          schema:
+            type: string
+            enum: [USD]
+            default: USD
+      responses:
+        '200':
+          description: Current XLM/USD price
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PriceData'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          description: Failed to fetch price from public sources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   parameters:
     CommunityId:
@@ -1472,3 +1462,28 @@ components:
         assetIssuer: { $ref: '#/components/schemas/StellarKey' }
         purpose: { type: string, maxLength: 280 }
         dueAt: { type: string, format: date-time }
+    PriceData:
+      type: object
+      required: [asset, currency, pair, price, source, timestamp]
+      properties:
+        asset:
+          type: string
+          example: XLM
+        currency:
+          type: string
+          example: USD
+        pair:
+          type: string
+          example: XLM/USD
+        price:
+          type: string
+          example: '0.123456'
+          description: Price amount as decimal string.
+        source:
+          type: string
+          example: coinbase
+          description: Public source identifier.
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-08-27T17:00:00.000Z'
