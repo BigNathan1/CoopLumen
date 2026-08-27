@@ -230,6 +230,57 @@ paths:
                   meta: { $ref: '#/components/schemas/PageMeta' }
         '400': { $ref: '#/components/responses/ValidationError' }
 
+  /api/v1/balances/{publicKey}/loans:
+    parameters:
+      - name: publicKey
+        in: path
+        required: true
+        description: Stellar public key to look up as either borrower or lender.
+        schema:
+          $ref: '#/components/schemas/StellarKey'
+    get:
+      tags: [Balances, Loans]
+      summary: List loans involving an address
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of loans where the address is borrower or lender
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Loan' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+
+  /api/v1/balances/community/{communityId}/loans:
+    parameters:
+      - $ref: '#/components/parameters/CommunityId'
+    get:
+      tags: [Balances, Loans]
+      summary: List loans in a community
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of loans belonging to the community
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Loan' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+
   /api/v1/tokens/transfer:
     post:
       tags: [Transactions]
