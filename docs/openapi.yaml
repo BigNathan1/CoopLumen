@@ -11,6 +11,8 @@ tags:
     description: Community token metadata and operations
   - name: Balances
     description: Stellar account balances and related balance views
+  - name: Prices
+    description: Public market price feeds for Stellar assets
   - name: Transactions
     description: Stellar transaction submission endpoints
   - name: Communities
@@ -107,6 +109,37 @@ paths:
                   meta: { $ref: '#/components/schemas/PageMeta' }
         '400':
           description: Missing or blank `q` query parameter
+
+  /api/v1/prices/xlm:
+    get:
+      tags: [Prices]
+      summary: Get XLM price
+      description: >
+        Returns current XLM market price (default XLM/USD) fetched from public market data providers.
+        Responses may be served from a Redis cache for up to 30 seconds.
+      parameters:
+        - name: currency
+          in: query
+          required: false
+          description: Target fiat/quote currency (e.g., USD, EUR, GBP). Defaults to USD.
+          schema:
+            type: string
+            pattern: '^[A-Za-z]{3,4}$'
+            default: USD
+      responses:
+        '200':
+          description: Current market price for XLM
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '502':
+          description: Failed to fetch price from public source
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/v1/balances/{publicKey}:
     parameters:
@@ -1472,3 +1505,29 @@ components:
         assetIssuer: { $ref: '#/components/schemas/StellarKey' }
         purpose: { type: string, maxLength: 280 }
         dueAt: { type: string, format: date-time }
+    PriceData:
+      type: object
+      required: [asset, currency, price, source, timestamp]
+      properties:
+        asset:
+          type: string
+          example: XLM
+        currency:
+          type: string
+          example: USD
+        price:
+          type: string
+          example: '0.1888200'
+        source:
+          type: string
+          example: coingecko
+        timestamp:
+          type: string
+          format: date-time
+    PriceResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/PriceData'
+
