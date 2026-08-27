@@ -140,7 +140,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   /api/v1/balances/{publicKey}/history:
-  /api/v1/balances/{publicKey}/loans:
     parameters:
       - name: publicKey
         in: path
@@ -184,51 +183,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        description: Stellar public key to look up as either borrower or lender.
-        schema:
-          $ref: '#/components/schemas/StellarKey'
-    get:
-      tags: [Balances, Loans]
-      summary: List loans involving an address
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          description: A page of loans where the address is borrower or lender
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/Loan' }
-                  meta: { $ref: '#/components/schemas/PageMeta' }
-        '400': { $ref: '#/components/responses/ValidationError' }
-
-  /api/v1/balances/community/{communityId}/loans:
-    parameters:
-      - $ref: '#/components/parameters/CommunityId'
-    get:
-      tags: [Balances, Loans]
-      summary: List loans in a community
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          description: A page of loans belonging to the community
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/Loan' }
-                  meta: { $ref: '#/components/schemas/PageMeta' }
-        '400': { $ref: '#/components/responses/ValidationError' }
 
   /api/v1/balances/{publicKey}/loans:
     parameters:
@@ -348,6 +302,84 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '502':
           description: Horizon is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/transactions/submit:
+    post:
+      tags: [Transactions]
+      summary: Submit a signed Stellar transaction
+      description: Accepts a base64-encoded signed XDR string (typically from Freighter) and submits it to Horizon. Maps Horizon errors to actionable client messages.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [xdr]
+              properties:
+                xdr:
+                  type: string
+                  description: The signed transaction envelope XDR
+                  example: "AAAAAgAAA..."
+      responses:
+        '200':
+          description: Transaction successfully submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      hash: { type: string }
+                      ledger: { type: integer }
+                      status: { type: string }
+                  meta:
+                    type: object
+                    properties:
+                      timestamp: { type: string }
+        '400':
+          description: Validation error or Horizon transaction rejection (e.g., bad sequence, insufficient funds)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      message: { type: string }
+                      rawCode: { type: string }
+                      details: { type: object }
+
+  /api/v1/transactions/{communityId}:
+    get:
+      tags: [Transactions]
+      summary: Get community transaction history
+      description: Returns a paginated transaction-history audit trail for a specific community, ordered newest first.
+      parameters:
+        - $ref: '#/components/parameters/CommunityId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A paginated list of transactions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/BalanceHistoryEntry' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '500':
+          description: Audit history could not be queried
           content:
             application/json:
               schema:
