@@ -1,7 +1,6 @@
 import {
   Asset,
   Keypair,
-  Networks,
   TransactionBuilder,
   Operation,
   BASE_FEE,
@@ -16,12 +15,6 @@ export interface IssueAssetParams {
   distributorPublicKey: string;
   amount: string;
   memo?: string;
-}
-
-export interface AssetDetails {
-  code: string;
-  issuer: string;
-  asset: Asset;
 }
 
 export interface BurnAssetParams {
@@ -150,13 +143,4 @@ export async function getAssetSupply(assetCode: string, assetIssuer: string): Pr
   );
 
   return page.records[0]?.amount ?? '0.0000000';
-}
-
-export function buildAsset(code: string, issuer: string): AssetDetails {
-  const asset = new Asset(code, issuer);
-  return { code, issuer, asset };
-}
-
-export function getNetworkPassphrase(network: 'testnet' | 'mainnet'): string {
-  return network === 'mainnet' ? Networks.PUBLIC : Networks.TESTNET;
 }

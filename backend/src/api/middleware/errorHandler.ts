@@ -19,5 +19,5 @@ export function errorHandler(
     logger.error('Unhandled error', { error: err.message, stack: err.stack });
   }
 
-  res.status(status).json({ error: message });
+  res.status(status).json({ data: null, error: message });
 }
