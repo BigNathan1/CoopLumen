@@ -11,6 +11,9 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `distributeAsset()` function in `backend/src/contracts/assets.ts` to distribute tokens from issuer to recipient on the Stellar network. Requires recipient to have a trustline for the asset; the function builds, signs, and submits a payment operation with proper error handling and cache invalidation. Addresses #177.
+- Comprehensive unit tests for `distributeAsset()` covering successful distribution with/without memo, missing trustline (op_no_trust), insufficient balance (op_underfunded), stale sequence numbers (tx_bad_seq), and network failures
+- Testnet integration test and manual verification script for `distributeAsset()` to validate end-to-end token distribution against actual Stellar testnet
 - `POST /api/v1/transactions/unsigned` to build unsigned Stellar payment XDR for wallet signing (#146).
 - `GET /api/v1/balances/:publicKey/history` for paginated balance-change audit history from `transactions_log` (#145).
 - `GET /api/v1/communities` pagination support via `page`, `limit`, and `offset` query parameters. When `offset` is provided, it takes precedence for querying and calculates the appropriate page in the metadata.
