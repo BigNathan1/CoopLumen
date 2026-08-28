@@ -82,8 +82,8 @@ const TRANSACTION_MESSAGES: Record<string, string> = {
 const OPERATION_MESSAGES: Record<string, string> = {
   op_underfunded: 'the source account does not hold enough of the asset',
   op_no_destination: 'the destination account does not exist on this network',
-  op_no_trust: 'the destination has no trustline for this asset',
-  op_not_authorized: 'the destination is not authorized to hold this asset',
+  op_no_trust: 'the target account has no trustline for this asset',
+  op_not_authorized: 'the target account is not authorized to hold this asset',
   op_src_no_trust: 'the source account has no trustline for this asset',
   op_src_not_authorized: 'the source account is not authorized to send this asset',
   op_line_full: 'the destination trustline limit would be exceeded',

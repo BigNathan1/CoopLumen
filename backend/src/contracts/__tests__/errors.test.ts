@@ -52,7 +52,7 @@ describe('toStellarError', () => {
     );
 
     expect(error.message).toBe(
-      'Batch payment failed: the destination has no trustline for this asset (op_no_trust)'
+      'Batch payment failed: the target account has no trustline for this asset (op_no_trust)'
     );
   });
 

@@ -119,7 +119,7 @@ describe('submitPayment', () => {
     submitTransaction.mockRejectedValueOnce(horizonFailure('tx_failed', ['op_no_trust']));
 
     await expect(submitPayment(paymentParams())).rejects.toThrow(
-      'Payment failed: the destination has no trustline for this asset (op_no_trust)'
+      'Payment failed: the target account has no trustline for this asset (op_no_trust)'
     );
   });
 
