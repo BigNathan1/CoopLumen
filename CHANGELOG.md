@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `deserializeXdr(xdr)` in `backend/src/contracts/xdrDetails.ts`, decoding a base64 transaction envelope into human-readable details (source, sequence, fee in stroops and XLM, memo, time bounds, per-operation summaries, signature hints, fee-bump unwrapping), with Stellar XDR decoding failures mapped to actionable `XdrDecodeError` messages (#230).
 - `POST /api/v1/transactions/unsigned` to build unsigned Stellar payment XDR for wallet signing (#146).
 - `GET /api/v1/balances/:publicKey/history` for paginated balance-change audit history from `transactions_log` (#145).
 - `GET /api/v1/communities` pagination support via `page`, `limit`, and `offset` query parameters. When `offset` is provided, it takes precedence for querying and calculates the appropriate page in the metadata.
