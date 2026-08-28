@@ -40,7 +40,8 @@ export interface BuildUnsignedPaymentParams {
   memo?: string;
 }
 
-interface PaymentDetails {
+/** The parts of a payment shared by the single and batch builders. */
+export interface PaymentDetails {
   destinationPublicKey: string;
   assetCode: string;
   assetIssuer: string;
@@ -48,8 +49,12 @@ interface PaymentDetails {
   memo?: string;
 }
 
-/** Reports a caller mistake as a 400-class `StellarError` instead of an opaque SDK throw. */
-function reject(action: string, detail: string): never {
+/**
+ * Reports a caller mistake as a 400-class `StellarError` instead of an opaque
+ * SDK throw. Exported alongside the validation helpers below so every payment
+ * builder in the contracts layer rejects bad input the same way.
+ */
+export function rejectPayment(action: string, detail: string): never {
   throw new StellarError(`${action} failed: ${detail}`, { status: 400 });
 }
 
@@ -58,34 +63,34 @@ function reject(action: string, detail: string): never {
  * issuer; anything else requires one, so a missing issuer is reported here
  * rather than coming back from Horizon as a bare `op_no_issuer`.
  */
-function resolveAsset(assetCode: string, assetIssuer: string, action: string): Asset {
+export function resolveAsset(assetCode: string, assetIssuer: string, action: string): Asset {
   if (assetCode === 'XLM') {
     return Asset.native();
   }
   if (!assetIssuer) {
-    return reject(action, `an asset issuer is required for ${assetCode}`);
+    return rejectPayment(action, `an asset issuer is required for ${assetCode}`);
   }
   try {
     return new Asset(assetCode, assetIssuer);
   } catch {
-    return reject(action, `${assetCode} is not a valid asset for issuer ${assetIssuer}`);
+    return rejectPayment(action, `${assetCode} is not a valid asset for issuer ${assetIssuer}`);
   }
 }
 
 /** Validates the parts of a payment Horizon would otherwise reject with a vague code. */
-function assertValidPayment(details: PaymentDetails, action: string): void {
+export function assertValidPayment(details: PaymentDetails, action: string): void {
   try {
     Keypair.fromPublicKey(details.destinationPublicKey);
   } catch {
-    reject(action, 'the destination is not a valid Stellar public key');
+    rejectPayment(action, 'the destination is not a valid Stellar public key');
   }
 
   if (!AMOUNT_PATTERN.test(details.amount) || Number(details.amount) <= 0) {
-    reject(action, 'the amount must be a positive number with at most 7 decimal places');
+    rejectPayment(action, 'the amount must be a positive number with at most 7 decimal places');
   }
 
   if (details.memo !== undefined && Buffer.byteLength(details.memo, 'utf8') > MEMO_MAX_BYTES) {
-    reject(action, `the memo must be ${MEMO_MAX_BYTES} bytes or fewer`);
+    rejectPayment(action, `the memo must be ${MEMO_MAX_BYTES} bytes or fewer`);
   }
 }
 
@@ -117,7 +122,10 @@ function parseEnvelope(xdr: string, action: string): Transaction | FeeBumpTransa
   try {
     return TransactionBuilder.fromXDR(xdr, StellarService.getNetwork());
   } catch {
-    return reject(action, 'the XDR is not a valid transaction envelope for the configured network');
+    return rejectPayment(
+      action,
+      'the XDR is not a valid transaction envelope for the configured network'
+    );
   }
 }
 
@@ -143,7 +151,7 @@ export async function submitPayment(params: PaymentParams): Promise<string> {
   try {
     senderKeypair = Keypair.fromSecret(senderSecret);
   } catch {
-    reject(action, 'the sender secret is not a valid Stellar secret key');
+    rejectPayment(action, 'the sender secret is not a valid Stellar secret key');
   }
 
   const senderPublicKey = senderKeypair.publicKey();
