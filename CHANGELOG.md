@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Fee-bump transaction support (`contracts/feeBump.ts`) to wrap a user's signed transaction so a sponsor account pays the network fee (#144).
 - `POST /api/v1/transactions/unsigned` to build unsigned Stellar payment XDR for wallet signing (#146).
 - `GET /api/v1/balances/:publicKey/history` for paginated balance-change audit history from `transactions_log` (#145).
 - `GET /api/v1/communities` pagination support via `page`, `limit`, and `offset` query parameters. When `offset` is provided, it takes precedence for querying and calculates the appropriate page in the metadata.
@@ -90,6 +91,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `backend/src/contracts/transactions.ts` (`submitPayment`, `buildUnsignedPayment`, `submitSignedXdr`) was lost during a branch merge, breaking the typecheck for `POST /api/v1/transactions/unsigned`; restored.
 - Error responses across `communities.ts`, `loans.ts`, `tokens.ts`, and the shared `validateBody`/`validateParams`/`validateQuery` middleware now consistently include `data: null`, matching the `{ data, meta?, error? }` envelope documented for the rest of the API
 - `docs/openapi.yaml`: added the previously undocumented Communities list/search/create, full Tokens surface (burn, trustline, community listing, holders, supply, history), Loans lifecycle, and Balances loan endpoints, and fixed several broken `$ref` pointers (`CommunityId`/`Page`/`Limit` parameters and `IssueToken`/`TokenMetadata` schemas were referenced but never defined)
 - Migration 019: `members_role_check` is now re-established with a preceding `DROP CONSTRAINT IF EXISTS`, so the role contract (`admin`/`treasurer`/`member`/`observer`) is replay-safe
