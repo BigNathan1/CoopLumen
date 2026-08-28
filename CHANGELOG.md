@@ -37,6 +37,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Redis-backed caching for `GET /api/v1/balances/:publicKey` (5-second TTL), invalidated on any transfer, issuance, burn, or airdrop touching the cached address
 - Exponential backoff retry for Horizon `429`/`503` responses (`StellarService.call`)
 - `Idempotency-Key` header support on `POST /api/v1/tokens/issue`, backed by a new `idempotency_keys` table, so a retried issuance request replays the original response instead of double-minting
+- `buildBatchPayment()` and `submitBatchPayment()` in `contracts/batchPayments.ts`, constructing one atomic transaction with up to 100 Payment operations for community disbursals, with a failed batch reporting which entry broke it (#232)
 - Horizon/Stellar error mapping (`api/utils/horizonError.ts`) shared across the token and balance routes, turning raw Horizon result codes into actionable messages
 - Community CRUD completeness: `PUT /api/v1/communities/:id` for updating name/description/settings, case-insensitive duplicate-name checks (with a database-constraint fallback for the race condition), and community statistics (`total_transactions`, `total_token_supply`) nested under `GET /api/v1/communities/:id`
 - Role filter and address validation added to the `GET/PUT/DELETE /api/v1/communities/:id/members` family
