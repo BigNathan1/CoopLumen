@@ -135,6 +135,42 @@ export async function getAssetHolders(
   return holders;
 }
 
+/**
+ * Returns the numeric balance of an asset held by a given account.
+ * If the account has no trustline for the asset, returns 0.
+ * If the account doesn't exist, throws an error.
+ *
+ * @param publicKey Account public key
+ * @param assetCode Asset code (e.g., "ECO")
+ * @param issuer Issuer's public key
+ * @returns Numeric balance, or 0 if no trustline exists
+ * @throws Error if account not found or network error (propagates to route handler for mapping)
+ */
+export async function getAssetBalance(
+  publicKey: string,
+  assetCode: string,
+  issuer: string
+): Promise<number> {
+  const account = await StellarService.loadAccount(publicKey);
+
+  // Find the balance entry for the given asset
+  const balanceEntry = account.balances.find(
+    (b) =>
+      b.asset_type !== 'native' &&
+      'asset_code' in b &&
+      b.asset_code === assetCode &&
+      b.asset_issuer === issuer
+  );
+
+  // No trustline means 0 balance
+  if (!balanceEntry) {
+    return 0;
+  }
+
+  // Convert Horizon's string balance to number
+  return Number(balanceEntry.balance);
+}
+
 /** Returns the circulating supply reported by Horizon for an issued asset. */
 export async function getAssetSupply(assetCode: string, assetIssuer: string): Promise<string> {
   const server = StellarService.getServer();

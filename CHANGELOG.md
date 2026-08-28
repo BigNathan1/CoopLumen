@@ -11,6 +11,9 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `getAssetBalance(publicKey, assetCode, issuer)` helper function in `backend/src/contracts/assets.ts` to retrieve the numeric balance of an asset held by a Stellar account. Returns `0` if the account has no trustline for the asset, and throws if the account doesn't exist or network error occurs. Addresses #179.
+- Comprehensive unit tests for `getAssetBalance()` covering success path, no trustline returns 0, fractional precision handling without floating-point error, native XLM not matched, multiple assets, error cases (404, 503, malformed key), and edge cases
+- Testnet integration test and manual verification script for `getAssetBalance()` to validate end-to-end asset balance retrieval against actual Stellar testnet
 - `POST /api/v1/transactions/unsigned` to build unsigned Stellar payment XDR for wallet signing (#146).
 - `GET /api/v1/balances/:publicKey/history` for paginated balance-change audit history from `transactions_log` (#145).
 - `GET /api/v1/communities` pagination support via `page`, `limit`, and `offset` query parameters. When `offset` is provided, it takes precedence for querying and calculates the appropriate page in the metadata.
