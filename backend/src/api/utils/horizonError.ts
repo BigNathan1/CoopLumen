@@ -35,6 +35,7 @@ const TRANSACTION_MESSAGES: Record<string, string> = {
   tx_bad_seq: 'Transaction sequence number is stale; please retry.',
   tx_insufficient_balance: 'Account balance is insufficient to cover the transaction and fees.',
   tx_insufficient_fee: 'Submitted fee is below the network minimum.',
+  tx_fee_bump_inner_failed: 'The wrapped transaction failed; see its inner result for details.',
 };
 
 /** Maps a Horizon/Stellar SDK submission error to a clear, actionable message. */
