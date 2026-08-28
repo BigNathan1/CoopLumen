@@ -11,6 +11,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `GET /api/v1/tokens` admin endpoint to list all tokens across all communities with pagination, sorting, and filtering support
+- Token metadata storage: `name` and `decimals` columns added to the `tokens` table (migration 024) to complement existing `description` and `icon_url` fields
+- Token metadata validation in `POST /api/v1/tokens/issue` accepting optional `name`, `description`, `iconUrl`, and `decimals` fields with Zod validation
+- `token_issued` event logging to `transactions_log` after successful token issuance, including asset details in metadata for audit trail
+- Admin authentication middleware (`requireAdmin`) as placeholder for future authentication system
+- Comprehensive unit test coverage for all token route handlers: issuance, burn, trustline, transfer, airdrop, holders, supply, history, community tokens, asset lookup, and admin listing
 - `POST /api/v1/transactions/unsigned` to build unsigned Stellar payment XDR for wallet signing (#146).
 - `GET /api/v1/balances/:publicKey/history` for paginated balance-change audit history from `transactions_log` (#145).
 - `GET /api/v1/communities` pagination support via `page`, `limit`, and `offset` query parameters. When `offset` is provided, it takes precedence for querying and calculates the appropriate page in the metadata.
