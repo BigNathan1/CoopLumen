@@ -31,6 +31,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `GET /api/v1/tokens/holders/:assetCode/:issuer` to list accounts holding a token, backed by Horizon's asset endpoint
 - `GET /api/v1/tokens/supply/:assetCode/:issuer` returning the circulating supply Horizon reports for an asset
 - `GET /api/v1/tokens/history/:assetCode/:issuer` returning recent payment activity for an asset
+- `signTransactionWithSecret(xdr, secret)` in `contracts/signing.ts` for server-side signing, restricted to the distributor account named by the new `STELLAR_DISTRIBUTOR_PUBLIC_KEY` env var and failing closed when it is unset (#229)
 - `POST /api/v1/tokens/burn` to reduce circulating supply by returning tokens to the issuing account
 - `POST /api/v1/tokens/transfer` to submit a client-signed payment transaction on behalf of a user
 - `POST /api/v1/tokens/airdrop` to distribute an equal token amount to every member of a community, with Zod validation, retry-on-transient-failure, and actionable Stellar error responses (insufficient balance mapped to `402` with the required XLM amount)
