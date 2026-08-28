@@ -135,11 +135,11 @@ export async function getAssetHolders(
   return holders;
 }
 
-/** Returns the circulating supply reported by Horizon for an issued asset. */
-export async function getAssetSupply(assetCode: string, assetIssuer: string): Promise<string> {
+/** Returns the total supply Horizon's asset stats endpoint reports for an issued asset. */
+export async function getTotalSupply(assetCode: string, issuer: string): Promise<string> {
   const server = StellarService.getServer();
   const page = await StellarService.call('assets.forCode', () =>
-    server.assets().forCode(assetCode).forIssuer(assetIssuer).limit(1).call()
+    server.assets().forCode(assetCode).forIssuer(issuer).limit(1).call()
   );
 
   return page.records[0]?.amount ?? '0.0000000';
