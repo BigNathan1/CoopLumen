@@ -21,6 +21,8 @@ tags:
     description: Community treasury balances
   - name: Loans
     description: Peer-to-peer loan lifecycle within a community
+  - name: Accounts
+    description: Stellar account state endpoints
 
 paths:
   /api/v1/communities:
@@ -130,6 +132,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BalanceResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502':
+          description: Horizon is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/accounts/{publicKey}/trustlines:
+    parameters:
+      - name: publicKey
+        in: path
+        required: true
+        description: Stellar public key of the account to inspect.
+        schema:
+          $ref: '#/components/schemas/StellarKey'
+    get:
+      tags: [Accounts]
+      summary: List established trustlines
+      description: >
+        Returns all non-native asset trustlines established by the account.
+        Fetched live from Horizon via loadAccount. Returns an empty array
+        when the account exists but has no trustlines. Horizon 429/503
+        errors are retried with exponential backoff before a 502 is returned.
+      responses:
+        '200':
+          description: Established trustlines (empty array if none)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Trustline'
         '400': { $ref: '#/components/responses/ValidationError' }
         '404': { $ref: '#/components/responses/NotFound' }
         '502':
@@ -1107,6 +1146,42 @@ components:
       type: string
       description: A 56-character Stellar StrKey public key.
       pattern: '^G[A-Z2-7]{55}$'
+    Trustline:
+      type: object
+      required: [asset_type, asset_code, asset_issuer, balance, limit]
+      properties:
+        asset_type:
+          type: string
+          enum: [credit_alphanum4, credit_alphanum12]
+          description: Stellar asset type (always non-native for trustlines)
+        asset_code:
+          type: string
+          description: Asset code (e.g. USDC, ECO)
+        asset_issuer:
+          $ref: '#/components/schemas/StellarKey'
+        balance:
+          type: string
+          description: Current balance of the asset held by the account
+          example: "10.0000000"
+        limit:
+          type: string
+          description: Maximum amount of the asset the account is willing to hold
+          example: "922337203685.4775807"
+        buying_liabilities:
+          type: string
+          example: "0.0000000"
+        selling_liabilities:
+          type: string
+          example: "0.0000000"
+        last_modified_ledger:
+          type: integer
+          description: Ledger sequence when the trustline was last modified
+          example: 2638989
+        is_authorized:
+          type: boolean
+          description: Whether the issuer has authorized the account to hold the asset
+        is_authorized_to_maintain_liabilities:
+          type: boolean
     BalanceLine:
       type: object
       properties:
