@@ -10,6 +10,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `GET /api/v1/fees/estimate` endpoint returning current Stellar network base fee and percentile fee distribution from Horizon (#156).
+- `StellarService.getFeeStats()` method wrapping `Horizon.Server.feeStats()` with the existing retry and error-mapping stack.
 
 - `POST /api/v1/transactions/unsigned` to build unsigned Stellar payment XDR for wallet signing (#146).
 - `GET /api/v1/balances/:publicKey/history` for paginated balance-change audit history from `transactions_log` (#145).
