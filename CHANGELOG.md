@@ -35,6 +35,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `POST /api/v1/tokens/transfer` to submit a client-signed payment transaction on behalf of a user
 - `POST /api/v1/tokens/airdrop` to distribute an equal token amount to every member of a community, with Zod validation, retry-on-transient-failure, and actionable Stellar error responses (insufficient balance mapped to `402` with the required XLM amount)
 - Redis-backed caching for `GET /api/v1/balances/:publicKey` (5-second TTL), invalidated on any transfer, issuance, burn, or airdrop touching the cached address
+- `setTrustlineFlags()` in `contracts/trustlines.ts` for issuer-side asset authorization (`SET_FLAGS` / `CLEAR_FLAGS`), with `authorizeTrustline()` and `revokeTrustlineAuthorization()` wrappers and Horizon result codes mapped to actionable errors (#226)
 - Exponential backoff retry for Horizon `429`/`503` responses (`StellarService.call`)
 - `Idempotency-Key` header support on `POST /api/v1/tokens/issue`, backed by a new `idempotency_keys` table, so a retried issuance request replays the original response instead of double-minting
 - Horizon/Stellar error mapping (`api/utils/horizonError.ts`) shared across the token and balance routes, turning raw Horizon result codes into actionable messages
