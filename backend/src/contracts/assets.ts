@@ -7,6 +7,7 @@ import {
   Memo,
 } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
+import { TimeBoundsInput, applyTimeBounds } from './timeBounds';
 import { invalidateBalanceCache } from '../cache/balances';
 
 export interface IssueAssetParams {
@@ -15,6 +16,7 @@ export interface IssueAssetParams {
   distributorPublicKey: string;
   amount: string;
   memo?: string;
+  timeBounds?: TimeBoundsInput;
 }
 
 export interface BurnAssetParams {
@@ -22,6 +24,7 @@ export interface BurnAssetParams {
   assetCode: string;
   assetIssuer: string;
   amount: string;
+  timeBounds?: TimeBoundsInput;
 }
 
 export interface AssetHolder {
@@ -34,7 +37,7 @@ export interface AssetHolder {
  * The issuer account creates the asset and sends initial supply to a distributor.
  */
 export async function issueAsset(params: IssueAssetParams): Promise<string> {
-  const { issuerSecret, assetCode, distributorPublicKey, amount, memo } = params;
+  const { issuerSecret, assetCode, distributorPublicKey, amount, memo, timeBounds } = params;
 
   const issuerKeypair = Keypair.fromSecret(issuerSecret);
   const network = StellarService.getNetwork();
@@ -59,7 +62,7 @@ export async function issueAsset(params: IssueAssetParams): Promise<string> {
     })
   );
 
-  const tx = txBuilder.setTimeout(30).build();
+  const tx = applyTimeBounds(txBuilder, timeBounds).build();
   tx.sign(issuerKeypair);
 
   const result = await StellarService.submitTransaction(tx);
@@ -73,7 +76,7 @@ export async function issueAsset(params: IssueAssetParams): Promise<string> {
  * to the issuer permanently reduces total supply (the issuer never resends it).
  */
 export async function burnAsset(params: BurnAssetParams): Promise<string> {
-  const { holderSecret, assetCode, assetIssuer, amount } = params;
+  const { holderSecret, assetCode, assetIssuer, amount, timeBounds } = params;
 
   const holderKeypair = Keypair.fromSecret(holderSecret);
   const network = StellarService.getNetwork();
@@ -81,19 +84,18 @@ export async function burnAsset(params: BurnAssetParams): Promise<string> {
   const holderAccount = await StellarService.loadAccount(holderKeypair.publicKey());
   const asset = new Asset(assetCode, assetIssuer);
 
-  const tx = new TransactionBuilder(holderAccount, {
+  const txBuilder = new TransactionBuilder(holderAccount, {
     fee: BASE_FEE,
     networkPassphrase: network,
-  })
-    .addOperation(
-      Operation.payment({
-        destination: assetIssuer,
-        asset,
-        amount,
-      })
-    )
-    .setTimeout(30)
-    .build();
+  }).addOperation(
+    Operation.payment({
+      destination: assetIssuer,
+      asset,
+      amount,
+    })
+  );
+
+  const tx = applyTimeBounds(txBuilder, timeBounds).build();
 
   tx.sign(holderKeypair);
 

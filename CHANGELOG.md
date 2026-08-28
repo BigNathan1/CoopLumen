@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Configurable transaction time bounds (`minTime`, `maxTime`) on every transaction builder in `backend/src/contracts/` (`issueAsset`, `burnAsset`, `establishTrustline`, `submitPayment`, `buildUnsignedPayment`), via a shared `applyTimeBounds` helper that validates the window locally before it costs a Horizon round trip. Bounds accept Unix seconds, numeric strings, ISO 8601 timestamps or `Date` instances; omitting them keeps the previous 30-second expiry (#234).
 - `POST /api/v1/transactions/unsigned` to build unsigned Stellar payment XDR for wallet signing (#146).
 - `GET /api/v1/balances/:publicKey/history` for paginated balance-change audit history from `transactions_log` (#145).
 - `GET /api/v1/communities` pagination support via `page`, `limit`, and `offset` query parameters. When `offset` is provided, it takes precedence for querying and calculates the appropriate page in the metadata.

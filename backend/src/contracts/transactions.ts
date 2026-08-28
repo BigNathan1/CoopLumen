@@ -8,6 +8,7 @@ import {
   Transaction,
 } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
+import { TimeBoundsInput, applyTimeBounds } from './timeBounds';
 import { invalidateBalanceCache } from '../cache/balances';
 
 export interface PaymentParams {
@@ -17,6 +18,7 @@ export interface PaymentParams {
   assetIssuer: string;
   amount: string;
   memo?: string;
+  timeBounds?: TimeBoundsInput;
 }
 
 export interface BuildUnsignedPaymentParams {
@@ -26,13 +28,15 @@ export interface BuildUnsignedPaymentParams {
   assetIssuer: string;
   amount: string;
   memo?: string;
+  timeBounds?: TimeBoundsInput;
 }
 
 /**
  * Submits a signed payment from a server-held keypair (e.g., community distributor).
  */
 export async function submitPayment(params: PaymentParams): Promise<string> {
-  const { senderSecret, destinationPublicKey, assetCode, assetIssuer, amount, memo } = params;
+  const { senderSecret, destinationPublicKey, assetCode, assetIssuer, amount, memo, timeBounds } =
+    params;
 
   const senderKeypair = Keypair.fromSecret(senderSecret);
   const network = StellarService.getNetwork();
@@ -49,7 +53,7 @@ export async function submitPayment(params: PaymentParams): Promise<string> {
     txBuilder.addMemo(Memo.text(memo));
   }
 
-  const tx = txBuilder.setTimeout(30).build();
+  const tx = applyTimeBounds(txBuilder, timeBounds).build();
   tx.sign(senderKeypair);
 
   const result = await StellarService.submitTransaction(tx);
@@ -61,7 +65,15 @@ export async function submitPayment(params: PaymentParams): Promise<string> {
  * Builds an unsigned XDR transaction for client-side signing via Freighter.
  */
 export async function buildUnsignedPayment(params: BuildUnsignedPaymentParams): Promise<string> {
-  const { senderPublicKey, destinationPublicKey, assetCode, assetIssuer, amount, memo } = params;
+  const {
+    senderPublicKey,
+    destinationPublicKey,
+    assetCode,
+    assetIssuer,
+    amount,
+    memo,
+    timeBounds,
+  } = params;
 
   const network = StellarService.getNetwork();
 
@@ -77,7 +89,7 @@ export async function buildUnsignedPayment(params: BuildUnsignedPaymentParams): 
     txBuilder.addMemo(Memo.text(memo));
   }
 
-  return txBuilder.setTimeout(30).build().toXDR();
+  return applyTimeBounds(txBuilder, timeBounds).build().toXDR();
 }
 
 export async function submitSignedXdr(xdr: string): Promise<string> {

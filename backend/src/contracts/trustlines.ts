@@ -1,5 +1,6 @@
 import { Asset, Keypair, TransactionBuilder, Operation, BASE_FEE } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
+import { TimeBoundsInput, applyTimeBounds } from './timeBounds';
 import { invalidateBalanceCache } from '../cache/balances';
 
 export interface TrustlineParams {
@@ -7,6 +8,7 @@ export interface TrustlineParams {
   assetCode: string;
   assetIssuer: string;
   limit?: string;
+  timeBounds?: TimeBoundsInput;
 }
 
 /**
@@ -14,7 +16,7 @@ export interface TrustlineParams {
  * Must be called before the account can receive or hold the asset.
  */
 export async function establishTrustline(params: TrustlineParams): Promise<string> {
-  const { accountSecret, assetCode, assetIssuer, limit } = params;
+  const { accountSecret, assetCode, assetIssuer, limit, timeBounds } = params;
 
   const accountKeypair = Keypair.fromSecret(accountSecret);
   const network = StellarService.getNetwork();
@@ -22,18 +24,17 @@ export async function establishTrustline(params: TrustlineParams): Promise<strin
   const account = await StellarService.loadAccount(accountKeypair.publicKey());
   const asset = new Asset(assetCode, assetIssuer);
 
-  const tx = new TransactionBuilder(account, {
+  const txBuilder = new TransactionBuilder(account, {
     fee: BASE_FEE,
     networkPassphrase: network,
-  })
-    .addOperation(
-      Operation.changeTrust({
-        asset,
-        ...(limit !== undefined && { limit }),
-      })
-    )
-    .setTimeout(30)
-    .build();
+  }).addOperation(
+    Operation.changeTrust({
+      asset,
+      ...(limit !== undefined && { limit }),
+    })
+  );
+
+  const tx = applyTimeBounds(txBuilder, timeBounds).build();
 
   tx.sign(accountKeypair);
 
