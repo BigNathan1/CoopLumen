@@ -1,6 +1,7 @@
 import { Asset, Keypair, TransactionBuilder, Operation, BASE_FEE } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
 import { MemoInput, buildMemo } from './memo';
+import { TimeBoundsInput, applyTimeBounds } from './timeBounds';
 import { invalidateBalanceCache } from '../cache/balances';
 import { withSequenceRetry } from './sequenceCache';
 
@@ -10,6 +11,7 @@ export interface IssueAssetParams {
   distributorPublicKey: string;
   amount: string;
   memo?: MemoInput;
+  timeBounds?: TimeBoundsInput;
 }
 
 export interface BurnAssetParams {
@@ -18,6 +20,7 @@ export interface BurnAssetParams {
   assetIssuer: string;
   amount: string;
   memo?: MemoInput;
+  timeBounds?: TimeBoundsInput;
 }
 
 export interface AssetHolder {
@@ -30,7 +33,7 @@ export interface AssetHolder {
  * The issuer account creates the asset and sends initial supply to a distributor.
  */
 export async function issueAsset(params: IssueAssetParams): Promise<string> {
-  const { issuerSecret, assetCode, distributorPublicKey, amount, memo } = params;
+  const { issuerSecret, assetCode, distributorPublicKey, amount, memo, timeBounds } = params;
 
   const issuerKeypair = Keypair.fromSecret(issuerSecret);
   const network = StellarService.getNetwork();
@@ -55,7 +58,7 @@ export async function issueAsset(params: IssueAssetParams): Promise<string> {
       })
     );
 
-    const tx = txBuilder.setTimeout(30).build();
+    const tx = applyTimeBounds(txBuilder, timeBounds).build();
     tx.sign(issuerKeypair);
 
     return StellarService.submitTransaction(tx);
@@ -71,7 +74,7 @@ export async function issueAsset(params: IssueAssetParams): Promise<string> {
  * to the issuer permanently reduces total supply (the issuer never resends it).
  */
 export async function burnAsset(params: BurnAssetParams): Promise<string> {
-  const { holderSecret, assetCode, assetIssuer, amount, memo } = params;
+  const { holderSecret, assetCode, assetIssuer, amount, memo, timeBounds } = params;
 
   const holderKeypair = Keypair.fromSecret(holderSecret);
   const network = StellarService.getNetwork();
@@ -94,7 +97,7 @@ export async function burnAsset(params: BurnAssetParams): Promise<string> {
       txBuilder.addMemo(builtMemo);
     }
 
-    const tx = txBuilder.setTimeout(30).build();
+    const tx = applyTimeBounds(txBuilder, timeBounds).build();
     tx.sign(holderKeypair);
     return StellarService.submitTransaction(tx);
   });
