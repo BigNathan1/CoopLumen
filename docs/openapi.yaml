@@ -11,6 +11,8 @@ tags:
     description: Community token metadata and operations
   - name: Balances
     description: Stellar account balances and related balance views
+  - name: Accounts
+    description: Full Stellar account details and state
   - name: Transactions
     description: Stellar transaction submission endpoints
   - name: Communities
@@ -107,6 +109,36 @@ paths:
                   meta: { $ref: '#/components/schemas/PageMeta' }
         '400':
           description: Missing or blank `q` query parameter
+
+  /api/v1/accounts/{publicKey}:
+    parameters:
+      - name: publicKey
+        in: path
+        required: true
+        description: Stellar public key of the account to inspect.
+        schema:
+          $ref: '#/components/schemas/StellarKey'
+    get:
+      tags: [Accounts]
+      summary: Get full Stellar account details
+      description: >
+        Returns full Stellar account details from Horizon for the given public key,
+        including sequence number, balances, signers, thresholds, flags, and account data entries.
+      responses:
+        '200':
+          description: Full account details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDetailsResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502':
+          description: Horizon is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/v1/balances/{publicKey}:
     parameters:
@@ -1541,3 +1573,84 @@ components:
         assetIssuer: { $ref: '#/components/schemas/StellarKey' }
         purpose: { type: string, maxLength: 280 }
         dueAt: { type: string, format: date-time }
+    AccountThresholds:
+      type: object
+      properties:
+        low_threshold: { type: integer }
+        med_threshold: { type: integer }
+        high_threshold: { type: integer }
+    AccountFlags:
+      type: object
+      properties:
+        auth_required: { type: boolean }
+        auth_revocable: { type: boolean }
+        auth_immutable: { type: boolean }
+        auth_clawback_enabled: { type: boolean }
+    AccountSigner:
+      type: object
+      properties:
+        key: { type: string }
+        weight: { type: integer }
+        type: { type: string }
+        sponsor: { type: string }
+    AccountBalanceLine:
+      type: object
+      properties:
+        asset_type: { type: string }
+        balance: { type: string }
+        limit: { type: string }
+        buying_liabilities: { type: string }
+        selling_liabilities: { type: string }
+        asset_code: { type: string }
+        asset_issuer: { type: string }
+        last_modified_ledger: { type: integer }
+        is_authorized: { type: boolean }
+        is_authorized_to_maintain_liabilities: { type: boolean }
+        is_clawback_enabled: { type: boolean }
+        sponsor: { type: string }
+    AccountDetails:
+      type: object
+      required:
+        - id
+        - account_id
+        - sequence
+        - subentry_count
+        - last_modified_ledger
+        - thresholds
+        - flags
+        - balances
+        - signers
+        - data
+      properties:
+        id: { $ref: '#/components/schemas/StellarKey' }
+        account_id: { $ref: '#/components/schemas/StellarKey' }
+        sequence: { type: string }
+        sequence_ledger: { type: integer }
+        sequence_time: { type: string }
+        subentry_count: { type: integer }
+        inflation_destination: { type: string }
+        home_domain: { type: string }
+        last_modified_ledger: { type: integer }
+        last_modified_time: { type: string }
+        thresholds: { $ref: '#/components/schemas/AccountThresholds' }
+        flags: { $ref: '#/components/schemas/AccountFlags' }
+        balances:
+          type: array
+          items: { $ref: '#/components/schemas/AccountBalanceLine' }
+        signers:
+          type: array
+          items: { $ref: '#/components/schemas/AccountSigner' }
+        data:
+          type: object
+          additionalProperties: { type: string }
+        num_sponsoring: { type: integer }
+        num_sponsored: { type: integer }
+        sponsor: { type: string }
+        paging_token: { type: string }
+    AccountDetailsResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/AccountDetails'
+
