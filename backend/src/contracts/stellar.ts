@@ -117,8 +117,21 @@ class StellarServiceClass {
     return this.server;
   }
 
-  getNetwork(): string {
+  /** Returns the network passphrase Horizon requests are signed against for the current environment. */
+  getNetworkPassphrase(): string {
     return this.network;
+  }
+
+  getNetwork(): string {
+    return this.getNetworkPassphrase();
+  }
+
+  isTestnet(): boolean {
+    return this.network === (Networks.TESTNET as string);
+  }
+
+  isMainnet(): boolean {
+    return this.network === (Networks.PUBLIC as string);
   }
 
   async call<T>(operationName: string, request: () => Promise<T>): Promise<T> {
@@ -182,6 +195,8 @@ class StellarServiceClass {
     throw new StellarNetworkError(
       errorMessage || 'Failed to load account from Stellar network'
     );
+  async getAccount(publicKey: string): Promise<Horizon.AccountResponse> {
+    return this.loadAccount(publicKey);
   }
 
   async submitTransaction(
@@ -203,6 +218,10 @@ class StellarServiceClass {
       this.server.transactions().forAccount(publicKey).limit(limit).order('desc').call()
     );
     return records.records;
+  }
+
+  async getFeeStats(): Promise<Horizon.HorizonApi.FeeStatsResponse> {
+    return this.call('feeStats', () => this.server.feeStats());
   }
 
   async ping(): Promise<boolean> {
