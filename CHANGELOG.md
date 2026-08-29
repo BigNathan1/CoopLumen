@@ -13,6 +13,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `GET /api/v1/fees/estimate` endpoint returning current Stellar network base fee and percentile fee distribution from Horizon (#156).
 - `StellarService.getFeeStats()` method wrapping `Horizon.Server.feeStats()` with the existing retry and error-mapping stack.
 
+- `deserializeXdr(xdr)` in `backend/src/contracts/xdrDetails.ts`, decoding a base64 transaction envelope into human-readable details (source, sequence, fee in stroops and XLM, memo, time bounds, per-operation summaries, signature hints, fee-bump unwrapping), with Stellar XDR decoding failures mapped to actionable `XdrDecodeError` messages (#230).
 - `validateXdr(xdr)` in `backend/src/contracts/xdrValidation.ts`, an offline check returning `{ valid, error? }` for base64 transaction envelopes, with Stellar XDR decoding failures mapped to actionable messages (#231).
 - Fee-bump transaction support (`contracts/feeBump.ts`) to wrap a user's signed transaction so a sponsor account pays the network fee (#144).
 - `StellarService.getNetworkPassphrase()` returning the correct network passphrase for the configured environment (#143).
