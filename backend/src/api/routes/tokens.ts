@@ -11,6 +11,7 @@ import { idempotent } from '../middleware/idempotency';
 import { issueTokenSchema, trustlineTokenSchema, burnTokenSchema } from '../schemas/token';
 import { isValidStellarPublicKey } from '../utils/stellar';
 import { mapHorizonError } from '../utils/horizonError';
+import { withSequenceRetry } from '../../contracts/sequenceCache';
 import {
   getNativeBalance,
   getRequiredXlmForFee,
@@ -350,25 +351,34 @@ tokenRouter.post('/airdrop', async (req: Request, res: Response): Promise<void> 
     const asset = new Asset(community.asset_code, community.asset_issuer);
     const txHashes: string[] = [];
 
-    for (const member of members) {
-      const account = await StellarService.loadAccount(issuer.publicKey());
-      currentBalance = getNativeBalance(account);
-      const transaction = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: network,
-      })
-        .addOperation(
-          Operation.payment({
-            destination: member.stellar_address,
-            asset,
-            amount,
-          })
-        )
-        .setTimeout(30)
-        .build();
+    currentBalance = getNativeBalance(await StellarService.loadAccount(issuer.publicKey()));
 
-      transaction.sign(issuer);
-      const result = await StellarService.submitTransaction(transaction);
+    // Sequence numbers are handed out from an in-memory, per-account cache
+    // (see contracts/sequenceCache.ts) instead of reloading the issuer
+    // account from Horizon before every payment. This keeps a burst of
+    // airdrop payments — or a concurrent request touching the same issuer
+    // account — from racing on the same stale sequence number and getting
+    // rejected with tx_bad_seq.
+    for (const member of members) {
+      const result = await withSequenceRetry(issuer.publicKey(), async (account) => {
+        const transaction = new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: network,
+        })
+          .addOperation(
+            Operation.payment({
+              destination: member.stellar_address,
+              asset,
+              amount,
+            })
+          )
+          .setTimeout(30)
+          .build();
+
+        transaction.sign(issuer);
+        return StellarService.submitTransaction(transaction);
+      });
+
       txHashes.push(result.hash);
     }
 

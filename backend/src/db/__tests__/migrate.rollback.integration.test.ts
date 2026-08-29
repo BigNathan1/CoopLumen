@@ -3,10 +3,21 @@ import path from 'path';
 import { Pool, PoolClient } from 'pg';
 import { runPending, rollback } from '../migrate';
 
-describe('rollback', () => {
+const RUN = Boolean(process.env.DATABASE_URL);
+const describeIf = RUN ? describe : describe.skip;
+
+describeIf('rollback', () => {
   const migrationsDirectory = path.join(__dirname, '..', 'migrations');
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  let pool: Pool;
   let client: PoolClient;
+
+  beforeAll(() => {
+    pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  });
+
+  afterAll(async () => {
+    await pool?.end();
+  });
 
   beforeEach(async () => {
     client = await pool.connect();
