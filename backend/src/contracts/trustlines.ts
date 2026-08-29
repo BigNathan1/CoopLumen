@@ -1,13 +1,25 @@
 import { Asset, Keypair, TransactionBuilder, Operation, BASE_FEE } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
+import { MemoInput, buildMemo } from './memo';
+import { TimeBoundsInput, applyTimeBounds } from './timeBounds';
 import { invalidateBalanceCache } from '../cache/balances';
 import { StellarError, withStellarErrors } from './errors';
+import { withSequenceRetry } from './sequenceCache';
 
 /** Seconds a built transaction stays valid before Horizon rejects it as too late. */
 const TRUSTLINE_TIMEOUT_SECONDS = 30;
 
 export interface TrustlineParams {
   accountSecret: string;
+  assetCode: string;
+  assetIssuer: string;
+  limit?: string;
+  memo?: MemoInput;
+  timeBounds?: TimeBoundsInput;
+}
+
+export interface BuildUnsignedTrustlineParams {
+  accountPublicKey: string;
   assetCode: string;
   assetIssuer: string;
   limit?: string;
@@ -18,12 +30,47 @@ export interface TrustlineParams {
  * Must be called before the account can receive or hold the asset.
  */
 export async function establishTrustline(params: TrustlineParams): Promise<string> {
-  const { accountSecret, assetCode, assetIssuer, limit } = params;
+  const { accountSecret, assetCode, assetIssuer, limit, memo, timeBounds } = params;
 
   const accountKeypair = Keypair.fromSecret(accountSecret);
   const network = StellarService.getNetwork();
+  const asset = new Asset(assetCode, assetIssuer);
 
-  const account = await StellarService.loadAccount(accountKeypair.publicKey());
+  const result = await withSequenceRetry(accountKeypair.publicKey(), async (account) => {
+    const txBuilder = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: network,
+    }).addOperation(
+      Operation.changeTrust({
+        asset,
+        ...(limit !== undefined && { limit }),
+      })
+    );
+
+    const builtMemo = buildMemo(memo);
+    if (builtMemo) {
+      txBuilder.addMemo(builtMemo);
+    }
+
+    const tx = applyTimeBounds(txBuilder, timeBounds).build();
+    tx.sign(accountKeypair);
+    return StellarService.submitTransaction(tx);
+  });
+
+  await invalidateBalanceCache([accountKeypair.publicKey()]);
+  return result.hash;
+}
+
+/**
+ * Builds an unsigned XDR transaction for establishing a trustline for client-side signing.
+ */
+export async function buildUnsignedTrustline(
+  params: BuildUnsignedTrustlineParams
+): Promise<string> {
+  const { accountPublicKey, assetCode, assetIssuer, limit } = params;
+
+  const network = StellarService.getNetwork();
+  const account = await StellarService.loadAccount(accountPublicKey);
   const asset = new Asset(assetCode, assetIssuer);
 
   const tx = new TransactionBuilder(account, {
@@ -39,11 +86,7 @@ export async function establishTrustline(params: TrustlineParams): Promise<strin
     .setTimeout(30)
     .build();
 
-  tx.sign(accountKeypair);
-
-  const result = await StellarService.submitTransaction(tx);
-  await invalidateBalanceCache([accountKeypair.publicKey()]);
-  return result.hash;
+  return tx.toXDR();
 }
 
 export async function hasTrustline(
