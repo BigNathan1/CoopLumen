@@ -9,6 +9,8 @@
   --color-error: #e17055;
   --color-success: #00b894;
   --radius: 8px;
+  --z-index-overlay: 100;
+  --z-index-modal: 101;
 }
 
 *,

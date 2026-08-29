@@ -10,6 +10,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `Modal` component with backdrop, close-on-ESC, and focus trap for reusable dialog overlays (#255, backlog #182). Features include backdrop click-to-close (configurable), automatic focus movement on open (with `initialFocus` option), focus trap that cycles Tab/Shift+Tab within the modal and prevents escape, focus restoration to the trigger element on close, full ARIA support (`role="dialog"`, `aria-modal`, `aria-labelledby`, `aria-describedby`), design-system token styling with dark-mode support, and comprehensive unit test coverage (50+ tests) for all keyboard, mouse, and focus management behaviors.
 - Global `ErrorBoundary` component wrapping the frontend root layout to catch unhandled render errors and display an accessible fallback UI using design system tokens (#252, backlog #179). The fallback UI includes error details in a collapsible section, keyboard-operable recovery button, dark-mode support, and full accessibility (heading structure, focus management, ARIA semantics).
 - `GET /api/v1/fees/estimate` endpoint returning current Stellar network base fee and percentile fee distribution from Horizon (#156).
 - `StellarService.getFeeStats()` method wrapping `Horizon.Server.feeStats()` with the existing retry and error-mapping stack.
