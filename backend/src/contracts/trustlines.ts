@@ -1,6 +1,7 @@
 import { Asset, Keypair, TransactionBuilder, Operation, BASE_FEE } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
 import { invalidateBalanceCache } from '../cache/balances';
+import { withSequenceRetry } from './sequenceCache';
 
 export interface TrustlineParams {
   accountSecret: string;
@@ -25,26 +26,26 @@ export async function establishTrustline(params: TrustlineParams): Promise<strin
 
   const accountKeypair = Keypair.fromSecret(accountSecret);
   const network = StellarService.getNetwork();
-
-  const account = await StellarService.loadAccount(accountKeypair.publicKey());
   const asset = new Asset(assetCode, assetIssuer);
 
-  const tx = new TransactionBuilder(account, {
-    fee: BASE_FEE,
-    networkPassphrase: network,
-  })
-    .addOperation(
-      Operation.changeTrust({
-        asset,
-        ...(limit !== undefined && { limit }),
-      })
-    )
-    .setTimeout(30)
-    .build();
+  const result = await withSequenceRetry(accountKeypair.publicKey(), async (account) => {
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: network,
+    })
+      .addOperation(
+        Operation.changeTrust({
+          asset,
+          ...(limit !== undefined && { limit }),
+        })
+      )
+      .setTimeout(30)
+      .build();
 
-  tx.sign(accountKeypair);
+    tx.sign(accountKeypair);
+    return StellarService.submitTransaction(tx);
+  });
 
-  const result = await StellarService.submitTransaction(tx);
   await invalidateBalanceCache([accountKeypair.publicKey()]);
   return result.hash;
 }
