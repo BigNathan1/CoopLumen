@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { Asset, Keypair, Operation, TransactionBuilder, BASE_FEE } from '@stellar/stellar-sdk';
 import { z } from 'zod';
-import { issueAsset, burnAsset, getAssetHolders, getAssetSupply } from '../../contracts/assets';
+import { issueAsset, burnAsset, getAssetHolders, getTotalSupply } from '../../contracts/assets';
 import { establishTrustline } from '../../contracts/trustlines';
 import { db } from '../../db';
 import { invalidateBalanceCache } from '../../cache/balances';
@@ -527,7 +527,7 @@ tokenRouter.get(
     }
 
     try {
-      const supply = await getAssetSupply(parsed.data.assetCode, parsed.data.issuer);
+      const supply = await getTotalSupply(parsed.data.assetCode, parsed.data.issuer);
       res.json({ data: { assetCode: parsed.data.assetCode, issuer: parsed.data.issuer, supply } });
     } catch (err) {
       if ((err as { response?: unknown }).response) {
