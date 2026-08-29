@@ -43,6 +43,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `communityIdParamsSchema` and `getCommunitiesQuerySchema` Zod schemas
 - `GET /api/v1/tokens/:assetCode/:issuer` for retrieving metadata for a single Stellar token
 - `GET /api/v1/tokens/:communityId` to list all tokens issued for a community
+- `revokeTrustline()` in `contracts/trustlines.ts`, removing an account's trust for an asset by submitting a zero-limit `changeTrust`; refuses up front when the trustline is absent, still holds a balance, or has open liabilities, and maps every Horizon failure to an actionable message (#224)
 - `GET /api/v1/tokens/holders/:assetCode/:issuer` to list accounts holding a token, backed by Horizon's asset endpoint
 - `GET /api/v1/tokens/supply/:assetCode/:issuer` returning the circulating supply Horizon reports for an asset
 - `GET /api/v1/tokens/history/:assetCode/:issuer` returning recent payment activity for an asset
