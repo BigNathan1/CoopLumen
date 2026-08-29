@@ -13,6 +13,8 @@ tags:
     description: Stellar account balances and related balance views
   - name: Prices
     description: Public market price feeds for Stellar assets
+  - name: Accounts
+    description: Full Stellar account details and state
   - name: Transactions
     description: Stellar transaction submission endpoints
   - name: Communities
@@ -136,6 +138,36 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '502':
           description: Failed to fetch price from public source
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/accounts/{publicKey}:
+    parameters:
+      - name: publicKey
+        in: path
+        required: true
+        description: Stellar public key of the account to inspect.
+        schema:
+          $ref: '#/components/schemas/StellarKey'
+    get:
+      tags: [Accounts]
+      summary: Get full Stellar account details
+      description: >
+        Returns full Stellar account details from Horizon for the given public key,
+        including sequence number, balances, signers, thresholds, flags, and account data entries.
+      responses:
+        '200':
+          description: Full account details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountDetailsResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502':
+          description: Horizon is temporarily unavailable
           content:
             application/json:
               schema:
@@ -375,6 +407,41 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '404':
           description: The source Stellar account does not exist on the configured network
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Horizon is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/trustlines/build:
+    post:
+      tags: [Transactions, Tokens]
+      summary: Build an unsigned Stellar trustline establishment transaction
+      description: >
+        Loads the account and its current sequence number from Horizon,
+        then returns a single-operation changeTrust transaction XDR for wallet signing.
+        The transaction is not signed or submitted by this endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BuildTrustlineRequest'
+      responses:
+        '200':
+          description: Unsigned trustline transaction built successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildTrustlineResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404':
+          description: The Stellar account does not exist on the configured network
           content:
             application/json:
               schema:
@@ -1337,6 +1404,40 @@ components:
             xdr:
               type: string
               description: Base64-encoded unsigned Stellar transaction envelope XDR.
+    BuildTrustlineRequest:
+      type: object
+      required: [accountPublicKey, assetCode, assetIssuer]
+      properties:
+        accountPublicKey:
+          $ref: '#/components/schemas/StellarKey'
+          description: Stellar public key of the account establishing the trustline.
+        assetCode:
+          type: string
+          pattern: '^[A-Za-z0-9]{1,12}$'
+          description: Stellar asset code to trust.
+        assetIssuer:
+          $ref: '#/components/schemas/StellarKey'
+          description: Stellar public key of the asset issuer.
+        limit:
+          type: string
+          pattern: '^(?:0|[1-9]\d*)(?:\.\d{1,7})?$'
+          description: Optional maximum amount of the asset to trust.
+      example:
+        accountPublicKey: GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR
+        assetCode: COOP
+        assetIssuer: GCATS5YOVB6ROX2WUNKGNQ2MP3GMXDMKSG2O4N5CLX3A6W4PZGZZI55U
+        limit: '1000'
+    BuildTrustlineResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [xdr]
+          properties:
+            xdr:
+              type: string
+              description: Base64-encoded unsigned Stellar transaction envelope XDR.
     AirdropRequest:
       type: object
       required: [communityId, amount, issuerSecret]
@@ -1530,4 +1631,84 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/PriceData'
+    AccountThresholds:
+      type: object
+      properties:
+        low_threshold: { type: integer }
+        med_threshold: { type: integer }
+        high_threshold: { type: integer }
+    AccountFlags:
+      type: object
+      properties:
+        auth_required: { type: boolean }
+        auth_revocable: { type: boolean }
+        auth_immutable: { type: boolean }
+        auth_clawback_enabled: { type: boolean }
+    AccountSigner:
+      type: object
+      properties:
+        key: { type: string }
+        weight: { type: integer }
+        type: { type: string }
+        sponsor: { type: string }
+    AccountBalanceLine:
+      type: object
+      properties:
+        asset_type: { type: string }
+        balance: { type: string }
+        limit: { type: string }
+        buying_liabilities: { type: string }
+        selling_liabilities: { type: string }
+        asset_code: { type: string }
+        asset_issuer: { type: string }
+        last_modified_ledger: { type: integer }
+        is_authorized: { type: boolean }
+        is_authorized_to_maintain_liabilities: { type: boolean }
+        is_clawback_enabled: { type: boolean }
+        sponsor: { type: string }
+    AccountDetails:
+      type: object
+      required:
+        - id
+        - account_id
+        - sequence
+        - subentry_count
+        - last_modified_ledger
+        - thresholds
+        - flags
+        - balances
+        - signers
+        - data
+      properties:
+        id: { $ref: '#/components/schemas/StellarKey' }
+        account_id: { $ref: '#/components/schemas/StellarKey' }
+        sequence: { type: string }
+        sequence_ledger: { type: integer }
+        sequence_time: { type: string }
+        subentry_count: { type: integer }
+        inflation_destination: { type: string }
+        home_domain: { type: string }
+        last_modified_ledger: { type: integer }
+        last_modified_time: { type: string }
+        thresholds: { $ref: '#/components/schemas/AccountThresholds' }
+        flags: { $ref: '#/components/schemas/AccountFlags' }
+        balances:
+          type: array
+          items: { $ref: '#/components/schemas/AccountBalanceLine' }
+        signers:
+          type: array
+          items: { $ref: '#/components/schemas/AccountSigner' }
+        data:
+          type: object
+          additionalProperties: { type: string }
+        num_sponsoring: { type: integer }
+        num_sponsored: { type: integer }
+        sponsor: { type: string }
+        paging_token: { type: string }
+    AccountDetailsResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/AccountDetails'
 
