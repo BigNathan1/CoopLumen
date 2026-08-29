@@ -1,4 +1,4 @@
-import { Asset } from '@stellar/stellar-sdk';
+import { Asset, Horizon } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
 import { withStellarErrors } from './errors';
 
@@ -7,14 +7,11 @@ export interface AssetInput {
   issuer?: string;
 }
 
-export interface OrderBookPrice {
-  n: number;
-  d: number;
-  price: string;
-}
-
 export interface OrderBookOffer {
-  price_r: OrderBookPrice;
+  price_r: {
+    n: number;
+    d: number;
+  };
   price: string;
   amount: string;
 }
@@ -35,21 +32,23 @@ export interface OrderBookResponse {
 }
 
 function toStellarAsset(input: AssetInput): Asset {
-  if (!input.code || input.code === 'XLM') {
+  const code = input.code.trim();
+  if (!code || code.toUpperCase() === 'XLM' || code.toUpperCase() === 'NATIVE') {
     return Asset.native();
   }
   if (!input.issuer) {
-    throw new Error(`Asset issuer is required for non-native asset code: ${input.code}`);
+    throw new Error(`Asset issuer is required for non-native asset: ${code}`);
   }
-  return new Asset(input.code, input.issuer);
+  return new Asset(code, input.issuer);
 }
 
 /**
- * Fetches the decentralized exchange (DEX) order book for a given trading pair from Horizon.
+ * Fetches the decentralized exchange (DEX) order book for a given trading pair
+ * from Horizon, wrapped with retry and error mapping.
  *
- * @param selling Asset being sold
- * @param buying Asset being bought
- * @returns Order book containing bids, asks, base, and counter asset definitions
+ * @param selling Asset being sold (base)
+ * @param buying Asset being bought (counter)
+ * @returns The order book response containing bids and asks
  */
 export async function getOrderBook(
   selling: AssetInput,
@@ -60,10 +59,10 @@ export async function getOrderBook(
     const sellingAsset = toStellarAsset(selling);
     const buyingAsset = toStellarAsset(buying);
 
-    const record = await StellarService.call('orderBook', () =>
+    const response = await StellarService.call('orderBook', () =>
       server.orderBook(sellingAsset, buyingAsset).call()
     );
 
-    return record as unknown as OrderBookResponse;
+    return response as unknown as OrderBookResponse;
   });
 }
