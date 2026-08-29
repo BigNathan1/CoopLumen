@@ -21,8 +21,33 @@ tags:
     description: Community treasury balances
   - name: Loans
     description: Peer-to-peer loan lifecycle within a community
+  - name: Prices
+    description: Real-time XLM/USD spot price with multi-provider fallback and in-memory caching
 
 paths:
+  /api/v1/prices/xlm:
+    get:
+      tags: [Prices]
+      summary: Get current XLM/USD price
+      description: >
+        Returns the current XLM spot price in USD sourced from a waterfall of
+        public price APIs (CoinGecko → Coinbase → Binance → Kraken). Responses
+        are served from a 30-second in-memory cache to reduce external API calls;
+        the `cached_at` field shows when the cached entry was stored.
+      responses:
+        '200':
+          description: Current XLM/USD price
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/XlmPriceResponse'
+        '502':
+          description: All upstream price providers are currently unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/communities:
     get:
       tags: [Communities]
@@ -1107,6 +1132,36 @@ components:
       type: string
       description: A 56-character Stellar StrKey public key.
       pattern: '^G[A-Z2-7]{55}$'
+    XlmPriceResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [asset, currency, price, source, cached_at]
+          properties:
+            asset:
+              type: string
+              example: XLM
+              description: The asset whose price is reported.
+            currency:
+              type: string
+              example: USD
+              description: The quote currency.
+            price:
+              type: number
+              format: double
+              example: 0.1234
+              description: Spot price in the quoted currency.
+            source:
+              type: string
+              example: CoinGecko
+              description: Which provider returned this quote.
+            cached_at:
+              type: string
+              format: date-time
+              example: '2026-08-29T10:09:22.000Z'
+              description: ISO-8601 timestamp of when the price was cached.
     BalanceLine:
       type: object
       properties:
