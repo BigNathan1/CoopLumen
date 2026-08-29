@@ -1,5 +1,6 @@
 import { Asset, Keypair, TransactionBuilder, Operation, BASE_FEE } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
+import { MemoInput, buildMemo } from './memo';
 import { invalidateBalanceCache } from '../cache/balances';
 import { withSequenceRetry } from './sequenceCache';
 
@@ -8,6 +9,7 @@ export interface TrustlineParams {
   assetCode: string;
   assetIssuer: string;
   limit?: string;
+  memo?: MemoInput;
 }
 
 export interface BuildUnsignedTrustlineParams {
@@ -22,26 +24,29 @@ export interface BuildUnsignedTrustlineParams {
  * Must be called before the account can receive or hold the asset.
  */
 export async function establishTrustline(params: TrustlineParams): Promise<string> {
-  const { accountSecret, assetCode, assetIssuer, limit } = params;
+  const { accountSecret, assetCode, assetIssuer, limit, memo } = params;
 
   const accountKeypair = Keypair.fromSecret(accountSecret);
   const network = StellarService.getNetwork();
   const asset = new Asset(assetCode, assetIssuer);
 
   const result = await withSequenceRetry(accountKeypair.publicKey(), async (account) => {
-    const tx = new TransactionBuilder(account, {
+    const txBuilder = new TransactionBuilder(account, {
       fee: BASE_FEE,
       networkPassphrase: network,
-    })
-      .addOperation(
-        Operation.changeTrust({
-          asset,
-          ...(limit !== undefined && { limit }),
-        })
-      )
-      .setTimeout(30)
-      .build();
+    }).addOperation(
+      Operation.changeTrust({
+        asset,
+        ...(limit !== undefined && { limit }),
+      })
+    );
 
+    const builtMemo = buildMemo(memo);
+    if (builtMemo) {
+      txBuilder.addMemo(builtMemo);
+    }
+
+    const tx = txBuilder.setTimeout(30).build();
     tx.sign(accountKeypair);
     return StellarService.submitTransaction(tx);
   });

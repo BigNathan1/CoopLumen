@@ -1,12 +1,6 @@
-import {
-  Asset,
-  Keypair,
-  TransactionBuilder,
-  Operation,
-  BASE_FEE,
-  Memo,
-} from '@stellar/stellar-sdk';
+import { Asset, Keypair, TransactionBuilder, Operation, BASE_FEE } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
+import { MemoInput, buildMemo } from './memo';
 import { invalidateBalanceCache } from '../cache/balances';
 import { withSequenceRetry } from './sequenceCache';
 
@@ -15,7 +9,7 @@ export interface IssueAssetParams {
   assetCode: string;
   distributorPublicKey: string;
   amount: string;
-  memo?: string;
+  memo?: MemoInput;
 }
 
 export interface BurnAssetParams {
@@ -23,6 +17,7 @@ export interface BurnAssetParams {
   assetCode: string;
   assetIssuer: string;
   amount: string;
+  memo?: MemoInput;
 }
 
 export interface AssetHolder {
@@ -47,8 +42,9 @@ export async function issueAsset(params: IssueAssetParams): Promise<string> {
       networkPassphrase: network,
     });
 
-    if (memo) {
-      txBuilder.addMemo(Memo.text(memo));
+    const builtMemo = buildMemo(memo);
+    if (builtMemo) {
+      txBuilder.addMemo(builtMemo);
     }
 
     txBuilder.addOperation(
@@ -75,27 +71,30 @@ export async function issueAsset(params: IssueAssetParams): Promise<string> {
  * to the issuer permanently reduces total supply (the issuer never resends it).
  */
 export async function burnAsset(params: BurnAssetParams): Promise<string> {
-  const { holderSecret, assetCode, assetIssuer, amount } = params;
+  const { holderSecret, assetCode, assetIssuer, amount, memo } = params;
 
   const holderKeypair = Keypair.fromSecret(holderSecret);
   const network = StellarService.getNetwork();
   const asset = new Asset(assetCode, assetIssuer);
 
   const result = await withSequenceRetry(holderKeypair.publicKey(), async (holderAccount) => {
-    const tx = new TransactionBuilder(holderAccount, {
+    const txBuilder = new TransactionBuilder(holderAccount, {
       fee: BASE_FEE,
       networkPassphrase: network,
-    })
-      .addOperation(
-        Operation.payment({
-          destination: assetIssuer,
-          asset,
-          amount,
-        })
-      )
-      .setTimeout(30)
-      .build();
+    }).addOperation(
+      Operation.payment({
+        destination: assetIssuer,
+        asset,
+        amount,
+      })
+    );
 
+    const builtMemo = buildMemo(memo);
+    if (builtMemo) {
+      txBuilder.addMemo(builtMemo);
+    }
+
+    const tx = txBuilder.setTimeout(30).build();
     tx.sign(holderKeypair);
     return StellarService.submitTransaction(tx);
   });
