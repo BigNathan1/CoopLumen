@@ -10,6 +10,13 @@ export interface TrustlineParams {
   limit?: string;
 }
 
+export interface BuildUnsignedTrustlineParams {
+  accountPublicKey: string;
+  assetCode: string;
+  assetIssuer: string;
+  limit?: string;
+}
+
 /**
  * Establishes a trustline so an account can hold a community token.
  * Must be called before the account can receive or hold the asset.
@@ -41,6 +48,34 @@ export async function establishTrustline(params: TrustlineParams): Promise<strin
 
   await invalidateBalanceCache([accountKeypair.publicKey()]);
   return result.hash;
+}
+
+/**
+ * Builds an unsigned XDR transaction for establishing a trustline for client-side signing.
+ */
+export async function buildUnsignedTrustline(
+  params: BuildUnsignedTrustlineParams
+): Promise<string> {
+  const { accountPublicKey, assetCode, assetIssuer, limit } = params;
+
+  const network = StellarService.getNetwork();
+  const account = await StellarService.loadAccount(accountPublicKey);
+  const asset = new Asset(assetCode, assetIssuer);
+
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: network,
+  })
+    .addOperation(
+      Operation.changeTrust({
+        asset,
+        ...(limit !== undefined && { limit }),
+      })
+    )
+    .setTimeout(30)
+    .build();
+
+  return tx.toXDR();
 }
 
 export async function hasTrustline(
