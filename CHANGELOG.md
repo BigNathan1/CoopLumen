@@ -10,7 +10,22 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `GET /api/v1/fees/estimate` endpoint returning current Stellar network base fee and percentile fee distribution from Horizon (#156).
+- `StellarService.getFeeStats()` method wrapping `Horizon.Server.feeStats()` with the existing retry and error-mapping stack.
 
+- Fee-bump transaction support (`contracts/feeBump.ts`) to wrap a user's signed transaction so a sponsor account pays the network fee (#144).
+- `StellarService.getNetworkPassphrase()` returning the correct network passphrase for the configured environment (#143).
+- `GET /api/v1/accounts/:publicKey/trustlines` endpoint listing all non-native trustlines established by a Stellar account, added to the existing `accountsRouter` alongside `GET /api/v1/accounts/:publicKey` (#154).
+- Full JSDoc documentation added to all route handlers in `balances.ts` and `transactions.ts` -- parameters, response shapes, caching TTL, Horizon retry behaviour, and external dependencies are now documented (#167).
+- `docs/openapi.yaml`: fixed malformed merged `/history`+`/loans` path block, removed duplicate path key duplicates, and added `/api/v1/balances/{publicKey}/history` as a proper standalone path entry (#167).
+- Integration test coverage for Redis-backed balance caching (`backend/src/cache/__tests__/`): a real-Redis suite (round-trip, TTL, expiry, invalidation, malformed-payload recovery — gated on `REDIS_URL`, matching the existing `DATABASE_URL`-gated pattern) plus a mocked-client suite covering the same behavior for CI environments without a live Redis. CI now runs a `redis:7-alpine` service so the gated suite executes on every push/PR (#171).
+- `POST /api/v1/webhooks/stellar` to receive incoming Stellar account/transaction event notifications, protected by HMAC-SHA256 signature verification (`X-Stellar-Webhook-Signature`, keyed with `STELLAR_WEBHOOK_SECRET`) that fails closed when unconfigured (#170).
+- In-memory, per-account sequence number cache (`contracts/sequenceCache.ts`) shared by asset issuance, burn, trustline, and airdrop payment submission, so concurrent or back-to-back Stellar submissions from the same account no longer race on a stale sequence number. Falls back to a single reload-and-retry from Horizon on `tx_bad_seq` (#169).
+- Expanded `api/utils/horizonError.ts` to map the full set of known Stellar transaction and operation result codes (`tx_bad_seq`, `op_underfunded`, `tx_too_late`, `op_low_reserve`, etc.) to friendly, actionable error messages, with full unit test coverage (#166).
+- `GET /api/v1/prices/xlm` returning XLM/USD market price from public feeds with Redis caching and multi-provider failover (#137).
+- `StellarService.isTestnet()` and `StellarService.isMainnet()` helper methods to inspect active Stellar network configuration (#141).
+- `POST /api/v1/trustlines/build` to generate unsigned trustline establishment XDR for wallet signing (#124).
+- `GET /api/v1/accounts/:publicKey` returning full Stellar account details from Horizon with Zod validation, retries, and mapped error codes (#122).
 - `POST /api/v1/transactions/unsigned` to build unsigned Stellar payment XDR for wallet signing (#146).
 - `GET /api/v1/balances/:publicKey/history` for paginated balance-change audit history from `transactions_log` (#145).
 - `GET /api/v1/communities` pagination support via `page`, `limit`, and `offset` query parameters. When `offset` is provided, it takes precedence for querying and calculates the appropriate page in the metadata.
@@ -53,7 +68,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - OpenAPI 3.0 specification for the communities API at `docs/openapi.yaml`
 - Integration tests for the full community CRUD lifecycle over HTTP (real DB, gated on `DATABASE_URL`)
 - `db.end()` helper for clean test teardown
-- Loans API: full lifecycle — create, disburse, repay (partial/full), default, and cancel
+- Loans API: full lifecycle â€” create, disburse, repay (partial/full), default, and cancel
 - Loan event log and per-loan repayment summary (`GET /api/loans/:id`, `/events`)
 - Borrower reputation scoring driven by loan outcomes (on-time repayments vs. defaults)
 - Migration 015: loan lifecycle columns (status constraint, repayment tracking, timestamps)
@@ -62,9 +77,9 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `db.ping()` and `StellarService.ping()` helpers
 - Frontend `GET /api/health` Next.js route for Docker health checks
 - Docker health checks for backend (30s grace) and frontend (60s grace)
-- Startup env-var validation — exits early with a clear message on missing vars
+- Startup env-var validation â€” exits early with a clear message on missing vars
 - `.nvmrc` pinning Node.js 20 LTS
-- `engines` field in all `package.json` files enforcing Node ≥ 20
+- `engines` field in all `package.json` files enforcing Node â‰¥ 20
 - `.editorconfig` for consistent indentation and line endings
 - Prettier with shared `.prettierrc` and `format` / `format:check` scripts
 - `.gitattributes` enforcing LF line endings across all platforms
@@ -90,11 +105,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Restored `backend/src/contracts/transactions.ts` (`buildUnsignedPayment`), which a prior cleanup commit deleted as unused dead code without also removing its only caller, `POST /api/v1/transactions/unsigned` — leaving the backend unable to compile or run its test suite.
 - Error responses across `communities.ts`, `loans.ts`, `tokens.ts`, and the shared `validateBody`/`validateParams`/`validateQuery` middleware now consistently include `data: null`, matching the `{ data, meta?, error? }` envelope documented for the rest of the API
 - `docs/openapi.yaml`: added the previously undocumented Communities list/search/create, full Tokens surface (burn, trustline, community listing, holders, supply, history), Loans lifecycle, and Balances loan endpoints, and fixed several broken `$ref` pointers (`CommunityId`/`Page`/`Limit` parameters and `IssueToken`/`TokenMetadata` schemas were referenced but never defined)
 - Migration 019: `members_role_check` is now re-established with a preceding `DROP CONSTRAINT IF EXISTS`, so the role contract (`admin`/`treasurer`/`member`/`observer`) is replay-safe
-- Migration 020: notifications table integrity — Stellar address format constraint on the recipient, a `read_at >= created_at` guard, a non-blank `title` check, and table/column comments
-- Migration 017: `transactions_log.community_id` foreign key is now `ON DELETE SET NULL` instead of the default `NO ACTION`, so deleting a community no longer fails when it has logged transactions — the audit record survives with `community_id` nulled
+- Migration 020: notifications table integrity â€” Stellar address format constraint on the recipient, a `read_at >= created_at` guard, a non-blank `title` check, and table/column comments
+- Migration 017: `transactions_log.community_id` foreign key is now `ON DELETE SET NULL` instead of the default `NO ACTION`, so deleting a community no longer fails when it has logged transactions â€” the audit record survives with `community_id` nulled
 - `npm run db:rollback` no longer fails when rolling back `001_schema_migrations`: the tracking row is deleted before the `.down.sql` runs, so dropping the tracking table itself succeeds
 - Frontend Jest config used a non-existent `setupFilesAfterFramework` key, so `jest.setup.ts` never loaded and `@testing-library/jest-dom` matchers were unavailable; corrected to `setupFilesAfterEnv`
 - Frontend `type-check` failed on all test files because `@types/jest` was missing; added it to devDependencies
@@ -104,10 +120,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [0.1.0] — 2026-05-13
+## [0.1.0] â€” 2026-05-13
 
 ### Added
 
+- Full JSDoc documentation added to all route handlers in `balances.ts` and `transactions.ts` -- parameters, response shapes, caching TTL, Horizon retry behaviour, and external dependencies are now documented (#167).
+- `docs/openapi.yaml`: fixed malformed merged `/history`+`/loans` path block, removed duplicate path key duplicates, and added `/api/v1/balances/{publicKey}/history` as a proper standalone path entry (#167).
 - Initial monorepo scaffold: Next.js 14 frontend + Node.js/Express backend + PostgreSQL
 - Stellar SDK integration: asset issuance, trustlines, payments
 - Community registration and member management API
