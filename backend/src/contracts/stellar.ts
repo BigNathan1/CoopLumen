@@ -1,5 +1,9 @@
-import { Horizon, Networks } from '@stellar/stellar-sdk';
+import { Horizon, Keypair, Networks, TransactionBuilder, Operation, BASE_FEE } from '@stellar/stellar-sdk';
 import { logger } from '../utils/logger';
+import { MemoInput, buildMemo } from './memo';
+import { TimeBoundsInput, applyTimeBounds } from './timeBounds';
+import { invalidateBalanceCache } from '../cache/balances';
+import { withSequenceRetry } from './sequenceCache';
 
 type StellarNetwork = 'testnet' | 'mainnet';
 
@@ -65,6 +69,14 @@ function readRetryAfterHeader(headers: RetryHeaders | undefined): string | null 
 
   const headerValue = (headers as Record<string, unknown>)['retry-after'];
   return typeof headerValue === 'string' ? headerValue : null;
+}
+
+export interface CreateAccountParams {
+  funderSecret: string;
+  destinationPublicKey: string;
+  startingBalance: string;
+  memo?: MemoInput;
+  timeBounds?: TimeBoundsInput;
 }
 
 class StellarServiceClass {
@@ -137,6 +149,39 @@ class StellarServiceClass {
     return this.call('feeStats', () => this.server.feeStats());
   }
 
+  async createAccount(params: CreateAccountParams): Promise<string> {
+    const { funderSecret, destinationPublicKey, startingBalance, memo, timeBounds } = params;
+    const funderKeypair = Keypair.fromSecret(funderSecret);
+    const network = this.getNetwork();
+
+    const result = await withSequenceRetry(funderKeypair.publicKey(), async (funderAccount) => {
+      const txBuilder = new TransactionBuilder(funderAccount, {
+        fee: BASE_FEE,
+        networkPassphrase: network,
+      });
+
+      const builtMemo = buildMemo(memo);
+      if (builtMemo) {
+        txBuilder.addMemo(builtMemo);
+      }
+
+      txBuilder.addOperation(
+        Operation.createAccount({
+          destination: destinationPublicKey,
+          startingBalance,
+        })
+      );
+
+      const tx = applyTimeBounds(txBuilder, timeBounds).build();
+      tx.sign(funderKeypair);
+
+      return this.submitTransaction(tx);
+    });
+
+    await invalidateBalanceCache([funderKeypair.publicKey(), destinationPublicKey]);
+    return result.hash;
+  }
+
   async ping(): Promise<boolean> {
     try {
       const network = (process.env.STELLAR_NETWORK ?? 'testnet') as StellarNetwork;
@@ -163,32 +208,28 @@ class StellarServiceClass {
         }
 
         if (attempt === HORIZON_RETRY_CONFIG.maxAttempts) {
-          logger.error('Horizon request failed after retries', {
-            operationName,
-            attempt,
-            status,
-            error: horizonError.message,
-          });
+          logger.warn(
+            { operation: operationName, attempt, status },
+            `Stellar Horizon operation ${operationName} failed after max retry attempts.`
+          );
           throw error;
         }
 
-        const retryAfterMs = parseRetryAfterMs(
-          readRetryAfterHeader(horizonError.response?.headers)
+        const retryAfterHeader = readRetryAfterHeader(horizonError.response?.headers);
+        const retryAfterMs = parseRetryAfterMs(retryAfterHeader);
+        const exponentialDelay = HORIZON_RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt - 1);
+        const jitter = Math.random() * 50;
+        const delay = retryAfterMs ?? Math.round(exponentialDelay + jitter);
+
+        logger.info(
+          { operation: operationName, attempt, status, delayMs: delay },
+          `Stellar Horizon operation ${operationName} failed with ${status}; retrying in ${delay}ms...`
         );
-        const delayMs = retryAfterMs ?? HORIZON_RETRY_CONFIG.baseDelayMs * 2 ** (attempt - 1);
 
-        logger.warn('Retrying Horizon request', {
-          operationName,
-          attempt,
-          status,
-          delayMs,
-        });
-
-        await sleep(delayMs);
+        await sleep(delay);
       }
     }
-
-    throw new Error(`Unreachable retry state for ${operationName}`);
+    throw new Error(`Exhausted retry attempts for ${operationName}`);
   }
 }
 
