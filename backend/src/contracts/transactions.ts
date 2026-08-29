@@ -1,13 +1,6 @@
-import {
-  Asset,
-  Keypair,
-  TransactionBuilder,
-  Operation,
-  BASE_FEE,
-  Memo,
-  Transaction,
-} from '@stellar/stellar-sdk';
+import { Asset, Keypair, TransactionBuilder, Operation, BASE_FEE, Transaction } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
+import { MemoInput, buildMemo } from './memo';
 import { TimeBoundsInput, applyTimeBounds } from './timeBounds';
 import { invalidateBalanceCache } from '../cache/balances';
 
@@ -17,7 +10,7 @@ export interface PaymentParams {
   assetCode: string;
   assetIssuer: string;
   amount: string;
-  memo?: string;
+  memo?: MemoInput;
   timeBounds?: TimeBoundsInput;
 }
 
@@ -27,7 +20,7 @@ export interface BuildUnsignedPaymentParams {
   assetCode: string;
   assetIssuer: string;
   amount: string;
-  memo?: string;
+  memo?: MemoInput;
   timeBounds?: TimeBoundsInput;
 }
 
@@ -49,8 +42,9 @@ export async function submitPayment(params: PaymentParams): Promise<string> {
     networkPassphrase: network,
   }).addOperation(Operation.payment({ destination: destinationPublicKey, asset, amount }));
 
-  if (memo) {
-    txBuilder.addMemo(Memo.text(memo));
+  const builtMemo = buildMemo(memo);
+  if (builtMemo) {
+    txBuilder.addMemo(builtMemo);
   }
 
   const tx = applyTimeBounds(txBuilder, timeBounds).build();
@@ -85,8 +79,9 @@ export async function buildUnsignedPayment(params: BuildUnsignedPaymentParams): 
     networkPassphrase: network,
   }).addOperation(Operation.payment({ destination: destinationPublicKey, asset, amount }));
 
-  if (memo) {
-    txBuilder.addMemo(Memo.text(memo));
+  const builtMemo = buildMemo(memo);
+  if (builtMemo) {
+    txBuilder.addMemo(builtMemo);
   }
 
   return applyTimeBounds(txBuilder, timeBounds).build().toXDR();
