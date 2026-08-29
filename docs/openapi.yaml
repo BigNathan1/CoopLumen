@@ -25,6 +25,8 @@ tags:
     description: Community treasury balances
   - name: Loans
     description: Peer-to-peer loan lifecycle within a community
+  - name: Webhooks
+    description: Inbound webhook endpoints for Stellar account/transaction event notifications
 
 paths:
   /api/v1/communities:
@@ -378,6 +380,59 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '502':
           description: Horizon is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/webhooks/stellar:
+    post:
+      tags: [Webhooks]
+      summary: Receive a Stellar account/transaction event notification
+      description: >
+        Accepts event notifications from a trusted Stellar webhook source
+        (e.g. a Horizon-event forwarder). The request must carry an
+        `X-Stellar-Webhook-Signature` header containing the hex-encoded
+        HMAC-SHA256 digest of the raw request body, keyed with the server's
+        `STELLAR_WEBHOOK_SECRET`. The signature is verified before the body
+        is validated, so a request with an invalid signature never reaches
+        payload validation.
+      parameters:
+        - name: X-Stellar-Webhook-Signature
+          in: header
+          required: true
+          description: Hex-encoded HMAC-SHA256 digest of the raw request body.
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StellarWebhookPayload'
+      responses:
+        '200':
+          description: Event accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [received, eventId]
+                    properties:
+                      received: { type: boolean, example: true }
+                      eventId: { type: string }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: Missing or invalid webhook signature
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: The server has no webhook secret configured
           content:
             application/json:
               schema:
@@ -1348,6 +1403,28 @@ components:
       type: object
       properties:
         error: { type: string }
+    StellarWebhookPayload:
+      type: object
+      required: [eventId, eventType, occurredAt, data]
+      properties:
+        eventId:
+          type: string
+          minLength: 1
+        eventType:
+          type: string
+          enum:
+            - transaction.succeeded
+            - transaction.failed
+            - account.created
+            - trustline.created
+            - trustline.removed
+            - payment.received
+        occurredAt:
+          type: string
+          format: date-time
+        data:
+          type: object
+          additionalProperties: true
     TokenTransferRequest:
       type: object
       required: [signedXdr]
