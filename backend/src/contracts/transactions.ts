@@ -1,7 +1,25 @@
-import { Asset, BASE_FEE, Memo, Operation, TransactionBuilder } from '@stellar/stellar-sdk';
+import {
+  Asset,
+  Keypair,
+  TransactionBuilder,
+  Operation,
+  BASE_FEE,
+  Memo,
+  Transaction,
+} from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
+import { invalidateBalanceCache } from '../cache/balances';
 
-export interface UnsignedPaymentParams {
+export interface PaymentParams {
+  senderSecret: string;
+  destinationPublicKey: string;
+  assetCode: string;
+  assetIssuer: string;
+  amount: string;
+  memo?: string;
+}
+
+export interface BuildUnsignedPaymentParams {
   senderPublicKey: string;
   destinationPublicKey: string;
   assetCode: string;
@@ -11,36 +29,60 @@ export interface UnsignedPaymentParams {
 }
 
 /**
- * Builds an unsigned payment transaction XDR for the given parameters.
- * The caller is responsible for signing and submitting the transaction.
- *
- * Uses the current Horizon sequence number for the sender account so the
- * transaction is immediately valid for submission once signed.
+ * Submits a signed payment from a server-held keypair (e.g., community distributor).
  */
-export async function buildUnsignedPayment(params: UnsignedPaymentParams): Promise<string> {
-  const { senderPublicKey, destinationPublicKey, assetCode, assetIssuer, amount, memo } = params;
+export async function submitPayment(params: PaymentParams): Promise<string> {
+  const { senderSecret, destinationPublicKey, assetCode, assetIssuer, amount, memo } = params;
 
-  const account = await StellarService.loadAccount(senderPublicKey);
+  const senderKeypair = Keypair.fromSecret(senderSecret);
   const network = StellarService.getNetwork();
 
+  const account = await StellarService.loadAccount(senderKeypair.publicKey());
   const asset = assetCode === 'XLM' ? Asset.native() : new Asset(assetCode, assetIssuer);
 
   const txBuilder = new TransactionBuilder(account, {
     fee: BASE_FEE,
     networkPassphrase: network,
-  });
+  }).addOperation(Operation.payment({ destination: destinationPublicKey, asset, amount }));
 
   if (memo) {
     txBuilder.addMemo(Memo.text(memo));
   }
 
-  txBuilder.addOperation(
-    Operation.payment({
-      destination: destinationPublicKey,
-      asset,
-      amount,
-    })
-  );
+  const tx = txBuilder.setTimeout(30).build();
+  tx.sign(senderKeypair);
+
+  const result = await StellarService.submitTransaction(tx);
+  await invalidateBalanceCache([senderKeypair.publicKey(), destinationPublicKey]);
+  return result.hash;
+}
+
+/**
+ * Builds an unsigned XDR transaction for client-side signing via Freighter.
+ */
+export async function buildUnsignedPayment(params: BuildUnsignedPaymentParams): Promise<string> {
+  const { senderPublicKey, destinationPublicKey, assetCode, assetIssuer, amount, memo } = params;
+
+  const network = StellarService.getNetwork();
+
+  const account = await StellarService.loadAccount(senderPublicKey);
+  const asset = assetCode === 'XLM' ? Asset.native() : new Asset(assetCode, assetIssuer);
+
+  const txBuilder = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: network,
+  }).addOperation(Operation.payment({ destination: destinationPublicKey, asset, amount }));
+
+  if (memo) {
+    txBuilder.addMemo(Memo.text(memo));
+  }
 
   return txBuilder.setTimeout(30).build().toXDR();
+}
+
+export async function submitSignedXdr(xdr: string): Promise<string> {
+  const network = StellarService.getNetwork();
+  const tx = new Transaction(xdr, network);
+  const result = await StellarService.submitTransaction(tx);
+  return result.hash;
 }
