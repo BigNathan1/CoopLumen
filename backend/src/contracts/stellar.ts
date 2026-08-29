@@ -83,8 +83,13 @@ class StellarServiceClass {
     return this.server;
   }
 
-  getNetwork(): string {
+  /** Returns the network passphrase Horizon requests are signed against for the current environment. */
+  getNetworkPassphrase(): string {
     return this.network;
+  }
+
+  getNetwork(): string {
+    return this.getNetworkPassphrase();
   }
 
   isTestnet(): boolean {

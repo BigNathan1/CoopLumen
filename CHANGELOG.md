@@ -13,6 +13,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `GET /api/v1/fees/estimate` endpoint returning current Stellar network base fee and percentile fee distribution from Horizon (#156).
 - `StellarService.getFeeStats()` method wrapping `Horizon.Server.feeStats()` with the existing retry and error-mapping stack.
 
+- `StellarService.getNetworkPassphrase()` returning the correct network passphrase for the configured environment (#143).
 - `GET /api/v1/accounts/:publicKey/trustlines` endpoint listing all non-native trustlines established by a Stellar account, added to the existing `accountsRouter` alongside `GET /api/v1/accounts/:publicKey` (#154).
 - Full JSDoc documentation added to all route handlers in `balances.ts` and `transactions.ts` -- parameters, response shapes, caching TTL, Horizon retry behaviour, and external dependencies are now documented (#167).
 - `docs/openapi.yaml`: fixed malformed merged `/history`+`/loans` path block, removed duplicate path key duplicates, and added `/api/v1/balances/{publicKey}/history` as a proper standalone path entry (#167).
