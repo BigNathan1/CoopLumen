@@ -385,6 +385,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/trustlines/build:
+    post:
+      tags: [Transactions, Tokens]
+      summary: Build an unsigned Stellar trustline establishment transaction
+      description: >
+        Loads the account and its current sequence number from Horizon,
+        then returns a single-operation changeTrust transaction XDR for wallet signing.
+        The transaction is not signed or submitted by this endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BuildTrustlineRequest'
+      responses:
+        '200':
+          description: Unsigned trustline transaction built successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildTrustlineResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404':
+          description: The Stellar account does not exist on the configured network
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Horizon is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/tokens/airdrop:
     post:
       tags: [Transactions]
@@ -1326,6 +1361,40 @@ components:
         amount: '10.5'
         memo: Community payment
     UnsignedPaymentResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [xdr]
+          properties:
+            xdr:
+              type: string
+              description: Base64-encoded unsigned Stellar transaction envelope XDR.
+    BuildTrustlineRequest:
+      type: object
+      required: [accountPublicKey, assetCode, assetIssuer]
+      properties:
+        accountPublicKey:
+          $ref: '#/components/schemas/StellarKey'
+          description: Stellar public key of the account establishing the trustline.
+        assetCode:
+          type: string
+          pattern: '^[A-Za-z0-9]{1,12}$'
+          description: Stellar asset code to trust.
+        assetIssuer:
+          $ref: '#/components/schemas/StellarKey'
+          description: Stellar public key of the asset issuer.
+        limit:
+          type: string
+          pattern: '^(?:0|[1-9]\d*)(?:\.\d{1,7})?$'
+          description: Optional maximum amount of the asset to trust.
+      example:
+        accountPublicKey: GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR
+        assetCode: COOP
+        assetIssuer: GCATS5YOVB6ROX2WUNKGNQ2MP3GMXDMKSG2O4N5CLX3A6W4PZGZZI55U
+        limit: '1000'
+    BuildTrustlineResponse:
       type: object
       required: [data]
       properties:

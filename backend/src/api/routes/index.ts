@@ -4,6 +4,7 @@ import { tokenRouter } from './tokens';
 import { balanceRouter } from './balances';
 import { loanRouter } from './loans';
 import { transactionRouter } from './transactions';
+import { trustlineRouter } from './trustlines';
 import { accountsRouter } from './accounts';
 
 /**
@@ -18,4 +19,5 @@ apiRouter.use('/tokens', tokenRouter);
 apiRouter.use('/balances', balanceRouter);
 apiRouter.use('/loans', loanRouter);
 apiRouter.use('/transactions', transactionRouter);
+apiRouter.use('/trustlines', trustlineRouter);
 apiRouter.use('/accounts', accountsRouter);
