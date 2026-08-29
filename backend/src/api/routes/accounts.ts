@@ -1,29 +1,50 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
 import { StellarService } from '../../contracts/stellar';
-import { isValidStellarPublicKey } from '../utils/stellar';
+import { accountParamsSchema } from '../schemas/account';
 import { mapHorizonError } from '../utils/horizonError';
+import { formatAccountDetails } from '../utils/stellarAccount';
 
-export const accountRouter = Router();
+export const accountsRouter = Router();
 
-const accountParamsSchema = z.object({
-  publicKey: z
-    .string()
-    .refine(isValidStellarPublicKey, 'publicKey must be a valid Stellar public key'),
-});
+/**
+ * GET /api/v1/accounts/:publicKey
+ * Returns full Stellar account details from Horizon for the given public key.
+ */
+accountsRouter.get(
+  '/:publicKey',
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const parsedParams = accountParamsSchema.safeParse(req.params);
+    if (!parsedParams.success) {
+      res.status(400).json({
+        data: null,
+        error: 'Validation failed',
+        meta: {
+          errors: parsedParams.error.issues.map((issue) => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
+      });
+      return;
+    }
 
-function respondValidationError(res: Response, error: z.ZodError): void {
-  res.status(400).json({
-    data: null,
-    error: 'Validation failed',
-    meta: {
-      errors: error.issues.map((issue) => ({
-        path: issue.path.join('.'),
-        message: issue.message,
-      })),
-    },
-  });
-}
+    try {
+      const { publicKey } = parsedParams.data;
+      const account = await StellarService.loadAccount(publicKey);
+      const accountDetails = formatAccountDetails(account);
+
+      res.status(200).json({ data: accountDetails });
+    } catch (err) {
+      if ((err as { response?: unknown }).response) {
+        const mapped = mapHorizonError(err);
+        res.status(mapped.status).json({ data: null, error: mapped.message });
+        return;
+      }
+
+      next(err);
+    }
+  }
+);
 
 /**
  * GET /api/v1/accounts/:publicKey/trustlines
@@ -46,12 +67,21 @@ function respondValidationError(res: Response, error: z.ZodError): void {
  * @returns {404} ErrorResponse - Account does not exist on the configured network
  * @returns {502} ErrorResponse - Horizon unavailable after retry exhaustion
  */
-accountRouter.get(
+accountsRouter.get(
   '/:publicKey/trustlines',
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const parsedParams = accountParamsSchema.safeParse(req.params);
     if (!parsedParams.success) {
-      respondValidationError(res, parsedParams.error);
+      res.status(400).json({
+        data: null,
+        error: 'Validation failed',
+        meta: {
+          errors: parsedParams.error.issues.map((issue) => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
+      });
       return;
     }
 
