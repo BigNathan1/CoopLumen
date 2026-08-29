@@ -13,6 +13,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `GET /api/v1/fees/estimate` endpoint returning current Stellar network base fee and percentile fee distribution from Horizon (#156).
 - `StellarService.getFeeStats()` method wrapping `Horizon.Server.feeStats()` with the existing retry and error-mapping stack.
 
+- `GET /api/v1/accounts/:publicKey/trustlines` endpoint listing all non-native trustlines established by a Stellar account, added to the existing `accountsRouter` alongside `GET /api/v1/accounts/:publicKey` (#154).
 - Full JSDoc documentation added to all route handlers in `balances.ts` and `transactions.ts` -- parameters, response shapes, caching TTL, Horizon retry behaviour, and external dependencies are now documented (#167).
 - `docs/openapi.yaml`: fixed malformed merged `/history`+`/loans` path block, removed duplicate path key duplicates, and added `/api/v1/balances/{publicKey}/history` as a proper standalone path entry (#167).
 - Integration test coverage for Redis-backed balance caching (`backend/src/cache/__tests__/`): a real-Redis suite (round-trip, TTL, expiry, invalidation, malformed-payload recovery — gated on `REDIS_URL`, matching the existing `DATABASE_URL`-gated pattern) plus a mocked-client suite covering the same behavior for CI environments without a live Redis. CI now runs a `redis:7-alpine` service so the gated suite executes on every push/PR (#171).
