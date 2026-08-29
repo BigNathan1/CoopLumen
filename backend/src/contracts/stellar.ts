@@ -95,6 +95,10 @@ class StellarServiceClass {
     return this.withRetry('loadAccount', () => this.server.loadAccount(publicKey));
   }
 
+  async getAccount(publicKey: string): Promise<Horizon.AccountResponse> {
+    return this.loadAccount(publicKey);
+  }
+
   async submitTransaction(
     transaction: Parameters<Horizon.Server['submitTransaction']>[0]
   ): Promise<Horizon.HorizonApi.SubmitTransactionResponse> {
