@@ -207,7 +207,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   /api/v1/balances/{publicKey}/history:
-  /api/v1/balances/{publicKey}/loans:
     parameters:
       - name: publicKey
         in: path
@@ -215,21 +214,6 @@ paths:
         description: Stellar public key whose audit history should be returned.
         schema:
           $ref: '#/components/schemas/StellarKey'
-      - name: page
-        in: query
-        description: One-based result page.
-        schema:
-          type: integer
-          minimum: 1
-          default: 1
-      - name: limit
-        in: query
-        description: Maximum history entries per page.
-        schema:
-          type: integer
-          minimum: 1
-          maximum: 100
-          default: 20
     get:
       tags: [Balances]
       summary: Get balance-change audit history
@@ -237,6 +221,9 @@ paths:
         Returns transactions_log audit entries associated with the Stellar
         address, ordered newest first. Action-specific balance information is
         preserved in each entry's metadata object.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
       responses:
         '200':
           description: Paginated balance-change audit history
@@ -251,51 +238,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        description: Stellar public key to look up as either borrower or lender.
-        schema:
-          $ref: '#/components/schemas/StellarKey'
-    get:
-      tags: [Balances, Loans]
-      summary: List loans involving an address
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          description: A page of loans where the address is borrower or lender
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/Loan' }
-                  meta: { $ref: '#/components/schemas/PageMeta' }
-        '400': { $ref: '#/components/responses/ValidationError' }
-
-  /api/v1/balances/community/{communityId}/loans:
-    parameters:
-      - $ref: '#/components/parameters/CommunityId'
-    get:
-      tags: [Balances, Loans]
-      summary: List loans in a community
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          description: A page of loans belonging to the community
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/Loan' }
-                  meta: { $ref: '#/components/schemas/PageMeta' }
-        '400': { $ref: '#/components/responses/ValidationError' }
 
   /api/v1/balances/{publicKey}/loans:
     parameters:
