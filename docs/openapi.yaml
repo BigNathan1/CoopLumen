@@ -25,6 +25,8 @@ tags:
     description: Community treasury balances
   - name: Loans
     description: Peer-to-peer loan lifecycle within a community
+  - name: Fees
+    description: Stellar network fee estimation
   - name: Webhooks
     description: Inbound webhook endpoints for Stellar account/transaction event notifications
 
@@ -289,6 +291,31 @@ paths:
                     items: { $ref: '#/components/schemas/Loan' }
                   meta: { $ref: '#/components/schemas/PageMeta' }
         '400': { $ref: '#/components/responses/ValidationError' }
+
+  /api/v1/fees/estimate:
+    get:
+      tags: [Fees]
+      summary: Estimate transaction fees
+      description: >
+        Returns the current Stellar network base fee and key percentile fee
+        distribution fetched live from Horizon. Horizon 429/503 errors are
+        retried with exponential backoff before a 502 is returned.
+      responses:
+        '200':
+          description: Current fee statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/FeeEstimate'
+        '502':
+          description: Stellar network error or Horizon temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/v1/tokens/transfer:
     post:
@@ -1204,6 +1231,33 @@ components:
       type: string
       description: A 56-character Stellar StrKey public key.
       pattern: '^G[A-Z2-7]{55}$'
+    FeeEstimate:
+      type: object
+      required: [baseFee, lastLedger, ledgerCapacityUsage, feeCharged]
+      properties:
+        baseFee:
+          type: integer
+          description: Minimum fee per operation in stroops (from last_ledger_base_fee)
+          example: 100
+        lastLedger:
+          type: string
+          description: Sequence number of the most recent ledger used for fee calculation
+          example: "4372364"
+        ledgerCapacityUsage:
+          type: string
+          description: Fraction of ledger capacity used in the recent ledger sample (0.0–1.0)
+          example: "0.07"
+        feeCharged:
+          type: object
+          required: [min, mode, p10, p50, p90, p95, p99]
+          properties:
+            min:  { type: string, description: Minimum fee charged, example: "100" }
+            mode: { type: string, description: Most common fee charged, example: "100" }
+            p10:  { type: string, description: 10th percentile fee charged, example: "100" }
+            p50:  { type: string, description: 50th percentile (median) fee charged, example: "100" }
+            p90:  { type: string, description: 90th percentile fee charged, example: "95947" }
+            p95:  { type: string, description: 95th percentile fee charged, example: "154834" }
+            p99:  { type: string, description: 99th percentile fee charged, example: "706514" }
     BalanceLine:
       type: object
       properties:

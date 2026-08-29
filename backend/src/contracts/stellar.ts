@@ -128,6 +128,10 @@ class StellarServiceClass {
     return records.records;
   }
 
+  async getFeeStats(): Promise<Horizon.HorizonApi.FeeStatsResponse> {
+    return this.call('feeStats', () => this.server.feeStats());
+  }
+
   async ping(): Promise<boolean> {
     try {
       const network = (process.env.STELLAR_NETWORK ?? 'testnet') as StellarNetwork;
