@@ -92,12 +92,24 @@ class StellarServiceClass {
     return this.getNetworkPassphrase();
   }
 
+  isTestnet(): boolean {
+    return this.network === (Networks.TESTNET as string);
+  }
+
+  isMainnet(): boolean {
+    return this.network === (Networks.PUBLIC as string);
+  }
+
   async call<T>(operationName: string, request: () => Promise<T>): Promise<T> {
     return this.withRetry(operationName, request);
   }
 
   async loadAccount(publicKey: string): Promise<Horizon.AccountResponse> {
     return this.withRetry('loadAccount', () => this.server.loadAccount(publicKey));
+  }
+
+  async getAccount(publicKey: string): Promise<Horizon.AccountResponse> {
+    return this.loadAccount(publicKey);
   }
 
   async submitTransaction(
@@ -119,6 +131,10 @@ class StellarServiceClass {
       this.server.transactions().forAccount(publicKey).limit(limit).order('desc').call()
     );
     return records.records;
+  }
+
+  async getFeeStats(): Promise<Horizon.HorizonApi.FeeStatsResponse> {
+    return this.call('feeStats', () => this.server.feeStats());
   }
 
   async ping(): Promise<boolean> {
