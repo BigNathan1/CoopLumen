@@ -1,16 +1,16 @@
 import request from 'supertest';
 import { Keypair } from '@stellar/stellar-sdk';
 import app from '../../../app';
-import { getAssetSupply } from '../../../contracts/assets';
+import { getTotalSupply } from '../../../contracts/assets';
 
 jest.mock('../../../contracts/assets', () => ({
-  getAssetSupply: jest.fn(),
+  getTotalSupply: jest.fn(),
   getAssetHolders: jest.fn(),
   issueAsset: jest.fn(),
   burnAsset: jest.fn(),
 }));
 
-const mockGetAssetSupply = getAssetSupply as jest.Mock;
+const mockGetTotalSupply = getTotalSupply as jest.Mock;
 const issuer = Keypair.random().publicKey();
 
 describe('GET /api/v1/tokens/supply/:assetCode/:issuer', () => {
@@ -19,7 +19,7 @@ describe('GET /api/v1/tokens/supply/:assetCode/:issuer', () => {
   });
 
   it('returns the supply reported by Horizon', async () => {
-    mockGetAssetSupply.mockResolvedValueOnce('1250.5000000');
+    mockGetTotalSupply.mockResolvedValueOnce('1250.5000000');
 
     const response = await request(app).get(`/api/v1/tokens/supply/ECO/${issuer}`);
 
@@ -31,7 +31,7 @@ describe('GET /api/v1/tokens/supply/:assetCode/:issuer', () => {
         supply: '1250.5000000',
       },
     });
-    expect(mockGetAssetSupply).toHaveBeenCalledWith('ECO', issuer);
+    expect(mockGetTotalSupply).toHaveBeenCalledWith('ECO', issuer);
   });
 
   it('rejects malformed path parameters with the API error envelope', async () => {
@@ -40,11 +40,11 @@ describe('GET /api/v1/tokens/supply/:assetCode/:issuer', () => {
     expect(response.status).toBe(400);
     expect(response.body.error).toBe('Invalid request parameters');
     expect(response.body.meta.errors).toBeDefined();
-    expect(mockGetAssetSupply).not.toHaveBeenCalled();
+    expect(mockGetTotalSupply).not.toHaveBeenCalled();
   });
 
   it('maps an unavailable Horizon response to an actionable error', async () => {
-    mockGetAssetSupply.mockRejectedValueOnce({ response: { status: 503 } });
+    mockGetTotalSupply.mockRejectedValueOnce({ response: { status: 503 } });
 
     const response = await request(app).get(`/api/v1/tokens/supply/ECO/${issuer}`);
 
