@@ -1,32 +1,64 @@
-/**
- * Stellar transaction building helpers.
- *
- * Provides `buildUnsignedPayment`, which constructs a payment transaction
- * using the source account's current sequence number fetched from Horizon.
- * The resulting XDR is unsigned so it can be forwarded to a wallet (e.g.
- * Freighter) for signing before submission.
- */
-
-import { Asset, Memo, TransactionBuilder, BASE_FEE, Operation } from '@stellar/stellar-sdk';
+import { Asset, Keypair, TransactionBuilder, Operation, BASE_FEE, Transaction } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
+import { MemoInput, buildMemo } from './memo';
+import { TimeBoundsInput, applyTimeBounds } from './timeBounds';
+import { invalidateBalanceCache } from '../cache/balances';
 
-export interface UnsignedPaymentParams {
+export interface PaymentParams {
+  senderSecret: string;
+  destinationPublicKey: string;
+  assetCode: string;
+  assetIssuer: string;
+  amount: string;
+  memo?: MemoInput;
+  timeBounds?: TimeBoundsInput;
+}
+
+export interface BuildUnsignedPaymentParams {
   senderPublicKey: string;
   destinationPublicKey: string;
   assetCode: string;
   assetIssuer: string;
   amount: string;
-  memo?: string;
+  memo?: MemoInput;
+  timeBounds?: TimeBoundsInput;
 }
 
 /**
- * Fetches the current sequence number for `senderPublicKey` from Horizon,
- * then builds and returns a base64-encoded unsigned payment XDR.
- *
- * The transaction has a 3-minute timeout, uses the current base fee, and
- * targets the network the service is configured for.
+ * Submits a signed payment from a server-held keypair (e.g., community distributor).
  */
-export async function buildUnsignedPayment(params: UnsignedPaymentParams): Promise<string> {
+export async function submitPayment(params: PaymentParams): Promise<string> {
+  const { senderSecret, destinationPublicKey, assetCode, assetIssuer, amount, memo, timeBounds } =
+    params;
+
+  const senderKeypair = Keypair.fromSecret(senderSecret);
+  const network = StellarService.getNetwork();
+
+  const account = await StellarService.loadAccount(senderKeypair.publicKey());
+  const asset = assetCode === 'XLM' ? Asset.native() : new Asset(assetCode, assetIssuer);
+
+  const txBuilder = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: network,
+  }).addOperation(Operation.payment({ destination: destinationPublicKey, asset, amount }));
+
+  const builtMemo = buildMemo(memo);
+  if (builtMemo) {
+    txBuilder.addMemo(builtMemo);
+  }
+
+  const tx = applyTimeBounds(txBuilder, timeBounds).build();
+  tx.sign(senderKeypair);
+
+  const result = await StellarService.submitTransaction(tx);
+  await invalidateBalanceCache([senderKeypair.publicKey(), destinationPublicKey]);
+  return result.hash;
+}
+
+/**
+ * Builds an unsigned XDR transaction for client-side signing via Freighter.
+ */
+export async function buildUnsignedPayment(params: BuildUnsignedPaymentParams): Promise<string> {
   const {
     senderPublicKey,
     destinationPublicKey,
@@ -34,31 +66,30 @@ export async function buildUnsignedPayment(params: UnsignedPaymentParams): Promi
     assetIssuer,
     amount,
     memo,
+    timeBounds,
   } = params;
 
+  const network = StellarService.getNetwork();
+
   const account = await StellarService.loadAccount(senderPublicKey);
+  const asset = assetCode === 'XLM' ? Asset.native() : new Asset(assetCode, assetIssuer);
 
-  const asset =
-    assetCode === 'XLM' || !assetIssuer
-      ? Asset.native()
-      : new Asset(assetCode, assetIssuer);
-
-  const builder = new TransactionBuilder(account, {
+  const txBuilder = new TransactionBuilder(account, {
     fee: BASE_FEE,
-    networkPassphrase: StellarService.getNetwork(),
-  })
-    .addOperation(
-      Operation.payment({
-        destination: destinationPublicKey,
-        asset,
-        amount,
-      })
-    )
-    .setTimeout(180);
+    networkPassphrase: network,
+  }).addOperation(Operation.payment({ destination: destinationPublicKey, asset, amount }));
 
-  if (memo) {
-    builder.addMemo(Memo.text(memo));
+  const builtMemo = buildMemo(memo);
+  if (builtMemo) {
+    txBuilder.addMemo(builtMemo);
   }
 
-  return builder.build().toXDR();
+  return applyTimeBounds(txBuilder, timeBounds).build().toXDR();
+}
+
+export async function submitSignedXdr(xdr: string): Promise<string> {
+  const network = StellarService.getNetwork();
+  const tx = new Transaction(xdr, network);
+  const result = await StellarService.submitTransaction(tx);
+  return result.hash;
 }

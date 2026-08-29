@@ -1,71 +1,47 @@
-/**
- * In-memory price cache with TTL.
- *
- * Intentionally does not depend on Redis so that the prices endpoint is
- * fully functional in environments where REDIS_URL is not configured.
- * The default TTL is 30 seconds — short enough to stay reasonably fresh
- * while dramatically reducing outbound calls to public price APIs.
- */
+import { redisCache } from './redis';
+import { logger } from '../utils/logger';
+import { XlmPriceData } from '../contracts/prices';
 
-export interface CachedPrice {
-  /** USD price of the asset. */
-  price: number;
-  /** Which provider returned this quote (e.g. "CoinGecko"). */
-  source: string;
-  /** ISO-8601 timestamp of when the entry was stored. */
-  cached_at: string;
-  /** Unix-ms timestamp used for TTL arithmetic (not exposed to callers). */
-  readonly storedAtMs: number;
+export const PRICE_CACHE_TTL_SECONDS = 30;
+
+export function getPriceCacheKey(asset: string, currency: string): string {
+  return `prices:${asset.toUpperCase()}:${currency.toUpperCase()}`;
 }
 
-const cache = new Map<string, CachedPrice>();
+export async function getCachedPrice(
+  asset: string,
+  currency: string
+): Promise<XlmPriceData | null> {
+  const key = getPriceCacheKey(asset, currency);
+  const cached = await redisCache.get(key);
 
-export const PRICE_CACHE_TTL_MS = 30_000;
+  if (!cached) return null;
 
-/**
- * Returns the cached price entry for `key`, or `null` if the entry is absent
- * or has exceeded its TTL.
- */
-export function getCachedPrice(key: string): CachedPrice | null {
-  const entry = cache.get(key);
-  if (!entry) return null;
-
-  if (Date.now() - entry.storedAtMs > PRICE_CACHE_TTL_MS) {
-    cache.delete(key);
+  try {
+    const parsed = JSON.parse(cached) as XlmPriceData;
+    if (parsed && typeof parsed.price === 'string' && typeof parsed.currency === 'string') {
+      return parsed;
+    }
+    await redisCache.del(key);
+    return null;
+  } catch (error) {
+    logger.warn('Discarding malformed cached price payload', {
+      key,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    await redisCache.del(key);
     return null;
   }
-
-  return entry;
 }
 
-/**
- * Stores a price entry under `key`.  The `cached_at` field is set to the
- * current UTC instant so consumers can include it in API responses.
- */
-export function setCachedPrice(
-  key: string,
-  price: number,
-  source: string
-): CachedPrice {
-  const storedAtMs = Date.now();
-  const entry: CachedPrice = {
-    price,
-    source,
-    cached_at: new Date(storedAtMs).toISOString(),
-    storedAtMs,
-  };
-  cache.set(key, entry);
-  return entry;
+export async function cachePrice(
+  asset: string,
+  currency: string,
+  priceData: XlmPriceData
+): Promise<void> {
+  await redisCache.setEx(
+    getPriceCacheKey(asset, currency),
+    PRICE_CACHE_TTL_SECONDS,
+    JSON.stringify(priceData)
+  );
 }
-
-/** Removes an entry (used in tests). */
-export function invalidatePriceCache(key: string): void {
-  cache.delete(key);
-}
-
-/** Clears the entire cache (used in tests). */
-export function clearPriceCache(): void {
-  cache.clear();
-}
-
-export const XLM_PRICE_CACHE_KEY = 'price:xlm:usd';
