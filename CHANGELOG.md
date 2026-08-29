@@ -10,6 +10,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Global `ErrorBoundary` component wrapping the frontend root layout to catch unhandled render errors and display an accessible fallback UI using design system tokens (#252, backlog #179). The fallback UI includes error details in a collapsible section, keyboard-operable recovery button, dark-mode support, and full accessibility (heading structure, focus management, ARIA semantics).
 - `GET /api/v1/fees/estimate` endpoint returning current Stellar network base fee and percentile fee distribution from Horizon (#156).
 - `StellarService.getFeeStats()` method wrapping `Horizon.Server.feeStats()` with the existing retry and error-mapping stack.
 
