@@ -1,20 +1,17 @@
-import {
-  Asset,
-  Keypair,
-  TransactionBuilder,
-  Operation,
-  BASE_FEE,
-  Memo,
-} from '@stellar/stellar-sdk';
+import { Asset, Keypair, TransactionBuilder, Operation, BASE_FEE } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
+import { MemoInput, buildMemo } from './memo';
+import { TimeBoundsInput, applyTimeBounds } from './timeBounds';
 import { invalidateBalanceCache } from '../cache/balances';
+import { withSequenceRetry } from './sequenceCache';
 
 export interface IssueAssetParams {
   issuerSecret: string;
   assetCode: string;
   distributorPublicKey: string;
   amount: string;
-  memo?: string;
+  memo?: MemoInput;
+  timeBounds?: TimeBoundsInput;
 }
 
 export interface BurnAssetParams {
@@ -22,6 +19,8 @@ export interface BurnAssetParams {
   assetCode: string;
   assetIssuer: string;
   amount: string;
+  memo?: MemoInput;
+  timeBounds?: TimeBoundsInput;
 }
 
 export interface AssetHolder {
@@ -34,35 +33,37 @@ export interface AssetHolder {
  * The issuer account creates the asset and sends initial supply to a distributor.
  */
 export async function issueAsset(params: IssueAssetParams): Promise<string> {
-  const { issuerSecret, assetCode, distributorPublicKey, amount, memo } = params;
+  const { issuerSecret, assetCode, distributorPublicKey, amount, memo, timeBounds } = params;
 
   const issuerKeypair = Keypair.fromSecret(issuerSecret);
   const network = StellarService.getNetwork();
-
-  const issuerAccount = await StellarService.loadAccount(issuerKeypair.publicKey());
   const asset = new Asset(assetCode, issuerKeypair.publicKey());
 
-  const txBuilder = new TransactionBuilder(issuerAccount, {
-    fee: BASE_FEE,
-    networkPassphrase: network,
+  const result = await withSequenceRetry(issuerKeypair.publicKey(), async (issuerAccount) => {
+    const txBuilder = new TransactionBuilder(issuerAccount, {
+      fee: BASE_FEE,
+      networkPassphrase: network,
+    });
+
+    const builtMemo = buildMemo(memo);
+    if (builtMemo) {
+      txBuilder.addMemo(builtMemo);
+    }
+
+    txBuilder.addOperation(
+      Operation.payment({
+        destination: distributorPublicKey,
+        asset,
+        amount,
+      })
+    );
+
+    const tx = applyTimeBounds(txBuilder, timeBounds).build();
+    tx.sign(issuerKeypair);
+
+    return StellarService.submitTransaction(tx);
   });
 
-  if (memo) {
-    txBuilder.addMemo(Memo.text(memo));
-  }
-
-  txBuilder.addOperation(
-    Operation.payment({
-      destination: distributorPublicKey,
-      asset,
-      amount,
-    })
-  );
-
-  const tx = txBuilder.setTimeout(30).build();
-  tx.sign(issuerKeypair);
-
-  const result = await StellarService.submitTransaction(tx);
   await invalidateBalanceCache([issuerKeypair.publicKey(), distributorPublicKey]);
   return result.hash;
 }
@@ -73,31 +74,34 @@ export async function issueAsset(params: IssueAssetParams): Promise<string> {
  * to the issuer permanently reduces total supply (the issuer never resends it).
  */
 export async function burnAsset(params: BurnAssetParams): Promise<string> {
-  const { holderSecret, assetCode, assetIssuer, amount } = params;
+  const { holderSecret, assetCode, assetIssuer, amount, memo, timeBounds } = params;
 
   const holderKeypair = Keypair.fromSecret(holderSecret);
   const network = StellarService.getNetwork();
-
-  const holderAccount = await StellarService.loadAccount(holderKeypair.publicKey());
   const asset = new Asset(assetCode, assetIssuer);
 
-  const tx = new TransactionBuilder(holderAccount, {
-    fee: BASE_FEE,
-    networkPassphrase: network,
-  })
-    .addOperation(
+  const result = await withSequenceRetry(holderKeypair.publicKey(), async (holderAccount) => {
+    const txBuilder = new TransactionBuilder(holderAccount, {
+      fee: BASE_FEE,
+      networkPassphrase: network,
+    }).addOperation(
       Operation.payment({
         destination: assetIssuer,
         asset,
         amount,
       })
-    )
-    .setTimeout(30)
-    .build();
+    );
 
-  tx.sign(holderKeypair);
+    const builtMemo = buildMemo(memo);
+    if (builtMemo) {
+      txBuilder.addMemo(builtMemo);
+    }
 
-  const result = await StellarService.submitTransaction(tx);
+    const tx = applyTimeBounds(txBuilder, timeBounds).build();
+    tx.sign(holderKeypair);
+    return StellarService.submitTransaction(tx);
+  });
+
   await invalidateBalanceCache([holderKeypair.publicKey(), assetIssuer]);
   return result.hash;
 }
@@ -135,11 +139,47 @@ export async function getAssetHolders(
   return holders;
 }
 
-/** Returns the circulating supply reported by Horizon for an issued asset. */
-export async function getAssetSupply(assetCode: string, assetIssuer: string): Promise<string> {
+/**
+ * Returns the numeric balance of an asset held by a given account.
+ * If the account has no trustline for the asset, returns 0.
+ * If the account doesn't exist, throws an error.
+ *
+ * @param publicKey Account public key
+ * @param assetCode Asset code (e.g., "ECO")
+ * @param issuer Issuer's public key
+ * @returns Numeric balance, or 0 if no trustline exists
+ * @throws Error if account not found or network error (propagates to route handler for mapping)
+ */
+export async function getAssetBalance(
+  publicKey: string,
+  assetCode: string,
+  issuer: string
+): Promise<number> {
+  const account = await StellarService.loadAccount(publicKey);
+
+  // Find the balance entry for the given asset
+  const balanceEntry = account.balances.find(
+    (b) =>
+      b.asset_type !== 'native' &&
+      'asset_code' in b &&
+      b.asset_code === assetCode &&
+      b.asset_issuer === issuer
+  );
+
+  // No trustline means 0 balance
+  if (!balanceEntry) {
+    return 0;
+  }
+
+  // Convert Horizon's string balance to number
+  return Number(balanceEntry.balance);
+}
+
+/** Returns the total supply Horizon's asset stats endpoint reports for an issued asset. */
+export async function getTotalSupply(assetCode: string, issuer: string): Promise<string> {
   const server = StellarService.getServer();
   const page = await StellarService.call('assets.forCode', () =>
-    server.assets().forCode(assetCode).forIssuer(assetIssuer).limit(1).call()
+    server.assets().forCode(assetCode).forIssuer(issuer).limit(1).call()
   );
 
   return page.records[0]?.amount ?? '0.0000000';
