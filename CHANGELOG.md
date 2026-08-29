@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Expanded `api/utils/horizonError.ts` to map the full set of known Stellar transaction and operation result codes (`tx_bad_seq`, `op_underfunded`, `tx_too_late`, `op_low_reserve`, etc.) to friendly, actionable error messages, with full unit test coverage (#166).
 - `GET /api/v1/prices/xlm` returning XLM/USD market price from public feeds with Redis caching and multi-provider failover (#137).
 - `StellarService.isTestnet()` and `StellarService.isMainnet()` helper methods to inspect active Stellar network configuration (#141).
 - `POST /api/v1/trustlines/build` to generate unsigned trustline establishment XDR for wallet signing (#124).
