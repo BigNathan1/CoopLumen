@@ -9,6 +9,16 @@ import {
 import { StellarService } from './stellar';
 import { invalidateBalanceCache } from '../cache/balances';
 import { withSequenceRetry } from './sequenceCache';
+import { invalidInput, withMappedHorizonError } from './errors';
+import {
+  TRANSACTION_TIMEOUT_SECONDS,
+  assertAssetCode,
+  assertMemoLength,
+  assertPositiveAmount,
+  assertPublicKey,
+  parseSecretKey,
+} from './validation';
+import { logger } from '../utils/logger';
 
 export interface IssueAssetParams {
   issuerSecret: string;
@@ -31,41 +41,110 @@ export interface AssetHolder {
 }
 
 /**
- * Issues a new community token on the Stellar network.
- * The issuer account creates the asset and sends initial supply to a distributor.
+ * Validates issuance parameters before any network call, so a typo costs a
+ * clear 400 instead of a Horizon round trip and an opaque `op_malformed`.
+ * Returns the issuer keypair, which the caller needs anyway.
  */
-export async function issueAsset(params: IssueAssetParams): Promise<string> {
+function parseIssueAssetParams(params: IssueAssetParams): Keypair {
+  const operation = 'issueAsset';
   const { issuerSecret, assetCode, distributorPublicKey, amount, memo } = params;
 
-  const issuerKeypair = Keypair.fromSecret(issuerSecret);
-  const network = StellarService.getNetwork();
-  const asset = new Asset(assetCode, issuerKeypair.publicKey());
+  const issuerKeypair = parseSecretKey(operation, 'issuerSecret', issuerSecret);
+  assertAssetCode(operation, 'assetCode', assetCode);
+  assertPublicKey(operation, 'distributorPublicKey', distributorPublicKey);
+  assertPositiveAmount(operation, 'amount', amount);
+  assertMemoLength(operation, memo);
 
-  const result = await withSequenceRetry(issuerKeypair.publicKey(), async (issuerAccount) => {
-    const txBuilder = new TransactionBuilder(issuerAccount, {
-      fee: BASE_FEE,
-      networkPassphrase: network,
-    });
-
-    if (memo) {
-      txBuilder.addMemo(Memo.text(memo));
-    }
-
-    txBuilder.addOperation(
-      Operation.payment({
-        destination: distributorPublicKey,
-        asset,
-        amount,
-      })
+  if (distributorPublicKey === issuerKeypair.publicKey()) {
+    throw invalidInput(
+      operation,
+      'distributorPublicKey must differ from the issuing account; an issuer paying itself creates no supply.'
     );
+  }
 
-    const tx = txBuilder.setTimeout(30).build();
-    tx.sign(issuerKeypair);
+  return issuerKeypair;
+}
 
-    return StellarService.submitTransaction(tx);
+/**
+ * Issues a new community token on the Stellar network.
+ * The issuer account creates the asset and sends initial supply to a distributor.
+ *
+ * Every failure surfaces as a `StellarOperationError` carrying a stable code,
+ * an actionable message, and the HTTP status a route handler should answer
+ * with — Horizon result codes are never re-thrown raw. Logs record the public
+ * identifiers of each attempt; the issuer secret is never logged.
+ *
+ * @throws {StellarOperationError} on invalid input or any Horizon failure.
+ */
+export async function issueAsset(params: IssueAssetParams): Promise<string> {
+  const operation = 'issueAsset';
+  const { assetCode, distributorPublicKey, amount, memo } = params;
+
+  const issuerKeypair = parseIssueAssetParams(params);
+  const issuerPublicKey = issuerKeypair.publicKey();
+  const logContext = {
+    operation,
+    assetCode,
+    issuerPublicKey,
+    distributorPublicKey,
+    amount,
+    hasMemo: memo !== undefined,
+  };
+
+  logger.info('Issuing community token', logContext);
+
+  const network = StellarService.getNetwork();
+  const asset = new Asset(assetCode, issuerPublicKey);
+
+  // withSequenceRetry supplies the cached Account (so concurrent issuances for
+  // the same issuer get distinct sequence numbers) and retries once on
+  // tx_bad_seq. The mapping wrapper sits outside it, so a failure that survives
+  // that retry is still reported as a StellarOperationError rather than raw.
+  const result = await withMappedHorizonError(operation, logContext, () =>
+    withSequenceRetry(issuerPublicKey, async (issuerAccount) => {
+      const txBuilder = new TransactionBuilder(issuerAccount, {
+        fee: BASE_FEE,
+        networkPassphrase: network,
+      });
+
+      if (memo) {
+        txBuilder.addMemo(Memo.text(memo));
+      }
+
+      txBuilder.addOperation(
+        Operation.payment({
+          destination: distributorPublicKey,
+          asset,
+          amount,
+        })
+      );
+
+      const tx = txBuilder.setTimeout(TRANSACTION_TIMEOUT_SECONDS).build();
+      tx.sign(issuerKeypair);
+
+      return StellarService.submitTransaction(tx);
+    })
+  );
+
+  logger.info('Community token issued', {
+    ...logContext,
+    txHash: result.hash,
+    ledger: result.ledger,
   });
 
-  await invalidateBalanceCache([issuerKeypair.publicKey(), distributorPublicKey]);
+  // The tokens are already on-chain at this point. A cache eviction failure
+  // must not turn a successful issuance into an error the caller may retry,
+  // so it is logged and swallowed; the entries expire on their own TTL.
+  try {
+    await invalidateBalanceCache([issuerPublicKey, distributorPublicKey]);
+  } catch (error) {
+    logger.warn('Balance cache invalidation failed after issuance', {
+      ...logContext,
+      txHash: result.hash,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
   return result.hash;
 }
 
