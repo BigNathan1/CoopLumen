@@ -124,12 +124,7 @@ export async function seedBaselineData(client: PoolClient): Promise<SeededDataba
      VALUES ($1, $2), ($3, $4)
      ON CONFLICT (community_id) DO UPDATE
      SET settings = EXCLUDED.settings`,
-    [
-      eco.id,
-      JSON.stringify(ecoFixture.settings),
-      agri.id,
-      JSON.stringify(agriFixture.settings),
-    ]
+    [eco.id, JSON.stringify(ecoFixture.settings), agri.id, JSON.stringify(agriFixture.settings)]
   );
 
   return { eco, agri };

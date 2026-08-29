@@ -12,6 +12,14 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Integration test coverage for Redis-backed balance caching (`backend/src/cache/__tests__/`): a real-Redis suite (round-trip, TTL, expiry, invalidation, malformed-payload recovery — gated on `REDIS_URL`, matching the existing `DATABASE_URL`-gated pattern) plus a mocked-client suite covering the same behavior for CI environments without a live Redis. CI now runs a `redis:7-alpine` service so the gated suite executes on every push/PR (#171).
+- `POST /api/v1/webhooks/stellar` to receive incoming Stellar account/transaction event notifications, protected by HMAC-SHA256 signature verification (`X-Stellar-Webhook-Signature`, keyed with `STELLAR_WEBHOOK_SECRET`) that fails closed when unconfigured (#170).
+- In-memory, per-account sequence number cache (`contracts/sequenceCache.ts`) shared by asset issuance, burn, trustline, and airdrop payment submission, so concurrent or back-to-back Stellar submissions from the same account no longer race on a stale sequence number. Falls back to a single reload-and-retry from Horizon on `tx_bad_seq` (#169).
+- Expanded `api/utils/horizonError.ts` to map the full set of known Stellar transaction and operation result codes (`tx_bad_seq`, `op_underfunded`, `tx_too_late`, `op_low_reserve`, etc.) to friendly, actionable error messages, with full unit test coverage (#166).
+- `GET /api/v1/prices/xlm` returning XLM/USD market price from public feeds with Redis caching and multi-provider failover (#137).
+- `StellarService.isTestnet()` and `StellarService.isMainnet()` helper methods to inspect active Stellar network configuration (#141).
+- `POST /api/v1/trustlines/build` to generate unsigned trustline establishment XDR for wallet signing (#124).
+- `GET /api/v1/accounts/:publicKey` returning full Stellar account details from Horizon with Zod validation, retries, and mapped error codes (#122).
+- `POST /api/v1/transactions/unsigned` to build unsigned Stellar payment XDR for wallet signing (#146).
 - `GET /api/v1/balances/:publicKey/history` for paginated balance-change audit history from `transactions_log` (#145).
 - `GET /api/v1/communities` pagination support via `page`, `limit`, and `offset` query parameters. When `offset` is provided, it takes precedence for querying and calculates the appropriate page in the metadata.
 - `npm run db:status` command showing which migrations are applied vs pending, with drift detection (#50)
