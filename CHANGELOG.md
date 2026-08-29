@@ -64,6 +64,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Three idempotent migrations (`004_create_tokens`, `007_create_loan_repayments`, `012_create_community_settings`) matching the original backlog numbering for issues #30, #33, and #38, added after the corresponding tables had already shipped under different migration numbers; each is a documented no-op on any database that already ran the real migration
 - GitHub Actions CI: lint, type-check, frontend tests, and backend tests with a PostgreSQL 16 service container so the DB integration suites run automatically on every push and PR to main
 - API versioning: all resource routes moved under the `/api/v1` prefix (health checks stay unversioned)
+- `getTrustlineLimit(publicKey, assetCode, issuer)` in `contracts/trustlines.ts`, returning the configured trust limit alongside the current balance, the remaining headroom computed in stroops, and the issuer authorization flag; `null` when the account holds no such trustline (#225)
 - Community avatar support: `avatar_url` column and `POST /api/v1/communities/:id/avatar` endpoint
 - OpenAPI 3.0 specification for the communities API at `docs/openapi.yaml`
 - Integration tests for the full community CRUD lifecycle over HTTP (real DB, gated on `DATABASE_URL`)
