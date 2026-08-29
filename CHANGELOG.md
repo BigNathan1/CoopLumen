@@ -13,6 +13,14 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Full JSDoc documentation added to all route handlers in `balances.ts` and `transactions.ts` -- parameters, response shapes, caching TTL, Horizon retry behaviour, and external dependencies are now documented (#167).
 - `docs/openapi.yaml`: fixed malformed merged `/history`+`/loans` path block, removed duplicate path key duplicates, and added `/api/v1/balances/{publicKey}/history` as a proper standalone path entry (#167).
+- Integration test coverage for Redis-backed balance caching (`backend/src/cache/__tests__/`): a real-Redis suite (round-trip, TTL, expiry, invalidation, malformed-payload recovery — gated on `REDIS_URL`, matching the existing `DATABASE_URL`-gated pattern) plus a mocked-client suite covering the same behavior for CI environments without a live Redis. CI now runs a `redis:7-alpine` service so the gated suite executes on every push/PR (#171).
+- `POST /api/v1/webhooks/stellar` to receive incoming Stellar account/transaction event notifications, protected by HMAC-SHA256 signature verification (`X-Stellar-Webhook-Signature`, keyed with `STELLAR_WEBHOOK_SECRET`) that fails closed when unconfigured (#170).
+- In-memory, per-account sequence number cache (`contracts/sequenceCache.ts`) shared by asset issuance, burn, trustline, and airdrop payment submission, so concurrent or back-to-back Stellar submissions from the same account no longer race on a stale sequence number. Falls back to a single reload-and-retry from Horizon on `tx_bad_seq` (#169).
+- Expanded `api/utils/horizonError.ts` to map the full set of known Stellar transaction and operation result codes (`tx_bad_seq`, `op_underfunded`, `tx_too_late`, `op_low_reserve`, etc.) to friendly, actionable error messages, with full unit test coverage (#166).
+- `GET /api/v1/prices/xlm` returning XLM/USD market price from public feeds with Redis caching and multi-provider failover (#137).
+- `StellarService.isTestnet()` and `StellarService.isMainnet()` helper methods to inspect active Stellar network configuration (#141).
+- `POST /api/v1/trustlines/build` to generate unsigned trustline establishment XDR for wallet signing (#124).
+- `GET /api/v1/accounts/:publicKey` returning full Stellar account details from Horizon with Zod validation, retries, and mapped error codes (#122).
 - `POST /api/v1/transactions/unsigned` to build unsigned Stellar payment XDR for wallet signing (#146).
 - `GET /api/v1/balances/:publicKey/history` for paginated balance-change audit history from `transactions_log` (#145).
 - `GET /api/v1/communities` pagination support via `page`, `limit`, and `offset` query parameters. When `offset` is provided, it takes precedence for querying and calculates the appropriate page in the metadata.
@@ -92,6 +100,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Restored `backend/src/contracts/transactions.ts` (`buildUnsignedPayment`), which a prior cleanup commit deleted as unused dead code without also removing its only caller, `POST /api/v1/transactions/unsigned` — leaving the backend unable to compile or run its test suite.
 - Error responses across `communities.ts`, `loans.ts`, `tokens.ts`, and the shared `validateBody`/`validateParams`/`validateQuery` middleware now consistently include `data: null`, matching the `{ data, meta?, error? }` envelope documented for the rest of the API
 - `docs/openapi.yaml`: added the previously undocumented Communities list/search/create, full Tokens surface (burn, trustline, community listing, holders, supply, history), Loans lifecycle, and Balances loan endpoints, and fixed several broken `$ref` pointers (`CommunityId`/`Page`/`Limit` parameters and `IssueToken`/`TokenMetadata` schemas were referenced but never defined)
 - Migration 019: `members_role_check` is now re-established with a preceding `DROP CONSTRAINT IF EXISTS`, so the role contract (`admin`/`treasurer`/`member`/`observer`) is replay-safe
