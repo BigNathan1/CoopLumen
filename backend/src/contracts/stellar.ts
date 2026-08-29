@@ -3,6 +3,37 @@ import { logger } from '../utils/logger';
 
 type StellarNetwork = 'testnet' | 'mainnet';
 
+/**
+ * Error thrown when a Stellar account does not exist on the network.
+ * This typically indicates the account has not been funded yet.
+ */
+export class UnfundedAccountError extends Error {
+  constructor(publicKey: string) {
+    super(`Account ${publicKey} does not exist on the network. The account may not be funded yet.`);
+    this.name = 'UnfundedAccountError';
+  }
+}
+
+/**
+ * Error thrown when there is a network or Horizon connectivity issue.
+ */
+export class StellarNetworkError extends Error {
+  constructor(message: string, public readonly statusCode?: number) {
+    super(message);
+    this.name = 'StellarNetworkError';
+  }
+}
+
+/**
+ * Error thrown when the provided public key is invalid.
+ */
+export class InvalidPublicKeyError extends Error {
+  constructor(publicKey: string) {
+    super(`Invalid Stellar public key format: ${publicKey}`);
+    this.name = 'InvalidPublicKeyError';
+  }
+}
+
 const HORIZON_URLS: Record<StellarNetwork, string> = {
   testnet: 'https://horizon-testnet.stellar.org',
   mainnet: 'https://horizon.stellar.org',
@@ -24,6 +55,9 @@ interface HorizonErrorShape {
   response?: {
     status?: number;
     headers?: RetryHeaders;
+    data?: {
+      detail?: string;
+    };
   };
   message?: string;
 }
@@ -108,6 +142,59 @@ class StellarServiceClass {
     return this.withRetry('loadAccount', () => this.server.loadAccount(publicKey));
   }
 
+  /**
+   * Loads an account from Horizon with comprehensive error handling.
+   * Returns the account on success, or throws a domain-specific error:
+   * - UnfundedAccountError: Account does not exist on the network
+   * - InvalidPublicKeyError: Public key is malformed
+   * - StellarNetworkError: Network/Horizon connectivity issue
+   *
+   * @param publicKey The Stellar public key to load
+   * @returns The Horizon AccountResponse with all account data
+   * @throws UnfundedAccountError | InvalidPublicKeyError | StellarNetworkError
+   */
+  async loadAccountSafe(publicKey: string): Promise<Horizon.AccountResponse> {
+    try {
+      return await this.loadAccount(publicKey);
+    } catch (error) {
+      return this.handleLoadAccountError(error, publicKey);
+    }
+  }
+
+  private handleLoadAccountError(error: unknown, publicKey: string): never {
+    const horizonError = error as HorizonErrorShape;
+    const status = horizonError.response?.status;
+    const detail = horizonError.response?.data?.detail;
+    const errorMessage = (horizonError as Error).message ?? '';
+
+    // 404: Account not found on network (unfunded)
+    if (status === 404) {
+      throw new UnfundedAccountError(publicKey);
+    }
+
+    // Invalid public key format (typically manifests as 400 with specific message pattern)
+    if (status === 400 && errorMessage.includes('public key')) {
+      throw new InvalidPublicKeyError(publicKey);
+    }
+
+    // Network errors (503, 429 exhaustion after retries, connection failures, etc.)
+    if (status && (status >= 500 || status === 429)) {
+      const msg = detail ? `Stellar network error: ${detail}` : 'Stellar network unavailable';
+      throw new StellarNetworkError(msg, status);
+    }
+
+    // Catch-all for other Horizon errors
+    if (status) {
+      throw new StellarNetworkError(
+        `Stellar network error (${status}): ${detail ?? errorMessage}`,
+        status
+      );
+    }
+
+    // Network connectivity errors (no status code available)
+    throw new StellarNetworkError(
+      errorMessage || 'Failed to load account from Stellar network'
+    );
   async getAccount(publicKey: string): Promise<Horizon.AccountResponse> {
     return this.loadAccount(publicKey);
   }
