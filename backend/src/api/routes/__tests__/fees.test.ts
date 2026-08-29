@@ -162,11 +162,9 @@ describe('fee routes', () => {
 
     it('returns 502 after retry exhaustion, calling feeStats exactly 4 times', async () => {
       const setTimeoutSpy = runTimeoutsImmediately();
-      const feeStats = jest
-        .fn()
-        .mockRejectedValue({
-          response: { status: 503, data: { detail: 'Service unavailable' } },
-        });
+      const feeStats = jest.fn().mockRejectedValue({
+        response: { status: 503, data: { detail: 'Service unavailable' } },
+      });
       setMockServer({ feeStats });
 
       const response = await request(app).get('/api/v1/fees/estimate');
