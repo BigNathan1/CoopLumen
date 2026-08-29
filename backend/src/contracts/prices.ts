@@ -1,91 +1,69 @@
-import { logger } from '../utils/logger';
+import { Asset } from '@stellar/stellar-sdk';
+import { StellarService } from './stellar';
+import { withStellarErrors } from './errors';
 
-export interface XlmPriceData {
-  asset: string;
-  currency: string;
+export interface AssetInput {
+  code: string;
+  issuer?: string;
+}
+
+export interface OrderBookPrice {
+  n: number;
+  d: number;
   price: string;
-  source: string;
-  timestamp: string;
 }
 
-const FETCH_TIMEOUT_MS = 3500;
-
-async function fetchFromCoinGecko(currency: string): Promise<XlmPriceData | null> {
-  try {
-    const curLower = currency.toLowerCase();
-    const url = `https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=${curLower}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-    if (!res.ok) return null;
-    const json = (await res.json()) as { stellar?: Record<string, number> };
-    const priceNum = json.stellar?.[curLower];
-    if (priceNum !== undefined && Number.isFinite(priceNum)) {
-      return {
-        asset: 'XLM',
-        currency,
-        price: priceNum.toFixed(7),
-        source: 'coingecko',
-        timestamp: new Date().toISOString(),
-      };
-    }
-    return null;
-  } catch {
-    return null;
-  }
+export interface OrderBookOffer {
+  price_r: OrderBookPrice;
+  price: string;
+  amount: string;
 }
 
-async function fetchFromBinance(currency: string): Promise<XlmPriceData | null> {
-  if (currency !== 'USD' && currency !== 'USDT') return null;
-  try {
-    const url = 'https://api.binance.com/api/v3/ticker/price?symbol=XLMUSDT';
-    const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-    if (!res.ok) return null;
-    const json = (await res.json()) as { price?: string };
-    if (json.price && !Number.isNaN(Number(json.price))) {
-      return {
-        asset: 'XLM',
-        currency,
-        price: Number(json.price).toFixed(7),
-        source: 'binance',
-        timestamp: new Date().toISOString(),
-      };
-    }
-    return null;
-  } catch {
-    return null;
-  }
+export interface OrderBookResponse {
+  bids: OrderBookOffer[];
+  asks: OrderBookOffer[];
+  base: {
+    asset_type: string;
+    asset_code?: string;
+    asset_issuer?: string;
+  };
+  counter: {
+    asset_type: string;
+    asset_code?: string;
+    asset_issuer?: string;
+  };
 }
 
-async function fetchFromCoinbase(currency: string): Promise<XlmPriceData | null> {
-  try {
-    const url = `https://api.coinbase.com/v2/prices/XLM-${currency}/spot`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-    if (!res.ok) return null;
-    const json = (await res.json()) as { data?: { amount?: string } };
-    if (json.data?.amount && !Number.isNaN(Number(json.data.amount))) {
-      return {
-        asset: 'XLM',
-        currency,
-        price: Number(json.data.amount).toFixed(7),
-        source: 'coinbase',
-        timestamp: new Date().toISOString(),
-      };
-    }
-    return null;
-  } catch {
-    return null;
+function toStellarAsset(input: AssetInput): Asset {
+  if (!input.code || input.code === 'XLM') {
+    return Asset.native();
   }
+  if (!input.issuer) {
+    throw new Error(`Asset issuer is required for non-native asset code: ${input.code}`);
+  }
+  return new Asset(input.code, input.issuer);
 }
 
-export async function fetchXlmPrice(currency = 'USD'): Promise<XlmPriceData> {
-  const providers = [fetchFromCoinGecko, fetchFromBinance, fetchFromCoinbase];
+/**
+ * Fetches the decentralized exchange (DEX) order book for a given trading pair from Horizon.
+ *
+ * @param selling Asset being sold
+ * @param buying Asset being bought
+ * @returns Order book containing bids, asks, base, and counter asset definitions
+ */
+export async function getOrderBook(
+  selling: AssetInput,
+  buying: AssetInput
+): Promise<OrderBookResponse> {
+  return withStellarErrors('getOrderBook', async () => {
+    const server = StellarService.getServer();
+    const sellingAsset = toStellarAsset(selling);
+    const buyingAsset = toStellarAsset(buying);
 
-  for (const provider of providers) {
-    const result = await provider(currency);
-    if (result) {
-      return result;
-    }
-  }
+    const record = await StellarService.call('orderBook', () =>
+      server.orderBook(sellingAsset, buyingAsset).call()
+    );
 
-  logger.error('Failed to fetch XLM price from all public price sources', { currency });
-  throw new Error('Failed to fetch XLM price from public source.');
+    return record as unknown as OrderBookResponse;
+  });
 }
