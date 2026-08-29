@@ -8,6 +8,7 @@ import {
 } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
 import { invalidateBalanceCache } from '../cache/balances';
+import { withSequenceRetry } from './sequenceCache';
 
 export interface IssueAssetParams {
   issuerSecret: string;
@@ -38,31 +39,32 @@ export async function issueAsset(params: IssueAssetParams): Promise<string> {
 
   const issuerKeypair = Keypair.fromSecret(issuerSecret);
   const network = StellarService.getNetwork();
-
-  const issuerAccount = await StellarService.loadAccount(issuerKeypair.publicKey());
   const asset = new Asset(assetCode, issuerKeypair.publicKey());
 
-  const txBuilder = new TransactionBuilder(issuerAccount, {
-    fee: BASE_FEE,
-    networkPassphrase: network,
+  const result = await withSequenceRetry(issuerKeypair.publicKey(), async (issuerAccount) => {
+    const txBuilder = new TransactionBuilder(issuerAccount, {
+      fee: BASE_FEE,
+      networkPassphrase: network,
+    });
+
+    if (memo) {
+      txBuilder.addMemo(Memo.text(memo));
+    }
+
+    txBuilder.addOperation(
+      Operation.payment({
+        destination: distributorPublicKey,
+        asset,
+        amount,
+      })
+    );
+
+    const tx = txBuilder.setTimeout(30).build();
+    tx.sign(issuerKeypair);
+
+    return StellarService.submitTransaction(tx);
   });
 
-  if (memo) {
-    txBuilder.addMemo(Memo.text(memo));
-  }
-
-  txBuilder.addOperation(
-    Operation.payment({
-      destination: distributorPublicKey,
-      asset,
-      amount,
-    })
-  );
-
-  const tx = txBuilder.setTimeout(30).build();
-  tx.sign(issuerKeypair);
-
-  const result = await StellarService.submitTransaction(tx);
   await invalidateBalanceCache([issuerKeypair.publicKey(), distributorPublicKey]);
   return result.hash;
 }
@@ -77,27 +79,27 @@ export async function burnAsset(params: BurnAssetParams): Promise<string> {
 
   const holderKeypair = Keypair.fromSecret(holderSecret);
   const network = StellarService.getNetwork();
-
-  const holderAccount = await StellarService.loadAccount(holderKeypair.publicKey());
   const asset = new Asset(assetCode, assetIssuer);
 
-  const tx = new TransactionBuilder(holderAccount, {
-    fee: BASE_FEE,
-    networkPassphrase: network,
-  })
-    .addOperation(
-      Operation.payment({
-        destination: assetIssuer,
-        asset,
-        amount,
-      })
-    )
-    .setTimeout(30)
-    .build();
+  const result = await withSequenceRetry(holderKeypair.publicKey(), async (holderAccount) => {
+    const tx = new TransactionBuilder(holderAccount, {
+      fee: BASE_FEE,
+      networkPassphrase: network,
+    })
+      .addOperation(
+        Operation.payment({
+          destination: assetIssuer,
+          asset,
+          amount,
+        })
+      )
+      .setTimeout(30)
+      .build();
 
-  tx.sign(holderKeypair);
+    tx.sign(holderKeypair);
+    return StellarService.submitTransaction(tx);
+  });
 
-  const result = await StellarService.submitTransaction(tx);
   await invalidateBalanceCache([holderKeypair.publicKey(), assetIssuer]);
   return result.hash;
 }
@@ -135,11 +137,11 @@ export async function getAssetHolders(
   return holders;
 }
 
-/** Returns the circulating supply reported by Horizon for an issued asset. */
-export async function getAssetSupply(assetCode: string, assetIssuer: string): Promise<string> {
+/** Returns the total supply Horizon's asset stats endpoint reports for an issued asset. */
+export async function getTotalSupply(assetCode: string, issuer: string): Promise<string> {
   const server = StellarService.getServer();
   const page = await StellarService.call('assets.forCode', () =>
-    server.assets().forCode(assetCode).forIssuer(assetIssuer).limit(1).call()
+    server.assets().forCode(assetCode).forIssuer(issuer).limit(1).call()
   );
 
   return page.records[0]?.amount ?? '0.0000000';
