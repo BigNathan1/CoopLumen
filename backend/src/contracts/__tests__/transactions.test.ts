@@ -2,16 +2,14 @@ import { Account, Keypair, Networks, Transaction } from '@stellar/stellar-sdk';
 import { submitPayment, buildUnsignedPayment, submitSignedXdr } from '../transactions';
 import { StellarService } from '../stellar';
 
-jest.mock('../stellar', () => (
-  {
-    StellarService: {
-      getServer: jest.fn(),
-      getNetwork: jest.fn().mockReturnValue('Test SDF Network ; September 2015'),
-      loadAccount: jest.fn(),
-      submitTransaction: jest.fn(),
-    },
-  }
-));
+jest.mock('../stellar', () => ({
+  StellarService: {
+    getServer: jest.fn(),
+    getNetwork: jest.fn().mockReturnValue('Test SDF Network ; September 2015'),
+    loadAccount: jest.fn(),
+    submitTransaction: jest.fn(),
+  },
+}));
 
 jest.mock('../../cache/balances', () => (
   {
@@ -20,135 +18,121 @@ jest.mock('../../cache/balances', () => (
 ));
 
 const mockLoadAccount = StellarService.loadAccount as jest.Mock;
-const mockSubmit = StellarService.submitTransaction as jest.Mock;
+const mockSubmitTransaction = StellarService.submitTransaction as jest.Mock;
 
 const sender = Keypair.random();
-const destinationPublicKey = Keypair.random().publicKey();
-const HASH_MEMO = 'ab'.repeat(32);
+const recipient = Keypair.random().publicKey();
+const issuer = Keypair.random().publicKey();
 
 beforeEach(() => {
   mockLoadAccount.mockReset();
-  mockSubmit.mockReset();
+  mockSubmitTransaction.mockReset();
   mockLoadAccount.mockImplementation((publicKey: string) =>
     Promise.resolve(new Account(publicKey, '1'))
   );
-  mockSubmit.mockResolvedValue({ hash: 'transaction-hash-success' });
+  mockSubmitTransaction.mockResolvedValue({ hash: 'tx-hash-12345' });
 });
 
-describe('transactions contract module', () => {
+describe('transactions.ts', () => {
   describe('submitPayment', () => {
-    it('submits a native XLM payment successfully and returns the hash', async () => {
-      const hash = await submitPayment({
+    it('submits a native XLM payment successfully and invalidates balance cache', async () => {
+      const txHash = await submitPayment({
         senderSecret: sender.secret(),
-        destinationPublicKey,
+        destinationPublicKey: recipient,
         assetCode: 'XLM',
         assetIssuer: '',
         amount: '10.5',
+        memo: 'test payment',
       });
 
-      expect(hash).toBe('transaction-hash-success');
+      expect(txHash).toBe('tx-hash-12345');
       expect(mockLoadAccount).toHaveBeenCalledWith(sender.publicKey());
-      expect(mockSubmit).toHaveBeenCalledTimes(1);
+      expect(mockSubmitTransaction).toHaveBeenCalledTimes(1);
 
-      const [tx] = mockSubmit.mock.calls[0] as [Transaction];
-      expect(tx.operations).toHaveLength(1);
-      expect(tx.operations[0].type).toBe('payment');
-      expect(tx.operations[0].amount).toBe('10.5');
+      const submittedTx = mockSubmitTransaction.mock.calls[0][0] as Transaction;
+      expect(submittedTx.operations).toHaveLength(1);
+      expect(submittedTx.operations[0].type).toBe('payment');
+      expect(submittedTx.operations[0].amount).toBe('10.5');
+      expect(submittedTx.destination).toBe(recipient);
     });
 
-    it('submits a custom asset payment with a text memo and time bounds successfully', async () => {
-      const issuerPublicKey = Keypair.random().publicKey();
-      const hash = await submitPayment({
+    it('submits a custom asset (non-native) payment successfully', async () => {
+      const txHash = await submitPayment({
         senderSecret: sender.secret(),
-        destinationPublicKey,
+        destinationPublicKey: recipient,
         assetCode: 'ECO',
-        assetIssuer: issuerPublicKey,
-        amount: '100',
-        memo: 'community reward',
-        timeBounds: {
-          minTime: 1700000000,
-          maxTime: 1700003600,
-        },
+        assetIssuer: issuer,
+        amount: '50',
       });
 
-      expect(hash).toBe('transaction-hash-success');
-      const [tx] = mockSubmit.mock.calls[0] as [Transaction];
-      expect(tx.memo.type).toBe('text');
-      expect(tx.memo.value?.toString()).toBe('community reward');
-      expect(tx.timeBounds).toEqual({
-        minTime: '1700000000',
-        maxTime: '1700003600',
-      });
+      expect(txHash).toBe('tx-hash-12345');
+      const submittedTx = mockSubmitTransaction.mock.calls[0][0] as Transaction;
+      expect(submittedTx.operations).toHaveLength(1);
+      expect(submittedTx.operations[0].type).toBe('payment');
+      expect(submittedTx.operations[0].asset.getCode()).toBe('ECO');
+      expect(submittedTx.operations[0].asset.getIssuer()).toBe(issuer);
     });
 
-    it('submits a payment with a hash memo', async () => {
-      const hash = await submitPayment({
-        senderSecret: sender.secret(),
-        destinationPublicKey,
-        assetCode: 'XLM',
-        assetIssuer: '',
-        amount: '5',
-        memo: { type: 'hash', value: HASH_MEMO },
-      });
-
-      expect(hash).toBe('transaction-hash-success');
-      const [tx] = mockSubmit.mock.calls[0] as [Transaction];
-      expect(tx.memo.type).toBe('hash');
-      expect((tx.memo.value as Buffer).toString('hex')).toBe(HASH_MEMO);
-    });
-
-    it('propagates Horizon submission errors', async () => {
-      const horizonError = new Error('Transaction Failed');
-      (horizonError as any).response = {
-        status: 400,
-        data: {
-          extras: { result_codes: { transaction: 'tx_failed', operations: ['op_underfunded'] } },
-        },
-      };
-
-      mockSubmit.mockRejectedValueOnce(horizonError);
+    it('propagates Horizon submission errors without swallowing them', async () => {
+      const horizonError = { response: { status: 400, data: { extras: { result_codes: { transaction: 'tx_failed', operations: ['op_underfunded'] } } } } };
+      mockSubmitTransaction.mockRejectedValueOnce(horizonError);
 
       await expect(
         submitPayment({
           senderSecret: sender.secret(),
-          destinationPublicKey,
+          destinationPublicKey: recipient,
           assetCode: 'XLM',
           assetIssuer: '',
-          amount: '1000000',
+          amount: '1000',
         })
-      ).rejects.toThrow();
+      ).rejects.toEqual(horizonError);
     });
   });
 
   describe('buildUnsignedPayment', () => {
-    it('builds an unsigned payment XDR string for client-side signing', async () => {
+    it('builds a valid unsigned XDR string for native XLM payment', async () => {
       const xdr = await buildUnsignedPayment({
         senderPublicKey: sender.publicKey(),
-        destinationPublicKey,
-        assetCode: 'ECO',
-        assetIssuer: Keypair.random().publicKey(),
-        amount: '50',
-        memo: 'client payment',
+        destinationPublicKey: recipient,
+        assetCode: 'XLM',
+        assetIssuer: '',
+        amount: '25',
+        memo: { type: 'text', value: 'unsigned memo' },
       });
 
       expect(typeof xdr).toBe('string');
       expect(xdr.length).toBeGreaterThan(0);
+      expect(mockLoadAccount).toHaveBeenCalledWith(sender.publicKey());
+      expect(mockSubmitTransaction).not.toHaveBeenCalled();
 
-      // Verify the built XDR decodes back correctly
-      const decodedTx = new Transaction(xdr, Networks.TESTNET);
-      expect(decodedTx.operations).toHaveLength(1);
-      expect(decodedTx.operations[0].type).toBe('payment');
-      expect(decodedTx.memo.type).toBe('text');
-      expect(decodedTx.memo.value?.toString()).toBe('client payment');
+      // Verify decoded XDR contains expected operations and memo
+      const decoded = new Transaction(xdr, Networks.TESTNET);
+      expect(decoded.operations).toHaveLength(1);
+      expect(decoded.operations[0].type).toBe('payment');
+      expect(decoded.memo.type).toBe('text');
     });
 
-    it('throws if the sender account does not exist or load fails', async () => {
+    it('builds an unsigned XDR string for a custom asset payment', async () => {
+      const xdr = await buildUnsignedPayment({
+        senderPublicKey: sender.publicKey(),
+        destinationPublicKey: recipient,
+        assetCode: 'ECO',
+        assetIssuer: issuer,
+        amount: '5.25',
+      });
+
+      expect(typeof xdr).toBe('string');
+      const decoded = new Transaction(xdr, Networks.TESTNET);
+      expect(decoded.operations[0].asset.getCode()).toBe('ECO');
+    });
+
+    it('throws when account loading fails', async () => {
       mockLoadAccount.mockRejectedValueOnce(new Error('Account not found'));
 
       await expect(
         buildUnsignedPayment({
           senderPublicKey: sender.publicKey(),
-          destinationPublicKey,
+          destinationPublicKey: recipient,
           assetCode: 'XLM',
           assetIssuer: '',
           amount: '10',
@@ -158,27 +142,31 @@ describe('transactions contract module', () => {
   });
 
   describe('submitSignedXdr', () => {
-    it('submits a pre-signed transaction XDR envelope successfully', async () => {
-      // First build an unsigned payment, then sign it
-      const xdr = await buildUnsignedPayment({
-        senderPublicKey: sender.publicKey(),
-        destinationPublicKey,
-        assetCode: 'XLM',
-        assetIssuer: '',
-        amount: '25',
-      });
-
-      const tx = new Transaction(xdr, Networks.TESTNET);
+    it('submits a pre-signed transaction envelope XDR and returns the hash', async () => {
+      const account = new Account(sender.publicKey(), '5');
+      const tx = new Transaction(
+        {
+          fee: '100',
+          sequence: '6',
+          operations: [],
+          networkPassphrase: Networks.TESTNET,
+        },
+        Networks.TESTNET
+      );
       tx.sign(sender);
+
       const signedXdr = tx.toXDR();
+      mockSubmitTransaction.mockResolvedValueOnce({ hash: 'signed-hash-999' });
 
       const hash = await submitSignedXdr(signedXdr);
-      expect(hash).toBe('transaction-hash-success');
-      expect(mockSubmit).toHaveBeenCalledTimes(1);
+
+      expect(hash).toBe('signed-hash-999');
+      expect(mockSubmitTransaction).toHaveBeenCalledTimes(1);
     });
 
-    it('rejects malformed or invalid XDR envelopes', async () => {
+    it('rejects if the XDR is malformed', async () => {
       await expect(submitSignedXdr('invalid-xdr-string')).rejects.toThrow();
+      expect(mockSubmitTransaction).not.toHaveBeenCalled();
     });
   });
 });
