@@ -1,13 +1,8 @@
-import {
-  Asset,
-  Keypair,
-  TransactionBuilder,
-  Operation,
-  BASE_FEE,
-  Memo,
-  Transaction,
-} from '@stellar/stellar-sdk';
+import { Asset, Keypair, TransactionBuilder, Operation, BASE_FEE, Transaction } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
+import { MemoInput, buildMemo } from './memo';
+import { TimeBoundsInput, applyTimeBounds } from './timeBounds';
+import { invalidateBalanceCache } from '../cache/balances';
 
 export interface PaymentParams {
   senderSecret: string;
@@ -15,7 +10,8 @@ export interface PaymentParams {
   assetCode: string;
   assetIssuer: string;
   amount: string;
-  memo?: string;
+  memo?: MemoInput;
+  timeBounds?: TimeBoundsInput;
 }
 
 export interface BuildUnsignedPaymentParams {
@@ -24,20 +20,21 @@ export interface BuildUnsignedPaymentParams {
   assetCode: string;
   assetIssuer: string;
   amount: string;
-  memo?: string;
+  memo?: MemoInput;
+  timeBounds?: TimeBoundsInput;
 }
 
 /**
  * Submits a signed payment from a server-held keypair (e.g., community distributor).
  */
 export async function submitPayment(params: PaymentParams): Promise<string> {
-  const { senderSecret, destinationPublicKey, assetCode, assetIssuer, amount, memo } = params;
+  const { senderSecret, destinationPublicKey, assetCode, assetIssuer, amount, memo, timeBounds } =
+    params;
 
   const senderKeypair = Keypair.fromSecret(senderSecret);
-  const server = StellarService.getServer();
   const network = StellarService.getNetwork();
 
-  const account = await server.loadAccount(senderKeypair.publicKey());
+  const account = await StellarService.loadAccount(senderKeypair.publicKey());
   const asset = assetCode === 'XLM' ? Asset.native() : new Asset(assetCode, assetIssuer);
 
   const txBuilder = new TransactionBuilder(account, {
@@ -45,14 +42,16 @@ export async function submitPayment(params: PaymentParams): Promise<string> {
     networkPassphrase: network,
   }).addOperation(Operation.payment({ destination: destinationPublicKey, asset, amount }));
 
-  if (memo) {
-    txBuilder.addMemo(Memo.text(memo));
+  const builtMemo = buildMemo(memo);
+  if (builtMemo) {
+    txBuilder.addMemo(builtMemo);
   }
 
-  const tx = txBuilder.setTimeout(30).build();
+  const tx = applyTimeBounds(txBuilder, timeBounds).build();
   tx.sign(senderKeypair);
 
-  const result = await server.submitTransaction(tx);
+  const result = await StellarService.submitTransaction(tx);
+  await invalidateBalanceCache([senderKeypair.publicKey(), destinationPublicKey]);
   return result.hash;
 }
 
@@ -60,12 +59,19 @@ export async function submitPayment(params: PaymentParams): Promise<string> {
  * Builds an unsigned XDR transaction for client-side signing via Freighter.
  */
 export async function buildUnsignedPayment(params: BuildUnsignedPaymentParams): Promise<string> {
-  const { senderPublicKey, destinationPublicKey, assetCode, assetIssuer, amount, memo } = params;
+  const {
+    senderPublicKey,
+    destinationPublicKey,
+    assetCode,
+    assetIssuer,
+    amount,
+    memo,
+    timeBounds,
+  } = params;
 
-  const server = StellarService.getServer();
   const network = StellarService.getNetwork();
 
-  const account = await server.loadAccount(senderPublicKey);
+  const account = await StellarService.loadAccount(senderPublicKey);
   const asset = assetCode === 'XLM' ? Asset.native() : new Asset(assetCode, assetIssuer);
 
   const txBuilder = new TransactionBuilder(account, {
@@ -73,17 +79,17 @@ export async function buildUnsignedPayment(params: BuildUnsignedPaymentParams): 
     networkPassphrase: network,
   }).addOperation(Operation.payment({ destination: destinationPublicKey, asset, amount }));
 
-  if (memo) {
-    txBuilder.addMemo(Memo.text(memo));
+  const builtMemo = buildMemo(memo);
+  if (builtMemo) {
+    txBuilder.addMemo(builtMemo);
   }
 
-  return txBuilder.setTimeout(30).build().toXDR();
+  return applyTimeBounds(txBuilder, timeBounds).build().toXDR();
 }
 
 export async function submitSignedXdr(xdr: string): Promise<string> {
-  const server = StellarService.getServer();
   const network = StellarService.getNetwork();
   const tx = new Transaction(xdr, network);
-  const result = await server.submitTransaction(tx);
+  const result = await StellarService.submitTransaction(tx);
   return result.hash;
 }

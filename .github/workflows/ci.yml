@@ -94,9 +94,20 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        # Wait until Redis is accepting connections before the job runs.
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     env:
       DATABASE_URL: postgresql://cooplumen:cooplumen@localhost:5432/cooplumen
+      REDIS_URL: redis://localhost:6379
       STELLAR_NETWORK: testnet
       STELLAR_HORIZON_URL: https://horizon-testnet.stellar.org
 

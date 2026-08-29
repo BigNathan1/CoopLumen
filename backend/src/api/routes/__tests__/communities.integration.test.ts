@@ -9,7 +9,7 @@ import { Keypair } from '@stellar/stellar-sdk';
 import { Pool } from 'pg';
 import app from '../../../app';
 import { db } from '../../../db';
-import { makeTestPool, truncateAll } from '../../../test/fixtures';
+import { makeTestPool, seedTestDatabase, truncateAll } from '../../../test/fixtures';
 
 const RUN = Boolean(process.env.DATABASE_URL);
 const describeIf = RUN ? describe : describe.skip;
@@ -18,12 +18,13 @@ describeIf('Community CRUD (integration)', () => {
   let pool: Pool;
   const issuer = Keypair.random().publicKey();
   const member = Keypair.random().publicKey();
+  const nonMember = Keypair.random().publicKey();
 
   beforeAll(async () => {
     pool = makeTestPool();
     const client = await pool.connect();
     try {
-      await truncateAll(client);
+      await seedTestDatabase(client);
     } finally {
       client.release();
     }
@@ -63,25 +64,29 @@ describeIf('Community CRUD (integration)', () => {
       assetIssuer: issuer,
     });
     expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('COMMUNITY_NAME_EXISTS');
   });
 
   it('lists the community with pagination meta', async () => {
     const res = await request(app).get('/api/v1/communities?limit=10');
     expect(res.status).toBe(200);
-    expect(res.body.meta.total).toBeGreaterThanOrEqual(1);
+    expect(res.body.meta.total).toBeGreaterThanOrEqual(3);
     expect(res.body.data.some((c: { id: string }) => c.id === communityId)).toBe(true);
   });
 
   it('fetches and enriches a single community', async () => {
     const res = await request(app).get(`/api/v1/communities/${communityId}`);
     expect(res.status).toBe(200);
-    expect(res.body.data.name).toBe('IntegrationDAO');
-    expect(res.body.data.member_count).toBe(0);
-    expect(res.body.data.stats).toBeDefined();
+    expect(res.body.data.community.name).toBe('IntegrationDAO');
+    expect(res.body.data.community.member_count).toBe(0);
+    expect(res.body.data.statistics).toEqual({
+      totalTransactions: 1,
+      totalTokenSupply: 0,
+    });
   });
 
-  it('finds the community via full-text search', async () => {
-    const res = await request(app).get('/api/v1/communities/search?q=IntegrationDAO');
+  it('finds the community via the general list search parameter', async () => {
+    const res = await request(app).get('/api/v1/communities?search=IntegrationDAO');
     expect(res.status).toBe(200);
     expect(res.body.data.some((c: { id: string }) => c.id === communityId)).toBe(true);
   });
@@ -102,16 +107,87 @@ describeIf('Community CRUD (integration)', () => {
     expect(res.body.data.avatar_url).toBe('https://cdn.example.com/intg.png');
   });
 
+  it('rejects a duplicate name on update with 409', async () => {
+    const other = await request(app).post('/api/v1/communities').send({
+      name: 'AnotherDAO',
+      issuerPublicKey: issuer,
+      assetCode: 'ANTH',
+      assetIssuer: issuer,
+    });
+    expect(other.status).toBe(201);
+
+    const res = await request(app)
+      .put(`/api/v1/communities/${other.body.data.id}`)
+      .send({ name: 'IntegrationDAO' });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('COMMUNITY_NAME_EXISTS');
+  });
+
+  it('records a community_created transactions_log row for the created community', async () => {
+    const rows = await db.query<{ action: string; community_id: string; actor_address: string }>(
+      `SELECT action, community_id, actor_address FROM transactions_log WHERE community_id = $1`,
+      [communityId]
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].action).toBe('community_created');
+    expect(rows[0].actor_address).toBe(issuer);
+  });
+
+  it('returns 404 for the avatar endpoint on a non-existent community', async () => {
+    const res = await request(app)
+      .post('/api/v1/communities/00000000-0000-0000-0000-000000000000/avatar')
+      .send({ avatarUrl: 'https://cdn.example.com/missing.png' });
+    expect(res.status).toBe(404);
+  });
+
   it('adds and lists a member', async () => {
     const add = await request(app)
       .post(`/api/v1/communities/${communityId}/members`)
       .send({ stellarAddress: member, role: 'treasurer' });
     expect(add.status).toBe(201);
+    expect(add.body.data.stellar_address).toBe(member);
+    expect(add.body.data.role).toBe('treasurer');
 
     const list = await request(app).get(`/api/v1/communities/${communityId}/members`);
     expect(list.status).toBe(200);
     expect(list.body.meta.total).toBe(1);
     expect(list.body.data[0].stellar_address).toBe(member);
+  });
+
+  it('fetches a single member by address', async () => {
+    const res = await request(app).get(`/api/v1/communities/${communityId}/members/${member}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.stellar_address).toBe(member);
+    expect(res.body.data.role).toBe('treasurer');
+  });
+
+  it('rejects a structurally invalid Stellar address in the member path', async () => {
+    const res = await request(app).get(`/api/v1/communities/${communityId}/members/not-a-key`);
+    expect(res.status).toBe(400);
+  });
+
+  it('updates a member role', async () => {
+    const res = await request(app)
+      .put(`/api/v1/communities/${communityId}/members/${member}`)
+      .send({ role: 'admin' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.role).toBe('admin');
+  });
+
+  it('returns 404 when updating a member that does not exist', async () => {
+    const res = await request(app)
+      .put(`/api/v1/communities/${communityId}/members/${nonMember}`)
+      .send({ role: 'admin' });
+    expect(res.status).toBe(404);
+  });
+
+  it('removes a member and hides it from subsequent lookups', async () => {
+    const del = await request(app).delete(`/api/v1/communities/${communityId}/members/${member}`);
+    expect(del.status).toBe(200);
+    expect(del.body.data.removed).toBe(true);
+
+    const after = await request(app).get(`/api/v1/communities/${communityId}/members/${member}`);
+    expect(after.status).toBe(404);
   });
 
   it('soft-deletes the community and hides it from reads', async () => {

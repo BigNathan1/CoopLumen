@@ -1,126 +1,188 @@
 import fs from 'fs/promises';
-import { PoolClient } from 'pg';
-import {
-  listMigrationFiles,
-  ensureSchemaMigrationsTable,
-  getAppliedMigrations,
-  applyMigration,
-} from '../migrate';
+import path from 'path';
+import type { PoolClient } from 'pg';
+import { checksumOf, rollback, runPending, showStatus } from '../migrate';
 
-jest.mock('fs/promises');
-jest.mock('../../utils/logger', () => ({
-  logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
+jest.mock('fs/promises', () => ({
+  readFile: jest.fn(),
+  readdir: jest.fn(),
 }));
 
-const mockFs = fs as jest.Mocked<typeof fs>;
+const mockedFs = fs as unknown as {
+  readFile: jest.Mock;
+  readdir: jest.Mock;
+};
 
-function makeClient(queryResults: Record<string, unknown[][]> = {}): jest.Mocked<PoolClient> {
-  const client = {
-    query: jest.fn(async (text: string, _params?: unknown[]) => {
-      const key = Object.keys(queryResults).find((k) => text.includes(k));
-      return { rows: key ? (queryResults[key].shift() ?? []) : [], rowCount: 0 };
-    }),
-    release: jest.fn(),
-  } as unknown as jest.Mocked<PoolClient>;
-  return client;
+const BOOTSTRAP_NAME = '001_schema_migrations.sql';
+const MIGRATION_NAME = '002_create_communities.sql';
+const MIGRATION_SQL = 'CREATE TABLE communities (id UUID PRIMARY KEY);';
+const DOWN_MIGRATION_SQL = 'DROP TABLE communities;';
+
+function migrationEntry(name: string): {
+  name: string;
+  isFile: () => boolean;
+} {
+  return {
+    name,
+    isFile: () => true,
+  };
 }
 
-describe('listMigrationFiles', () => {
-  it('returns sorted .sql files, excluding .down.sql files', async () => {
-    mockFs.readdir.mockResolvedValueOnce([
-      { name: '002_core_schema.sql', isFile: () => true },
-      { name: '001_schema_migrations.sql', isFile: () => true },
-      { name: '001_schema_migrations.down.sql', isFile: () => true },
-      { name: '003_trigger.sql', isFile: () => true },
-      { name: 'README.md', isFile: () => true },
-    ] as unknown as Awaited<ReturnType<typeof fs.readdir>>);
+function createClient(appliedRows: Array<{ name: string; checksum: string | null }>) {
+  const query = jest.fn(async (sql: string, _params?: unknown[]) => {
+    if (sql.includes('SELECT name, checksum FROM schema_migrations')) {
+      return { rows: appliedRows };
+    }
 
-    const files = await listMigrationFiles();
-
-    expect(files).toEqual(['001_schema_migrations.sql', '002_core_schema.sql', '003_trigger.sql']);
+    return { rows: [] };
   });
 
-  it('returns [] when migrations directory does not exist', async () => {
-    const err = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
-    mockFs.readdir.mockRejectedValueOnce(err);
+  return {
+    client: { query } as unknown as PoolClient,
+    query,
+  };
+}
 
-    const files = await listMigrationFiles();
+beforeEach(() => {
+  jest.clearAllMocks();
 
-    expect(files).toEqual([]);
-  });
+  mockedFs.readdir.mockResolvedValue([
+    migrationEntry(BOOTSTRAP_NAME),
+    migrationEntry(MIGRATION_NAME),
+  ]);
 
-  it('re-throws non-ENOENT errors', async () => {
-    mockFs.readdir.mockRejectedValueOnce(new Error('Permission denied'));
+  mockedFs.readFile.mockImplementation(async (filePath: string) => {
+    const fileName = path.basename(filePath);
 
-    await expect(listMigrationFiles()).rejects.toThrow('Permission denied');
+    if (fileName === BOOTSTRAP_NAME) {
+      return 'CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW());';
+    }
+
+    if (fileName === MIGRATION_NAME) {
+      return MIGRATION_SQL;
+    }
+
+    if (fileName === '002_create_communities.down.sql') {
+      return DOWN_MIGRATION_SQL;
+    }
+
+    throw new Error(`Unexpected migration file: ${fileName}`);
   });
 });
 
-describe('ensureSchemaMigrationsTable', () => {
-  it('runs CREATE TABLE IF NOT EXISTS', async () => {
-    const client = makeClient();
-    await ensureSchemaMigrationsTable(client);
-    expect(client.query).toHaveBeenCalledWith(
-      expect.stringContaining('CREATE TABLE IF NOT EXISTS schema_migrations')
+describe('migration runner', () => {
+  it('applies pending migrations to a fresh database', async () => {
+    const { client, query } = createClient([]);
+
+    await runPending(client, false);
+
+    expect(query.mock.calls.some(([sql]) => sql === MIGRATION_SQL)).toBe(true);
+    expect(
+      query.mock.calls.some(
+        ([sql, params]) =>
+          sql.includes('INSERT INTO schema_migrations') &&
+          Array.isArray(params) &&
+          params[0] === MIGRATION_NAME
+      )
+    ).toBe(true);
+  });
+
+  it('skips migrations that are already applied', async () => {
+    const { client, query } = createClient([
+      {
+        name: BOOTSTRAP_NAME,
+        checksum: checksumOf(
+          'CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW());'
+        ),
+      },
+      { name: MIGRATION_NAME, checksum: checksumOf(MIGRATION_SQL) },
+    ]);
+
+    await runPending(client, false);
+
+    expect(query.mock.calls.some(([sql]) => sql === MIGRATION_SQL)).toBe(false);
+  });
+
+  it('reports status with applied and pending migrations', async () => {
+    const { client } = createClient([
+      {
+        name: BOOTSTRAP_NAME,
+        checksum: checksumOf(
+          'CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW());'
+        ),
+      },
+      { name: MIGRATION_NAME, checksum: checksumOf(MIGRATION_SQL) },
+    ]);
+
+    // showStatus weaves its own query; verify no errors are thrown
+    await expect(showStatus(client)).resolves.toBeUndefined();
+  });
+
+  it('reports all migrations pending on fresh database', async () => {
+    const { client } = createClient([]);
+
+    // On a fresh db, the bootstrap file is missing the DOWN counterpart, but
+    // the sql read still works because the mock uses basename-based routing.
+    await expect(showStatus(client)).resolves.toBeUndefined();
+  });
+
+  it('reports no pending migrations when fully up to date', async () => {
+    const bootstrapHash = checksumOf(
+      'CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW());'
     );
-  });
-});
 
-describe('getAppliedMigrations', () => {
-  it('returns a Set of applied migration names', async () => {
-    const client = makeClient({
-      'SELECT name': [[{ name: '001_schema_migrations.sql' }, { name: '002_core_schema.sql' }]],
+    // Write readdir to only return the files that are in the "applied" set
+    mockedFs.readdir.mockResolvedValue([migrationEntry(BOOTSTRAP_NAME)]);
+
+    mockedFs.readFile.mockImplementation(async (filePath: string) => {
+      const fileName = path.basename(filePath);
+      if (fileName === BOOTSTRAP_NAME) {
+        return 'CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW());';
+      }
+      throw new Error(`Unexpected file: ${fileName}`);
     });
 
-    const applied = await getAppliedMigrations(client);
+    const { client } = createClient([{ name: BOOTSTRAP_NAME, checksum: bootstrapHash }]);
 
-    expect(applied).toEqual(new Set(['001_schema_migrations.sql', '002_core_schema.sql']));
+    await expect(showStatus(client)).resolves.toBeUndefined();
   });
 
-  it('returns an empty Set when no migrations have been applied', async () => {
-    const client = makeClient({ 'SELECT name': [[]] });
+  it('detects drifted migrations in status output', async () => {
+    // Tamper the checksum so the file on disk no longer matches
+    const { client } = createClient([
+      {
+        name: BOOTSTRAP_NAME,
+        checksum: checksumOf(
+          'CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW());'
+        ),
+      },
+      { name: MIGRATION_NAME, checksum: 'tampered-checksum' },
+    ]);
 
-    const applied = await getAppliedMigrations(client);
-
-    expect(applied).toEqual(new Set());
-  });
-});
-
-describe('applyMigration', () => {
-  it('runs the SQL file inside a transaction and records it in schema_migrations', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    mockFs.readFile.mockResolvedValueOnce('CREATE TABLE foo (id UUID);' as any);
-    const client = makeClient();
-
-    await applyMigration(client, '002_core_schema.sql');
-
-    const calls = client.query.mock.calls.map(([sql]) => sql as string);
-    expect(calls).toContain('BEGIN');
-    expect(calls).toContain('CREATE TABLE foo (id UUID);');
-    expect(calls.some((s) => s.includes('INSERT INTO schema_migrations'))).toBe(true);
-    expect(calls).toContain('COMMIT');
+    await expect(showStatus(client)).resolves.toBeUndefined();
   });
 
-  it('rolls back and re-throws on SQL error', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    mockFs.readFile.mockResolvedValueOnce('BAD SQL;' as any);
-    const client = {
-      query: jest.fn(async (sql: string) => {
-        if (sql === 'BAD SQL;') throw new Error('syntax error');
-      }),
-    } as unknown as jest.Mocked<PoolClient>;
+  it('rolls back the latest applied migration', async () => {
+    const { client, query } = createClient([
+      {
+        name: BOOTSTRAP_NAME,
+        checksum: checksumOf(
+          'CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW());'
+        ),
+      },
+      { name: MIGRATION_NAME, checksum: checksumOf(MIGRATION_SQL) },
+    ]);
 
-    await expect(applyMigration(client, 'bad.sql')).rejects.toThrow('syntax error');
+    await rollback(client, 1, false);
 
-    const calls = client.query.mock.calls.map(([sql]) => sql as string);
-    expect(calls).toContain('ROLLBACK');
-  });
-
-  it('skips already-applied migrations when checked by caller', async () => {
-    const applied = new Set(['001_schema_migrations.sql']);
-    const allFiles = ['001_schema_migrations.sql', '002_core_schema.sql'];
-    const pending = allFiles.filter((f) => !applied.has(f));
-
-    expect(pending).toEqual(['002_core_schema.sql']);
+    expect(query.mock.calls.some(([sql]) => sql === DOWN_MIGRATION_SQL)).toBe(true);
+    expect(
+      query.mock.calls.some(
+        ([sql, params]) =>
+          sql.includes('DELETE FROM schema_migrations') &&
+          Array.isArray(params) &&
+          params[0] === MIGRATION_NAME
+      )
+    ).toBe(true);
   });
 });

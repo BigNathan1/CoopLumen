@@ -8,6 +8,7 @@ dist/
 .next/
 out/
 build/
+*.tsbuildinfo
 
 # Next.js / TypeScript generated files
 next-env.d.ts
