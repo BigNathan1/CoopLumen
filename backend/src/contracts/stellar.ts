@@ -87,6 +87,14 @@ class StellarServiceClass {
     return this.network;
   }
 
+  isTestnet(): boolean {
+    return this.network === (Networks.TESTNET as string);
+  }
+
+  isMainnet(): boolean {
+    return this.network === (Networks.PUBLIC as string);
+  }
+
   async call<T>(operationName: string, request: () => Promise<T>): Promise<T> {
     return this.withRetry(operationName, request);
   }
