@@ -10,6 +10,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `zod` dependency and shared frontend validation schemas in `frontend/src/lib/schemas.ts`, mirroring the request schemas the backend enforces in `backend/src/api/schemas/`: Stellar public key, asset code, fixed-point amount, UUID, member role and memo primitives, plus community create/update, avatar, member, trustline, payment, loan and paginated-list schemas with inferred input types. Adds `toFieldErrors()` and `parseWithFieldErrors()` helpers that flatten a `ZodError` into a `field -> message` map for rendering under the control that failed (#258).
 - `claimableBalance.create(asset, amount, claimants)` in `backend/src/contracts/claimableBalance.ts` — creates a Stellar claimable balance using the `CreateClaimableBalance` operation. Accepts optional memo and time bounds; wraps Horizon interaction with error mapping so Horizon result codes (`op_low_reserve`, `op_no_trust`, `tx_bad_seq`, etc.) surface as actionable messages instead of opaque errors. Includes full unit test coverage and works with `withSequenceRetry` for concurrent submission safety (#247).
 - `GET /api/v1/fees/estimate` endpoint returning current Stellar network base fee and percentile fee distribution from Horizon (#156).
 - `StellarService.getFeeStats()` method wrapping `Horizon.Server.feeStats()` with the existing retry and error-mapping stack.
