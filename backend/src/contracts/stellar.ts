@@ -255,8 +255,8 @@ class StellarServiceClass {
 
         if (attempt === HORIZON_RETRY_CONFIG.maxAttempts) {
           logger.warn(
-            { operationName, status, attempts: attempt },
-            `Stellar Horizon operation ${operationName} failed with status ${status} after max attempts (${HORIZON_RETRY_CONFIG.maxAttempts}); giving up.`
+            `Stellar Horizon operation ${operationName} failed with status ${status} after max attempts (${HORIZON_RETRY_CONFIG.maxAttempts}); giving up.`,
+            { operationName, status, attempts: attempt }
           );
           throw error;
         }
@@ -275,8 +275,8 @@ class StellarServiceClass {
         }
 
         logger.info(
-          { operationName, status, attempt, delayMs },
-          `Stellar Horizon operation ${operationName} returned status ${status}; retrying in ${Math.round(delayMs)}ms (attempt ${attempt}/${HORIZON_RETRY_CONFIG.maxAttempts}).`
+          `Stellar Horizon operation ${operationName} returned status ${status}; retrying in ${Math.round(delayMs)}ms (attempt ${attempt}/${HORIZON_RETRY_CONFIG.maxAttempts}).`,
+          { operationName, status, attempt, delayMs }
         );
 
         await sleep(delayMs);
