@@ -33,8 +33,10 @@ export function sanitizeAmountInput(raw: string, decimals: number): string {
   return value;
 }
 
-export interface AmountInputProps
-  extends Omit<ComponentPropsWithoutRef<'input'>, 'type' | 'inputMode' | 'onChange'> {
+export interface AmountInputProps extends Omit<
+  ComponentPropsWithoutRef<'input'>,
+  'type' | 'inputMode' | 'onChange'
+> {
   /**
    * Fired with the sanitized change event — same contract as a plain
    * `<input onChange>`, so this drops directly into `register()` /
@@ -85,7 +87,15 @@ export interface AmountInputProps
  * there is no `FormField` wrapper to supply them.
  */
 export const AmountInput = forwardRef<HTMLInputElement, AmountInputProps>(function AmountInput(
-  { asset, decimals = 7, onChange, className, style, 'aria-describedby': describedBy, ...inputProps },
+  {
+    asset,
+    decimals = 7,
+    onChange,
+    className,
+    style,
+    'aria-describedby': describedBy,
+    ...inputProps
+  },
   ref
 ) {
   const suffixId = useId();

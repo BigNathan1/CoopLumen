@@ -132,9 +132,7 @@ describe('AmountInput', () => {
   });
 
   it('forwards standard input props such as disabled, placeholder, and name', () => {
-    render(
-      <AmountInput aria-label="Amount" disabled placeholder="0.00" name="amount" />
-    );
+    render(<AmountInput aria-label="Amount" disabled placeholder="0.00" name="amount" />);
     const input = screen.getByLabelText('Amount');
     expect(input).toBeDisabled();
     expect(input).toHaveAttribute('placeholder', '0.00');
