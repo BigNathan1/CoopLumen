@@ -59,6 +59,116 @@ paths:
           description: Invalid transaction hash format
         '404':
           description: Transaction not found on Horizon
+          description: The address path parameter is not a structurally valid Stellar StrKey
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/communities/{id}/treasury:
+    parameters:
+      - $ref: '#/components/parameters/CommunityId'
+    get:
+      tags: [Treasury]
+      summary: Get treasury balances
+      description: Returns the issuer account's on-chain Stellar balances, fetched live from Horizon.
+      responses:
+        '200':
+          description: Treasury balances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      account: { $ref: '#/components/schemas/StellarKey' }
+                      balances:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            asset_type: { type: string }
+                            asset_code: { type: string }
+                            asset_issuer: { type: string }
+                            balance: { type: string }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/tokens:
+    get:
+      tags: [Tokens]
+      summary: List all tokens (Admin)
+      description: >
+        Admin endpoint to list all tokens across all communities.
+        Requires admin authentication. Supports pagination and sorting.
+      security:
+        - AdminAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [created_at, name, asset_code, total_supply]
+            default: created_at
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Paginated list of tokens across all communities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/TokenWithCommunity' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/v1/tokens/issue:
+    post:
+      tags: [Tokens]
+      summary: Issue a community token
+      description: >
+        Issues a community token on the Stellar network. Accepts an optional
+        Idempotency-Key header; a retried request with the same key replays
+        the original response instead of issuing a second time.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IssueToken' }
+      responses:
+        '201':
+          description: Token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenTransferResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '429':
+          description: Too many requests. Rate limited to 3 per minute per user.
+        '500':
+          description: The asset was issued but its metadata could not be persisted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '502':
           description: Upstream Horizon gateway error
 
@@ -118,3 +228,693 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '409':
           description: Community name already taken
+          description: Loan is not in `active` status
+
+  /api/v1/prices/xlm:
+    get:
+      tags: [Prices]
+      summary: Get XLM/USD price
+      description: Returns the latest XLM/USD spot price from a public market source with caching and fallback providers.
+      parameters:
+        - name: currency
+          in: query
+          required: false
+          description: Target fiat currency. Defaults to USD.
+          schema:
+            type: string
+            enum: [USD]
+            default: USD
+      responses:
+        '200':
+          description: Current XLM/USD price
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PriceData'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          description: Failed to fetch price from public sources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  parameters:
+    CommunityId:
+      name: id
+      in: path
+      required: true
+      description: Community UUID.
+      schema: { type: string, format: uuid }
+    LoanId:
+      name: id
+      in: path
+      required: true
+      description: Loan UUID.
+      schema: { type: string, format: uuid }
+    Page:
+      name: page
+      in: query
+      description: 1-based page number.
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      description: Page size, capped at 100.
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+  responses:
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+    NotFound:
+      description: Requested resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    StellarKey:
+      type: string
+      description: A 56-character Stellar StrKey public key.
+      pattern: '^G[A-Z2-7]{55}$'
+    Trustline:
+      type: object
+      required: [asset_type, asset_code, asset_issuer, balance, limit]
+      properties:
+        asset_type:
+          type: string
+          enum: [credit_alphanum4, credit_alphanum12]
+          description: Stellar asset type (always non-native for trustlines)
+        asset_code:
+          type: string
+          description: Asset code (e.g. USDC, ECO)
+        asset_issuer:
+          $ref: '#/components/schemas/StellarKey'
+        balance:
+          type: string
+          description: Current balance of the asset held by the account
+          example: "10.0000000"
+        limit:
+          type: string
+          description: Maximum amount of the asset the account is willing to hold
+          example: "922337203685.4775807"
+        buying_liabilities:
+          type: string
+          example: "0.0000000"
+        selling_liabilities:
+          type: string
+          example: "0.0000000"
+        last_modified_ledger:
+          type: integer
+          description: Ledger sequence when the trustline was last modified
+          example: 2638989
+        is_authorized:
+          type: boolean
+          description: Whether the issuer has authorized the account to hold the asset
+        is_authorized_to_maintain_liabilities:
+          type: boolean
+    FeeEstimate:
+      type: object
+      required: [baseFee, lastLedger, ledgerCapacityUsage, feeCharged]
+      properties:
+        baseFee:
+          type: integer
+          description: Minimum fee per operation in stroops (from last_ledger_base_fee)
+          example: 100
+        lastLedger:
+          type: string
+          description: Sequence number of the most recent ledger used for fee calculation
+          example: "4372364"
+        ledgerCapacityUsage:
+          type: string
+          description: Fraction of ledger capacity used in the recent ledger sample (0.0–1.0)
+          example: "0.07"
+        feeCharged:
+          type: object
+          required: [min, mode, p10, p50, p90, p95, p99]
+          properties:
+            min:  { type: string, description: Minimum fee charged, example: "100" }
+            mode: { type: string, description: Most common fee charged, example: "100" }
+            p10:  { type: string, description: 10th percentile fee charged, example: "100" }
+            p50:  { type: string, description: 50th percentile (median) fee charged, example: "100" }
+            p90:  { type: string, description: 90th percentile fee charged, example: "95947" }
+            p95:  { type: string, description: 95th percentile fee charged, example: "154834" }
+            p99:  { type: string, description: 99th percentile fee charged, example: "706514" }
+    BalanceLine:
+      type: object
+      properties:
+        asset_type: { type: string }
+        asset_code: { type: string, nullable: true }
+        asset_issuer: { type: string, nullable: true }
+        balance: { type: string }
+    BalanceResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BalanceLine'
+    BalanceHistoryEntry:
+      type: object
+      required: [id, community_id, actor_address, action, stellar_tx_hash, metadata, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        community_id: { type: string, format: uuid, nullable: true }
+        actor_address:
+          allOf:
+            - $ref: '#/components/schemas/StellarKey'
+          nullable: true
+        action:
+          type: string
+          description: Audit action such as payment_sent, token_issued, or loan_repayment.
+        stellar_tx_hash: { type: string, nullable: true }
+        metadata:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Action-specific values such as amount, asset_code, or loan_id.
+        created_at: { type: string, format: date-time }
+    BalanceHistoryResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BalanceHistoryEntry'
+        meta:
+          $ref: '#/components/schemas/PageMeta'
+    Health:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        db: { type: string, example: ok }
+        stellar: { type: string, example: ok }
+        uptime: { type: integer }
+        version: { type: string }
+    Community:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        issuer_public_key: { $ref: '#/components/schemas/StellarKey' }
+        asset_code: { type: string }
+        asset_issuer: { $ref: '#/components/schemas/StellarKey' }
+        avatar_url: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Member:
+      type: object
+      properties:
+        stellar_address: { $ref: '#/components/schemas/StellarKey' }
+        role:
+          type: string
+          enum: [admin, treasurer, member, observer]
+        joined_at: { type: string, format: date-time }
+    CommunityDetail:
+      allOf:
+        - $ref: '#/components/schemas/Community'
+        - type: object
+          properties:
+            member_count: { type: integer }
+            tokens:
+              type: array
+              items: { type: object }
+            stats:
+              type: object
+              properties:
+                total_transactions: { type: integer }
+                total_token_supply: { type: number }
+    CreateCommunity:
+      type: object
+      required: [name, issuerPublicKey, assetCode, assetIssuer]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 64 }
+        description: { type: string, maxLength: 500 }
+        issuerPublicKey: { $ref: '#/components/schemas/StellarKey' }
+        assetCode: { type: string, pattern: '^[A-Za-z0-9]{1,12}$' }
+        assetIssuer: { $ref: '#/components/schemas/StellarKey' }
+    UpdateCommunity:
+      type: object
+      properties:
+        name: { type: string, minLength: 2, maxLength: 64 }
+        description: { type: string, nullable: true, maxLength: 500 }
+        settings: { type: object, additionalProperties: true }
+    PageMeta:
+      type: object
+      properties:
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        pages: { type: integer }
+        offset: { type: integer }
+    ValidationIssue:
+      type: object
+      properties:
+        path:
+          oneOf:
+            - type: string
+            - type: array
+              items: { type: string }
+        message: { type: string }
+    ValidationErrorResponse:
+      type: object
+      required: [data, error]
+      properties:
+        data:
+          nullable: true
+        meta:
+          type: object
+          properties:
+            errors:
+              type: array
+              items:
+                $ref: '#/components/schemas/ValidationIssue'
+        error:
+          oneOf:
+            - type: string
+            - type: object
+              additionalProperties: true
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+    StellarWebhookPayload:
+      type: object
+      required: [eventId, eventType, occurredAt, data]
+      properties:
+        eventId:
+          type: string
+          minLength: 1
+        eventType:
+          type: string
+          enum:
+            - transaction.succeeded
+            - transaction.failed
+            - account.created
+            - trustline.created
+            - trustline.removed
+            - payment.received
+        occurredAt:
+          type: string
+          format: date-time
+        data:
+          type: object
+          additionalProperties: true
+    TokenTransferRequest:
+      type: object
+      required: [signedXdr]
+      properties:
+        signedXdr:
+          type: string
+          minLength: 1
+          maxLength: 100000
+    TokenTransferResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          properties:
+            txHash: { type: string }
+    UnsignedPaymentRequest:
+      type: object
+      required: [senderPublicKey, destinationPublicKey, assetCode, amount]
+      properties:
+        senderPublicKey:
+          $ref: '#/components/schemas/StellarKey'
+        destinationPublicKey:
+          $ref: '#/components/schemas/StellarKey'
+        assetCode:
+          type: string
+          pattern: '^[A-Za-z0-9]{1,12}$'
+          description: Use XLM for the native asset.
+        assetIssuer:
+          allOf:
+            - $ref: '#/components/schemas/StellarKey'
+          description: Required for non-XLM assets and omitted for native XLM.
+        amount:
+          type: string
+          pattern: '^(?:0|[1-9]\d*)(?:\.\d{1,7})?$'
+          description: Positive decimal amount with up to 7 fractional digits.
+        memo:
+          type: string
+          description: Optional text memo of at most 28 UTF-8 bytes.
+      example:
+        senderPublicKey: GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR
+        destinationPublicKey: GCATS5YOVB6ROX2WUNKGNQ2MP3GMXDMKSG2O4N5CLX3A6W4PZGZZI55U
+        assetCode: XLM
+        amount: '10.5'
+        memo: Community payment
+    UnsignedPaymentResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [xdr]
+          properties:
+            xdr:
+              type: string
+              description: Base64-encoded unsigned Stellar transaction envelope XDR.
+    BuildTrustlineRequest:
+      type: object
+      required: [accountPublicKey, assetCode, assetIssuer]
+      properties:
+        accountPublicKey:
+          $ref: '#/components/schemas/StellarKey'
+          description: Stellar public key of the account establishing the trustline.
+        assetCode:
+          type: string
+          pattern: '^[A-Za-z0-9]{1,12}$'
+          description: Stellar asset code to trust.
+        assetIssuer:
+          $ref: '#/components/schemas/StellarKey'
+          description: Stellar public key of the asset issuer.
+        limit:
+          type: string
+          pattern: '^(?:0|[1-9]\d*)(?:\.\d{1,7})?$'
+          description: Optional maximum amount of the asset to trust.
+      example:
+        accountPublicKey: GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR
+        assetCode: COOP
+        assetIssuer: GCATS5YOVB6ROX2WUNKGNQ2MP3GMXDMKSG2O4N5CLX3A6W4PZGZZI55U
+        limit: '1000'
+    BuildTrustlineResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [xdr]
+          properties:
+            xdr:
+              type: string
+              description: Base64-encoded unsigned Stellar transaction envelope XDR.
+    AirdropRequest:
+      type: object
+      required: [communityId, amount, issuerSecret]
+      properties:
+        communityId:
+          type: string
+          format: uuid
+        amount:
+          type: string
+          description: Positive decimal amount with up to 7 fractional digits.
+        issuerSecret:
+          type: string
+          description: Stellar secret key for the issuing account.
+    AirdropResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          properties:
+            amount: { type: string }
+            recipientCount: { type: integer }
+            txHashes:
+              type: array
+              items: { type: string }
+    InsufficientBalanceError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: INSUFFICIENT_BALANCE
+        message:
+          type: string
+        requiredXlm:
+          type: string
+          nullable: true
+        currentBalance:
+          type: string
+          nullable: true
+    InsufficientBalanceResponse:
+      type: object
+      required: [data, error]
+      properties:
+        data:
+          nullable: true
+        error:
+          $ref: '#/components/schemas/InsufficientBalanceError'
+    Token:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        community_id: { type: string, format: uuid }
+        asset_code: { type: string }
+        asset_issuer: { $ref: '#/components/schemas/StellarKey' }
+        distributor_address: { $ref: '#/components/schemas/StellarKey' }
+        total_supply: { type: string }
+        name: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        icon_url: { type: string, nullable: true }
+        decimals: { type: integer, minimum: 0, maximum: 7, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    TokenWithCommunity:
+      allOf:
+        - $ref: '#/components/schemas/Token'
+        - type: object
+          properties:
+            community_name: { type: string, nullable: true }
+    BurnToken:
+      type: object
+      required: [asset_code, asset_issuer]
+      properties:
+        id:
+          type: string
+        community_id:
+          type: string
+          format: uuid
+        asset_code:
+          type: string
+        asset_issuer:
+          type: string
+        name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    TokenMetadata:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        asset_code: { type: string }
+        asset_issuer: { $ref: '#/components/schemas/StellarKey' }
+        name: { type: string }
+        description: { type: string, nullable: true }
+    TokenMetadataResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/TokenMetadata'
+    IssueToken:
+      type: object
+      required: [issuerSecret, assetCode, distributorPublicKey, amount]
+      properties:
+        communityId: { type: string, format: uuid }
+        issuerSecret: { type: string }
+        assetCode: { type: string, pattern: '^[A-Za-z0-9]{1,12}$' }
+        issuerSecret: { type: string, pattern: '^S[A-Z2-7]{55}$' }
+        assetCode: { type: string, minLength: 1, maxLength: 12, pattern: '^[A-Za-z0-9]+$' }
+        distributorPublicKey: { $ref: '#/components/schemas/StellarKey' }
+        amount: { type: string, pattern: '^(?:0|[1-9]\d*)(?:\.\d{1,7})?$' }
+        memo: { type: string, maxLength: 28 }
+        name: { type: string, minLength: 1, maxLength: 64 }
+        description: { type: string, maxLength: 500 }
+        iconUrl: { type: string, format: uri }
+        decimals: { type: integer, minimum: 0, maximum: 7, default: 7 }
+    ErrorResponse:
+      type: object
+      required: [data, error]
+      properties:
+        data:
+          nullable: true
+        meta:
+          type: object
+          additionalProperties: true
+        error:
+          oneOf:
+            - type: string
+            - type: object
+              additionalProperties: true
+    Loan:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        community_id: { type: string, format: uuid }
+        borrower_address: { $ref: '#/components/schemas/StellarKey' }
+        lender_address: { $ref: '#/components/schemas/StellarKey' }
+        amount: { type: string }
+        amount_repaid: { type: string }
+        asset_code: { type: string }
+        asset_issuer: { $ref: '#/components/schemas/StellarKey' }
+        purpose: { type: string, nullable: true }
+        status:
+          type: string
+          enum: [pending, active, repaid, defaulted, cancelled]
+        due_at: { type: string, format: date-time, nullable: true }
+        disbursed_at: { type: string, format: date-time, nullable: true }
+        closed_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    LoanEvent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        loan_id: { type: string, format: uuid }
+        event_type:
+          type: string
+          enum: [created, disbursed, repayment, closed, defaulted]
+        amount: { type: string, nullable: true }
+        payment_id: { type: string, format: uuid, nullable: true }
+        note: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+    CreateLoan:
+      type: object
+      required: [communityId, borrowerAddress, lenderAddress, amount, assetCode]
+      properties:
+        communityId: { type: string, format: uuid }
+        borrowerAddress: { $ref: '#/components/schemas/StellarKey' }
+        lenderAddress: { $ref: '#/components/schemas/StellarKey' }
+        amount: { type: string }
+        assetCode: { type: string, pattern: '^[A-Za-z0-9]{1,12}$' }
+        assetIssuer: { $ref: '#/components/schemas/StellarKey' }
+        purpose: { type: string, maxLength: 280 }
+        dueAt: { type: string, format: date-time }
+  securitySchemes:
+    AdminAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Admin authentication using JWT tokens. 
+        Currently a placeholder - actual implementation pending.
+    PriceData:
+      type: object
+      required: [asset, currency, price, source, timestamp]
+      properties:
+        asset:
+          type: string
+          example: XLM
+        currency:
+          type: string
+          example: USD
+        price:
+          type: string
+          example: '0.1888200'
+        source:
+          type: string
+          example: coingecko
+        timestamp:
+          type: string
+          format: date-time
+    PriceResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/PriceData'
+    AccountThresholds:
+      type: object
+      properties:
+        low_threshold: { type: integer }
+        med_threshold: { type: integer }
+        high_threshold: { type: integer }
+    AccountFlags:
+      type: object
+      properties:
+        auth_required: { type: boolean }
+        auth_revocable: { type: boolean }
+        auth_immutable: { type: boolean }
+        auth_clawback_enabled: { type: boolean }
+    AccountSigner:
+      type: object
+      properties:
+        key: { type: string }
+        weight: { type: integer }
+        type: { type: string }
+        sponsor: { type: string }
+    AccountBalanceLine:
+      type: object
+      properties:
+        asset_type: { type: string }
+        balance: { type: string }
+        limit: { type: string }
+        buying_liabilities: { type: string }
+        selling_liabilities: { type: string }
+        asset_code: { type: string }
+        asset_issuer: { type: string }
+        last_modified_ledger: { type: integer }
+        is_authorized: { type: boolean }
+        is_authorized_to_maintain_liabilities: { type: boolean }
+        is_clawback_enabled: { type: boolean }
+        sponsor: { type: string }
+    AccountDetails:
+      type: object
+      required:
+        - id
+        - account_id
+        - sequence
+        - subentry_count
+        - last_modified_ledger
+        - thresholds
+        - flags
+        - balances
+        - signers
+        - data
+      properties:
+        id: { $ref: '#/components/schemas/StellarKey' }
+        account_id: { $ref: '#/components/schemas/StellarKey' }
+        sequence: { type: string }
+        sequence_ledger: { type: integer }
+        sequence_time: { type: string }
+        subentry_count: { type: integer }
+        inflation_destination: { type: string }
+        home_domain: { type: string }
+        last_modified_ledger: { type: integer }
+        last_modified_time: { type: string }
+        thresholds: { $ref: '#/components/schemas/AccountThresholds' }
+        flags: { $ref: '#/components/schemas/AccountFlags' }
+        balances:
+          type: array
+          items: { $ref: '#/components/schemas/AccountBalanceLine' }
+        signers:
+          type: array
+          items: { $ref: '#/components/schemas/AccountSigner' }
+        data:
+          type: object
+          additionalProperties: { type: string }
+        num_sponsoring: { type: integer }
+        num_sponsored: { type: integer }
+        sponsor: { type: string }
+        paging_token: { type: string }
+    AccountDetailsResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/AccountDetails'
+

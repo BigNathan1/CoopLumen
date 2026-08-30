@@ -254,8 +254,12 @@ describe('accounts routes', () => {
       expect(response.status).toBe(200);
       expect(response.body.data.sequence).toBe('500');
       expect(loadAccount).toHaveBeenCalledTimes(3);
-      expect(setTimeoutSpy).toHaveBeenNthCalledWith(1, expect.any(Function), 100);
-      expect(setTimeoutSpy).toHaveBeenNthCalledWith(2, expect.any(Function), 200);
+      expect(setTimeoutSpy).toHaveBeenNthCalledWith(1, expect.any(Function), expect.any(Number));
+      expect(setTimeoutSpy.mock.calls[0][1]).toBeGreaterThanOrEqual(0);
+      expect(setTimeoutSpy.mock.calls[0][1]).toBeLessThan(100);
+      expect(setTimeoutSpy).toHaveBeenNthCalledWith(2, expect.any(Function), expect.any(Number));
+      expect(setTimeoutSpy.mock.calls[1][1]).toBeGreaterThanOrEqual(0);
+      expect(setTimeoutSpy.mock.calls[1][1]).toBeLessThan(200);
     });
 
     it('retries Horizon 503 service unavailable failures and succeeds', async () => {
@@ -369,9 +373,15 @@ describe('accounts routes', () => {
 
       expect(response.status).toBe(502);
       expect(loadAccount).toHaveBeenCalledTimes(4);
-      expect(setTimeoutSpy).toHaveBeenNthCalledWith(1, expect.any(Function), 100);
-      expect(setTimeoutSpy).toHaveBeenNthCalledWith(2, expect.any(Function), 200);
-      expect(setTimeoutSpy).toHaveBeenNthCalledWith(3, expect.any(Function), 400);
+      expect(setTimeoutSpy).toHaveBeenNthCalledWith(1, expect.any(Function), expect.any(Number));
+      expect(setTimeoutSpy.mock.calls[0][1]).toBeGreaterThanOrEqual(0);
+      expect(setTimeoutSpy.mock.calls[0][1]).toBeLessThan(100);
+      expect(setTimeoutSpy).toHaveBeenNthCalledWith(2, expect.any(Function), expect.any(Number));
+      expect(setTimeoutSpy.mock.calls[1][1]).toBeGreaterThanOrEqual(0);
+      expect(setTimeoutSpy.mock.calls[1][1]).toBeLessThan(200);
+      expect(setTimeoutSpy).toHaveBeenNthCalledWith(3, expect.any(Function), expect.any(Number));
+      expect(setTimeoutSpy.mock.calls[2][1]).toBeGreaterThanOrEqual(0);
+      expect(setTimeoutSpy.mock.calls[2][1]).toBeLessThan(400);
     });
   });
 });

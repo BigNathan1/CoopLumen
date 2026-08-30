@@ -15,7 +15,7 @@ import { accountsRouter } from './accounts';
  * that future breaking changes can ship under `/api/v2` without disturbing
  * existing clients.
  */
-export const apiRouter = Router();
+export const apiRouter: Router = Router();
 
 apiRouter.use('/communities', communityRouter);
 apiRouter.use('/tokens', tokenRouter);
