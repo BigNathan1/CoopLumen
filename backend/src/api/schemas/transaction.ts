@@ -71,3 +71,44 @@ export const transactionHashSchema = z.object({
 });
 
 export type TransactionHashParams = z.infer<typeof transactionHashSchema>;
+
+/** The `action` values `transactions_log` accepts, per its check constraint. */
+export const TRANSACTION_LOG_ACTIONS = [
+  'community_created',
+  'member_added',
+  'member_removed',
+  'token_issued',
+  'payment_sent',
+  'trustline_established',
+  'trustline_removed',
+  'loan_created',
+  'loan_disbursed',
+  'loan_repayment',
+  'loan_closed',
+  'loan_defaulted',
+] as const;
+
+const isoDate = z
+  .string()
+  .trim()
+  .refine((value) => !Number.isNaN(Date.parse(value)), 'must be an ISO 8601 date-time string');
+
+export const communityTransactionsQuerySchema = z
+  .object({
+    page: z.string().trim().optional(),
+    limit: z.string().trim().optional(),
+    from: isoDate.optional(),
+    to: isoDate.optional(),
+    type: z.enum(TRANSACTION_LOG_ACTIONS).optional(),
+  })
+  .superRefine(({ from, to }, context) => {
+    if (from && to && Date.parse(from) > Date.parse(to)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['to'],
+        message: '`to` must not be before `from`',
+      });
+    }
+  });
+
+export type CommunityTransactionsQuery = z.infer<typeof communityTransactionsQuerySchema>;
