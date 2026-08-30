@@ -23,6 +23,15 @@ export interface BurnAssetParams {
   timeBounds?: TimeBoundsInput;
 }
 
+export interface DistributeAssetParams {
+  issuerSecret: string;
+  assetCode: string;
+  assetIssuer: string;
+  distributorPublicKey: string;
+  amount: string;
+  memo?: string;
+}
+
 export interface AssetHolder {
   account: string;
   balance: string;
@@ -64,6 +73,49 @@ export async function issueAsset(params: IssueAssetParams): Promise<string> {
     return StellarService.submitTransaction(tx);
   });
 
+  await invalidateBalanceCache([issuerKeypair.publicKey(), distributorPublicKey]);
+  return result.hash;
+}
+
+/**
+ * Distributes tokens from the issuer to a distributor or holder account.
+ * The destination account must already have a trustline for the asset.
+ * If the trustline doesn't exist, the transaction will fail with op_no_trust.
+ *
+ * @param params Distribution parameters including issuer secret, asset details, destination, and amount
+ * @returns Transaction hash of the distribution
+ * @throws Horizon errors (e.g., op_no_trust, op_underfunded) for callers to map
+ */
+export async function distributeAsset(params: DistributeAssetParams): Promise<string> {
+  const { issuerSecret, assetCode, assetIssuer, distributorPublicKey, amount, memo } = params;
+
+  const issuerKeypair = Keypair.fromSecret(issuerSecret);
+  const network = StellarService.getNetwork();
+
+  const issuerAccount = await StellarService.loadAccount(issuerKeypair.publicKey());
+  const asset = new Asset(assetCode, assetIssuer);
+
+  const txBuilder = new TransactionBuilder(issuerAccount, {
+    fee: BASE_FEE,
+    networkPassphrase: network,
+  });
+
+  if (memo) {
+    txBuilder.addMemo(Memo.text(memo));
+  }
+
+  txBuilder.addOperation(
+    Operation.payment({
+      destination: distributorPublicKey,
+      asset,
+      amount,
+    })
+  );
+
+  const tx = txBuilder.setTimeout(30).build();
+  tx.sign(issuerKeypair);
+
+  const result = await StellarService.submitTransaction(tx);
   await invalidateBalanceCache([issuerKeypair.publicKey(), distributorPublicKey]);
   return result.hash;
 }
@@ -175,6 +227,8 @@ export async function getAssetBalance(
   return Number(balanceEntry.balance);
 }
 
+/** Returns the circulating supply reported by Horizon for an issued asset. */
+export async function getAssetSupply(assetCode: string, assetIssuer: string): Promise<string> {
 /** Returns the total supply Horizon's asset stats endpoint reports for an issued asset. */
 export async function getTotalSupply(assetCode: string, issuer: string): Promise<string> {
   const server = StellarService.getServer();
