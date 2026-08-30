@@ -1,23 +1,24 @@
 import { Account, Keypair, Networks, Transaction } from '@stellar/stellar-sdk';
-import { establishTrustline, buildUnsignedTrustline, hasTrustline, setTrustlineFlags } from '../trustlines';
+import {
+  establishTrustline,
+  buildUnsignedTrustline,
+  hasTrustline,
+  setTrustlineFlags,
+} from '../trustlines';
 import { StellarService } from '../stellar';
 
-jest.mock('../stellar', () => (
-  {
-    StellarService: {
-      getServer: jest.fn(),
-      getNetwork: jest.fn().mockReturnValue('Test SDF Network ; September 2015'),
-      loadAccount: jest.fn(),
-      submitTransaction: jest.fn(),
-    },
-  }
-));
+jest.mock('../stellar', () => ({
+  StellarService: {
+    getServer: jest.fn(),
+    getNetwork: jest.fn().mockReturnValue('Test SDF Network ; September 2015'),
+    loadAccount: jest.fn(),
+    submitTransaction: jest.fn(),
+  },
+}));
 
-jest.mock('../../cache/balances', () => (
-  {
-    invalidateBalanceCache: jest.fn().mockResolvedValue(undefined),
-  }
-));
+jest.mock('../../cache/balances', () => ({
+  invalidateBalanceCache: jest.fn().mockResolvedValue(undefined),
+}));
 
 const mockLoadAccount = StellarService.loadAccount as jest.Mock;
 const mockSubmit = StellarService.submitTransaction as jest.Mock;
@@ -89,7 +90,9 @@ describe('trustlines contract wrapper', () => {
       const horizonError = {
         response: {
           status: 400,
-          data: { extras: { result_codes: { transaction: 'tx_failed', operations: ['op_low_reserve'] } } },
+          data: {
+            extras: { result_codes: { transaction: 'tx_failed', operations: ['op_low_reserve'] } },
+          },
         },
       };
       mockSubmit.mockRejectedValueOnce(horizonError);
@@ -137,7 +140,11 @@ describe('trustlines contract wrapper', () => {
         ],
       });
 
-      const exists = await hasTrustline(accountKeypair.publicKey(), 'ECO', issuerKeypair.publicKey());
+      const exists = await hasTrustline(
+        accountKeypair.publicKey(),
+        'ECO',
+        issuerKeypair.publicKey()
+      );
       expect(exists).toBe(true);
     });
 
@@ -146,7 +153,11 @@ describe('trustlines contract wrapper', () => {
         balances: [{ asset_type: 'native', balance: '10' }],
       });
 
-      const exists = await hasTrustline(accountKeypair.publicKey(), 'ECO', issuerKeypair.publicKey());
+      const exists = await hasTrustline(
+        accountKeypair.publicKey(),
+        'ECO',
+        issuerKeypair.publicKey()
+      );
       expect(exists).toBe(false);
     });
   });

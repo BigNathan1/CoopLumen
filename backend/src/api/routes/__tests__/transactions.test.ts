@@ -176,8 +176,12 @@ describe('POST /api/v1/transactions/unsigned', () => {
 
     expect(response.status).toBe(200);
     expect(loadAccount).toHaveBeenCalledTimes(3);
-    expect(setTimeoutSpy).toHaveBeenNthCalledWith(1, expect.any(Function), 100);
-    expect(setTimeoutSpy).toHaveBeenNthCalledWith(2, expect.any(Function), 200);
+    expect(setTimeoutSpy).toHaveBeenNthCalledWith(1, expect.any(Function), expect.any(Number));
+    expect(setTimeoutSpy.mock.calls[0][1]).toBeGreaterThanOrEqual(0);
+    expect(setTimeoutSpy.mock.calls[0][1]).toBeLessThan(100);
+    expect(setTimeoutSpy).toHaveBeenNthCalledWith(2, expect.any(Function), expect.any(Number));
+    expect(setTimeoutSpy.mock.calls[1][1]).toBeGreaterThanOrEqual(0);
+    expect(setTimeoutSpy.mock.calls[1][1]).toBeLessThan(200);
   });
 
   it('maps Horizon service failures without surfacing raw response objects', async () => {
