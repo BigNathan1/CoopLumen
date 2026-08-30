@@ -10,6 +10,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `react-hook-form` dependency and a shared `Form` wrapper in `frontend/src/components/Form.tsx`, exporting `Form`, `FormField`, `FormError` and `FormSubmit`. `Form` owns the form instance and context and turns a rejected submit handler into a form-level error instead of an unhandled rejection; `FormField` renders label, hint and validation message around a caller-supplied control and wires up `htmlFor`, `aria-describedby`, `aria-invalid` and `aria-required`; `FormSubmit` disables itself while a submit is in flight to prevent double submission. Forms render with `noValidate` so messages come from the app rather than unstyleable native bubbles (#257).
 - `claimableBalance.create(asset, amount, claimants)` in `backend/src/contracts/claimableBalance.ts` — creates a Stellar claimable balance using the `CreateClaimableBalance` operation. Accepts optional memo and time bounds; wraps Horizon interaction with error mapping so Horizon result codes (`op_low_reserve`, `op_no_trust`, `tx_bad_seq`, etc.) surface as actionable messages instead of opaque errors. Includes full unit test coverage and works with `withSequenceRetry` for concurrent submission safety (#247).
 - `GET /api/v1/fees/estimate` endpoint returning current Stellar network base fee and percentile fee distribution from Horizon (#156).
 - `StellarService.getFeeStats()` method wrapping `Horizon.Server.feeStats()` with the existing retry and error-mapping stack.
