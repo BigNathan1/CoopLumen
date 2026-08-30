@@ -7,7 +7,7 @@ import { mapHorizonError } from '../utils/horizonError';
 import { validateParams } from '../middleware/validate';
 import { db } from '../../db';
 
-export const transactionRouter = Router();
+export const transactionRouter: Router = Router();
 
 const communityIdParamSchema = z.object({
   communityId: z.string().uuid('Invalid community ID'),
@@ -57,11 +57,13 @@ transactionRouter.post('/unsigned', async (req: Request, res: Response): Promise
   }
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
     const xdr = await buildUnsignedPayment({
       ...parsed.data,
       assetIssuer: parsed.data.assetIssuer ?? '',
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     res.status(200).json({ data: { xdr } });
   } catch (error) {
     const mapped = mapHorizonError(error);

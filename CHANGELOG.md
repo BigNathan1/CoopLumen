@@ -18,6 +18,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `GET /api/v1/fees/estimate` endpoint returning current Stellar network base fee and percentile fee distribution from Horizon (#156).
 - `StellarService.getFeeStats()` method wrapping `Horizon.Server.feeStats()` with the existing retry and error-mapping stack.
 
+- Token `assetCode` validation explicitly enforces 1-12 alphanumeric characters, rejecting special characters and whitespace.
+- Fully documented Tokens API with JSDoc and `docs/openapi.yaml`.
+- Integration tests covering the full token flow (issue, trustline, transfer) using mocked Stellar network.
+- Rate-limiting applied to `POST /api/v1/tokens/issue`, restricting to 3 requests/minute per authenticated user (or IP).
+
 - `GET /api/v1/tokens` admin endpoint to list all tokens across all communities with pagination, sorting, and filtering support
 - Token metadata storage: `name` and `decimals` columns added to the `tokens` table (migration 024) to complement existing `description` and `icon_url` fields
 - Token metadata validation in `POST /api/v1/tokens/issue` accepting optional `name`, `description`, `iconUrl`, and `decimals` fields with Zod validation
