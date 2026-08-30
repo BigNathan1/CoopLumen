@@ -3,6 +3,7 @@
 import { useCommunities } from '@/hooks/useCommunities';
 import { useWallet } from '@/hooks/useWallet';
 import { WalletConnect } from './WalletConnect';
+import { ThemeToggle } from './ThemeToggle';
 import { CommunityCard } from './CommunityCard';
 import { BalancePanel } from './BalancePanel';
 import styles from './Dashboard.module.css';
@@ -19,7 +20,11 @@ export function Dashboard() {
           <h1 className={styles.title}>CoopLumen</h1>
           <span className={styles.tagline}>Decentralized Community Finance</span>
         </div>
-        <WalletConnect />
+
+        <div className={styles.actions}>
+          <ThemeToggle />
+          <WalletConnect />
+        </div>
       </header>
 
       <div className={styles.content}>
