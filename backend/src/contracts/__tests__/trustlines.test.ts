@@ -62,7 +62,7 @@ describe('trustlines contract wrapper', () => {
 
       expect(hash).toBe('trustlinehash123');
       const [tx] = mockSubmit.mock.calls[0] as [Transaction];
-      expect((tx.operations[0] as any).limit).toBe('10000');
+      expect((tx.operations[0] as any).limit).toBe('10000.0000000');
     });
 
     it('includes a memo and time bounds when provided', async () => {
@@ -71,17 +71,28 @@ describe('trustlines contract wrapper', () => {
         assetCode: 'ECO',
         assetIssuer: issuerKeypair.publicKey(),
         memo: 'trust eco',
-        timeBounds: { minTime: 100, maxTime: 200 },
+        timeBounds: { minTime: 1_800_000_000, maxTime: 1_900_000_000 },
       });
 
       expect(hash).toBe('trustlinehash123');
       const [tx] = mockSubmit.mock.calls[0] as [Transaction];
       expect(tx.memo.type).toBe('text');
-      expect(tx.timeBounds).toEqual({ minTime: '100', maxTime: '200' });
+      expect(tx.timeBounds).toEqual({ minTime: '1800000000', maxTime: '1900000000' });
     });
 
     it('propagates Horizon submission errors', async () => {
-      mockSubmit.mockRejectedValueOnce({ response: { status: 400, data: { extras: { result_codes: { transaction: 'tx_failed', operations: ['op_low_reserve'] } } } } });
+      // withSequenceRetry retries once on tx_bad_seq only; any other mapped
+      // failure (like op_low_reserve here) is not retried, so a single
+      // rejection is enough for this one. establishTrustline doesn't wrap
+      // the raw Horizon rejection in an Error, so assert on the value
+      // itself rather than .toThrow(), which expects an Error instance.
+      const horizonError = {
+        response: {
+          status: 400,
+          data: { extras: { result_codes: { transaction: 'tx_failed', operations: ['op_low_reserve'] } } },
+        },
+      };
+      mockSubmit.mockRejectedValueOnce(horizonError);
 
       await expect(
         establishTrustline({
@@ -89,7 +100,7 @@ describe('trustlines contract wrapper', () => {
           assetCode: 'ECO',
           assetIssuer: issuerKeypair.publicKey(),
         })
-      ).rejects.toThrow();
+      ).rejects.toEqual(horizonError);
     });
   });
 
@@ -108,7 +119,7 @@ describe('trustlines contract wrapper', () => {
       const tx = new Transaction(xdr, Networks.TESTNET);
       expect(tx.operations).toHaveLength(1);
       expect(tx.operations[0].type).toBe('changeTrust');
-      expect((tx.operations[0] as any).limit).toBe('5000');
+      expect((tx.operations[0] as any).limit).toBe('5000.0000000');
     });
   });
 
