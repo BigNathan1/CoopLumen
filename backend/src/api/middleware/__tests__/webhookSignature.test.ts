@@ -1,9 +1,6 @@
 import { createHmac } from 'crypto';
 import { Request, Response } from 'express';
-import {
-  verifyWebhookSignature,
-  STELLAR_WEBHOOK_SIGNATURE_HEADER,
-} from '../webhookSignature';
+import { verifyWebhookSignature, STELLAR_WEBHOOK_SIGNATURE_HEADER } from '../webhookSignature';
 
 jest.mock('../../../utils/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
