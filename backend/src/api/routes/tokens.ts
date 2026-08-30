@@ -8,9 +8,17 @@ import { invalidateBalanceCache } from '../../cache/balances';
 import { StellarService } from '../../contracts/stellar';
 import { validateBody } from '../middleware/validate';
 import { idempotent } from '../middleware/idempotency';
-import { issueTokenSchema, trustlineTokenSchema, burnTokenSchema } from '../schemas/token';
+import { requireAdmin } from '../middleware/auth';
+import { tokenIssueLimiter } from '../middleware/rateLimit';
+import {
+  issueTokenSchema,
+  trustlineTokenSchema,
+  burnTokenSchema,
+  adminTokensQuerySchema,
+} from '../schemas/token';
 import { isValidStellarPublicKey } from '../utils/stellar';
 import { mapHorizonError } from '../utils/horizonError';
+import { parsePagination, pageMeta, parseSort } from '../utils/http';
 import { withSequenceRetry } from '../../contracts/sequenceCache';
 import {
   getNativeBalance,
@@ -20,15 +28,14 @@ import {
   getTransactionSource,
 } from '../utils/stellarTransaction';
 
-export const tokenRouter = Router();
+import { tokenIssueLimiter } from '../middleware/rateLimit';
+
+export const tokenRouter: Router = Router();
 
 const tokenParamsSchema = z.object({
   assetCode: z
     .string()
-    .trim()
-    .min(1, 'assetCode is required')
-    .max(12, 'assetCode must be 12 characters or fewer')
-    .regex(/^[A-Za-z0-9]+$/, 'assetCode must be alphanumeric'),
+    .regex(/^[A-Za-z0-9]{1,12}$/, 'assetCode must be 1 to 12 alphanumeric characters'),
   issuer: z.string().refine(isValidStellarPublicKey, 'issuer must be a valid Stellar public key'),
 });
 
@@ -53,8 +60,10 @@ interface Token {
   asset_issuer: string;
   distributor_address: string;
   total_supply: string;
+  name: string | null;
   description: string | null;
   icon_url: string | null;
+  decimals: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -68,6 +77,72 @@ interface MemberRow {
   stellar_address: string;
 }
 
+interface TokenWithCommunity extends Token {
+  community_name: string;
+}
+
+/**
+ * GET /api/v1/tokens
+ * Admin endpoint to list all tokens across all communities.
+ * Requires admin authentication (currently placeholder).
+ * Supports pagination via page/limit query parameters.
+ */
+tokenRouter.get('/', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const queryValidation = adminTokensQuerySchema.safeParse(req.query);
+    if (!queryValidation.success) {
+      res.status(400).json({
+        data: null,
+        error: 'Invalid query parameters',
+        meta: {
+          errors: queryValidation.error.issues.map((issue) => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
+      });
+      return;
+    }
+
+    const pagination = parsePagination(req);
+    const allowedSortColumns = ['created_at', 'name', 'asset_code', 'total_supply'];
+    const { sortBy, order } = parseSort(req, allowedSortColumns, 'created_at');
+
+    const [{ count }] = await db.query<{ count: number }>(
+      'SELECT COUNT(*)::int AS count FROM tokens'
+    );
+
+    const tokens = await db.query<TokenWithCommunity>(
+      `SELECT 
+           t.id,
+           t.community_id,
+           t.asset_code,
+           t.asset_issuer,
+           t.distributor_address,
+           t.total_supply,
+           t.name,
+           t.description,
+           t.icon_url,
+           t.decimals,
+           t.created_at,
+           t.updated_at,
+           c.name AS community_name
+         FROM tokens t
+         LEFT JOIN communities c ON t.community_id = c.id
+         ORDER BY ${sortBy === 'name' ? 't.name' : sortBy === 'asset_code' ? 't.asset_code' : sortBy === 'total_supply' ? 't.total_supply' : 't.created_at'} ${order}
+         LIMIT $1 OFFSET $2`,
+      [pagination.limit, pagination.offset]
+    );
+
+    res.json({
+      data: tokens,
+      meta: pageMeta(count, pagination),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 /**
  * POST /api/v1/tokens/issue
  * Issues a community token on the Stellar network.
@@ -77,22 +152,39 @@ interface MemberRow {
  * key replays the original response instead of issuing a second time.
  * When `communityId` is supplied, the issued token's metadata is persisted to
  * the `tokens` table so it is immediately visible via GET /:communityId.
+ * Rate limited to 3 requests per minute per authenticated user.
+ * Rate limited to 3 requests per minute per authenticated user (or IP).
  */
 tokenRouter.post(
   '/issue',
+  tokenIssueLimiter,
   idempotent('POST /api/v1/tokens/issue'),
   validateBody(issueTokenSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { communityId, issuerSecret, assetCode, distributorPublicKey, amount, memo } =
-        req.body as {
-          communityId?: string;
-          issuerSecret: string;
-          assetCode: string;
-          distributorPublicKey: string;
-          amount: string;
-          memo?: string;
-        };
+      const {
+        communityId,
+        issuerSecret,
+        assetCode,
+        distributorPublicKey,
+        amount,
+        memo,
+        name,
+        description,
+        iconUrl,
+        decimals,
+      } = req.body as {
+        communityId?: string;
+        issuerSecret: string;
+        assetCode: string;
+        distributorPublicKey: string;
+        amount: string;
+        memo?: string;
+        name?: string;
+        description?: string;
+        iconUrl?: string;
+        decimals: number;
+      };
 
       const txHash = await issueAsset({
         issuerSecret,
@@ -109,8 +201,8 @@ tokenRouter.post(
           await db.query(
             `INSERT INTO tokens
                (community_id, asset_code, asset_issuer, issuer_public_key,
-                distributor_public_key, total_supply, issuance_tx_hash)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                distributor_public_key, total_supply, issuance_tx_hash, name, description, icon_url, decimals)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
             [
               communityId,
               assetCode,
@@ -119,6 +211,10 @@ tokenRouter.post(
               distributorPublicKey,
               amount,
               txHash,
+              name ?? null,
+              description ?? null,
+              iconUrl ?? null,
+              decimals,
             ]
           );
         } catch {
@@ -132,6 +228,39 @@ tokenRouter.post(
           });
           return;
         }
+      }
+
+      // Log token_issued event after successful issuance
+      try {
+        if (!issuerPublicKey) {
+          issuerPublicKey = Keypair.fromSecret(issuerSecret).publicKey();
+        }
+
+        await db.query(
+          `INSERT INTO transactions_log (community_id, actor_address, action, stellar_tx_hash, metadata)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            communityId ?? null,
+            issuerPublicKey,
+            'token_issued',
+            txHash,
+            JSON.stringify({
+              asset_code: assetCode,
+              asset_issuer: issuerPublicKey,
+              distributor_public_key: distributorPublicKey,
+              amount: amount,
+              memo: memo ?? null,
+              name: name ?? null,
+              description: description ?? null,
+              icon_url: iconUrl ?? null,
+              decimals: decimals,
+            }),
+          ]
+        );
+      } catch (logError) {
+        // Log the error but don't fail the issuance response
+        // The token was successfully issued on Stellar, logging failure is not critical
+        console.warn('Failed to log token_issued event:', logError);
       }
 
       res.status(201).json({ data: { txHash } });
@@ -486,6 +615,10 @@ tokenRouter.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { assetCode, issuer } = req.params;
+      if (!/^[A-Za-z0-9]{1,12}$/.test(assetCode)) {
+        res.status(400).json({ data: null, error: 'Invalid asset code' });
+        return;
+      }
       if (!isValidStellarPublicKey(issuer)) {
         res.status(400).json({ data: null, error: 'Invalid Stellar issuer address' });
         return;

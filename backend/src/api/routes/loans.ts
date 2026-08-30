@@ -11,7 +11,7 @@ import {
   defaultLoanSchema,
 } from '../schemas/loan';
 
-export const loanRouter = Router();
+export const loanRouter: Router = Router();
 
 interface Loan {
   id: string;

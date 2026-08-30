@@ -18,6 +18,17 @@ jest.mock('../../../contracts/stellar', () => (
     },
   }
 ));
+jest.mock('../../../db', () => ({
+  db: {
+    query: jest.fn(),
+  },
+}));
+
+jest.mock('../../../contracts/stellar', () => ({
+  StellarService: {
+    getTransactionHistory: jest.fn(),
+  },
+}));
 
 describe('GET /api/v1/transactions/export/:communityId', () => {
   beforeEach(() => {
@@ -34,6 +45,11 @@ describe('GET /api/v1/transactions/export/:communityId', () => {
     (db.query as jest.Mock).mockResolvedValue({ rows: [] });
 
     const res = await request(app).get('/api/v1/transactions/export/12345678-1234-5678-1234-567812345678');
+    (db.query as jest.Mock).mockResolvedValue([]);
+
+    const res = await request(app).get(
+      '/api/v1/transactions/export/11111111-1111-4111-8111-111111111111'
+    );
     expect(res.status).toBe(404);
     expect(res.body.error).toBe('Community not found');
   });
@@ -42,6 +58,9 @@ describe('GET /api/v1/transactions/export/:communityId', () => {
     (db.query as jest.Mock).mockResolvedValue({
       rows: [{ issuer_public_key: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5' }],
     });
+    (db.query as jest.Mock).mockResolvedValue([
+      { issuer_public_key: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5' },
+    ]);
 
     (StellarService.getTransactionHistory as jest.Mock).mockResolvedValue([
       {
@@ -56,6 +75,9 @@ describe('GET /api/v1/transactions/export/:communityId', () => {
     ]);
 
     const res = await request(app).get('/api/v1/transactions/export/12345678-1234-5678-1234-567812345678');
+    const res = await request(app).get(
+      '/api/v1/transactions/export/11111111-1111-4111-8111-111111111111'
+    );
     expect(res.status).toBe(200);
     expect(res.header['content-type']).toContain('text/csv');
     expect(res.header['content-disposition']).toContain('attachment;');

@@ -18,10 +18,13 @@ import { distributeAsset } from '../assets';
 import { establishTrustline } from '../trustlines';
 import { issueAsset } from '../assets';
 
-// Skip this test suite if explicitly requested or if testnet is not configured
-const skipTestnet = process.env.SKIP_TESTNET_TESTS === 'true';
+// Opt-in, matching every other testnet-integration suite in this codebase:
+// CI does not set STELLAR_TESTNET_INTEGRATION, so this suite is skipped by
+// default rather than attempting real network calls on every run.
+const runTestnet = process.env.STELLAR_TESTNET_INTEGRATION === '1';
+const describeTestnet = runTestnet ? describe : describe.skip;
 
-describe.skipIf(skipTestnet)('getAssetBalance - testnet integration', () => {
+describeTestnet('getAssetBalance - testnet integration', () => {
   const assetCode = 'TBAL';
   let issuerKeypair: Keypair;
   let holderKeypair: Keypair;
