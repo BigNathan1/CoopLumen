@@ -298,17 +298,34 @@ class StellarServiceClass {
   }
 
   private async withRetry<T>(operationName: string, request: () => Promise<T>): Promise<T> {
-    for (let attempt = 1; attempt <= HORIZON_RETRY_CONFIG.maxAttempts; attempt += 1) {
+    for (let attempt = 1; attempt <= HORIZON_RETRY_CONFIG.maxAttempts; attempt++) {
       try {
         return await request();
       } catch (error) {
-        const horizonError = error as HorizonErrorShape;
-        const status = horizonError.response?.status;
+        const status = (error as HorizonErrorShape)?.response?.status;
+        const isRetryable =
+          status !== undefined && RETRYABLE_HORIZON_STATUS_CODES.has(status);
 
-        if (!status || !RETRYABLE_HORIZON_STATUS_CODES.has(status)) {
+        if (!isRetryable || attempt === HORIZON_RETRY_CONFIG.maxAttempts) {
           throw error;
         }
 
+        const retryAfterHeader = readRetryAfterHeader(
+          (error as HorizonErrorShape)?.response?.headers
+        );
+        const retryAfterMs = parseRetryAfterMs(retryAfterHeader);
+        const baseDelay =
+          retryAfterMs ?? HORIZON_RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt - 1);
+        const jitter = Math.random() * 50;
+        const delayMs = baseDelay + jitter;
+
+        logger.warn('Retrying Horizon request after transient failure', {
+          operation: operationName,
+          attempt,
+          status,
+          delayMs: Math.round(delayMs),
+          error: error instanceof Error ? error.message : String(error),
+        });
         if (attempt === HORIZON_RETRY_CONFIG.maxAttempts) {
           logger.warn(
             `Stellar Horizon operation ${operationName} failed with status ${status} after max attempts (${HORIZON_RETRY_CONFIG.maxAttempts}); giving up.`,
@@ -339,6 +356,7 @@ class StellarServiceClass {
       }
     }
 
+    throw new Error(`Operation ${operationName} failed after max retry attempts`);
     throw new Error(`Stellar operation ${operationName} exhausted all retry attempts.`);
   }
 }

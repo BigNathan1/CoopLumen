@@ -3,6 +3,21 @@ import app from '../../../app';
 import { StellarService } from '../../../contracts/stellar';
 import { db } from '../../../db';
 
+jest.mock('../../../db', () => (
+  {
+    db: {
+      query: jest.fn(),
+    },
+  }
+));
+
+jest.mock('../../../contracts/stellar', () => (
+  {
+    StellarService: {
+      getTransactionHistory: jest.fn(),
+    },
+  }
+));
 jest.mock('../../../db', () => ({
   db: {
     query: jest.fn(),
@@ -27,6 +42,9 @@ describe('GET /api/v1/transactions/export/:communityId', () => {
   });
 
   it('returns 404 when community does not exist', async () => {
+    (db.query as jest.Mock).mockResolvedValue({ rows: [] });
+
+    const res = await request(app).get('/api/v1/transactions/export/12345678-1234-5678-1234-567812345678');
     (db.query as jest.Mock).mockResolvedValue([]);
 
     const res = await request(app).get(
@@ -37,6 +55,9 @@ describe('GET /api/v1/transactions/export/:communityId', () => {
   });
 
   it('returns CSV of transaction history successfully', async () => {
+    (db.query as jest.Mock).mockResolvedValue({
+      rows: [{ issuer_public_key: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5' }],
+    });
     (db.query as jest.Mock).mockResolvedValue([
       { issuer_public_key: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5' },
     ]);
@@ -53,6 +74,7 @@ describe('GET /api/v1/transactions/export/:communityId', () => {
       },
     ]);
 
+    const res = await request(app).get('/api/v1/transactions/export/12345678-1234-5678-1234-567812345678');
     const res = await request(app).get(
       '/api/v1/transactions/export/11111111-1111-4111-8111-111111111111'
     );
