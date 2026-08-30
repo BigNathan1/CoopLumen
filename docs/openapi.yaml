@@ -1274,6 +1274,40 @@ paths:
         '409':
           description: Loan is not in `active` status
 
+  /api/v1/prices/xlm:
+    get:
+      tags: [Prices]
+      summary: Get XLM/USD price
+      description: Returns the latest XLM/USD spot price from a public market source with caching and fallback providers.
+      parameters:
+        - name: currency
+          in: query
+          required: false
+          description: Target fiat currency. Defaults to USD.
+          schema:
+            type: string
+            enum: [USD]
+            default: USD
+      responses:
+        '200':
+          description: Current XLM/USD price
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/PriceData'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          description: Failed to fetch price from public sources
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   parameters:
     CommunityId:
