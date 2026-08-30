@@ -6,20 +6,21 @@ const COMPONENTS_DIR = path.resolve(__dirname, '..');
 
 const globals = readFileSync(path.join(APP_DIR, 'globals.css'), 'utf8');
 
-/** The `:root` block, without the surrounding selector and braces. */
-function rootBlock(css: string): string {
-  const match = css.match(/:root\s*\{([\s\S]*?)\n\}/);
-  if (!match) throw new Error('globals.css has no :root block');
-  return match[1];
-}
-
-/** Every custom property declared in a block, as `name -> value`. */
-function declaredTokens(block: string): Map<string, string> {
+/** Custom property declarations in a chunk of CSS, as `name -> value`. */
+function declaredTokens(css: string): Map<string, string> {
   const tokens = new Map<string, string>();
-  for (const [, name, value] of block.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
-    tokens.set(name, value.trim());
+  for (const [, name, value] of css.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
+    tokens.set(name, value.trim().replace(/\s+/g, ' '));
   }
   return tokens;
+}
+
+/** The body of the rule whose selector list matches, e.g. `:root.dark`. */
+function ruleBody(css: string, selector: string): string {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = css.match(new RegExp(`(?:^|\\n)\\s*${escaped}\\s*\\{([\\s\\S]*?)\\n\\s*\\}`));
+  if (!match) throw new Error(`globals.css has no rule for "${selector}"`);
+  return match[1];
 }
 
 /** Custom properties consumed via `var(--x)` with no fallback value. */
@@ -27,7 +28,24 @@ function requiredTokens(css: string): string[] {
   return [...css.matchAll(/var\(\s*(--[\w-]+)\s*\)/g)].map(([, name]) => name);
 }
 
-const tokens = declaredTokens(rootBlock(globals));
+const tokens = declaredTokens(globals);
+
+const SEMANTIC_COLORS = [
+  '--color-primary',
+  '--color-secondary',
+  '--color-bg',
+  '--color-surface',
+  '--color-surface-raised',
+  '--color-border',
+  '--color-overlay',
+  '--color-text',
+  '--color-text-muted',
+  '--color-text-inverse',
+  '--color-error',
+  '--color-success',
+  '--color-info',
+  '--color-warning',
+];
 
 describe('design tokens', () => {
   describe('token families', () => {
@@ -37,21 +55,7 @@ describe('design tokens', () => {
     });
 
     it('declares the colors every component module already relies on', () => {
-      const required = [
-        '--color-primary',
-        '--color-secondary',
-        '--color-bg',
-        '--color-surface',
-        '--color-border',
-        '--color-text',
-        '--color-text-muted',
-        '--color-error',
-        '--color-success',
-        '--color-info',
-        '--color-warning',
-      ];
-
-      for (const name of required) {
+      for (const name of SEMANTIC_COLORS) {
         expect(tokens.has(name)).toBe(true);
       }
     });
@@ -79,8 +83,7 @@ describe('design tokens', () => {
 
     it('increases monotonically', () => {
       const rems = spacing.map(([, value]) => parseFloat(value));
-      const sorted = [...rems].sort((a, b) => a - b);
-      expect(rems).toEqual(sorted);
+      expect(rems).toEqual([...rems].sort((a, b) => a - b));
     });
   });
 
@@ -121,9 +124,19 @@ describe('design tokens', () => {
       }
     });
 
-    it('declares no duplicate custom properties', () => {
-      const names = [...rootBlock(globals).matchAll(/(--[\w-]+)\s*:/g)].map(([, name]) => name);
-      expect(names).toHaveLength(new Set(names).size);
+    it('declares no duplicate custom properties within a single rule', () => {
+      for (const [, body] of globals.matchAll(/\{([^{}]*)\}/g)) {
+        const names = [...body.matchAll(/(--[\w-]+)\s*:/g)].map(([, name]) => name);
+        expect(names).toHaveLength(new Set(names).size);
+      }
+    });
+
+    it('keeps raw palette values out of the semantic layer', () => {
+      // Components read `--color-*`; only `--palette-*` may hold literals, so a
+      // new colour cannot be added to one theme and forgotten in the other.
+      for (const name of SEMANTIC_COLORS) {
+        expect(tokens.get(name)).toMatch(/^var\(--palette-(light|dark)-/);
+      }
     });
   });
 
@@ -136,5 +149,50 @@ describe('design tokens', () => {
     it('applies the focus ring through :focus-visible so keyboard users see it', () => {
       expect(globals).toMatch(/:focus-visible\s*\{[^}]*outline:[^}]*var\(--color-focus-ring\)/);
     });
+
+    it('disables the theme transition for reduced-motion users', () => {
+      expect(globals).toMatch(/@media \(prefers-reduced-motion: no-preference\)/);
+    });
+  });
+});
+
+describe('theme layers', () => {
+  const lightRule = declaredTokens(ruleBody(globals, ':root,\n:root.light'));
+  const darkRule = declaredTokens(ruleBody(globals, ':root.dark'));
+  const systemDarkRule = declaredTokens(ruleBody(globals, ':root:not(.light)'));
+
+  it('assigns every semantic color in both themes', () => {
+    for (const name of SEMANTIC_COLORS) {
+      expect(lightRule.get(name)).toBe(`var(--palette-light-${name.replace('--color-', '')})`);
+      expect(darkRule.get(name)).toBe(`var(--palette-dark-${name.replace('--color-', '')})`);
+    }
+  });
+
+  it('declares a raw palette entry behind every semantic assignment', () => {
+    for (const rule of [lightRule, darkRule]) {
+      for (const name of requiredTokens([...rule.values()].join(';'))) {
+        expect(tokens.has(name)).toBe(true);
+      }
+    }
+  });
+
+  it('gives the system-preference rule the same assignments as the explicit dark class', () => {
+    expect([...systemDarkRule.entries()].sort()).toEqual([...darkRule.entries()].sort());
+  });
+
+  it('sets color-scheme so native controls and scrollbars follow the theme', () => {
+    expect(ruleBody(globals, ':root,\n:root.light')).toMatch(/color-scheme:\s*light;/);
+    expect(ruleBody(globals, ':root.dark')).toMatch(/color-scheme:\s*dark;/);
+    expect(ruleBody(globals, ':root:not(.light)')).toMatch(/color-scheme:\s*dark;/);
+  });
+
+  it('orders the explicit dark class after the media query it has to beat', () => {
+    // Both selectors have the same specificity, so source order decides.
+    expect(globals.indexOf(':root.dark {')).toBeGreaterThan(globals.indexOf(':root:not(.light)'));
+  });
+
+  it('flips the hover mix direction per theme so states stay visible in both', () => {
+    expect(lightRule.get('--color-emphasis-mix')).toBe('black');
+    expect(darkRule.get('--color-emphasis-mix')).toBe('white');
   });
 });

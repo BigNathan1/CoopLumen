@@ -4,53 +4,92 @@
  * Every value the UI can reach for lives here as a CSS custom property, in three
  * families: `--color-*`, `--space-*` and `--radius-*`. Components consume the
  * tokens rather than literals so a palette or density change happens in one
- * place, and so a future theme only has to redeclare this block.
+ * place.
+ *
+ * Theming
+ * -------
+ * Raw colours are declared once per theme as `--palette-light-*` /
+ * `--palette-dark-*` and are never consumed directly. The semantic `--color-*`
+ * tokens components do consume are pointed at one palette or the other, in
+ * three layers of increasing authority:
+ *
+ *   1. `:root` assigns the light palette, so a document with no JavaScript and
+ *      no stated preference still renders a complete theme.
+ *   2. `prefers-color-scheme: dark` switches unattended documents to dark.
+ *   3. An explicit `.light` / `.dark` class on <html> overrides the OS.
+ *
+ * Tokens derived from other tokens (hover states, subtle tints, skeletons) are
+ * declared once below and re-resolve on their own when the palette changes.
  */
 :root {
   /* ---------------------------------------------------------------------
-   * Colors — brand
+   * Raw palette - light
    * ------------------------------------------------------------------ */
-  --color-primary: #6c5ce7;
-  --color-primary-hover: color-mix(in srgb, var(--color-primary) 85%, white);
-  --color-primary-active: color-mix(in srgb, var(--color-primary) 80%, black);
+  --palette-light-primary: #5b4bd6;
+  --palette-light-secondary: #0a7d63;
+  --palette-light-bg: #eeeef5;
+  --palette-light-surface: #f8f8fc;
+  --palette-light-surface-raised: #ffffff;
+  --palette-light-border: #d8d8e6;
+  --palette-light-overlay: rgb(15 15 26 / 45%);
+  --palette-light-text: #1a1a2e;
+  --palette-light-text-muted: #55556e;
+  --palette-light-text-inverse: #ffffff;
+  --palette-light-error: #c0392b;
+  --palette-light-success: #0a7d63;
+  --palette-light-info: #175fbf;
+  --palette-light-warning: #8a6100;
+
+  /* ---------------------------------------------------------------------
+   * Raw palette - dark
+   * ------------------------------------------------------------------ */
+  --palette-dark-primary: #6c5ce7;
+  --palette-dark-secondary: #00b894;
+  --palette-dark-bg: #0f0f1a;
+  --palette-dark-surface: #1a1a2e;
+  --palette-dark-surface-raised: #23233d;
+  --palette-dark-border: #2d2d44;
+  --palette-dark-overlay: rgb(6 6 14 / 65%);
+  --palette-dark-text: #e0e0f0;
+  --palette-dark-text-muted: #8888aa;
+  --palette-dark-text-inverse: #0f0f1a;
+  --palette-dark-error: #e17055;
+  --palette-dark-success: #00b894;
+  --palette-dark-info: #74b9ff;
+  --palette-dark-warning: #fdcb6e;
+
+  /* ---------------------------------------------------------------------
+   * Derived colors
+   *
+   * `--color-emphasis-mix` is the direction interactive states move in: light
+   * themes darken on hover, dark themes lighten. Each theme sets it, so these
+   * derivations are written once and stay correct in both.
+   * ------------------------------------------------------------------ */
+  --color-primary-hover: color-mix(in srgb, var(--color-primary) 88%, var(--color-emphasis-mix));
+  --color-primary-active: color-mix(in srgb, var(--color-primary) 76%, var(--color-emphasis-mix));
   --color-primary-subtle: color-mix(in srgb, var(--color-primary) 16%, transparent);
-  --color-secondary: #00b894;
-  --color-secondary-hover: color-mix(in srgb, var(--color-secondary) 85%, white);
-  --color-secondary-active: color-mix(in srgb, var(--color-secondary) 80%, black);
+  --color-secondary-hover: color-mix(
+    in srgb,
+    var(--color-secondary) 88%,
+    var(--color-emphasis-mix)
+  );
+  --color-secondary-active: color-mix(
+    in srgb,
+    var(--color-secondary) 76%,
+    var(--color-emphasis-mix)
+  );
   --color-secondary-subtle: color-mix(in srgb, var(--color-secondary) 16%, transparent);
-
-  /* ---------------------------------------------------------------------
-   * Colors — surfaces and structure
-   * ------------------------------------------------------------------ */
-  --color-bg: #0f0f1a;
-  --color-surface: #1a1a2e;
-  --color-surface-raised: #23233d;
-  --color-surface-hover: color-mix(in srgb, var(--color-surface) 88%, white);
-  --color-border: #2d2d44;
+  --color-surface-hover: color-mix(in srgb, var(--color-surface) 92%, var(--color-emphasis-mix));
   --color-border-strong: color-mix(in srgb, var(--color-border) 65%, var(--color-text-muted));
-  --color-overlay: rgb(6 6 14 / 65%);
-
-  /* ---------------------------------------------------------------------
-   * Colors — text
-   * ------------------------------------------------------------------ */
-  --color-text: #e0e0f0;
-  --color-text-muted: #8888aa;
-  --color-text-inverse: #0f0f1a;
   --color-text-on-primary: #ffffff;
 
-  /* ---------------------------------------------------------------------
-   * Colors — status
-   *
+  /*
    * Each status colour ships with a `-subtle` companion for the tinted
    * backgrounds banners and badges sit on, so callers never hand-mix an alpha.
-   * ------------------------------------------------------------------ */
-  --color-error: #e17055;
+   */
   --color-error-subtle: color-mix(in srgb, var(--color-error) 16%, transparent);
-  --color-success: #00b894;
   --color-success-subtle: color-mix(in srgb, var(--color-success) 16%, transparent);
-  --color-info: #74b9ff;
   --color-info-subtle: color-mix(in srgb, var(--color-info) 16%, transparent);
-  --color-warning: #fdcb6e;
   --color-warning-subtle: color-mix(in srgb, var(--color-warning) 16%, transparent);
 
   /*
@@ -69,7 +108,7 @@
   --focus-ring-offset: 2px;
 
   /* ---------------------------------------------------------------------
-   * Spacing — a 4px base scale. The number is the multiplier, so `--space-4`
+   * Spacing - a 4px base scale. The number is the multiplier, so `--space-4`
    * is 4 x 4px = 1rem. Non-linear steps are omitted deliberately to keep
    * layouts on the grid.
    * ------------------------------------------------------------------ */
@@ -106,9 +145,89 @@
   --radius: var(--radius-md);
 
   --skeleton-shimmer-duration: 1.4s;
+  --theme-transition-duration: 160ms;
   --z-index-overlay: 100;
   --z-index-modal: 101;
   --z-index-toast: 102;
+}
+
+/*
+ * Layer 1 - light is the base assignment, and `.light` restates it so an
+ * explicit light choice also wins under a dark OS preference.
+ */
+:root,
+:root.light {
+  color-scheme: light;
+
+  --color-primary: var(--palette-light-primary);
+  --color-secondary: var(--palette-light-secondary);
+  --color-bg: var(--palette-light-bg);
+  --color-surface: var(--palette-light-surface);
+  --color-surface-raised: var(--palette-light-surface-raised);
+  --color-border: var(--palette-light-border);
+  --color-overlay: var(--palette-light-overlay);
+  --color-text: var(--palette-light-text);
+  --color-text-muted: var(--palette-light-text-muted);
+  --color-text-inverse: var(--palette-light-text-inverse);
+  --color-error: var(--palette-light-error);
+  --color-success: var(--palette-light-success);
+  --color-info: var(--palette-light-info);
+  --color-warning: var(--palette-light-warning);
+
+  /* Light surfaces darken on hover. */
+  --color-emphasis-mix: black;
+}
+
+/*
+ * Layer 2 - follow the OS unless the document has explicitly asked for light.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+
+    --color-primary: var(--palette-dark-primary);
+    --color-secondary: var(--palette-dark-secondary);
+    --color-bg: var(--palette-dark-bg);
+    --color-surface: var(--palette-dark-surface);
+    --color-surface-raised: var(--palette-dark-surface-raised);
+    --color-border: var(--palette-dark-border);
+    --color-overlay: var(--palette-dark-overlay);
+    --color-text: var(--palette-dark-text);
+    --color-text-muted: var(--palette-dark-text-muted);
+    --color-text-inverse: var(--palette-dark-text-inverse);
+    --color-error: var(--palette-dark-error);
+    --color-success: var(--palette-dark-success);
+    --color-info: var(--palette-dark-info);
+    --color-warning: var(--palette-dark-warning);
+
+    /* Dark surfaces lighten on hover. */
+    --color-emphasis-mix: white;
+  }
+}
+
+/*
+ * Layer 3 - an explicit choice. Same specificity as the media query above, so
+ * this block must stay last to win.
+ */
+:root.dark {
+  color-scheme: dark;
+
+  --color-primary: var(--palette-dark-primary);
+  --color-secondary: var(--palette-dark-secondary);
+  --color-bg: var(--palette-dark-bg);
+  --color-surface: var(--palette-dark-surface);
+  --color-surface-raised: var(--palette-dark-surface-raised);
+  --color-border: var(--palette-dark-border);
+  --color-overlay: var(--palette-dark-overlay);
+  --color-text: var(--palette-dark-text);
+  --color-text-muted: var(--palette-dark-text-muted);
+  --color-text-inverse: var(--palette-dark-text-inverse);
+  --color-error: var(--palette-dark-error);
+  --color-success: var(--palette-dark-success);
+  --color-info: var(--palette-dark-info);
+  --color-warning: var(--palette-dark-warning);
+
+  --color-emphasis-mix: white;
 }
 
 *,
@@ -149,4 +268,19 @@ button {
 :focus-visible {
   outline: var(--focus-ring-width) solid var(--color-focus-ring);
   outline-offset: var(--focus-ring-offset);
+}
+
+/*
+ * Ease the palette swap so toggling the theme does not read as a flash. Scoped
+ * to the properties that actually change, and dropped entirely for anyone who
+ * has asked for reduced motion.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  body,
+  body * {
+    transition:
+      background-color var(--theme-transition-duration) ease,
+      border-color var(--theme-transition-duration) ease,
+      color var(--theme-transition-duration) ease;
+  }
 }
