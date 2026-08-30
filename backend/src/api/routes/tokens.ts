@@ -9,6 +9,7 @@ import { StellarService } from '../../contracts/stellar';
 import { validateBody } from '../middleware/validate';
 import { idempotent } from '../middleware/idempotency';
 import { requireAdmin } from '../middleware/auth';
+import { tokenIssueLimiter } from '../middleware/rateLimit';
 import {
   issueTokenSchema,
   trustlineTokenSchema,
@@ -152,9 +153,11 @@ tokenRouter.get('/', requireAdmin, async (req: Request, res: Response, next: Nex
  * key replays the original response instead of issuing a second time.
  * When `communityId` is supplied, the issued token's metadata is persisted to
  * the `tokens` table so it is immediately visible via GET /:communityId.
+ * Rate limited to 3 requests per minute per authenticated user (or IP).
  */
 tokenRouter.post(
   '/issue',
+  tokenIssueLimiter,
   idempotent('POST /api/v1/tokens/issue'),
   validateBody(issueTokenSchema),
   async (req: Request, res: Response, next: NextFunction) => {
