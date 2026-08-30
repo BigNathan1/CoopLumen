@@ -1,4 +1,12 @@
-import { createContext, useContext, useState, useCallback, ReactNode, useRef, useEffect } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  ReactNode,
+  useRef,
+  useEffect,
+} from 'react';
 
 export type ToastVariant = 'success' | 'error' | 'info' | 'warning';
 
@@ -59,7 +67,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         timersRef.current[id] = timer;
       }
     },
-    [],
+    []
   );
 
   const dismiss = useCallback((id: string) => {

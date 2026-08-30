@@ -57,9 +57,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               <span className={styles.icon}>⚠️</span>
             </div>
             <h1 className={styles.title}>Something went wrong</h1>
-            <p className={styles.message}>
-              We encountered an unexpected error. Please try again.
-            </p>
+            <p className={styles.message}>We encountered an unexpected error. Please try again.</p>
             {this.state.error && (
               <details className={styles.details}>
                 <summary className={styles.summary}>Error details</summary>
