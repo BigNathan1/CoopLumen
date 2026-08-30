@@ -11,15 +11,19 @@
  * This test is skipped if SKIP_TESTNET_TESTS=true or if network connectivity fails.
  */
 
-import { Keypair, Networks, TransactionBuilder, Operation, BASE_FEE, Asset } from '@stellar/stellar-sdk';
+import { Keypair, Networks } from '@stellar/stellar-sdk';
 import { StellarService } from '../stellar';
 import { distributeAsset } from '../assets';
 import { establishTrustline } from '../trustlines';
 
-// Skip this test suite if explicitly requested or if testnet is not configured
-const skipTestnet = process.env.SKIP_TESTNET_TESTS === 'true';
+// Opt-in, matching every other testnet-integration suite in this codebase
+// (see assets.getBalance.integration.test.ts, transactions.testnet.test.ts,
+// etc.): CI does not set STELLAR_TESTNET_INTEGRATION, so this suite is
+// skipped by default rather than attempting real network calls on every run.
+const runTestnet = process.env.STELLAR_TESTNET_INTEGRATION === '1';
+const describeTestnet = runTestnet ? describe : describe.skip;
 
-describe.skipIf(skipTestnet)('distributeAsset - testnet integration', () => {
+describeTestnet('distributeAsset - testnet integration', () => {
   const assetCode = 'TEST';
   let issuerKeypair: Keypair;
   let distributorKeypair: Keypair;
@@ -31,7 +35,7 @@ describe.skipIf(skipTestnet)('distributeAsset - testnet integration', () => {
   beforeAll(async () => {
     // Verify we're on testnet
     const network = StellarService.getNetwork();
-    if (network !== Networks.TESTNET) {
+    if (network !== (Networks.TESTNET as string)) {
       throw new Error(`Tests require testnet; configured network is: ${network}`);
     }
 

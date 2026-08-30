@@ -51,9 +51,7 @@ describe('POST /api/v1/tokens/trustline', () => {
       limit: '1000.0000000',
     };
 
-    const response = await request(app)
-      .post('/api/v1/tokens/trustline')
-      .send(requestWithLimit);
+    const response = await request(app).post('/api/v1/tokens/trustline').send(requestWithLimit);
 
     expect(response.status).toBe(201);
     expect(response.body).toEqual({ data: { txHash } });
@@ -67,9 +65,7 @@ describe('POST /api/v1/tokens/trustline', () => {
   });
 
   it('validates required fields', async () => {
-    const response = await request(app)
-      .post('/api/v1/tokens/trustline')
-      .send({});
+    const response = await request(app).post('/api/v1/tokens/trustline').send({});
 
     expect(response.status).toBe(400);
     expect(response.body.error).toBeDefined();

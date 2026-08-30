@@ -37,10 +37,7 @@ describeIf('Stellar testnet integration with Friendbot-funded accounts', () => {
     issuer = Keypair.random();
     holder = Keypair.random();
 
-    await Promise.all([
-      fundAccount(issuer.publicKey()),
-      fundAccount(holder.publicKey()),
-    ]);
+    await Promise.all([fundAccount(issuer.publicKey()), fundAccount(holder.publicKey())]);
   });
 
   it('successfully loads funded accounts from testnet', async () => {
@@ -62,11 +59,7 @@ describeIf('Stellar testnet integration with Friendbot-funded accounts', () => {
 
     expect(txHash).toMatch(/^[a-f0-9]{64}$/);
 
-    const balance = await getAssetBalance(
-      holder.publicKey(),
-      assetCode,
-      issuer.publicKey()
-    );
+    const balance = await getAssetBalance(holder.publicKey(), assetCode, issuer.publicKey());
     expect(balance).toBe(0);
   });
 
@@ -81,11 +74,7 @@ describeIf('Stellar testnet integration with Friendbot-funded accounts', () => {
 
     expect(txHash).toMatch(/^[a-f0-9]{64}$/);
 
-    const balance = await getAssetBalance(
-      holder.publicKey(),
-      assetCode,
-      issuer.publicKey()
-    );
+    const balance = await getAssetBalance(holder.publicKey(), assetCode, issuer.publicKey());
     expect(balance).toBe(Number(amount));
   });
 

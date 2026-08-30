@@ -18,7 +18,10 @@ export class UnfundedAccountError extends Error {
  * Error thrown when there is a network or Horizon connectivity issue.
  */
 export class StellarNetworkError extends Error {
-  constructor(message: string, public readonly statusCode?: number) {
+  constructor(
+    message: string,
+    public readonly statusCode?: number
+  ) {
     super(message);
     this.name = 'StellarNetworkError';
   }
@@ -192,9 +195,9 @@ class StellarServiceClass {
     }
 
     // Network connectivity errors (no status code available)
-    throw new StellarNetworkError(
-      errorMessage || 'Failed to load account from Stellar network'
-    );
+    throw new StellarNetworkError(errorMessage || 'Failed to load account from Stellar network');
+  }
+
   async getAccount(publicKey: string): Promise<Horizon.AccountResponse> {
     return this.loadAccount(publicKey);
   }

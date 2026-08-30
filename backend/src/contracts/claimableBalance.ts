@@ -1,4 +1,11 @@
-import { Asset, Claimant, Keypair, TransactionBuilder, Operation, BASE_FEE } from '@stellar/stellar-sdk';
+import {
+  Asset,
+  Claimant,
+  Keypair,
+  TransactionBuilder,
+  Operation,
+  BASE_FEE,
+} from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
 import { MemoInput, buildMemo } from './memo';
 import { TimeBoundsInput, applyTimeBounds } from './timeBounds';
@@ -35,17 +42,18 @@ export interface ClaimableBalanceResult {
  * Extracts the claimable balance ID from a Horizon transaction result.
  * The balance ID is embedded in the operation result within the transaction metadata.
  */
-function extractBalanceIdFromResult(result: any): string {
+function extractBalanceIdFromResult(result: unknown): string {
   // The Horizon response includes operation results in _links and operation metadata.
   // The balance ID is returned as a property in the result or fetched from operation records.
-  // For now, return the id if available in the result directly.
-  if (result.id) {
-    return result.id;
+  const typed = result as { id?: unknown; _links?: { transaction?: unknown } };
+
+  if (typeof typed.id === 'string') {
+    return typed.id;
   }
 
   // If not in the top-level result, it may be in operation records.
   // This is a fallback — the SDK version should provide it directly.
-  if (result._links && result._links.transaction) {
+  if (typed._links?.transaction) {
     // In real usage, the balance ID would be queried from the ledger or operation records.
     // For this implementation, we assume the SDK surfaces it in result.
   }
@@ -78,7 +86,9 @@ function extractBalanceIdFromResult(result: any): string {
  * console.log(result.balanceId);
  * ```
  */
-export async function create(params: CreateClaimableBalanceParams): Promise<ClaimableBalanceResult> {
+export async function create(
+  params: CreateClaimableBalanceParams
+): Promise<ClaimableBalanceResult> {
   const { asset, amount, claimants, sourceKeypair, memo, timeBounds } = params;
 
   const action = 'Create claimable balance';

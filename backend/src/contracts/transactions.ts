@@ -1,19 +1,11 @@
-// Placeholder file to fix missing module import
-// TODO: Implement buildUnsignedPayment function properly
-
-export async function buildUnsignedPayment(params: {
-  senderPublicKey: string;
-  destinationPublicKey: string;
-  assetCode?: string;
-  assetIssuer: string;
-  amount: string;
-  memo?: string;
-}): Promise<string> {
-  // This is a placeholder implementation
-  // In a real implementation, this would build an unsigned transaction XDR
-  throw new Error('buildUnsignedPayment not implemented yet');
-}
-import { Asset, Keypair, TransactionBuilder, Operation, BASE_FEE, Transaction } from '@stellar/stellar-sdk';
+import {
+  Asset,
+  Keypair,
+  TransactionBuilder,
+  Operation,
+  BASE_FEE,
+  Transaction,
+} from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
 import { MemoInput, buildMemo } from './memo';
 import { TimeBoundsInput, applyTimeBounds } from './timeBounds';

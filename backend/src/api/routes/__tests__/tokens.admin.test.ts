@@ -79,9 +79,7 @@ describe('GET /api/v1/tokens (admin endpoint)', () => {
   });
 
   it('supports pagination parameters', async () => {
-    mockQuery
-      .mockResolvedValueOnce([{ count: 25 }])
-      .mockResolvedValueOnce([]);
+    mockQuery.mockResolvedValueOnce([{ count: 25 }]).mockResolvedValueOnce([]);
 
     const response = await request(app).get('/api/v1/tokens?page=2&limit=10');
 
@@ -94,24 +92,16 @@ describe('GET /api/v1/tokens (admin endpoint)', () => {
       offset: 10,
     });
 
-    expect(mockQuery).toHaveBeenCalledWith(
-      expect.stringContaining('LIMIT $1 OFFSET $2'),
-      [10, 10]
-    );
+    expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('LIMIT $1 OFFSET $2'), [10, 10]);
   });
 
   it('supports sorting by different columns', async () => {
-    mockQuery
-      .mockResolvedValueOnce([{ count: 0 }])
-      .mockResolvedValueOnce([]);
+    mockQuery.mockResolvedValueOnce([{ count: 0 }]).mockResolvedValueOnce([]);
 
     const response = await request(app).get('/api/v1/tokens?sortBy=name&order=asc');
 
     expect(response.status).toBe(200);
-    expect(mockQuery).toHaveBeenCalledWith(
-      expect.stringContaining('ORDER BY t.name ASC'),
-      [20, 0]
-    );
+    expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('ORDER BY t.name ASC'), [20, 0]);
   });
 
   it('validates query parameters and rejects invalid values', async () => {
@@ -124,9 +114,7 @@ describe('GET /api/v1/tokens (admin endpoint)', () => {
   });
 
   it('returns empty list when no tokens exist', async () => {
-    mockQuery
-      .mockResolvedValueOnce([{ count: 0 }])
-      .mockResolvedValueOnce([]);
+    mockQuery.mockResolvedValueOnce([{ count: 0 }]).mockResolvedValueOnce([]);
 
     const response = await request(app).get('/api/v1/tokens');
 
