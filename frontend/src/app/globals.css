@@ -8,7 +8,20 @@
   --color-text-muted: #8888aa;
   --color-error: #e17055;
   --color-success: #00b894;
+  --color-info: #74b9ff;
+  --color-warning: #fdcb6e;
   --radius: 8px;
+
+  /*
+   * Skeleton placeholders are derived from the surface and border tokens so a
+   * theme change moves them automatically instead of leaving a hard-coded grey.
+   */
+  --color-skeleton-base: color-mix(in srgb, var(--color-border) 65%, var(--color-surface));
+  --color-skeleton-highlight: color-mix(in srgb, var(--color-text-muted) 22%, transparent);
+  --skeleton-shimmer-duration: 1.4s;
+  --z-index-overlay: 100;
+  --z-index-modal: 101;
+  --z-index-toast: 102;
 }
 
 *,

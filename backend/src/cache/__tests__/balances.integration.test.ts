@@ -38,8 +38,9 @@ describeIf('balance cache (Redis integration)', () => {
     // live for the process lifetime). Close its underlying client here so
     // this suite doesn't leave an open handle behind for Jest to complain
     // about.
-    const internalClient = (redisCache as unknown as { client: ReturnType<typeof createClient> | null })
-      .client;
+    const internalClient = (
+      redisCache as unknown as { client: ReturnType<typeof createClient> | null }
+    ).client;
     if (internalClient?.isOpen) {
       await internalClient.quit();
     }

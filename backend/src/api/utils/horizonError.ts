@@ -32,8 +32,10 @@ const OPERATION_MESSAGES: Record<string, string> = {
   op_bad_auth: 'Transaction is missing a required signature for this operation.',
   op_no_account: 'The source account for this operation does not exist.',
   op_not_supported: 'This operation is not supported by the network.',
-  op_too_many_subentries: 'Account has reached the maximum number of subentries (trustlines, offers, signers).',
-  op_exceeded_work_limit: 'Operation was rejected because it exceeded the allowed processing limit.',
+  op_too_many_subentries:
+    'Account has reached the maximum number of subentries (trustlines, offers, signers).',
+  op_exceeded_work_limit:
+    'Operation was rejected because it exceeded the allowed processing limit.',
   op_too_many_sponsoring: 'Account is sponsoring too many reserves to complete this operation.',
   op_malformed: 'Operation parameters are malformed.',
 
@@ -52,8 +54,10 @@ const OPERATION_MESSAGES: Record<string, string> = {
 
   // Change trust
   op_invalid_limit: 'Trustline limit must be greater than the current balance.',
-  op_low_reserve: 'Account does not hold enough XLM to cover the minimum reserve for this operation.',
-  op_trust_not_required: 'A trustline is not required for this asset (it is issued by this account).',
+  op_low_reserve:
+    'Account does not hold enough XLM to cover the minimum reserve for this operation.',
+  op_trust_not_required:
+    'A trustline is not required for this asset (it is issued by this account).',
   op_cant_delete: 'Trustline cannot be removed while it still holds a balance or has open offers.',
   op_trust_line_missing: 'No trustline exists for this asset.',
   op_is_authorized: 'Trustline is already authorized.',
@@ -64,7 +68,8 @@ const OPERATION_MESSAGES: Record<string, string> = {
 
   // Account merge / signers / set options
   op_immutable_set: 'Account settings are immutable and cannot be changed.',
-  op_has_sub_entries: 'Account cannot be merged while it still holds trustlines, offers, or data entries.',
+  op_has_sub_entries:
+    'Account cannot be merged while it still holds trustlines, offers, or data entries.',
   op_seqnum_too_far: "Account's sequence number is too far in the future to merge.",
   op_dest_full: 'Destination account has reached the maximum XLM balance it can hold.',
   op_too_many_signers: 'Account has reached the maximum number of signers.',
@@ -88,6 +93,7 @@ const OPERATION_MESSAGES: Record<string, string> = {
  * https://developers.stellar.org/docs/data/horizon/api-reference/errors/result-codes/transactions
  */
 const TRANSACTION_MESSAGES: Record<string, string> = {
+  tx_failed: 'One or more operations in the transaction failed.',
   tx_too_early: 'Transaction submitted before its valid start time.',
   tx_too_late: 'Transaction submitted after its valid end time; please rebuild and resubmit.',
   tx_missing_operation: 'Transaction must contain at least one operation.',
@@ -97,7 +103,8 @@ const TRANSACTION_MESSAGES: Record<string, string> = {
   tx_no_source_account: 'The source account for this transaction does not exist.',
   tx_insufficient_fee: 'Submitted fee is below the network minimum.',
   tx_bad_auth_extra: 'Transaction has unused or extraneous signatures.',
-  tx_internal_error: 'The Stellar network encountered an internal error processing this transaction.',
+  tx_internal_error:
+    'The Stellar network encountered an internal error processing this transaction.',
   tx_not_supported: 'This transaction type is not supported by the network.',
   tx_fee_bump_inner_failed: 'The inner transaction of this fee-bump transaction failed.',
   tx_bad_sponsorship: 'Reserve sponsorship in this transaction is malformed.',
