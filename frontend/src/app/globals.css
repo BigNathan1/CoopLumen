@@ -53,3 +53,36 @@ button {
   cursor: pointer;
   font-family: inherit;
 }
+
+
+.network-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: fit-content;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--color-surface);
+}
+
+.network-badge-testnet {
+  color: var(--color-warning);
+}
+
+.network-badge-mainnet {
+  color: var(--color-success);
+}
+
+.network-badge-indicator {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
