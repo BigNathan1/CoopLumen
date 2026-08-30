@@ -23,6 +23,21 @@ export const issueTokenSchema = z.object({
   distributorPublicKey: stellarPublicKey,
   amount,
   memo: z.string().trim().max(28, 'memo must be 28 characters or fewer').optional(),
+  // Token metadata fields
+  name: z
+    .string()
+    .trim()
+    .min(1, 'name must not be empty')
+    .max(64, 'name must be 64 characters or fewer')
+    .optional(),
+  description: z.string().trim().max(500, 'description must be 500 characters or fewer').optional(),
+  iconUrl: z.string().trim().url('iconUrl must be a valid URL').optional(),
+  decimals: z
+    .number()
+    .int()
+    .min(0, 'decimals must be 0 or greater')
+    .max(7, 'decimals must be 7 or fewer')
+    .default(7),
 });
 
 export const trustlineTokenSchema = z.object({
@@ -39,4 +54,15 @@ export const burnTokenSchema = z.object({
   amount,
 });
 
+export const adminTokensQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20).optional(),
+  sortBy: z
+    .enum(['created_at', 'name', 'asset_code', 'total_supply'])
+    .default('created_at')
+    .optional(),
+  order: z.enum(['asc', 'desc']).default('desc').optional(),
+});
+
 export type IssueTokenInput = z.infer<typeof issueTokenSchema>;
+export type AdminTokensQuery = z.infer<typeof adminTokensQuerySchema>;

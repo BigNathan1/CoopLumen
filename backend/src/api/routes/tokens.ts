@@ -1,16 +1,25 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { Asset, Keypair, Operation, TransactionBuilder, BASE_FEE } from '@stellar/stellar-sdk';
 import { z } from 'zod';
-import { issueAsset, burnAsset, getAssetHolders, getAssetSupply } from '../../contracts/assets';
+import { issueAsset, burnAsset, getAssetHolders, getTotalSupply } from '../../contracts/assets';
 import { establishTrustline } from '../../contracts/trustlines';
 import { db } from '../../db';
 import { invalidateBalanceCache } from '../../cache/balances';
 import { StellarService } from '../../contracts/stellar';
 import { validateBody } from '../middleware/validate';
 import { idempotent } from '../middleware/idempotency';
-import { issueTokenSchema, trustlineTokenSchema, burnTokenSchema } from '../schemas/token';
+import { requireAdmin } from '../middleware/auth';
+import { tokenIssueLimiter } from '../middleware/rateLimit';
+import {
+  issueTokenSchema,
+  trustlineTokenSchema,
+  burnTokenSchema,
+  adminTokensQuerySchema,
+} from '../schemas/token';
 import { isValidStellarPublicKey } from '../utils/stellar';
 import { mapHorizonError } from '../utils/horizonError';
+import { parsePagination, pageMeta, parseSort } from '../utils/http';
+import { withSequenceRetry } from '../../contracts/sequenceCache';
 import {
   getNativeBalance,
   getRequiredXlmForFee,
@@ -51,8 +60,10 @@ interface Token {
   asset_issuer: string;
   distributor_address: string;
   total_supply: string;
+  name: string | null;
   description: string | null;
   icon_url: string | null;
+  decimals: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -66,6 +77,72 @@ interface MemberRow {
   stellar_address: string;
 }
 
+interface TokenWithCommunity extends Token {
+  community_name: string;
+}
+
+/**
+ * GET /api/v1/tokens
+ * Admin endpoint to list all tokens across all communities.
+ * Requires admin authentication (currently placeholder).
+ * Supports pagination via page/limit query parameters.
+ */
+tokenRouter.get('/', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const queryValidation = adminTokensQuerySchema.safeParse(req.query);
+    if (!queryValidation.success) {
+      res.status(400).json({
+        data: null,
+        error: 'Invalid query parameters',
+        meta: {
+          errors: queryValidation.error.issues.map((issue) => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
+      });
+      return;
+    }
+
+    const pagination = parsePagination(req);
+    const allowedSortColumns = ['created_at', 'name', 'asset_code', 'total_supply'];
+    const { sortBy, order } = parseSort(req, allowedSortColumns, 'created_at');
+
+    const [{ count }] = await db.query<{ count: number }>(
+      'SELECT COUNT(*)::int AS count FROM tokens'
+    );
+
+    const tokens = await db.query<TokenWithCommunity>(
+      `SELECT 
+           t.id,
+           t.community_id,
+           t.asset_code,
+           t.asset_issuer,
+           t.distributor_address,
+           t.total_supply,
+           t.name,
+           t.description,
+           t.icon_url,
+           t.decimals,
+           t.created_at,
+           t.updated_at,
+           c.name AS community_name
+         FROM tokens t
+         LEFT JOIN communities c ON t.community_id = c.id
+         ORDER BY ${sortBy === 'name' ? 't.name' : sortBy === 'asset_code' ? 't.asset_code' : sortBy === 'total_supply' ? 't.total_supply' : 't.created_at'} ${order}
+         LIMIT $1 OFFSET $2`,
+      [pagination.limit, pagination.offset]
+    );
+
+    res.json({
+      data: tokens,
+      meta: pageMeta(count, pagination),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 /**
  * POST /api/v1/tokens/issue
  * Issues a community token on the Stellar network.
@@ -76,6 +153,7 @@ interface MemberRow {
  * When `communityId` is supplied, the issued token's metadata is persisted to
  * the `tokens` table so it is immediately visible via GET /:communityId.
  * Rate limited to 3 requests per minute per authenticated user.
+ * Rate limited to 3 requests per minute per authenticated user (or IP).
  */
 tokenRouter.post(
   '/issue',
@@ -84,15 +162,29 @@ tokenRouter.post(
   validateBody(issueTokenSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { communityId, issuerSecret, assetCode, distributorPublicKey, amount, memo } =
-        req.body as {
-          communityId?: string;
-          issuerSecret: string;
-          assetCode: string;
-          distributorPublicKey: string;
-          amount: string;
-          memo?: string;
-        };
+      const {
+        communityId,
+        issuerSecret,
+        assetCode,
+        distributorPublicKey,
+        amount,
+        memo,
+        name,
+        description,
+        iconUrl,
+        decimals,
+      } = req.body as {
+        communityId?: string;
+        issuerSecret: string;
+        assetCode: string;
+        distributorPublicKey: string;
+        amount: string;
+        memo?: string;
+        name?: string;
+        description?: string;
+        iconUrl?: string;
+        decimals: number;
+      };
 
       const txHash = await issueAsset({
         issuerSecret,
@@ -109,8 +201,8 @@ tokenRouter.post(
           await db.query(
             `INSERT INTO tokens
                (community_id, asset_code, asset_issuer, issuer_public_key,
-                distributor_public_key, total_supply, issuance_tx_hash)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                distributor_public_key, total_supply, issuance_tx_hash, name, description, icon_url, decimals)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
             [
               communityId,
               assetCode,
@@ -119,6 +211,10 @@ tokenRouter.post(
               distributorPublicKey,
               amount,
               txHash,
+              name ?? null,
+              description ?? null,
+              iconUrl ?? null,
+              decimals,
             ]
           );
         } catch {
@@ -132,6 +228,39 @@ tokenRouter.post(
           });
           return;
         }
+      }
+
+      // Log token_issued event after successful issuance
+      try {
+        if (!issuerPublicKey) {
+          issuerPublicKey = Keypair.fromSecret(issuerSecret).publicKey();
+        }
+
+        await db.query(
+          `INSERT INTO transactions_log (community_id, actor_address, action, stellar_tx_hash, metadata)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [
+            communityId ?? null,
+            issuerPublicKey,
+            'token_issued',
+            txHash,
+            JSON.stringify({
+              asset_code: assetCode,
+              asset_issuer: issuerPublicKey,
+              distributor_public_key: distributorPublicKey,
+              amount: amount,
+              memo: memo ?? null,
+              name: name ?? null,
+              description: description ?? null,
+              icon_url: iconUrl ?? null,
+              decimals: decimals,
+            }),
+          ]
+        );
+      } catch (logError) {
+        // Log the error but don't fail the issuance response
+        // The token was successfully issued on Stellar, logging failure is not critical
+        console.warn('Failed to log token_issued event:', logError);
       }
 
       res.status(201).json({ data: { txHash } });
@@ -351,25 +480,34 @@ tokenRouter.post('/airdrop', async (req: Request, res: Response): Promise<void> 
     const asset = new Asset(community.asset_code, community.asset_issuer);
     const txHashes: string[] = [];
 
-    for (const member of members) {
-      const account = await StellarService.loadAccount(issuer.publicKey());
-      currentBalance = getNativeBalance(account);
-      const transaction = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: network,
-      })
-        .addOperation(
-          Operation.payment({
-            destination: member.stellar_address,
-            asset,
-            amount,
-          })
-        )
-        .setTimeout(30)
-        .build();
+    currentBalance = getNativeBalance(await StellarService.loadAccount(issuer.publicKey()));
 
-      transaction.sign(issuer);
-      const result = await StellarService.submitTransaction(transaction);
+    // Sequence numbers are handed out from an in-memory, per-account cache
+    // (see contracts/sequenceCache.ts) instead of reloading the issuer
+    // account from Horizon before every payment. This keeps a burst of
+    // airdrop payments — or a concurrent request touching the same issuer
+    // account — from racing on the same stale sequence number and getting
+    // rejected with tx_bad_seq.
+    for (const member of members) {
+      const result = await withSequenceRetry(issuer.publicKey(), async (account) => {
+        const transaction = new TransactionBuilder(account, {
+          fee: BASE_FEE,
+          networkPassphrase: network,
+        })
+          .addOperation(
+            Operation.payment({
+              destination: member.stellar_address,
+              asset,
+              amount,
+            })
+          )
+          .setTimeout(30)
+          .build();
+
+        transaction.sign(issuer);
+        return StellarService.submitTransaction(transaction);
+      });
+
       txHashes.push(result.hash);
     }
 
@@ -477,6 +615,10 @@ tokenRouter.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { assetCode, issuer } = req.params;
+      if (!/^[A-Za-z0-9]{1,12}$/.test(assetCode)) {
+        res.status(400).json({ data: null, error: 'Invalid asset code' });
+        return;
+      }
       if (!isValidStellarPublicKey(issuer)) {
         res.status(400).json({ data: null, error: 'Invalid Stellar issuer address' });
         return;
@@ -518,7 +660,7 @@ tokenRouter.get(
     }
 
     try {
-      const supply = await getAssetSupply(parsed.data.assetCode, parsed.data.issuer);
+      const supply = await getTotalSupply(parsed.data.assetCode, parsed.data.issuer);
       res.json({ data: { assetCode: parsed.data.assetCode, issuer: parsed.data.issuer, supply } });
     } catch (err) {
       if ((err as { response?: unknown }).response) {
