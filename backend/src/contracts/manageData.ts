@@ -56,7 +56,7 @@ export async function manageDatum(params: ManageDatumParams): Promise<string> {
     }).addOperation(
       Operation.manageData({
         name: key,
-        value: parsedValue,
+        value: parsedValue ?? null,
       })
     );
 
