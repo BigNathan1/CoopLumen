@@ -18,6 +18,12 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `GET /api/v1/fees/estimate` endpoint returning current Stellar network base fee and percentile fee distribution from Horizon (#156).
 - `StellarService.getFeeStats()` method wrapping `Horizon.Server.feeStats()` with the existing retry and error-mapping stack.
 
+- `GET /api/v1/tokens` admin endpoint to list all tokens across all communities with pagination, sorting, and filtering support
+- Token metadata storage: `name` and `decimals` columns added to the `tokens` table (migration 024) to complement existing `description` and `icon_url` fields
+- Token metadata validation in `POST /api/v1/tokens/issue` accepting optional `name`, `description`, `iconUrl`, and `decimals` fields with Zod validation
+- `token_issued` event logging to `transactions_log` after successful token issuance, including asset details in metadata for audit trail
+- Admin authentication middleware (`requireAdmin`) as placeholder for future authentication system
+- Comprehensive unit test coverage for all token route handlers: issuance, burn, trustline, transfer, airdrop, holders, supply, history, community tokens, asset lookup, and admin listing
 - `getAssetBalance(publicKey, assetCode, issuer)` helper function in `backend/src/contracts/assets.ts` to retrieve the numeric balance of an asset held by a Stellar account. Returns `0` if the account has no trustline for the asset, and throws if the account doesn't exist or network error occurs. Addresses #179.
 - Comprehensive unit tests for `getAssetBalance()` covering success path, no trustline returns 0, fractional precision handling without floating-point error, native XLM not matched, multiple assets, error cases (404, 503, malformed key), and edge cases
 - Testnet integration test and manual verification script for `getAssetBalance()` to validate end-to-end asset balance retrieval against actual Stellar testnet
