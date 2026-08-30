@@ -63,12 +63,12 @@ After funding, this script will proceed with the verification.
   try {
     // Step 1: Verify accounts are funded
     logger.info('[1/5] Verifying issuer account is funded...');
-    let issuerAccount = await StellarService.loadAccount(issuerKeypair.publicKey());
+    const issuerAccount = await StellarService.loadAccount(issuerKeypair.publicKey());
     const issuerXlmBalance = issuerAccount.balances.find((b) => b.asset_type === 'native');
     logger.info(`  ✓ Issuer funded with ${issuerXlmBalance?.balance} XLM`);
 
     logger.info('[1/5] Verifying holder account is funded...');
-    let holderAccount = await StellarService.loadAccount(holderKeypair.publicKey());
+    const holderAccount = await StellarService.loadAccount(holderKeypair.publicKey());
     const holderXlmBalance = holderAccount.balances.find((b) => b.asset_type === 'native');
     logger.info(`  ✓ Holder funded with ${holderXlmBalance?.balance} XLM`);
 

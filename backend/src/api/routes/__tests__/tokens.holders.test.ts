@@ -32,7 +32,9 @@ describe('GET /api/v1/tokens/holders/:assetCode/:issuer', () => {
 
     mockGetAssetHolders.mockResolvedValueOnce(holders);
 
-    const response = await request(app).get(`/api/v1/tokens/holders/ECO/${issuerKeypair.publicKey()}`);
+    const response = await request(app).get(
+      `/api/v1/tokens/holders/ECO/${issuerKeypair.publicKey()}`
+    );
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ data: holders });
@@ -40,10 +42,12 @@ describe('GET /api/v1/tokens/holders/:assetCode/:issuer', () => {
   });
 
   it('validates asset code format', async () => {
-    const response = await request(app).get(`/api/v1/tokens/holders/invalid-code!/${issuerKeypair.publicKey()}`);
+    const response = await request(app).get(
+      `/api/v1/tokens/holders/invalid-code!/${issuerKeypair.publicKey()}`
+    );
 
     expect(response.status).toBe(400);
-    expect(response.body.error).toBe('Invalid Stellar issuer address');
+    expect(response.body.error).toBe('Invalid asset code');
     expect(mockGetAssetHolders).not.toHaveBeenCalled();
   });
 
@@ -64,7 +68,9 @@ describe('GET /api/v1/tokens/holders/:assetCode/:issuer', () => {
     };
     mockGetAssetHolders.mockRejectedValueOnce(horizonError);
 
-    const response = await request(app).get(`/api/v1/tokens/holders/ECO/${issuerKeypair.publicKey()}`);
+    const response = await request(app).get(
+      `/api/v1/tokens/holders/ECO/${issuerKeypair.publicKey()}`
+    );
 
     expect(response.status).toBe(404);
     expect(response.body.data).toBeNull();
@@ -75,7 +81,9 @@ describe('GET /api/v1/tokens/holders/:assetCode/:issuer', () => {
     const genericError = new Error('Network error');
     mockGetAssetHolders.mockRejectedValueOnce(genericError);
 
-    const response = await request(app).get(`/api/v1/tokens/holders/ECO/${issuerKeypair.publicKey()}`);
+    const response = await request(app).get(
+      `/api/v1/tokens/holders/ECO/${issuerKeypair.publicKey()}`
+    );
 
     expect(response.status).toBe(500);
   });
@@ -83,7 +91,9 @@ describe('GET /api/v1/tokens/holders/:assetCode/:issuer', () => {
   it('returns empty array when no holders exist', async () => {
     mockGetAssetHolders.mockResolvedValueOnce([]);
 
-    const response = await request(app).get(`/api/v1/tokens/holders/ECO/${issuerKeypair.publicKey()}`);
+    const response = await request(app).get(
+      `/api/v1/tokens/holders/ECO/${issuerKeypair.publicKey()}`
+    );
 
     expect(response.status).toBe(200);
     expect(response.body.data).toEqual([]);

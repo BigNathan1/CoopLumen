@@ -41,9 +41,7 @@ describe('POST /api/v1/tokens/burn', () => {
     mockBurnAsset.mockResolvedValueOnce(txHash);
     mockQuery.mockResolvedValueOnce([]); // UPDATE tokens query
 
-    const response = await request(app)
-      .post('/api/v1/tokens/burn')
-      .send(validBurnRequest);
+    const response = await request(app).post('/api/v1/tokens/burn').send(validBurnRequest);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ data: { txHash } });
@@ -62,9 +60,7 @@ describe('POST /api/v1/tokens/burn', () => {
   });
 
   it('validates required fields', async () => {
-    const response = await request(app)
-      .post('/api/v1/tokens/burn')
-      .send({});
+    const response = await request(app).post('/api/v1/tokens/burn').send({});
 
     expect(response.status).toBe(400);
     expect(response.body.error).toBeDefined();
@@ -128,9 +124,7 @@ describe('POST /api/v1/tokens/burn', () => {
     };
     mockBurnAsset.mockRejectedValueOnce(horizonError);
 
-    const response = await request(app)
-      .post('/api/v1/tokens/burn')
-      .send(validBurnRequest);
+    const response = await request(app).post('/api/v1/tokens/burn').send(validBurnRequest);
 
     expect(response.status).toBe(422);
     expect(response.body.data).toBeNull();
@@ -142,9 +136,7 @@ describe('POST /api/v1/tokens/burn', () => {
     const genericError = new Error('Network error');
     mockBurnAsset.mockRejectedValueOnce(genericError);
 
-    const response = await request(app)
-      .post('/api/v1/tokens/burn')
-      .send(validBurnRequest);
+    const response = await request(app).post('/api/v1/tokens/burn').send(validBurnRequest);
 
     expect(response.status).toBe(500);
   });

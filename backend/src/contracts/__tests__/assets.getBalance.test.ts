@@ -248,7 +248,10 @@ describe('getAssetBalance', () => {
 
     const balance = await getAssetBalance(publicKey, assetCode, issuer);
 
-    expect(balance).toBe(922337203685.4775807);
+    // The literal below the int64/XLM-max precision would itself lose
+    // precision as a JS number literal, so compare against the same lossy
+    // Number() conversion the implementation performs.
+    expect(balance).toBe(Number('922337203685.4775807'));
   });
 
   it('loads account exactly once per call', async () => {

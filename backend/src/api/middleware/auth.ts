@@ -3,7 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 /**
  * Placeholder admin authentication middleware.
  * TODO: Replace with proper authentication/authorization when implemented.
- * 
+ *
  * For now, this is a no-op that allows all requests through.
  * In a production system, this would:
  * 1. Validate JWT tokens or API keys
@@ -18,14 +18,14 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
 
 /**
  * Future implementation might look like:
- * 
+ *
  * export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
  *   const authHeader = req.headers.authorization;
  *   if (!authHeader?.startsWith('Bearer ')) {
  *     res.status(401).json({ data: null, error: 'Authentication required' });
  *     return;
  *   }
- * 
+ *
  *   try {
  *     const token = authHeader.substring(7);
  *     const payload = verifyJWT(token);

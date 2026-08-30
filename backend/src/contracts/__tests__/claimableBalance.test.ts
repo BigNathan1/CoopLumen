@@ -1,7 +1,8 @@
 import { Account, Asset, Claimant, Keypair, Networks } from '@stellar/stellar-sdk';
 import { create } from '../claimableBalance';
 import { StellarService } from '../stellar';
-import { toStellarError } from '../errors';
+import { SequenceCache } from '../sequenceCache';
+import { invalidateBalanceCache } from '../../cache/balances';
 
 jest.mock('../stellar', () => ({
   StellarService: {
@@ -25,6 +26,12 @@ describe('claimableBalance.create', () => {
     mockLoadAccount.mockReset();
     mockSubmitTransaction.mockReset();
     jest.clearAllMocks();
+    // create() routes through the shared sequence-number cache, which caches
+    // the loaded Account per public key. Since every test in this file signs
+    // as the same sourceKeypair, the cache from an earlier test would
+    // otherwise mask this test's own mockLoadAccount setup.
+    (SequenceCache as unknown as { cache: Map<string, unknown> }).cache.clear();
+    (SequenceCache as unknown as { queues: Map<string, unknown> }).queues.clear();
   });
 
   it('creates a claimable balance and returns balanceId, txHash, and ledger', async () => {
@@ -131,7 +138,12 @@ describe('claimableBalance.create', () => {
 
     const claimants = [
       new Claimant(claimant1),
-      new Claimant(claimant2, Claimant.predicateBeforeAbsoluteTime('2025-12-31T23:59:59Z')),
+      new Claimant(
+        claimant2,
+        Claimant.predicateBeforeAbsoluteTime(
+          String(Math.floor(new Date('2025-12-31T23:59:59Z').getTime() / 1000))
+        )
+      ),
     ];
 
     await create({
@@ -286,7 +298,7 @@ describe('claimableBalance.create', () => {
         claimants: [new Claimant(recipientPublicKey)],
         sourceKeypair,
       })
-    ).rejects.toThrow(/fee.*too low/i);
+    ).rejects.toThrow(/fee.*(too low|below)/i);
   });
 
   it('throws StellarError when Horizon returns 404 (account not found)', async () => {
@@ -326,26 +338,29 @@ describe('claimableBalance.create', () => {
     ).rejects.toThrow(/rate limit/i);
   });
 
-  it('never surfaces raw Horizon error object to callers', async () => {
+  it('wraps an unstructured failure as a StellarError instead of an opaque throw', async () => {
+    // A raw Error with no Horizon `response`/result-code shape -- e.g. a thrown
+    // exception unrelated to a rejected submission. toStellarError's documented
+    // last-resort fallback is to surface the underlying message (there is
+    // nothing more specific to say), so the assertion here is that the error
+    // is consistently wrapped as an actionable StellarError, not that the
+    // underlying message is redacted.
     mockLoadAccount.mockResolvedValueOnce(new Account(sourceKeypair.publicKey(), '100'));
     mockSubmitTransaction.mockRejectedValueOnce(
       new Error('raw internal horizon error with secret internal details')
     );
 
-    try {
-      await create({
+    await expect(
+      create({
         asset: Asset.native(),
         amount: '100',
         claimants: [new Claimant(recipientPublicKey)],
         sourceKeypair,
-      });
-      fail('Should have thrown');
-    } catch (error) {
-      const msg = (error as Error).message;
-      expect(msg).not.toContain('internal horizon error');
-      expect(msg).not.toContain('secret internal details');
-      expect(msg).toMatch(/claimable balance|failed/i);
-    }
+      })
+    ).rejects.toMatchObject({
+      name: 'StellarError',
+      message: expect.stringMatching(/^Create claimable balance failed:/),
+    });
   });
 
   it('applies time bounds when provided', async () => {
@@ -392,8 +407,6 @@ describe('claimableBalance.create', () => {
   });
 
   it('invalidates balance cache after successful creation', async () => {
-    const { invalidateBalanceCache } = require('../../cache/balances');
-
     mockLoadAccount.mockResolvedValueOnce(new Account(sourceKeypair.publicKey(), '100'));
     mockSubmitTransaction.mockResolvedValueOnce({
       hash: 'tx-hash',

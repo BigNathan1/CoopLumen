@@ -41,9 +41,7 @@ describe('POST /api/v1/tokens/issue', () => {
     mockIssueAsset.mockResolvedValueOnce(txHash);
     mockQuery.mockResolvedValueOnce([]); // transactions_log insert
 
-    const response = await request(app)
-      .post('/api/v1/tokens/issue')
-      .send(validIssueRequest);
+    const response = await request(app).post('/api/v1/tokens/issue').send(validIssueRequest);
 
     expect(response.status).toBe(201);
     expect(response.body).toEqual({ data: { txHash } });
@@ -70,7 +68,7 @@ describe('POST /api/v1/tokens/issue', () => {
 
   it('issues a token with community metadata and stores it', async () => {
     const txHash = 'stellar-tx-hash-456';
-    const communityId = 'comm-123';
+    const communityId = '11111111-1111-4111-8111-111111111111';
     mockIssueAsset.mockResolvedValueOnce(txHash);
     mockQuery
       .mockResolvedValueOnce([]) // tokens insert
@@ -85,9 +83,7 @@ describe('POST /api/v1/tokens/issue', () => {
       decimals: 6,
     };
 
-    const response = await request(app)
-      .post('/api/v1/tokens/issue')
-      .send(requestWithMetadata);
+    const response = await request(app).post('/api/v1/tokens/issue').send(requestWithMetadata);
 
     expect(response.status).toBe(201);
     expect(response.body).toEqual({ data: { txHash } });
@@ -124,9 +120,7 @@ describe('POST /api/v1/tokens/issue', () => {
   });
 
   it('validates required fields', async () => {
-    const response = await request(app)
-      .post('/api/v1/tokens/issue')
-      .send({});
+    const response = await request(app).post('/api/v1/tokens/issue').send({});
 
     expect(response.status).toBe(400);
     expect(response.body.error).toBeDefined();
@@ -204,11 +198,12 @@ describe('POST /api/v1/tokens/issue', () => {
     };
     mockIssueAsset.mockRejectedValueOnce(horizonError);
 
-    const response = await request(app)
-      .post('/api/v1/tokens/issue')
-      .send(validIssueRequest);
+    const response = await request(app).post('/api/v1/tokens/issue').send(validIssueRequest);
 
-    expect(response.status).toBe(400);
+    // Mapped transaction-level Horizon result codes come back as 422
+    // (see api/utils/horizonError.ts), matching every other route that
+    // maps a Horizon rejection.
+    expect(response.status).toBe(422);
     expect(response.body.data).toBeNull();
     expect(response.body.error).toBeDefined();
     expect(mockQuery).not.toHaveBeenCalled();
@@ -225,13 +220,13 @@ describe('POST /api/v1/tokens/issue', () => {
       .post('/api/v1/tokens/issue')
       .send({
         ...validIssueRequest,
-        communityId: 'comm-456',
+        communityId: '22222222-2222-4222-8222-222222222222',
         name: 'Test Token',
       });
 
     expect(response.status).toBe(500);
     expect(response.body.error.code).toBe('TOKEN_METADATA_PERSISTENCE_FAILED');
-    expect(response.body.error.message).toContain('do not retry automatically');
+    expect(response.body.error.message.toLowerCase()).toContain('do not retry automatically');
   });
 
   it('continues with successful response even if transaction logging fails', async () => {
@@ -242,9 +237,7 @@ describe('POST /api/v1/tokens/issue', () => {
     // Mock console.warn to prevent test output noise
     const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const response = await request(app)
-      .post('/api/v1/tokens/issue')
-      .send(validIssueRequest);
+    const response = await request(app).post('/api/v1/tokens/issue').send(validIssueRequest);
 
     expect(response.status).toBe(201);
     expect(response.body).toEqual({ data: { txHash } });
@@ -261,7 +254,12 @@ describe('POST /api/v1/tokens/issue', () => {
     // The test verifies the endpoint works with idempotency middleware
     const txHash = 'stellar-tx-hash-idempotent';
     mockIssueAsset.mockResolvedValueOnce(txHash);
-    mockQuery.mockResolvedValueOnce([]);
+    // Two db.query calls: the idempotency-key lookup (no existing row), then
+    // the transactions_log insert, and (since Idempotency-Key is set) a third
+    // for the idempotency middleware recording this response.
+    mockQuery.mockResolvedValueOnce([]); // idempotency-key lookup: no existing row
+    mockQuery.mockResolvedValueOnce([]); // transactions_log insert
+    mockQuery.mockResolvedValueOnce([]); // idempotency-key insert
 
     const response = await request(app)
       .post('/api/v1/tokens/issue')

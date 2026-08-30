@@ -9,7 +9,12 @@ import { StellarService } from '../../contracts/stellar';
 import { validateBody } from '../middleware/validate';
 import { idempotent } from '../middleware/idempotency';
 import { requireAdmin } from '../middleware/auth';
-import { issueTokenSchema, trustlineTokenSchema, burnTokenSchema, adminTokensQuerySchema } from '../schemas/token';
+import {
+  issueTokenSchema,
+  trustlineTokenSchema,
+  burnTokenSchema,
+  adminTokensQuerySchema,
+} from '../schemas/token';
 import { isValidStellarPublicKey } from '../utils/stellar';
 import { mapHorizonError } from '../utils/horizonError';
 import { parsePagination, pageMeta, parseSort } from '../utils/http';
@@ -82,36 +87,33 @@ interface TokenWithCommunity extends Token {
  * Requires admin authentication (currently placeholder).
  * Supports pagination via page/limit query parameters.
  */
-tokenRouter.get(
-  '/',
-  requireAdmin,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const queryValidation = adminTokensQuerySchema.safeParse(req.query);
-      if (!queryValidation.success) {
-        res.status(400).json({
-          data: null,
-          error: 'Invalid query parameters',
-          meta: {
-            errors: queryValidation.error.issues.map((issue) => ({
-              path: issue.path.join('.'),
-              message: issue.message,
-            })),
-          },
-        });
-        return;
-      }
+tokenRouter.get('/', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const queryValidation = adminTokensQuerySchema.safeParse(req.query);
+    if (!queryValidation.success) {
+      res.status(400).json({
+        data: null,
+        error: 'Invalid query parameters',
+        meta: {
+          errors: queryValidation.error.issues.map((issue) => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
+      });
+      return;
+    }
 
-      const pagination = parsePagination(req);
-      const allowedSortColumns = ['created_at', 'name', 'asset_code', 'total_supply'];
-      const { sortBy, order } = parseSort(req, allowedSortColumns, 'created_at');
+    const pagination = parsePagination(req);
+    const allowedSortColumns = ['created_at', 'name', 'asset_code', 'total_supply'];
+    const { sortBy, order } = parseSort(req, allowedSortColumns, 'created_at');
 
-      const [{ count }] = await db.query<{ count: number }>(
-        'SELECT COUNT(*)::int AS count FROM tokens'
-      );
+    const [{ count }] = await db.query<{ count: number }>(
+      'SELECT COUNT(*)::int AS count FROM tokens'
+    );
 
-      const tokens = await db.query<TokenWithCommunity>(
-        `SELECT 
+    const tokens = await db.query<TokenWithCommunity>(
+      `SELECT 
            t.id,
            t.community_id,
            t.asset_code,
@@ -129,18 +131,17 @@ tokenRouter.get(
          LEFT JOIN communities c ON t.community_id = c.id
          ORDER BY ${sortBy === 'name' ? 't.name' : sortBy === 'asset_code' ? 't.asset_code' : sortBy === 'total_supply' ? 't.total_supply' : 't.created_at'} ${order}
          LIMIT $1 OFFSET $2`,
-        [pagination.limit, pagination.offset]
-      );
+      [pagination.limit, pagination.offset]
+    );
 
-      res.json({
-        data: tokens,
-        meta: pageMeta(count, pagination),
-      });
-    } catch (err) {
-      next(err);
-    }
+    res.json({
+      data: tokens,
+      meta: pageMeta(count, pagination),
+    });
+  } catch (err) {
+    next(err);
   }
-);
+});
 
 /**
  * POST /api/v1/tokens/issue
@@ -158,19 +159,29 @@ tokenRouter.post(
   validateBody(issueTokenSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { communityId, issuerSecret, assetCode, distributorPublicKey, amount, memo, name, description, iconUrl, decimals } =
-        req.body as {
-          communityId?: string;
-          issuerSecret: string;
-          assetCode: string;
-          distributorPublicKey: string;
-          amount: string;
-          memo?: string;
-          name?: string;
-          description?: string;
-          iconUrl?: string;
-          decimals: number;
-        };
+      const {
+        communityId,
+        issuerSecret,
+        assetCode,
+        distributorPublicKey,
+        amount,
+        memo,
+        name,
+        description,
+        iconUrl,
+        decimals,
+      } = req.body as {
+        communityId?: string;
+        issuerSecret: string;
+        assetCode: string;
+        distributorPublicKey: string;
+        amount: string;
+        memo?: string;
+        name?: string;
+        description?: string;
+        iconUrl?: string;
+        decimals: number;
+      };
 
       const txHash = await issueAsset({
         issuerSecret,
@@ -221,13 +232,14 @@ tokenRouter.post(
         if (!issuerPublicKey) {
           issuerPublicKey = Keypair.fromSecret(issuerSecret).publicKey();
         }
-        
+
         await db.query(
           `INSERT INTO transactions_log (community_id, actor_address, action, stellar_tx_hash, metadata)
-           VALUES ($1, $2, 'token_issued', $3, $4)`,
+           VALUES ($1, $2, $3, $4, $5)`,
           [
             communityId ?? null,
             issuerPublicKey,
+            'token_issued',
             txHash,
             JSON.stringify({
               asset_code: assetCode,
@@ -600,6 +612,10 @@ tokenRouter.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { assetCode, issuer } = req.params;
+      if (!/^[A-Za-z0-9]{1,12}$/.test(assetCode)) {
+        res.status(400).json({ data: null, error: 'Invalid asset code' });
+        return;
+      }
       if (!isValidStellarPublicKey(issuer)) {
         res.status(400).json({ data: null, error: 'Invalid Stellar issuer address' });
         return;

@@ -65,13 +65,15 @@ After funding, this script will proceed.
   try {
     // Step 1: Verify accounts are funded
     logger.info('[1/5] Verifying issuer account is funded...');
-    let issuerAccount = await StellarService.loadAccount(issuerKeypair.publicKey());
+    const issuerAccount = await StellarService.loadAccount(issuerKeypair.publicKey());
     const issuerXlmBalance = issuerAccount.balances.find((b) => b.asset_type === 'native');
     logger.info(`  ✓ Issuer funded with ${issuerXlmBalance?.balance} XLM`);
 
     logger.info('[1/5] Verifying distributor account is funded...');
     let distributorAccount = await StellarService.loadAccount(distributorKeypair.publicKey());
-    const distributorXlmBalance = distributorAccount.balances.find((b) => b.asset_type === 'native');
+    const distributorXlmBalance = distributorAccount.balances.find(
+      (b) => b.asset_type === 'native'
+    );
     logger.info(`  ✓ Distributor funded with ${distributorXlmBalance?.balance} XLM`);
 
     // Step 2: Issue asset from issuer to distributor
@@ -133,7 +135,7 @@ After funding, this script will proceed.
       logger.info(`  ✓ Asset distributed: ${distributeTxHash}`);
 
       // Verify recipient received the asset
-      let recipientAccount = await StellarService.loadAccount(recipientKeypair.publicKey());
+      const recipientAccount = await StellarService.loadAccount(recipientKeypair.publicKey());
       const recipientBalance = recipientAccount.balances.find(
         (b) =>
           b.asset_type !== 'native' &&
@@ -146,7 +148,9 @@ After funding, this script will proceed.
       logger.warn(
         'Recipient account not funded. To complete the test, fund the recipient and try again.'
       );
-      logger.warn(`Recipient funding URL: https://friendbot.stellar.org/?addr=${recipientKeypair.publicKey()}`);
+      logger.warn(
+        `Recipient funding URL: https://friendbot.stellar.org/?addr=${recipientKeypair.publicKey()}`
+      );
     }
 
     logger.info(`

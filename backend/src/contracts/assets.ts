@@ -1,4 +1,11 @@
-import { Asset, Keypair, TransactionBuilder, Operation, BASE_FEE } from '@stellar/stellar-sdk';
+import {
+  Asset,
+  Keypair,
+  Memo,
+  TransactionBuilder,
+  Operation,
+  BASE_FEE,
+} from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
 import { MemoInput, buildMemo } from './memo';
 import { TimeBoundsInput, applyTimeBounds } from './timeBounds';
@@ -227,8 +234,6 @@ export async function getAssetBalance(
   return Number(balanceEntry.balance);
 }
 
-/** Returns the circulating supply reported by Horizon for an issued asset. */
-export async function getAssetSupply(assetCode: string, assetIssuer: string): Promise<string> {
 /** Returns the total supply Horizon's asset stats endpoint reports for an issued asset. */
 export async function getTotalSupply(assetCode: string, issuer: string): Promise<string> {
   const server = StellarService.getServer();
