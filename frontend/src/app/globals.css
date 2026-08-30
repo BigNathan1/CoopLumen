@@ -8,7 +8,12 @@
   --color-text-muted: #8888aa;
   --color-error: #e17055;
   --color-success: #00b894;
+  --color-info: #74b9ff;
+  --color-warning: #fdcb6e;
   --radius: 8px;
+  --z-index-overlay: 100;
+  --z-index-modal: 101;
+  --z-index-toast: 102;
 }
 
 *,
