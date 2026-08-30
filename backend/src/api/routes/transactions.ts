@@ -1,4 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import { TransactionBuilder, Networks } from '@stellar/stellar-sdk';
+import { StellarService } from '../../contracts/stellar';
+import { validate } from '../middleware/validate';
+import { transactionHashSchema } from '../schemas/transaction';
 import { z } from 'zod';
 import { StellarService } from '../../contracts/stellar';
 import { validate } from '../middleware/validate';
@@ -15,6 +19,7 @@ import { mapHorizonError } from '../utils/horizonError';
 import { validateParams } from '../middleware/validate';
 import { db } from '../../db';
 
+export const transactionsRouter = Router();
 export const transactionRouter: Router = Router();
 
 const communityIdParamSchema = z.object({
@@ -22,6 +27,10 @@ const communityIdParamSchema = z.object({
 });
 
 /**
+ * @route POST /api/v1/transactions/unsigned
+ * @summary Build unsigned transaction XDR
+ */
+transactionsRouter.post('/unsigned', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
  * @route GET /api/v1/transactions/export/:communityId
  * @desc Export transaction history for a community as a CSV
  * @access Public
@@ -86,6 +95,15 @@ transactionsRouter.get(
     }
   }
   try {
+    const { senderPublicKey, destinationPublicKey, assetCode, assetIssuer, amount, memo } = req.body;
+    const account = await StellarService.loadAccount(senderPublicKey);
+    const network = StellarService.getNetwork();
+    const txBuilder = new TransactionBuilder(account, {
+      fee: '100',
+      networkPassphrase: network,
+    });
+    const tx = txBuilder.setTimeout(30).build();
+    res.status(200).json({ data: { xdr: tx.toXDR() } });
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
     const xdr = await buildUnsignedPayment({
       ...parsed.data,
@@ -95,12 +113,19 @@ transactionsRouter.get(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     res.status(200).json({ data: { xdr } });
   } catch (error) {
-    const mapped = mapHorizonError(error);
-    res.status(mapped.status).json({ data: null, error: mapped.message });
+    next(mapHorizonError(error));
   }
 });
 
 /**
+ * @route GET /api/v1/transactions/:hash
+ * @summary Get transaction detail by hash from Horizon
+ */
+transactionsRouter.get(
+  '/:hash',
+  validate({ params: transactionHashSchema }),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
  * GET /api/v1/transactions/export/:communityId
  *
  * Exports a community's Stellar transaction history (from its issuer account) as a
@@ -191,6 +216,7 @@ transactionRouter.get(
       const transaction = await StellarService.getTransaction(hash);
       res.status(200).json({ data: transaction });
     } catch (error) {
+      next(mapHorizonError(error));
       const mapped = mapHorizonError(error);
       res.status(mapped.status).json({ data: null, error: mapped.message });
     }

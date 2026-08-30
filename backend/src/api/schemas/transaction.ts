@@ -1,10 +1,11 @@
 import { z } from 'zod';
-import { isValidStellarPublicKey } from '../utils/stellar';
 
-const stellarPublicKey = z
-  .string()
-  .trim()
-  .refine(isValidStellarPublicKey, 'must be a valid Stellar public key');
+export const transactionHashSchema = z.object({
+  hash: z
+    .string()
+    .length(64, 'Transaction hash must be exactly 64 characters long')
+    .regex(/^[a-fA-F0-9]{64}$/, 'Transaction hash must be a valid hex-encoded SHA-256 string'),
+});
 
 const amount = z
   .string()
