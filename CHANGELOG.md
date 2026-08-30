@@ -10,6 +10,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `LoadingSkeleton` component (`frontend/src/components/LoadingSkeleton.tsx`) — animated shimmer placeholder with `text`, `circle` and `rect` variants, multi-line `count`, per-line sizing and a narrower final line for paragraph placeholders. Announced once through a polite `role="status"` live region with the bars hidden from assistive technology, and the shimmer disabled under `prefers-reduced-motion`. Colours come from new `--color-skeleton-base` / `--color-skeleton-highlight` tokens in `globals.css`, derived from the existing surface and border tokens with `color-mix` so they follow any theme change (#253).
 - `claimableBalance.create(asset, amount, claimants)` in `backend/src/contracts/claimableBalance.ts` — creates a Stellar claimable balance using the `CreateClaimableBalance` operation. Accepts optional memo and time bounds; wraps Horizon interaction with error mapping so Horizon result codes (`op_low_reserve`, `op_no_trust`, `tx_bad_seq`, etc.) surface as actionable messages instead of opaque errors. Includes full unit test coverage and works with `withSequenceRetry` for concurrent submission safety (#247).
 - `GET /api/v1/fees/estimate` endpoint returning current Stellar network base fee and percentile fee distribution from Horizon (#156).
 - `StellarService.getFeeStats()` method wrapping `Horizon.Server.feeStats()` with the existing retry and error-mapping stack.
