@@ -50,6 +50,7 @@ const NETWORK_PASSPHRASES: Record<StellarNetwork, string> = {
 export const HORIZON_RETRY_CONFIG = {
   maxAttempts: 4,
   baseDelayMs: 100,
+  maxDelayMs: 5000,
 } as const;
 
 const RETRYABLE_HORIZON_STATUS_CODES = new Set([429, 503]);
@@ -253,32 +254,36 @@ class StellarServiceClass {
         }
 
         if (attempt === HORIZON_RETRY_CONFIG.maxAttempts) {
-          logger.error('Horizon request failed after retries', {
-            operationName,
-            attempt,
-            status,
-            error: horizonError.message,
-          });
+          logger.warn(
+            `Stellar Horizon operation ${operationName} failed with status ${status} after max attempts (${HORIZON_RETRY_CONFIG.maxAttempts}); giving up.`,
+            { operationName, status, attempts: attempt }
+          );
           throw error;
         }
 
-        const retryAfterMs = parseRetryAfterMs(
-          readRetryAfterHeader(horizonError.response?.headers)
-        );
-        const delayMs = retryAfterMs ?? HORIZON_RETRY_CONFIG.baseDelayMs * 2 ** (attempt - 1);
+        const retryAfterHeader = readRetryAfterHeader(horizonError.response?.headers);
+        const retryAfterMs = parseRetryAfterMs(retryAfterHeader);
 
-        logger.warn('Retrying Horizon request', {
-          operationName,
-          attempt,
-          status,
-          delayMs,
-        });
+        let delayMs: number;
+        if (retryAfterMs !== null) {
+          delayMs = retryAfterMs;
+        } else {
+          const exponentialBase = HORIZON_RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt - 1);
+          // Add full jitter: random value between 0 and exponentialBase
+          const jittered = Math.random() * exponentialBase;
+          delayMs = Math.min(HORIZON_RETRY_CONFIG.maxDelayMs, jittered);
+        }
+
+        logger.info(
+          `Stellar Horizon operation ${operationName} returned status ${status}; retrying in ${Math.round(delayMs)}ms (attempt ${attempt}/${HORIZON_RETRY_CONFIG.maxAttempts}).`,
+          { operationName, status, attempt, delayMs }
+        );
 
         await sleep(delayMs);
       }
     }
 
-    throw new Error(`Unreachable retry state for ${operationName}`);
+    throw new Error(`Stellar operation ${operationName} exhausted all retry attempts.`);
   }
 }
 
