@@ -85,7 +85,10 @@ describe('assets.ts comprehensive unit tests (mock Horizon)', () => {
       // that doesn't clear up on its own.
       mockLoadAccount.mockResolvedValue(new Account(issuer.publicKey(), '1'));
       const horizonError = {
-        response: { status: 400, data: { extras: { result_codes: { transaction: 'tx_bad_seq' } } } },
+        response: {
+          status: 400,
+          data: { extras: { result_codes: { transaction: 'tx_bad_seq' } } },
+        },
       };
       mockSubmitTransaction.mockRejectedValue(horizonError);
 
@@ -133,7 +136,12 @@ describe('assets.ts comprehensive unit tests (mock Horizon)', () => {
       const issuerPubKey = Keypair.random().publicKey();
 
       mockLoadAccount.mockResolvedValueOnce(new Account(holder.publicKey(), '10'));
-      const error = { response: { status: 400, data: { extras: { result_codes: { operations: ['op_underfunded'] } } } } };
+      const error = {
+        response: {
+          status: 400,
+          data: { extras: { result_codes: { operations: ['op_underfunded'] } } },
+        },
+      };
       mockSubmitTransaction.mockRejectedValueOnce(error);
 
       await expect(
@@ -232,7 +240,12 @@ describe('assets.ts comprehensive unit tests (mock Horizon)', () => {
         account_id: pubKey,
         balances: [
           { asset_type: 'native', balance: '100.0' },
-          { asset_type: 'credit_alphanum4', asset_code: 'ECO', asset_issuer: issuer, balance: '42.5' },
+          {
+            asset_type: 'credit_alphanum4',
+            asset_code: 'ECO',
+            asset_issuer: issuer,
+            balance: '42.5',
+          },
         ],
       });
 

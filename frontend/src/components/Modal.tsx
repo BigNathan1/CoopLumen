@@ -79,7 +79,7 @@ export function Modal({
         }
       }
     },
-    [onClose],
+    [onClose]
   );
 
   // Handle backdrop click

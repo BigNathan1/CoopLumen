@@ -48,7 +48,10 @@ describe('StellarService.createAccount', () => {
 
     mockLoadAccount.mockResolvedValueOnce(new Account(funder.publicKey(), '1') as never);
     const horizonError = {
-      response: { status: 400, data: { extras: { result_codes: { operations: ['op_already_exists'] } } } },
+      response: {
+        status: 400,
+        data: { extras: { result_codes: { operations: ['op_already_exists'] } } },
+      },
     };
     mockSubmitTransaction.mockRejectedValueOnce(horizonError as never);
 

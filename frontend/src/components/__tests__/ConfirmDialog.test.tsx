@@ -12,7 +12,7 @@ describe('ConfirmDialog', () => {
           description="This action cannot be undone."
           onConfirm={jest.fn()}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       expect(screen.getByRole('alertdialog')).toBeInTheDocument();
@@ -27,7 +27,7 @@ describe('ConfirmDialog', () => {
           title="Delete Community?"
           onConfirm={jest.fn()}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
@@ -40,7 +40,7 @@ describe('ConfirmDialog', () => {
           title="Confirm Action?"
           onConfirm={jest.fn()}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       expect(screen.getByText('Cancel')).toBeInTheDocument();
@@ -56,7 +56,7 @@ describe('ConfirmDialog', () => {
           cancelLabel="Keep It"
           onConfirm={jest.fn()}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       expect(screen.getByText('Delete Forever')).toBeInTheDocument();
@@ -71,20 +71,17 @@ describe('ConfirmDialog', () => {
           description="This member will lose access to all community features."
           onConfirm={jest.fn()}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
-      expect(screen.getByText('This member will lose access to all community features.')).toBeInTheDocument();
+      expect(
+        screen.getByText('This member will lose access to all community features.')
+      ).toBeInTheDocument();
     });
 
     it('does not render description when not provided', () => {
       const { container } = render(
-        <ConfirmDialog
-          isOpen={true}
-          title="Confirm?"
-          onConfirm={jest.fn()}
-          onCancel={jest.fn()}
-        />,
+        <ConfirmDialog isOpen={true} title="Confirm?" onConfirm={jest.fn()} onCancel={jest.fn()} />
       );
 
       const description = container.querySelector('[id^="confirm-dialog-desc"]');
@@ -95,12 +92,7 @@ describe('ConfirmDialog', () => {
   describe('ARIA attributes', () => {
     it('sets role="alertdialog" and aria-modal="true"', () => {
       render(
-        <ConfirmDialog
-          isOpen={true}
-          title="Confirm?"
-          onConfirm={jest.fn()}
-          onCancel={jest.fn()}
-        />,
+        <ConfirmDialog isOpen={true} title="Confirm?" onConfirm={jest.fn()} onCancel={jest.fn()} />
       );
 
       const dialog = screen.getByRole('alertdialog');
@@ -115,7 +107,7 @@ describe('ConfirmDialog', () => {
           description="Are you sure?"
           onConfirm={jest.fn()}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       const dialog = screen.getByRole('alertdialog');
@@ -128,12 +120,7 @@ describe('ConfirmDialog', () => {
 
     it('does not set aria-describedby when description is not provided', () => {
       render(
-        <ConfirmDialog
-          isOpen={true}
-          title="Confirm?"
-          onConfirm={jest.fn()}
-          onCancel={jest.fn()}
-        />,
+        <ConfirmDialog isOpen={true} title="Confirm?" onConfirm={jest.fn()} onCancel={jest.fn()} />
       );
 
       const dialog = screen.getByRole('alertdialog');
@@ -149,7 +136,7 @@ describe('ConfirmDialog', () => {
           loading={true}
           onConfirm={jest.fn()}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       const confirmBtn = screen.getByText('Delete');
@@ -167,7 +154,7 @@ describe('ConfirmDialog', () => {
           confirmLabel="Delete"
           onConfirm={onConfirm}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       const confirmBtn = screen.getByText('Delete');
@@ -179,12 +166,7 @@ describe('ConfirmDialog', () => {
     it('calls onCancel when cancel button is clicked', () => {
       const onCancel = jest.fn();
       render(
-        <ConfirmDialog
-          isOpen={true}
-          title="Delete?"
-          onConfirm={jest.fn()}
-          onCancel={onCancel}
-        />,
+        <ConfirmDialog isOpen={true} title="Delete?" onConfirm={jest.fn()} onCancel={onCancel} />
       );
 
       const cancelBtn = screen.getByText('Cancel');
@@ -203,7 +185,7 @@ describe('ConfirmDialog', () => {
           loading={true}
           onConfirm={onConfirm}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       const confirmBtn = screen.getByText('Delete');
@@ -217,12 +199,7 @@ describe('ConfirmDialog', () => {
     it('calls onCancel when ESC is pressed', async () => {
       const onCancel = jest.fn();
       render(
-        <ConfirmDialog
-          isOpen={true}
-          title="Delete?"
-          onConfirm={jest.fn()}
-          onCancel={onCancel}
-        />,
+        <ConfirmDialog isOpen={true} title="Delete?" onConfirm={jest.fn()} onCancel={onCancel} />
       );
 
       fireEvent.keyDown(document, { key: 'Escape' });
@@ -239,7 +216,7 @@ describe('ConfirmDialog', () => {
           confirmLabel="Delete"
           onConfirm={onConfirm}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       const confirmBtn = screen.getByText('Delete');
@@ -253,12 +230,7 @@ describe('ConfirmDialog', () => {
     it('does not call onConfirm when Enter is pressed on cancel button', async () => {
       const onConfirm = jest.fn();
       render(
-        <ConfirmDialog
-          isOpen={true}
-          title="Delete?"
-          onConfirm={onConfirm}
-          onCancel={jest.fn()}
-        />,
+        <ConfirmDialog isOpen={true} title="Delete?" onConfirm={onConfirm} onCancel={jest.fn()} />
       );
 
       const cancelBtn = screen.getByText('Cancel');
@@ -278,7 +250,7 @@ describe('ConfirmDialog', () => {
           description="Are you sure?"
           onConfirm={onConfirm}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       const description = screen.getByText('Are you sure?');
@@ -299,7 +271,7 @@ describe('ConfirmDialog', () => {
           loading={true}
           onConfirm={onConfirm}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       const confirmBtn = screen.getByText('Delete');
@@ -320,7 +292,7 @@ describe('ConfirmDialog', () => {
           loading={false}
           onConfirm={onConfirm}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       // Set loading to true
@@ -332,7 +304,7 @@ describe('ConfirmDialog', () => {
           loading={true}
           onConfirm={onConfirm}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       // Set loading to false again
@@ -344,7 +316,7 @@ describe('ConfirmDialog', () => {
           loading={false}
           onConfirm={onConfirm}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       const confirmBtn = screen.getByText('Delete');
@@ -359,12 +331,7 @@ describe('ConfirmDialog', () => {
   describe('Focus management', () => {
     it('focuses cancel button (safe action) on open by default', async () => {
       render(
-        <ConfirmDialog
-          isOpen={true}
-          title="Delete?"
-          onConfirm={jest.fn()}
-          onCancel={jest.fn()}
-        />,
+        <ConfirmDialog isOpen={true} title="Delete?" onConfirm={jest.fn()} onCancel={jest.fn()} />
       );
 
       const cancelBtn = screen.getByText('Cancel');
@@ -377,12 +344,7 @@ describe('ConfirmDialog', () => {
     it('traps focus between cancel and confirm buttons (inherited from Modal)', async () => {
       const user = userEvent.setup();
       render(
-        <ConfirmDialog
-          isOpen={true}
-          title="Delete?"
-          onConfirm={jest.fn()}
-          onCancel={jest.fn()}
-        />,
+        <ConfirmDialog isOpen={true} title="Delete?" onConfirm={jest.fn()} onCancel={jest.fn()} />
       );
 
       const cancelBtn = screen.getByText('Cancel');
@@ -410,7 +372,7 @@ describe('ConfirmDialog', () => {
           loading={true}
           onConfirm={jest.fn()}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       const cancelBtn = screen.getByText('Cancel') as HTMLButtonElement;
@@ -428,7 +390,7 @@ describe('ConfirmDialog', () => {
           loading={false}
           onConfirm={jest.fn()}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       const cancelBtn = screen.getByText('Cancel') as HTMLButtonElement;
@@ -447,7 +409,7 @@ describe('ConfirmDialog', () => {
           loading={true}
           onConfirm={jest.fn()}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       const spinner = container.querySelector('[class*="spinner"]');
@@ -463,7 +425,7 @@ describe('ConfirmDialog', () => {
           loading={false}
           onConfirm={jest.fn()}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       const spinner = container.querySelector('[class*="spinner"]');
@@ -475,12 +437,7 @@ describe('ConfirmDialog', () => {
     it('calls onCancel when backdrop is clicked', async () => {
       const onCancel = jest.fn();
       const { container } = render(
-        <ConfirmDialog
-          isOpen={true}
-          title="Delete?"
-          onConfirm={jest.fn()}
-          onCancel={onCancel}
-        />,
+        <ConfirmDialog isOpen={true} title="Delete?" onConfirm={jest.fn()} onCancel={onCancel} />
       );
 
       const backdrop = container.querySelector('[aria-hidden="true"]') as HTMLElement;
@@ -494,9 +451,9 @@ describe('ConfirmDialog', () => {
     it('handles promise-returning onConfirm', async () => {
       const onConfirm = jest.fn(
         () =>
-          new Promise((resolve) => {
+          new Promise<void>((resolve) => {
             setTimeout(resolve, 10);
-          }),
+          })
       );
 
       render(
@@ -506,7 +463,7 @@ describe('ConfirmDialog', () => {
           confirmLabel="Delete"
           onConfirm={onConfirm}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       const confirmBtn = screen.getByText('Delete');
@@ -526,30 +483,15 @@ describe('ConfirmDialog', () => {
       const onCancel = jest.fn();
 
       const { rerender } = render(
-        <ConfirmDialog
-          isOpen={true}
-          title="Delete?"
-          onConfirm={onConfirm}
-          onCancel={onCancel}
-        />,
+        <ConfirmDialog isOpen={true} title="Delete?" onConfirm={onConfirm} onCancel={onCancel} />
       );
 
       rerender(
-        <ConfirmDialog
-          isOpen={false}
-          title="Delete?"
-          onConfirm={onConfirm}
-          onCancel={onCancel}
-        />,
+        <ConfirmDialog isOpen={false} title="Delete?" onConfirm={onConfirm} onCancel={onCancel} />
       );
 
       rerender(
-        <ConfirmDialog
-          isOpen={true}
-          title="Delete?"
-          onConfirm={onConfirm}
-          onCancel={onCancel}
-        />,
+        <ConfirmDialog isOpen={true} title="Delete?" onConfirm={onConfirm} onCancel={onCancel} />
       );
 
       expect(screen.getByRole('alertdialog')).toBeInTheDocument();
@@ -563,7 +505,7 @@ describe('ConfirmDialog', () => {
           description="This cannot be undone."
           onConfirm={jest.fn()}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       expect(screen.getByText('Delete Community?')).toBeInTheDocument();
@@ -576,7 +518,7 @@ describe('ConfirmDialog', () => {
           description="Member will lose access."
           onConfirm={jest.fn()}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       expect(screen.getByText('Remove Member?')).toBeInTheDocument();
@@ -592,7 +534,7 @@ describe('ConfirmDialog', () => {
           confirmLabel="Delete"
           onConfirm={onConfirm}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       unmount();
@@ -614,7 +556,7 @@ describe('ConfirmDialog', () => {
           }
           onConfirm={jest.fn()}
           onCancel={jest.fn()}
-        />,
+        />
       );
 
       expect(screen.getByText('Warning:')).toBeInTheDocument();
@@ -626,12 +568,7 @@ describe('ConfirmDialog', () => {
     it('inherits Modal focus trap behavior', async () => {
       const user = userEvent.setup();
       render(
-        <ConfirmDialog
-          isOpen={true}
-          title="Delete?"
-          onConfirm={jest.fn()}
-          onCancel={jest.fn()}
-        />,
+        <ConfirmDialog isOpen={true} title="Delete?" onConfirm={jest.fn()} onCancel={jest.fn()} />
       );
 
       const cancelBtn = screen.getByText('Cancel');
@@ -655,12 +592,7 @@ describe('ConfirmDialog', () => {
     it('uses Modal closeOnBackdrop for safe close', async () => {
       const onCancel = jest.fn();
       const { container } = render(
-        <ConfirmDialog
-          isOpen={true}
-          title="Delete?"
-          onConfirm={jest.fn()}
-          onCancel={onCancel}
-        />,
+        <ConfirmDialog isOpen={true} title="Delete?" onConfirm={jest.fn()} onCancel={onCancel} />
       );
 
       // Modal's default closeOnBackdrop is true, so backdrop click should work
