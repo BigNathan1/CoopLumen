@@ -10,6 +10,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `frontend/src/lib/api.ts` — typed `fetch` wrapper for the backend API. Resolves the base URL from `NEXT_PUBLIC_API_URL`, injects an `Authorization` bearer header from a pluggable token provider, JSON-encodes request bodies, serialises query parameters, applies a 15s default timeout, and normalises every failure (HTTP errors, malformed bodies, network failures, aborts, timeouts) into a single `ApiError` carrying `status`, `code` and field-level `details`. Ships `api.get/post/put/patch/delete`, `requestRaw` for endpoints with pagination `meta`, and an SWR-compatible `swrFetcher` (#251).
 - `claimableBalance.create(asset, amount, claimants)` in `backend/src/contracts/claimableBalance.ts` — creates a Stellar claimable balance using the `CreateClaimableBalance` operation. Accepts optional memo and time bounds; wraps Horizon interaction with error mapping so Horizon result codes (`op_low_reserve`, `op_no_trust`, `tx_bad_seq`, etc.) surface as actionable messages instead of opaque errors. Includes full unit test coverage and works with `withSequenceRetry` for concurrent submission safety (#247).
 - `GET /api/v1/fees/estimate` endpoint returning current Stellar network base fee and percentile fee distribution from Horizon (#156).
 - `StellarService.getFeeStats()` method wrapping `Horizon.Server.feeStats()` with the existing retry and error-mapping stack.
