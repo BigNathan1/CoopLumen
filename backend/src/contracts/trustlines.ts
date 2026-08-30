@@ -29,6 +29,12 @@ export interface BuildUnsignedTrustlineParams {
  * Establishes a trustline so an account can hold a community token.
  * Must be called before the account can receive or hold the asset.
  */
+/**
+ * Handles Stellar Horizon contract interaction for establishTrustline.
+ * @param params Parameter description for params.
+ * @returns {Promise<any>} Resolves with network response or operation result.
+ * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
+ */
 export async function establishTrustline(params: TrustlineParams): Promise<string> {
   const { accountSecret, assetCode, assetIssuer, limit, memo, timeBounds } = params;
 
@@ -64,6 +70,12 @@ export async function establishTrustline(params: TrustlineParams): Promise<strin
 /**
  * Builds an unsigned XDR transaction for establishing a trustline for client-side signing.
  */
+/**
+ * Handles Stellar Horizon contract interaction for buildUnsignedTrustline.
+ * @param params Parameter description for params.
+ * @returns {Promise<any>} Resolves with network response or operation result.
+ * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
+ */
 export async function buildUnsignedTrustline(
   params: BuildUnsignedTrustlineParams
 ): Promise<string> {
@@ -89,6 +101,14 @@ export async function buildUnsignedTrustline(
   return tx.toXDR();
 }
 
+/**
+ * Handles Stellar Horizon contract interaction for hasTrustline.
+ * @param publicKey Parameter description for publicKey.
+ * @param assetCode Parameter description for assetCode.
+ * @param assetIssuer Parameter description for assetIssuer.
+ * @returns {Promise<any>} Resolves with network response or operation result.
+ * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
+ */
 export async function hasTrustline(
   publicKey: string,
   assetCode: string,
@@ -157,6 +177,12 @@ function reject(action: string, detail: string): never {
  *
  * @returns The hash of the transaction Horizon accepted.
  */
+/**
+ * Handles Stellar Horizon contract interaction for setTrustlineFlags.
+ * @param params Parameter description for params.
+ * @returns {Promise<any>} Resolves with network response or operation result.
+ * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
+ */
 export async function setTrustlineFlags(params: SetTrustlineFlagsParams): Promise<string> {
   const action = 'Trustline flag update';
   const { issuerSecret, trustorPublicKey, assetCode, flags } = params;
@@ -222,6 +248,13 @@ export async function setTrustlineFlags(params: SetTrustlineFlagsParams): Promis
  * Grants a holder full authorization to use the asset. Convenience wrapper over
  * {@link setTrustlineFlags} for the common approve-a-member case.
  */
+/**
+ * Handles Stellar Horizon contract interaction for authorizeTrustline.
+ * @param params Parameter description for params.
+ * @param 'flags'> Parameter description for 'flags'>.
+ * @returns {Promise<any>} Resolves with network response or operation result.
+ * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
+ */
 export async function authorizeTrustline(
   params: Omit<SetTrustlineFlagsParams, 'flags'>
 ): Promise<string> {
@@ -232,6 +265,13 @@ export async function authorizeTrustline(
  * Revokes a holder's authorization. Pass `keepLiabilities` to downgrade the
  * holder to "authorized to maintain liabilities" instead, which freezes new
  * activity without cancelling their existing offers and claimable balances.
+ */
+/**
+ * Handles Stellar Horizon contract interaction for revokeTrustlineAuthorization.
+ * @param params Parameter description for params.
+ * @param 'flags'> & { keepLiabilities Parameter description for 'flags'> & { keepLiabilities.
+ * @returns {Promise<any>} Resolves with network response or operation result.
+ * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
  */
 export async function revokeTrustlineAuthorization(
   params: Omit<SetTrustlineFlagsParams, 'flags'> & { keepLiabilities?: boolean }

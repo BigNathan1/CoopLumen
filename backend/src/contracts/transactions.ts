@@ -34,6 +34,12 @@ export interface BuildUnsignedPaymentParams {
 /**
  * Submits a signed payment from a server-held keypair (e.g., community distributor).
  */
+/**
+ * Handles Stellar Horizon contract interaction for submitPayment.
+ * @param params Parameter description for params.
+ * @returns {Promise<any>} Resolves with network response or operation result.
+ * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
+ */
 export async function submitPayment(params: PaymentParams): Promise<string> {
   const { senderSecret, destinationPublicKey, assetCode, assetIssuer, amount, memo, timeBounds } =
     params;
@@ -65,6 +71,12 @@ export async function submitPayment(params: PaymentParams): Promise<string> {
 /**
  * Builds an unsigned XDR transaction for client-side signing via Freighter.
  */
+/**
+ * Handles Stellar Horizon contract interaction for buildUnsignedPayment.
+ * @param params Parameter description for params.
+ * @returns {Promise<any>} Resolves with network response or operation result.
+ * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
+ */
 export async function buildUnsignedPayment(params: BuildUnsignedPaymentParams): Promise<string> {
   const {
     senderPublicKey,
@@ -94,6 +106,12 @@ export async function buildUnsignedPayment(params: BuildUnsignedPaymentParams): 
   return applyTimeBounds(txBuilder, timeBounds).build().toXDR();
 }
 
+/**
+ * Handles Stellar Horizon contract interaction for submitSignedXdr.
+ * @param xdr Parameter description for xdr.
+ * @returns {Promise<any>} Resolves with network response or operation result.
+ * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
+ */
 export async function submitSignedXdr(xdr: string): Promise<string> {
   const network = StellarService.getNetwork();
   const tx = new Transaction(xdr, network);

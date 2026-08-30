@@ -48,6 +48,12 @@ export interface AssetHolder {
  * Issues a new community token on the Stellar network.
  * The issuer account creates the asset and sends initial supply to a distributor.
  */
+/**
+ * Handles Stellar Horizon contract interaction for issueAsset.
+ * @param params Parameter description for params.
+ * @returns {Promise<any>} Resolves with network response or operation result.
+ * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
+ */
 export async function issueAsset(params: IssueAssetParams): Promise<string> {
   const { issuerSecret, assetCode, distributorPublicKey, amount, memo, timeBounds } = params;
 
@@ -93,6 +99,12 @@ export async function issueAsset(params: IssueAssetParams): Promise<string> {
  * @returns Transaction hash of the distribution
  * @throws Horizon errors (e.g., op_no_trust, op_underfunded) for callers to map
  */
+/**
+ * Handles Stellar Horizon contract interaction for distributeAsset.
+ * @param params Parameter description for params.
+ * @returns {Promise<any>} Resolves with network response or operation result.
+ * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
+ */
 export async function distributeAsset(params: DistributeAssetParams): Promise<string> {
   const { issuerSecret, assetCode, assetIssuer, distributorPublicKey, amount, memo } = params;
 
@@ -132,6 +144,12 @@ export async function distributeAsset(params: DistributeAssetParams): Promise<st
  * held by their own issuer are not part of circulating supply, so a payment
  * to the issuer permanently reduces total supply (the issuer never resends it).
  */
+/**
+ * Handles Stellar Horizon contract interaction for burnAsset.
+ * @param params Parameter description for params.
+ * @returns {Promise<any>} Resolves with network response or operation result.
+ * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
+ */
 export async function burnAsset(params: BurnAssetParams): Promise<string> {
   const { holderSecret, assetCode, assetIssuer, amount, memo, timeBounds } = params;
 
@@ -166,6 +184,13 @@ export async function burnAsset(params: BurnAssetParams): Promise<string> {
 }
 
 /** Lists accounts holding a given asset by querying Horizon's asset endpoint. */
+/**
+ * Handles Stellar Horizon contract interaction for getAssetHolders.
+ * @param assetCode Parameter description for assetCode.
+ * @param assetIssuer Parameter description for assetIssuer.
+ * @returns {Promise<any>} Resolves with network response or operation result.
+ * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
+ */
 export async function getAssetHolders(
   assetCode: string,
   assetIssuer: string
@@ -209,6 +234,14 @@ export async function getAssetHolders(
  * @returns Numeric balance, or 0 if no trustline exists
  * @throws Error if account not found or network error (propagates to route handler for mapping)
  */
+/**
+ * Handles Stellar Horizon contract interaction for getAssetBalance.
+ * @param publicKey Parameter description for publicKey.
+ * @param assetCode Parameter description for assetCode.
+ * @param issuer Parameter description for issuer.
+ * @returns {Promise<any>} Resolves with network response or operation result.
+ * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
+ */
 export async function getAssetBalance(
   publicKey: string,
   assetCode: string,
@@ -235,6 +268,13 @@ export async function getAssetBalance(
 }
 
 /** Returns the total supply Horizon's asset stats endpoint reports for an issued asset. */
+/**
+ * Handles Stellar Horizon contract interaction for getTotalSupply.
+ * @param assetCode Parameter description for assetCode.
+ * @param issuer Parameter description for issuer.
+ * @returns {Promise<any>} Resolves with network response or operation result.
+ * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
+ */
 export async function getTotalSupply(assetCode: string, issuer: string): Promise<string> {
   const server = StellarService.getServer();
   const page = await StellarService.call('assets.forCode', () =>
