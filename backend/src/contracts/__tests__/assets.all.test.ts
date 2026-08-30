@@ -20,7 +20,6 @@ describe('assets.ts comprehensive unit tests (mock Horizon)', () => {
   const mockLoadAccount = StellarService.loadAccount as jest.Mock;
   const mockSubmitTransaction = StellarService.submitTransaction as jest.Mock;
   const mockGetServer = StellarService.getServer as jest.Mock;
-  const mockCall = StellarService.call as jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -57,7 +56,7 @@ describe('assets.ts comprehensive unit tests (mock Horizon)', () => {
 
     it('handles optional timeBounds and memo correctly', async () => {
       const issuer = Keypair.random();
-      const distributorPubKey = Keypair.random().publicKey();
+      const distributorPublicKey = Keypair.random().publicKey();
 
       mockLoadAccount.mockResolvedValueOnce(new Account(issuer.publicKey(), '5'));
       mockSubmitTransaction.mockResolvedValueOnce({ hash: 'issue-bounds-hash' });
@@ -67,21 +66,28 @@ describe('assets.ts comprehensive unit tests (mock Horizon)', () => {
         assetCode: 'ECO',
         distributorPublicKey,
         amount: '50',
-        timeBounds: { minTime: 100, maxTime: 200 },
+        timeBounds: { minTime: 1_800_000_000, maxTime: 1_900_000_000 },
       });
 
       expect(hash).toBe('issue-bounds-hash');
       const submittedTx = mockSubmitTransaction.mock.calls[0][0] as Transaction;
-      expect(submittedTx.timeBounds).toEqual({ minTime: '100', maxTime: '200' });
+      expect(submittedTx.timeBounds).toEqual({ minTime: '1800000000', maxTime: '1900000000' });
     });
 
     it('propagates submission errors when issuer account does not exist or has bad sequence', async () => {
       const issuer = Keypair.random();
-      const distributorPubKey = Keypair.random().publicKey();
+      const distributorPublicKey = Keypair.random().publicKey();
 
-      mockLoadAccount.mockResolvedValueOnce(new Account(issuer.publicKey(), '1'));
-      const horizonError = { response: { status: 400, data: { extras: { result_codes: { transaction: 'tx_bad_seq' } } } } };
-      mockSubmitTransaction.mockRejectedValueOnce(horizonError);
+      // withSequenceRetry invalidates the cached sequence and reloads the
+      // account once on tx_bad_seq, so both the account load and the
+      // submission are exercised twice here: the retry still fails the same
+      // way, which is what "propagates" actually means for a sequence error
+      // that doesn't clear up on its own.
+      mockLoadAccount.mockResolvedValue(new Account(issuer.publicKey(), '1'));
+      const horizonError = {
+        response: { status: 400, data: { extras: { result_codes: { transaction: 'tx_bad_seq' } } } },
+      };
+      mockSubmitTransaction.mockRejectedValue(horizonError);
 
       await expect(
         issueAsset({
@@ -251,7 +257,8 @@ describe('assets.ts comprehensive unit tests (mock Horizon)', () => {
   describe('getTotalSupply', () => {
     it('returns the total supply reported by Horizon asset endpoint', async () => {
       const issuer = Keypair.random().publicKey();
-      const limitCall = jest.fn().mockResolvedValue({ records: [{ amount: '12345.6789000' }] });
+      const call = jest.fn().mockResolvedValue({ records: [{ amount: '12345.6789000' }] });
+      const limitCall = jest.fn().mockReturnValue({ call });
       const forIssuer = jest.fn().mockReturnValue({ limit: limitCall });
       const forCode = jest.fn().mockReturnValue({ forIssuer });
 
@@ -267,7 +274,8 @@ describe('assets.ts comprehensive unit tests (mock Horizon)', () => {
 
     it('returns zero supply string when no asset record exists', async () => {
       const issuer = Keypair.random().publicKey();
-      const limitCall = jest.fn().mockResolvedValue({ records: [] });
+      const call = jest.fn().mockResolvedValue({ records: [] });
+      const limitCall = jest.fn().mockReturnValue({ call });
       const forIssuer = jest.fn().mockReturnValue({ limit: limitCall });
       const forCode = jest.fn().mockReturnValue({ forIssuer });
 
