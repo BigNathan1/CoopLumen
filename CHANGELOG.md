@@ -10,12 +10,6 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
-- `GET /api/v1/transactions/:hash` endpoint for single transaction detail fetched from Horizon (#118).
-- `StellarService.getTransaction(hash)` method wrapping Horizon transaction retrieval with retry and error mapping.
-- OpenAPI spec updates and comprehensive unit test coverage for transaction detail retrieval.
-- `GET /api/v1/transactions/export/:communityId` returning a CSV of community transaction history (#121).
-- `GET /api/v1/fees/estimate` endpoint returning current Stellar network base fee and percentile fee distribution from Horizon (#156).
-- `StellarService.getFeeStats()` method wrapping `Horizon.Server.feeStats()` with the existing retry and error-mapping stack.
 - `zod` dependency and shared frontend validation schemas in `frontend/src/lib/schemas.ts`, mirroring the request schemas the backend enforces in `backend/src/api/schemas/`: Stellar public key, asset code, fixed-point amount, UUID, member role and memo primitives, plus community create/update, avatar, member, trustline, payment, loan and paginated-list schemas with inferred input types. Adds `toFieldErrors()` and `parseWithFieldErrors()` helpers that flatten a `ZodError` into a `field -> message` map for rendering under the control that failed (#258).
 - `react-hook-form` dependency and a shared `Form` wrapper in `frontend/src/components/Form.tsx`, exporting `Form`, `FormField`, `FormError` and `FormSubmit`. `Form` owns the form instance and context and turns a rejected submit handler into a form-level error instead of an unhandled rejection; `FormField` renders label, hint and validation message around a caller-supplied control and wires up `htmlFor`, `aria-describedby`, `aria-invalid` and `aria-required`; `FormSubmit` disables itself while a submit is in flight to prevent double submission. Forms render with `noValidate` so messages come from the app rather than unstyleable native bubbles (#257).
 - `LoadingSkeleton` component (`frontend/src/components/LoadingSkeleton.tsx`) — animated shimmer placeholder with `text`, `circle` and `rect` variants, multi-line `count`, per-line sizing and a narrower final line for paragraph placeholders. Announced once through a polite `role="status"` live region with the bars hidden from assistive technology, and the shimmer disabled under `prefers-reduced-motion`. Colours come from new `--color-skeleton-base` / `--color-skeleton-highlight` tokens in `globals.css`, derived from the existing surface and border tokens with `color-mix` so they follow any theme change (#253).
@@ -23,11 +17,6 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `claimableBalance.create(asset, amount, claimants)` in `backend/src/contracts/claimableBalance.ts` — creates a Stellar claimable balance using the `CreateClaimableBalance` operation. Accepts optional memo and time bounds; wraps Horizon interaction with error mapping so Horizon result codes (`op_low_reserve`, `op_no_trust`, `tx_bad_seq`, etc.) surface as actionable messages instead of opaque errors. Includes full unit test coverage and works with `withSequenceRetry` for concurrent submission safety (#247).
 - `GET /api/v1/fees/estimate` endpoint returning current Stellar network base fee and percentile fee distribution from Horizon (#156).
 - `StellarService.getFeeStats()` method wrapping `Horizon.Server.feeStats()` with the existing retry and error-mapping stack.
-
-- Token `assetCode` validation explicitly enforces 1-12 alphanumeric characters, rejecting special characters and whitespace.
-- Fully documented Tokens API with JSDoc and `docs/openapi.yaml`.
-- Integration tests covering the full token flow (issue, trustline, transfer) using mocked Stellar network.
-- Rate-limiting applied to `POST /api/v1/tokens/issue`, restricting to 3 requests/minute per authenticated user (or IP).
 
 - `GET /api/v1/tokens` admin endpoint to list all tokens across all communities with pagination, sorting, and filtering support
 - Token metadata storage: `name` and `decimals` columns added to the `tokens` table (migration 024) to complement existing `description` and `icon_url` fields
@@ -142,6 +131,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Restored `backend/src/api/routes/transactions.ts`, `backend/src/api/schemas/transaction.ts`, `backend/src/contracts/stellar.ts`, `backend/src/api/middleware/rateLimit.ts`, and `backend/src/api/routes/tokens.ts` after three PRs generated against a stale base were merged directly and left `main` unable to compile — each duplicated functionality already added in a prior PR (transaction-hash lookup, CSV export, and token-issuance rate limiting), and GitHub's merge produced garbled, duplicated code in the process. Also removed two stray `pnpm-lock.yaml` files (this is an npm-only monorepo).
 - Restored `backend/src/contracts/transactions.ts` (`buildUnsignedPayment`), which a prior cleanup commit deleted as unused dead code without also removing its only caller, `POST /api/v1/transactions/unsigned` — leaving the backend unable to compile or run its test suite.
 - Error responses across `communities.ts`, `loans.ts`, `tokens.ts`, and the shared `validateBody`/`validateParams`/`validateQuery` middleware now consistently include `data: null`, matching the `{ data, meta?, error? }` envelope documented for the rest of the API
 - `docs/openapi.yaml`: added the previously undocumented Communities list/search/create, full Tokens surface (burn, trustline, community listing, holders, supply, history), Loans lifecycle, and Balances loan endpoints, and fixed several broken `$ref` pointers (`CommunityId`/`Page`/`Limit` parameters and `IssueToken`/`TokenMetadata` schemas were referenced but never defined)
