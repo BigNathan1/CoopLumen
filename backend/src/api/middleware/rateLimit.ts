@@ -1,11 +1,11 @@
-import rateLimit, { RateLimitRequestHandler } from 'express-rate-limit';
+import rateLimit from 'express-rate-limit';
 
 const isTest = process.env.NODE_ENV === 'test';
 
 const isReadOnlyMethod = (method: string): boolean =>
   method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
 
-const createWriteLimiter = (): RateLimitRequestHandler =>
+const createWriteLimiter = () =>
   rateLimit({
     windowMs: 60 * 1000,
     max: 10,
@@ -26,7 +26,6 @@ export const writeLimiter = createWriteLimiter();
 export const communityWriteLimiter = createWriteLimiter();
 
 /**
- * Limits token issue requests to 3 per minute per authenticated user (or IP if unauthenticated).
  * Limits token issue requests to 3 per minute per authenticated user (or IP if
  * unauthenticated), to slow abuse of asset issuance. Disabled in tests.
  */
@@ -37,12 +36,6 @@ export const tokenIssueLimiter = rateLimit({
   legacyHeaders: false,
   skip: () => isTest,
   validate: { default: false },
-  keyGenerator: (req) => {
-    if (req.headers.authorization) {
-      return req.headers.authorization;
-    }
-    return req.ip ?? 'unknown';
-  },
   keyGenerator: (req) => req.headers.authorization ?? req.ip ?? 'unknown',
   message: { data: null, error: 'Too many requests, please try again later' },
 });

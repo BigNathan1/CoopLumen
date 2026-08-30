@@ -1,15 +1,3 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { TransactionBuilder, Networks } from '@stellar/stellar-sdk';
-import { StellarService } from '../../contracts/stellar';
-import { validate } from '../middleware/validate';
-import { transactionHashSchema } from '../schemas/transaction';
-import { z } from 'zod';
-import { StellarService } from '../../contracts/stellar';
-import { validate } from '../middleware/validate';
-import { mapHorizonError } from '../utils/horizonError';
-import { db } from '../../db';
-
-export const transactionsRouter = Router();
 import { Request, Response, NextFunction, Router } from 'express';
 import { z } from 'zod';
 import { buildUnsignedPayment } from '../../contracts/transactions';
@@ -19,113 +7,69 @@ import { mapHorizonError } from '../utils/horizonError';
 import { validateParams } from '../middleware/validate';
 import { db } from '../../db';
 
-export const transactionsRouter = Router();
-export const transactionRouter: Router = Router();
+export const transactionRouter = Router();
 
 const communityIdParamSchema = z.object({
   communityId: z.string().uuid('Invalid community ID'),
 });
 
 /**
- * @route POST /api/v1/transactions/unsigned
- * @summary Build unsigned transaction XDR
+ * POST /api/v1/transactions/unsigned
+ *
+ * Builds an unsigned Stellar payment transaction XDR for signing by the source account's wallet.
+ *
+ * Loads the source account and its current sequence number from Horizon, then constructs a
+ * single-operation payment transaction. The transaction is NOT signed or submitted by this
+ * endpoint — the caller's wallet must sign the returned XDR and then POST the signed
+ * transaction to POST /api/v1/tokens/transfer.
+ *
+ * Request body fields (UnsignedPaymentRequest):
+ *   - senderPublicKey       {string} required  - Source account Stellar public key
+ *   - destinationPublicKey  {string} required  - Destination account Stellar public key
+ *   - assetCode             {string} required  - Asset code (use "XLM" for native)
+ *   - amount                {string} required  - Positive decimal amount (up to 7 decimal places)
+ *   - assetIssuer           {string} optional  - Issuer public key; required for non-XLM assets
+ *   - memo                  {string} optional  - Text memo, at most 28 UTF-8 bytes
+ *
+ * @route   POST /api/v1/transactions/unsigned
+ * @returns {200} { data: { xdr: string } } - Base64-encoded unsigned transaction envelope XDR
+ * @returns {400} ValidationErrorResponse   - Request body failed Zod validation
+ * @returns {404} ErrorResponse             - Source account does not exist on the configured network
+ * @returns {502} ErrorResponse             - Horizon is temporarily unavailable
+ * @see     POST /api/v1/tokens/transfer to submit the signed transaction
+ * @see     {@link https://developers.stellar.org/docs/learn/fundamentals/transactions} Stellar transactions
  */
-transactionsRouter.post('/unsigned', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
- * @route GET /api/v1/transactions/export/:communityId
- * @desc Export transaction history for a community as a CSV
- * @access Public
- */
-transactionsRouter.get(
-  '/export/:communityId',
-  validate({ params: communityIdParamSchema }),
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { communityId } = req.params;
+transactionRouter.post('/unsigned', async (req: Request, res: Response): Promise<void> => {
+  const parsed = unsignedPaymentSchema.safeParse(req.body);
 
-      const communityResult = await db.query(
-        'SELECT issuer_public_key FROM communities WHERE id = $1 AND deleted_at IS NULL',
-        [communityId]
-      );
-
-      if (communityResult.rows.length === 0) {
-        res.status(404).json({
-          data: null,
-          error: 'Community not found',
-        });
-        return;
-      }
-
-      const issuerPublicKey = communityResult.rows[0].issuer_public_key;
-
-      let txRecords;
-      try {
-        txRecords = await StellarService.getTransactionHistory(issuerPublicKey, 200);
-      } catch (err) {
-        const mapped = mapHorizonError(err);
-        res.status(mapped.status).json({
-          data: null,
-          error: mapped.message,
-        });
-        return;
-      }
-
-      const csvRows = [
-        'id,created_at,source_account,fee_charged,successful,memo'
-      ];
-
-      for (const tx of txRecords) {
-        const id = JSON.stringify(tx.id);
-        const createdAt = JSON.stringify(tx.created_at);
-        const sourceAccount = JSON.stringify(tx.source_account);
-        const feeCharged = JSON.stringify(tx.fee_charged);
-        const successful = JSON.stringify(tx.successful);
-        const memoVal = tx.memo_type !== 'none' ? String(tx.memo ?? '') : '';
-        const memo = JSON.stringify(memoVal);
-
-        csvRows.push(`${id},${createdAt},${sourceAccount},${feeCharged},${successful},${memo}`);
-      }
-
-      const csvContent = csvRows.join('\n');
-
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="transactions-${communityId}.csv"`);
-      res.status(200).send(csvContent);
-    } catch (error) {
-      next(error);
-    }
-  }
-  try {
-    const { senderPublicKey, destinationPublicKey, assetCode, assetIssuer, amount, memo } = req.body;
-    const account = await StellarService.loadAccount(senderPublicKey);
-    const network = StellarService.getNetwork();
-    const txBuilder = new TransactionBuilder(account, {
-      fee: '100',
-      networkPassphrase: network,
+  if (!parsed.success) {
+    res.status(400).json({
+      data: null,
+      meta: {
+        errors: parsed.error.issues.map((issue) => ({
+          path: issue.path.join('.'),
+          message: issue.message,
+        })),
+      },
+      error: 'Validation failed',
     });
-    const tx = txBuilder.setTimeout(30).build();
-    res.status(200).json({ data: { xdr: tx.toXDR() } });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+    return;
+  }
+
+  try {
     const xdr = await buildUnsignedPayment({
       ...parsed.data,
       assetIssuer: parsed.data.assetIssuer ?? '',
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     res.status(200).json({ data: { xdr } });
   } catch (error) {
-    next(mapHorizonError(error));
+    const mapped = mapHorizonError(error);
+    res.status(mapped.status).json({ data: null, error: mapped.message });
   }
 });
 
 /**
- * @route GET /api/v1/transactions/:hash
- * @summary Get transaction detail by hash from Horizon
- */
-transactionsRouter.get(
-  '/:hash',
-  validate({ params: transactionHashSchema }),
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
  * GET /api/v1/transactions/export/:communityId
  *
  * Exports a community's Stellar transaction history (from its issuer account) as a
@@ -188,7 +132,10 @@ transactionRouter.get(
       const csvContent = csvRows.join('\n');
 
       res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="transactions-${communityId}.csv"`);
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="transactions-${communityId}.csv"`
+      );
       res.status(200).send(csvContent);
     } catch (error) {
       next(error);
@@ -216,7 +163,6 @@ transactionRouter.get(
       const transaction = await StellarService.getTransaction(hash);
       res.status(200).json({ data: transaction });
     } catch (error) {
-      next(mapHorizonError(error));
       const mapped = mapHorizonError(error);
       res.status(mapped.status).json({ data: null, error: mapped.message });
     }

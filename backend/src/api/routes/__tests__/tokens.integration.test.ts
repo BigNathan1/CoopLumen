@@ -81,7 +81,7 @@ describe('Token Integration Flow: Issue -> Trustline -> Transfer', () => {
       incrementSequenceNumber: () => {},
       balances: [],
     });
-    
+
     (StellarService as any).server = {
       submitTransaction: submitTransactionMock,
       loadAccount: loadAccountMock,
@@ -124,7 +124,11 @@ describe('Token Integration Flow: Issue -> Trustline -> Transfer', () => {
         {
           type: 'payment',
           destination: userKeypair.publicKey(),
-          asset: { isNative: (): boolean => false, code: assetCode, issuer: issuerKeypair.publicKey() },
+          asset: {
+            isNative: (): boolean => false,
+            code: assetCode,
+            issuer: issuerKeypair.publicKey(),
+          },
           amount: '100',
         },
       ],
@@ -153,7 +157,7 @@ describe('Token Integration Flow: Issue -> Trustline -> Transfer', () => {
 
   it('should rate-limit issue endpoint to 3 requests per minute', async () => {
     // Disable isTest in rateLimit temporarily if we can, or just mock rateLimit?
-    // Wait, the rate limit skip is (req) => isTest. 
+    // Wait, the rate limit skip is (req) => isTest.
     // To test it we would need to override process.env.NODE_ENV.
   });
 });

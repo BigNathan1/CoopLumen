@@ -28,14 +28,15 @@ import {
   getTransactionSource,
 } from '../utils/stellarTransaction';
 
-import { tokenIssueLimiter } from '../middleware/rateLimit';
-
-export const tokenRouter: Router = Router();
+export const tokenRouter = Router();
 
 const tokenParamsSchema = z.object({
   assetCode: z
     .string()
-    .regex(/^[A-Za-z0-9]{1,12}$/, 'assetCode must be 1 to 12 alphanumeric characters'),
+    .trim()
+    .min(1, 'assetCode is required')
+    .max(12, 'assetCode must be 12 characters or fewer')
+    .regex(/^[A-Za-z0-9]+$/, 'assetCode must be alphanumeric'),
   issuer: z.string().refine(isValidStellarPublicKey, 'issuer must be a valid Stellar public key'),
 });
 
@@ -152,7 +153,6 @@ tokenRouter.get('/', requireAdmin, async (req: Request, res: Response, next: Nex
  * key replays the original response instead of issuing a second time.
  * When `communityId` is supplied, the issued token's metadata is persisted to
  * the `tokens` table so it is immediately visible via GET /:communityId.
- * Rate limited to 3 requests per minute per authenticated user.
  * Rate limited to 3 requests per minute per authenticated user (or IP).
  */
 tokenRouter.post(
