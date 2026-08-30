@@ -243,6 +243,10 @@ class StellarServiceClass {
     return records.records;
   }
 
+  async getTransaction(hash: string): Promise<Horizon.ServerApi.TransactionRecord> {
+    return this.call('transactions.detail', () => this.server.transactions().transaction(hash).call());
+  }
+
   async getFeeStats(): Promise<Horizon.HorizonApi.FeeStatsResponse> {
     return this.call('feeStats', () => this.server.feeStats());
   }

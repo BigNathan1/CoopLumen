@@ -2,7 +2,7 @@ import { Request, Response, NextFunction, Router } from 'express';
 import { z } from 'zod';
 import { buildUnsignedPayment } from '../../contracts/transactions';
 import { StellarService } from '../../contracts/stellar';
-import { unsignedPaymentSchema } from '../schemas/transaction';
+import { unsignedPaymentSchema, transactionHashSchema } from '../schemas/transaction';
 import { mapHorizonError } from '../utils/horizonError';
 import { validateParams } from '../middleware/validate';
 import { db } from '../../db';
@@ -136,6 +136,32 @@ transactionRouter.get(
       res.status(200).send(csvContent);
     } catch (error) {
       next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/v1/transactions/:hash
+ *
+ * Looks up a submitted transaction's full record on Horizon by its hash.
+ *
+ * @route   GET /api/v1/transactions/:hash
+ * @returns {200} { data: TransactionRecord } - The Horizon transaction record
+ * @returns {400} ValidationErrorResponse     - hash is not a 64-character hex string
+ * @returns {404} ErrorResponse               - No transaction with that hash exists
+ * @returns {502} ErrorResponse               - Horizon is temporarily unavailable
+ */
+transactionRouter.get(
+  '/:hash',
+  validateParams(transactionHashSchema),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { hash } = req.params;
+      const transaction = await StellarService.getTransaction(hash);
+      res.status(200).json({ data: transaction });
+    } catch (error) {
+      const mapped = mapHorizonError(error);
+      res.status(mapped.status).json({ data: null, error: mapped.message });
     }
   }
 );
