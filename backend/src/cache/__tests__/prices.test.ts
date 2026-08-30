@@ -26,9 +26,9 @@ describe('cache/prices', () => {
     timestamp: '2026-08-27T17:00:00.000Z',
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
-    clearPriceCache();
+    await clearPriceCache();
   });
 
   it('returns null on cache miss', async () => {
