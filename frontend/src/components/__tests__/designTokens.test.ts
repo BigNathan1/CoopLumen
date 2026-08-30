@@ -1,5 +1,11 @@
 import { readFileSync, readdirSync } from 'fs';
 import path from 'path';
+import {
+  BREAKPOINTS,
+  BREAKPOINT_NAMES,
+  getActiveBreakpoint,
+  minWidthQuery,
+} from '@/lib/breakpoints';
 
 const APP_DIR = path.resolve(__dirname, '../../app');
 const COMPONENTS_DIR = path.resolve(__dirname, '..');
@@ -194,5 +200,77 @@ describe('theme layers', () => {
   it('flips the hover mix direction per theme so states stay visible in both', () => {
     expect(lightRule.get('--color-emphasis-mix')).toBe('black');
     expect(darkRule.get('--color-emphasis-mix')).toBe('white');
+  });
+});
+
+describe('responsive breakpoints', () => {
+  it('declares a token for every breakpoint, matching the TypeScript scale', () => {
+    for (const name of BREAKPOINT_NAMES) {
+      expect(tokens.get(`--breakpoint-${name}`)).toBe(`${BREAKPOINTS[name]}px`);
+    }
+  });
+
+  it('declares breakpoints in ascending order', () => {
+    const widths = BREAKPOINT_NAMES.map((name) => BREAKPOINTS[name]);
+    expect(widths).toEqual([...widths].sort((a, b) => a - b));
+  });
+
+  it('gates every min-width media query on a declared breakpoint', () => {
+    // A stray width here is how a responsive layout quietly stops lining up
+    // with the rest of the design system.
+    const widths = [...globals.matchAll(/@media \(min-width:\s*(\d+)px\)/g)].map(([, w]) =>
+      Number(w)
+    );
+
+    expect(widths.length).toBeGreaterThan(0);
+    for (const width of widths) {
+      expect(Object.values(BREAKPOINTS)).toContain(width);
+    }
+  });
+
+  it('pairs every breakpoint with a container width', () => {
+    for (const name of BREAKPOINT_NAMES) {
+      expect(tokens.has(`--container-max-${name}`)).toBe(true);
+    }
+  });
+
+  it('keeps container widths ascending and within their breakpoint', () => {
+    const maxes = BREAKPOINT_NAMES.map((name) =>
+      parseFloat(tokens.get(`--container-max-${name}`) as string)
+    );
+
+    expect(maxes).toEqual([...maxes].sort((a, b) => a - b));
+
+    BREAKPOINT_NAMES.forEach((name, index) => {
+      expect(maxes[index]).toBeLessThanOrEqual(BREAKPOINTS[name]);
+    });
+  });
+
+  it('ships container and grid utilities that read the tokens', () => {
+    expect(globals).toMatch(/\.container\s*\{[^}]*max-width:\s*var\(--container-max\)/);
+    expect(globals).toMatch(
+      /\.grid\s*\{[^}]*grid-template-columns:\s*repeat\(var\(--grid-columns\)/
+    );
+    expect(globals).toMatch(/\.grid-auto\s*\{[^}]*auto-fill/);
+  });
+
+  it('widens the grid at each breakpoint by falling back to the step below', () => {
+    for (const name of BREAKPOINT_NAMES.slice(1)) {
+      expect(globals).toContain(`--grid-columns-${name}`);
+    }
+    expect(tokens.has('--grid-columns-base')).toBe(true);
+  });
+
+  it('names the media query a breakpoint is gated on', () => {
+    expect(minWidthQuery('md')).toBe(`(min-width: ${BREAKPOINTS.md}px)`);
+  });
+
+  it('reports the widest breakpoint a viewport satisfies', () => {
+    expect(getActiveBreakpoint(320)).toBeNull();
+    expect(getActiveBreakpoint(BREAKPOINTS.sm - 1)).toBeNull();
+    expect(getActiveBreakpoint(BREAKPOINTS.sm)).toBe('sm');
+    expect(getActiveBreakpoint(800)).toBe('md');
+    expect(getActiveBreakpoint(1100)).toBe('lg');
+    expect(getActiveBreakpoint(1920)).toBe('xl');
   });
 });
