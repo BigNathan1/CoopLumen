@@ -1,4 +1,13 @@
-import { Account, Keypair, Networks, Transaction } from '@stellar/stellar-sdk';
+import {
+  Account,
+  Asset,
+  BASE_FEE,
+  Keypair,
+  Networks,
+  Operation,
+  Transaction,
+  TransactionBuilder,
+} from '@stellar/stellar-sdk';
 import { submitPayment, buildUnsignedPayment, submitSignedXdr } from '../transactions';
 import { StellarService } from '../stellar';
 
@@ -52,8 +61,8 @@ describe('transactions.ts', () => {
       const submittedTx = mockSubmitTransaction.mock.calls[0][0] as Transaction;
       expect(submittedTx.operations).toHaveLength(1);
       expect(submittedTx.operations[0].type).toBe('payment');
-      expect(submittedTx.operations[0].amount).toBe('10.5');
-      expect(submittedTx.destination).toBe(recipient);
+      expect((submittedTx.operations[0] as any).amount).toBe('10.5000000');
+      expect((submittedTx.operations[0] as any).destination).toBe(recipient);
     });
 
     it('submits a custom asset (non-native) payment successfully', async () => {
@@ -69,8 +78,8 @@ describe('transactions.ts', () => {
       const submittedTx = mockSubmitTransaction.mock.calls[0][0] as Transaction;
       expect(submittedTx.operations).toHaveLength(1);
       expect(submittedTx.operations[0].type).toBe('payment');
-      expect(submittedTx.operations[0].asset.getCode()).toBe('ECO');
-      expect(submittedTx.operations[0].asset.getIssuer()).toBe(issuer);
+      expect((submittedTx.operations[0] as any).asset.getCode()).toBe('ECO');
+      expect((submittedTx.operations[0] as any).asset.getIssuer()).toBe(issuer);
     });
 
     it('propagates Horizon submission errors without swallowing them', async () => {
@@ -123,7 +132,7 @@ describe('transactions.ts', () => {
 
       expect(typeof xdr).toBe('string');
       const decoded = new Transaction(xdr, Networks.TESTNET);
-      expect(decoded.operations[0].asset.getCode()).toBe('ECO');
+      expect((decoded.operations[0] as any).asset.getCode()).toBe('ECO');
     });
 
     it('throws when account loading fails', async () => {
@@ -144,15 +153,13 @@ describe('transactions.ts', () => {
   describe('submitSignedXdr', () => {
     it('submits a pre-signed transaction envelope XDR and returns the hash', async () => {
       const account = new Account(sender.publicKey(), '5');
-      const tx = new Transaction(
-        {
-          fee: '100',
-          sequence: '6',
-          operations: [],
-          networkPassphrase: Networks.TESTNET,
-        },
-        Networks.TESTNET
-      );
+      const tx = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: Networks.TESTNET,
+      })
+        .addOperation(Operation.payment({ destination: recipient, asset: Asset.native(), amount: '1' }))
+        .setTimeout(30)
+        .build();
       tx.sign(sender);
 
       const signedXdr = tx.toXDR();
