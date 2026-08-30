@@ -17,6 +17,7 @@ tags:
     description: Full Stellar account details and state
   - name: Transactions
     description: Stellar transaction submission and retrieval endpoints
+    description: Stellar transaction submission endpoints and history export
   - name: Communities
     description: Community registration and management
   - name: Members
@@ -47,8 +48,81 @@ paths:
       responses:
         '200':
           description: Transaction detail record from Horizon
+  /api/v1/communities:
+    get:
+      tags: [Communities]
+      summary: List communities
+      description: Paginated, optionally full-text-searched list of active communities.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: search
+          in: query
+          schema: { type: string }
+          description: Full-text search over name and description.
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [created_at, name, updated_at]
+            default: created_at
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: A page of communities
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Community' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+    post:
+      tags: [Communities]
+      summary: Register a community
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateCommunity' }
+      responses:
+        '201':
+          description: Community created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Community' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409':
+          description: Community name already taken
+
+  /api/v1/transactions/export/{communityId}:
+    get:
+      tags: [Transactions]
+      summary: Export community transactions CSV
+      description: Returns a CSV file containing the transaction history for the given community's issuer account.
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Community UUID
+      responses:
+        '200':
+          description: CSV file download of transaction history
+          content:
+            text/csv:
               schema:
                 type: object
                 properties:
@@ -59,6 +133,11 @@ paths:
           description: Invalid transaction hash format
         '404':
           description: Transaction not found on Horizon
+                type: string
+        '400':
+          description: Invalid community ID
+        '404':
+          description: Community not found
           description: The address path parameter is not a structurally valid Stellar StrKey
         '404': { $ref: '#/components/responses/NotFound' }
 
