@@ -11,6 +11,7 @@ import { MemoInput, buildMemo } from './memo';
 import { TimeBoundsInput, applyTimeBounds } from './timeBounds';
 import { invalidateBalanceCache } from '../cache/balances';
 import { withSequenceRetry } from './sequenceCache';
+import { toStellarError } from './errors';
 
 type StellarNetwork = 'testnet' | 'mainnet';
 
@@ -243,6 +244,12 @@ class StellarServiceClass {
     return records.records;
   }
 
+  async getTransaction(hash: string): Promise<Horizon.ServerApi.TransactionRecord> {
+    return this.call('transactions.detail', () =>
+      this.server.transactions().transaction(hash).call()
+    );
+  }
+
   async getFeeStats(): Promise<Horizon.HorizonApi.FeeStatsResponse> {
     return this.call('feeStats', () => this.server.feeStats());
   }
@@ -291,6 +298,28 @@ class StellarServiceClass {
     } catch {
       return false;
     }
+  }
+
+  streamPayments(
+    publicKey: string,
+    onMessage: (message: Horizon.ServerApi.PaymentOperationRecord) => void,
+    onError: (error: Error) => void,
+    cursor: string = 'now'
+  ): () => void {
+    const cancel = this.server
+      .payments()
+      .forAccount(publicKey)
+      .cursor(cursor)
+      .stream({
+        onmessage: (msg: unknown) => {
+          onMessage(msg as Horizon.ServerApi.PaymentOperationRecord);
+        },
+        onerror: (err: unknown) => {
+          onError(toStellarError(err, 'streamPayments'));
+        },
+      });
+
+    return cancel;
   }
 
   private async withRetry<T>(operationName: string, request: () => Promise<T>): Promise<T> {

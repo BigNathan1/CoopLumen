@@ -6,10 +6,7 @@ const stellarSecretKey = z.string().regex(/^S[A-Z2-7]{55}$/, 'must be a valid St
 
 const assetCode = z
   .string()
-  .trim()
-  .min(1, 'assetCode is required')
-  .max(12, 'assetCode must be 12 characters or fewer')
-  .regex(/^[A-Za-z0-9]+$/, 'assetCode must be alphanumeric');
+  .regex(/^[A-Za-z0-9]{1,12}$/, 'assetCode must be 1 to 12 alphanumeric characters');
 
 const amount = z
   .string()
@@ -48,6 +45,25 @@ export const trustlineTokenSchema = z.object({
   assetCode,
   assetIssuer: stellarPublicKey,
   limit: amount.optional(),
+});
+
+export const buildIssueTokenSchema = z.object({
+  issuerPublicKey: stellarPublicKey,
+  assetCode,
+  distributorPublicKey: stellarPublicKey,
+  amount,
+  memo: z.string().trim().max(28, 'memo must be 28 characters or fewer').optional(),
+});
+
+export const buildTrustlineTokenSchema = z.object({
+  accountPublicKey: stellarPublicKey,
+  assetCode,
+  assetIssuer: stellarPublicKey,
+  limit: amount.optional(),
+});
+
+export const submitTokenXdrSchema = z.object({
+  signedXdr: z.string().trim().min(1, 'signedXdr is required').max(100_000),
 });
 
 export const burnTokenSchema = z.object({
