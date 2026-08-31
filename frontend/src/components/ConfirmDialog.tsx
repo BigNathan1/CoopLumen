@@ -81,7 +81,8 @@ export function ConfirmDialog({
       title={title}
       ariaDescribedBy={description ? descriptionId.current : undefined}
       closeOnBackdrop={true}
-      initialFocus="last"
+      // Focus lands on the safe action (Cancel), never on the destructive one.
+      initialFocus="first"
     >
       <div
         role="alertdialog"

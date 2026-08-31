@@ -10,11 +10,7 @@ interface StellarAddressProps {
   className?: string;
 }
 
-function truncateAddress(
-  address: string,
-  startLength: number,
-  endLength: number,
-) {
+function truncateAddress(address: string, startLength: number, endLength: number) {
   if (address.length <= startLength + endLength + 3) {
     return address;
   }
@@ -29,11 +25,7 @@ export function StellarAddress({
   network = 'mainnet',
   className,
 }: StellarAddressProps) {
-  const truncatedAddress = truncateAddress(
-    address,
-    startLength,
-    endLength,
-  );
+  const truncatedAddress = truncateAddress(address, startLength, endLength);
 
   const explorerUrl = `https://stellar.expert/explorer/${network}/account/${encodeURIComponent(address)}`;
 
@@ -43,11 +35,7 @@ export function StellarAddress({
 
       <code title={address}>{truncatedAddress}</code>
 
-      <CopyToClipboard
-        value={address}
-        label="Copy Stellar address"
-        copiedLabel="Address copied"
-      />
+      <CopyToClipboard value={address} label="Copy Stellar address" copiedLabel="Address copied" />
 
       <a
         href={explorerUrl}

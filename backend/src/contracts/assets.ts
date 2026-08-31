@@ -13,9 +13,6 @@ import { invalidateBalanceCache } from '../cache/balances';
 import { withSequenceRetry } from './sequenceCache';
 import { invalidInput, withMappedHorizonError } from './errors';
 import {
-  TRANSACTION_TIMEOUT_SECONDS,
-  assertAssetCode,
-  assertMemoLength,
   assertAssetCode,
   assertPositiveAmount,
   assertPublicKey,
@@ -62,14 +59,12 @@ export interface AssetHolder {
  */
 function parseIssueAssetParams(params: IssueAssetParams): Keypair {
   const operation = 'issueAsset';
-  const { issuerSecret, assetCode, distributorPublicKey, amount, memo } = params;
   const { issuerSecret, assetCode, distributorPublicKey, amount } = params;
 
   const issuerKeypair = parseSecretKey(operation, 'issuerSecret', issuerSecret);
   assertAssetCode(operation, 'assetCode', assetCode);
   assertPublicKey(operation, 'distributorPublicKey', distributorPublicKey);
   assertPositiveAmount(operation, 'amount', amount);
-  assertMemoLength(operation, memo);
 
   if (distributorPublicKey === issuerKeypair.publicKey()) {
     throw invalidInput(
@@ -85,16 +80,6 @@ function parseIssueAssetParams(params: IssueAssetParams): Keypair {
  * Issues a new community token on the Stellar network.
  * The issuer account creates the asset and sends initial supply to a distributor.
  *
- * Every failure surfaces as a `StellarOperationError` carrying a stable code,
- * an actionable message, and the HTTP status a route handler should answer
- * with — Horizon result codes are never re-thrown raw. Logs record the public
- * identifiers of each attempt; the issuer secret is never logged.
- *
- * @throws {StellarOperationError} on invalid input or any Horizon failure.
- */
-export async function issueAsset(params: IssueAssetParams): Promise<string> {
-  const operation = 'issueAsset';
-  const { assetCode, distributorPublicKey, amount, memo } = params;
  * Every failure surfaces as a `StellarError` carrying an actionable message
  * and the HTTP status a route handler should answer with — Horizon result
  * codes are never re-thrown raw. Logs record the public identifiers of each
@@ -128,7 +113,6 @@ export async function issueAsset(params: IssueAssetParams): Promise<string> {
   // withSequenceRetry supplies the cached Account (so concurrent issuances for
   // the same issuer get distinct sequence numbers) and retries once on
   // tx_bad_seq. The mapping wrapper sits outside it, so a failure that survives
-  // that retry is still reported as a StellarOperationError rather than raw.
   // that retry is still reported as a StellarError rather than raw.
   const result = await withMappedHorizonError(operation, logContext, () =>
     withSequenceRetry(issuerPublicKey, async (issuerAccount) => {
@@ -136,44 +120,6 @@ export async function issueAsset(params: IssueAssetParams): Promise<string> {
         fee: BASE_FEE,
         networkPassphrase: network,
       });
-
-      if (memo) {
-        txBuilder.addMemo(Memo.text(memo));
-      }
-
-      txBuilder.addOperation(
-        Operation.payment({
-          destination: distributorPublicKey,
-          asset,
-          amount,
-        })
-      );
-
-      const tx = txBuilder.setTimeout(TRANSACTION_TIMEOUT_SECONDS).build();
-      tx.sign(issuerKeypair);
-
-      return StellarService.submitTransaction(tx);
-    })
-  );
-
-  logger.info('Community token issued', {
-    ...logContext,
-    txHash: result.hash,
-    ledger: result.ledger,
-  });
-
-  // The tokens are already on-chain at this point. A cache eviction failure
-  // must not turn a successful issuance into an error the caller may retry,
-  // so it is logged and swallowed; the entries expire on their own TTL.
-  try {
-    await invalidateBalanceCache([issuerPublicKey, distributorPublicKey]);
-  } catch (error) {
-    logger.warn('Balance cache invalidation failed after issuance', {
-      ...logContext,
-      txHash: result.hash,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
 
       if (builtMemo) {
         txBuilder.addMemo(builtMemo);
