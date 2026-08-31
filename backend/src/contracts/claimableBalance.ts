@@ -149,9 +149,7 @@ export async function create(
  * rejects the operation with result codes like `op_not_found`, `op_cannot_claim`,
  * or `tx_bad_seq` when the balance is unavailable or the sequence has moved.
  */
-export async function claim(
-  params: ClaimClaimableBalanceParams
-): Promise<ClaimableBalanceResult> {
+export async function claim(params: ClaimClaimableBalanceParams): Promise<ClaimableBalanceResult> {
   const { balanceId, claimantKeypair, memo, timeBounds } = params;
 
   const action = 'Claim claimable balance';
