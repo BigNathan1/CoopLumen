@@ -417,7 +417,8 @@ We will acknowledge within 24 hours and disclose responsibly after a fix is depl
 
 ## 12. Maintainer Responsibilities
 
-Maintainers are community members with write access to the main repository. Their responsibilities:
+[BigNathan1](https://github.com/BigNathan1) is the sole maintainer of this repository, with the only
+write access to `main`. Responsibilities:
 
 - **Triage new issues** within 72 hours (add labels, request clarification, or close as duplicate)
 - **Review PRs** within 72 hours of opening or update
@@ -425,16 +426,16 @@ Maintainers are community members with write access to the main repository. Thei
 - **Maintain** the `main` branch in a deployable state at all times
 - **Keep** the roadmap in PRD.md current each quarter
 - **Release** tagged versions (`v0.x.y`) monthly during active development phases
-- **Rotate** maintainer access reviews every 6 months
 
-### Becoming a Maintainer
-
-Sustained contributors (5+ merged PRs, positive community engagement) may be nominated by existing maintainers. Nominations are approved by simple majority of current maintainers.
+Contributors are recognized on the [Contributors leaderboard](CONTRIBUTORS.md) rather than through
+maintainer nomination — there is no path to write access via contribution volume.
 
 ---
 
 ## Thank You
 
 Every contribution matters — whether it's fixing a typo, adding a test, or building a new lending flow. We're building something that can genuinely improve financial access for underserved communities worldwide. We're glad you're here.
+
+Merged PRs earn recognition on the [Contributors leaderboard](CONTRIBUTORS.md).
 
 **Happy building. ◆**
