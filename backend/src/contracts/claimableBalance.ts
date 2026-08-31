@@ -29,8 +29,17 @@ export interface CreateClaimableBalanceParams {
   timeBounds?: TimeBoundsInput;
 }
 
+export interface ClaimClaimableBalanceParams {
+  /** Claimable balance ID to claim */
+  balanceId: string;
+  /** Keypair for the claimant account that signs the transaction */
+  claimantKeypair: Keypair;
+  memo?: MemoInput;
+  timeBounds?: TimeBoundsInput;
+}
+
 export interface ClaimableBalanceResult {
-  /** The claimable balance ID created */
+  /** The claimable balance ID created or claimed */
   balanceId: string;
   /** Transaction hash */
   txHash: string;
@@ -133,4 +142,50 @@ export async function create(
   });
 }
 
-export const claimableBalance = { create };
+/**
+ * Claims a claimable balance for the designated claimant account.
+ *
+ * The source account of the transaction is the claimant account, and Horizon
+ * rejects the operation with result codes like `op_not_found`, `op_cannot_claim`,
+ * or `tx_bad_seq` when the balance is unavailable or the sequence has moved.
+ */
+export async function claim(params: ClaimClaimableBalanceParams): Promise<ClaimableBalanceResult> {
+  const { balanceId, claimantKeypair, memo, timeBounds } = params;
+
+  const action = 'Claim claimable balance';
+
+  return withStellarErrors(action, async () => {
+    const network = StellarService.getNetwork();
+
+    const result = await withSequenceRetry(claimantKeypair.publicKey(), async (sourceAccount) => {
+      const txBuilder = new TransactionBuilder(sourceAccount, {
+        fee: BASE_FEE,
+        networkPassphrase: network,
+      }).addOperation(
+        Operation.claimClaimableBalance({
+          balanceId,
+        })
+      );
+
+      const builtMemo = buildMemo(memo);
+      if (builtMemo) {
+        txBuilder.addMemo(builtMemo);
+      }
+
+      const tx = applyTimeBounds(txBuilder, timeBounds).build();
+      tx.sign(claimantKeypair);
+
+      return StellarService.submitTransaction(tx);
+    });
+
+    await invalidateBalanceCache([claimantKeypair.publicKey()]);
+
+    return {
+      balanceId,
+      txHash: result.hash,
+      ledger: result.ledger,
+    };
+  });
+}
+
+export const claimableBalance = { create, claim };

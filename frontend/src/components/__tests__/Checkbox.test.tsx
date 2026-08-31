@@ -148,9 +148,7 @@ describe('Checkbox', () => {
       </>
     );
 
-    expect(screen.getByLabelText('Accept')).toHaveAccessibleDescription(
-      'External hint Read first'
-    );
+    expect(screen.getByLabelText('Accept')).toHaveAccessibleDescription('External hint Read first');
   });
 
   it('keeps the label available to assistive technology when hidden visually', () => {

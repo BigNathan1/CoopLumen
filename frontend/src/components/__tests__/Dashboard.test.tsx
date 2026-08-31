@@ -116,7 +116,10 @@ describe('Dashboard', () => {
 
   it('shows the balance sidebar with the connected public key', () => {
     mockCommunities({ data: [] });
-    mockWallet({ connected: true, publicKey: 'GUSERPUBLICKEYGUSERPUBLICKEYGUSERPUBLICKEYGUSERPUBLI' });
+    mockWallet({
+      connected: true,
+      publicKey: 'GUSERPUBLICKEYGUSERPUBLICKEYGUSERPUBLICKEYGUSERPUBLI',
+    });
     render(<Dashboard />);
 
     expect(screen.getByTestId('balance-panel')).toHaveTextContent(

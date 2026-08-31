@@ -1,5 +1,5 @@
 import { Account, Asset, Claimant, Keypair, Networks } from '@stellar/stellar-sdk';
-import { create } from '../claimableBalance';
+import { claim, create } from '../claimableBalance';
 import { StellarService } from '../stellar';
 import { SequenceCache } from '../sequenceCache';
 import { invalidateBalanceCache } from '../../cache/balances';
@@ -15,6 +15,47 @@ jest.mock('../stellar', () => ({
 jest.mock('../../cache/balances', () => ({
   invalidateBalanceCache: jest.fn().mockResolvedValue(undefined),
 }));
+
+describe('claimableBalance.claim', () => {
+  const claimantKeypair = Keypair.random();
+  const mockLoadAccount = StellarService.loadAccount as jest.Mock;
+  const mockSubmitTransaction = StellarService.submitTransaction as jest.Mock;
+
+  beforeEach(() => {
+    mockLoadAccount.mockReset();
+    mockSubmitTransaction.mockReset();
+    jest.clearAllMocks();
+    (SequenceCache as unknown as { cache: Map<string, unknown> }).cache.clear();
+    (SequenceCache as unknown as { queues: Map<string, unknown> }).queues.clear();
+  });
+
+  it('claims an existing balance and returns the same balanceId, txHash, and ledger', async () => {
+    const validBalanceId =
+      '00000000' + 'da0d57da7d4850e7fc10d2a9d0ebc731f7afb40574c03395b17d49149b91f5be';
+
+    mockLoadAccount.mockResolvedValueOnce(new Account(claimantKeypair.publicKey(), '50'));
+    mockSubmitTransaction.mockResolvedValueOnce({
+      hash: 'claim-tx-hash',
+      ledger: 987,
+    });
+
+    const result = await claim({
+      balanceId: validBalanceId,
+      claimantKeypair,
+    });
+
+    expect(result.balanceId).toBe(validBalanceId);
+    expect(result.txHash).toBe('claim-tx-hash');
+    expect(result.ledger).toBe(987);
+
+    const submittedTx = mockSubmitTransaction.mock.calls[0][0];
+    expect(submittedTx.operations).toHaveLength(1);
+    expect(submittedTx.operations[0].type).toBe('claimClaimableBalance');
+    if (submittedTx.operations[0].type === 'claimClaimableBalance') {
+      expect(submittedTx.operations[0].balanceId).toBe(validBalanceId);
+    }
+  });
+});
 
 describe('claimableBalance.create', () => {
   const sourceKeypair = Keypair.random();
