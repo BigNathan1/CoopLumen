@@ -1,6 +1,7 @@
 import { Keypair } from '@stellar/stellar-sdk';
 import {
   assertAssetCode,
+  assertMemoLength,
   assertNonNegativeAmount,
   assertPositiveAmount,
   assertPublicKey,
@@ -18,6 +19,10 @@ describe('parseSecretKey', () => {
 
   it('names the offending field on a malformed secret', () => {
     expect(() => parseSecretKey('op', 'accountSecret', 'nope')).toThrow(
+      'accountSecret is not a valid Stellar secret key.'
+    );
+    expect(() => parseSecretKey('op', 'accountSecret', 'nope')).toThrow(
+      expect.objectContaining({ code: 'INVALID_INPUT', httpStatus: 400 }) as unknown as Error
       'op failed: accountSecret is not a valid Stellar secret key.'
     );
     expect(() => parseSecretKey('op', 'accountSecret', 'nope')).toThrow(
@@ -77,5 +82,17 @@ describe('assertNonNegativeAmount', () => {
     expect(() => assertNonNegativeAmount('op', 'limit', value)).toThrow(
       /limit must be a non-negative decimal string/
     );
+  });
+});
+
+describe('assertMemoLength', () => {
+  it('accepts an absent memo and a 28-byte memo', () => {
+    expect(() => assertMemoLength('op', undefined)).not.toThrow();
+    expect(() => assertMemoLength('op', 'x'.repeat(28))).not.toThrow();
+  });
+
+  it('measures bytes rather than characters', () => {
+    expect(() => assertMemoLength('op', 'é'.repeat(14))).not.toThrow();
+    expect(() => assertMemoLength('op', 'é'.repeat(15))).toThrow(/28 bytes or fewer/);
   });
 });

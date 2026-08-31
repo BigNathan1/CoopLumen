@@ -13,6 +13,7 @@ import { submitSignedXdr } from '../../contracts/transactions';
 import { db } from '../../db';
 import { invalidateBalanceCache } from '../../cache/balances';
 import { StellarService } from '../../contracts/stellar';
+import { isStellarOperationError } from '../../contracts/errors';
 import { validateBody } from '../middleware/validate';
 import { idempotent } from '../middleware/idempotency';
 import { requireAdmin } from '../middleware/auth';
@@ -285,7 +286,7 @@ tokenRouter.post(
 
       res.status(201).json({ data: { txHash } });
     } catch (err) {
-      if ((err as { response?: unknown }).response) {
+      if (isStellarOperationError(err) || (err as { response?: unknown }).response) {
         const mapped = mapHorizonError(err);
         res.status(mapped.status).json({ data: null, error: mapped.message });
         return;
