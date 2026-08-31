@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction, Router } from 'express';
 import { z } from 'zod';
-import { buildUnsignedPayment } from '../../contracts/transactions';
+import { buildUnsignedPayment, submitSignedXdr } from '../../contracts/transactions';
 import { StellarService } from '../../contracts/stellar';
 import {
   unsignedPaymentSchema,
+  submitTransactionSchema,
   transactionHashSchema,
   communityTransactionsQuerySchema,
 } from '../schemas/transaction';
@@ -74,6 +75,48 @@ transactionRouter.post('/unsigned', async (req: Request, res: Response): Promise
   }
 });
 
+/**
+ * POST /api/v1/transactions/submit
+ *
+ * Submits a signed transaction envelope (XDR) to the Stellar network. The
+ * client signs the envelope returned by POST /unsigned and posts it here.
+ *
+ * Request body:
+ *   - xdr {string} required - Base64-encoded signed transaction envelope
+ *
+ * @route   POST /api/v1/transactions/submit
+ * @returns {200} { data: { hash: string } } - Hash of the accepted transaction
+ * @returns {400} ValidationErrorResponse    - Request body failed Zod validation
+ * @returns {422} ErrorResponse              - Horizon rejected the transaction
+ * @returns {502} ErrorResponse              - Horizon is temporarily unavailable
+ * @see     POST /api/v1/transactions/unsigned to build the envelope to sign
+ */
+transactionRouter.post('/submit', async (req: Request, res: Response): Promise<void> => {
+  const parsed = submitTransactionSchema.safeParse(req.body);
+
+  if (!parsed.success) {
+    res.status(400).json({
+      data: null,
+      meta: {
+        errors: parsed.error.issues.map((issue) => ({
+          path: issue.path.join('.'),
+          message: issue.message,
+        })),
+      },
+      error: 'Validation failed',
+    });
+    return;
+  }
+
+  try {
+    const hash = await submitSignedXdr(parsed.data.xdr);
+
+    res.status(200).json({ data: { hash } });
+  } catch (error) {
+    const mapped = mapHorizonError(error);
+    res.status(mapped.status).json({ data: null, error: mapped.message });
+  }
+});
 /**
  * GET /api/v1/transactions/export/:communityId
  *

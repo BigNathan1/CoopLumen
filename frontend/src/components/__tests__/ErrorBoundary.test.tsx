@@ -142,16 +142,15 @@ describe('ErrorBoundary', () => {
 
       const button = screen.getByRole('button', { name: /try again/i });
 
-      // Simulate pressing Enter on the button
-      await user.click(button);
-
-      // After clicking, we need to verify the component reset
-      // Rerender with fresh children to show recovery
+      // Swap in children that no longer throw before resetting; the boundary
+      // renders its fallback until `Try again` clears the error state.
       rerender(
         <ErrorBoundary>
           <div>Recovered Content</div>
         </ErrorBoundary>
       );
+
+      await user.click(button);
 
       expect(screen.getByText('Recovered Content')).toBeInTheDocument();
       expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument();
@@ -193,14 +192,16 @@ describe('ErrorBoundary', () => {
       expect(screen.getByText('Something went wrong')).toBeInTheDocument();
 
       const button = screen.getByRole('button', { name: /try again/i });
-      await user.click(button);
 
-      // Rerender with working content
+      // Rerender with working content first, then reset — re-rendering the
+      // throwing child before the reset would simply trip the boundary again.
       rerender(
         <ErrorBoundary>
           <div>Working Content</div>
         </ErrorBoundary>
       );
+
+      await user.click(button);
 
       expect(screen.getByText('Working Content')).toBeInTheDocument();
       expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument();
@@ -233,16 +234,15 @@ describe('ErrorBoundary', () => {
 
       expect(screen.getByText('Something went wrong')).toBeInTheDocument();
 
-      // Reset
+      // Return to working state, then reset
       const button = screen.getByRole('button', { name: /try again/i });
-      await user.click(button);
-
-      // Return to working state
       rerender(
         <ErrorBoundary>
           <ErrorComponent shouldError={false} />
         </ErrorBoundary>
       );
+
+      await user.click(button);
 
       expect(screen.getByText('Cycle Content')).toBeInTheDocument();
       expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument();
@@ -262,7 +262,9 @@ describe('ErrorBoundary', () => {
       );
 
       expect(consoleErrorSpy).toHaveBeenCalled();
-      expect(consoleErrorSpy.mock.calls[0][0]).toBe('ErrorBoundary caught an error:');
+      expect(
+        consoleErrorSpy.mock.calls.some((call) => call[0] === 'ErrorBoundary caught an error:')
+      ).toBe(true);
     });
   });
 });

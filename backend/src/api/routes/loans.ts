@@ -3,6 +3,7 @@ import { PoolClient } from 'pg';
 import { db } from '../../db';
 import { parsePagination, pageMeta, parseSort, queryString } from '../utils/http';
 import { validateBody } from '../middleware/validate';
+import { requireAuth } from '../middleware/auth';
 import { writeLimiter } from '../middleware/rateLimit';
 import {
   createLoanSchema,
@@ -189,6 +190,7 @@ loanRouter.get('/:id/events', async (req, res, next) => {
  */
 loanRouter.post(
   '/',
+  requireAuth,
   writeLimiter,
   validateBody(createLoanSchema),
   async (req: Request, res: Response, next: NextFunction) => {
@@ -212,6 +214,14 @@ loanRouter.post(
         purpose?: string;
         dueAt?: Date;
       };
+
+      if (req.auth!.address !== borrowerAddress && req.auth!.address !== lenderAddress) {
+        res.status(403).json({
+          data: null,
+          error: 'You must be the borrower or lender to request this loan',
+        });
+        return;
+      }
 
       const [community] = await db.query<{ id: string }>(
         'SELECT id FROM communities WHERE id = $1 AND deleted_at IS NULL',
@@ -272,6 +282,7 @@ loanRouter.post(
  */
 loanRouter.post(
   '/:id/disburse',
+  requireAuth,
   writeLimiter,
   validateBody(disburseLoanSchema),
   async (req: Request, res: Response, next: NextFunction) => {
@@ -283,14 +294,32 @@ loanRouter.post(
         res.status(404).json({ data: null, error: 'Loan not found' });
         return;
       }
+      if (req.auth!.address !== loan.lender_address) {
+        res.status(403).json({ data: null, error: 'Only the lender can disburse this loan' });
+        return;
+      }
       if (loan.status !== 'pending') {
         res
           .status(409)
           .json({ data: null, error: `Cannot disburse a loan in status "${loan.status}"` });
         return;
       }
+      let notFound = false;
+      let conflictStatus: string | null = null;
 
       const updated = await db.transaction(async (client) => {
+        const [loan] = (
+          await client.query<Loan>('SELECT * FROM loans WHERE id = $1 FOR UPDATE', [req.params.id])
+        ).rows;
+        if (!loan) {
+          notFound = true;
+          return null;
+        }
+        if (loan.status !== 'pending') {
+          conflictStatus = loan.status;
+          return null;
+        }
+
         const {
           rows: [row],
         } = await client.query<Loan>(
@@ -315,6 +344,18 @@ loanRouter.post(
         return row;
       });
 
+      if (notFound) {
+        res.status(404).json({ data: null, error: 'Loan not found' });
+        return;
+      }
+      if (conflictStatus) {
+        res.status(409).json({
+          data: null,
+          error: `Cannot disburse a loan in status "${String(conflictStatus)}"`,
+        });
+        return;
+      }
+
       res.json({ data: updated });
     } catch (err) {
       next(err);
@@ -329,6 +370,7 @@ loanRouter.post(
  */
 loanRouter.post(
   '/:id/repay',
+  requireAuth,
   writeLimiter,
   validateBody(repayLoanSchema),
   async (req: Request, res: Response, next: NextFunction) => {
@@ -344,27 +386,42 @@ loanRouter.post(
         res.status(404).json({ data: null, error: 'Loan not found' });
         return;
       }
+      if (req.auth!.address !== loan.borrower_address) {
+        res.status(403).json({ data: null, error: 'Only the borrower can repay this loan' });
+        return;
+      }
       if (loan.status !== 'active') {
         res
           .status(409)
           .json({ data: null, error: `Cannot repay a loan in status "${loan.status}"` });
         return;
       }
-
-      const outstanding = Number(loan.amount) - Number(loan.amount_repaid);
-      if (Number(amount) > outstanding + 1e-7) {
-        res.status(400).json({
-          data: null,
-          error: 'Repayment exceeds outstanding balance',
-          meta: { outstanding: outstanding.toFixed(7) },
-        });
-        return;
-      }
-
-      const newRepaid = Number(loan.amount_repaid) + Number(amount);
-      const fullyRepaid = newRepaid >= Number(loan.amount) - 1e-7;
+      let notFound = false;
+      let conflictStatus: string | null = null;
+      let exceedsOutstanding: number | null = null;
 
       const updated = await db.transaction(async (client) => {
+        const [loan] = (
+          await client.query<Loan>('SELECT * FROM loans WHERE id = $1 FOR UPDATE', [req.params.id])
+        ).rows;
+        if (!loan) {
+          notFound = true;
+          return null;
+        }
+        if (loan.status !== 'active') {
+          conflictStatus = loan.status;
+          return null;
+        }
+
+        const outstanding = Number(loan.amount) - Number(loan.amount_repaid);
+        if (Number(amount) > outstanding + 1e-7) {
+          exceedsOutstanding = outstanding;
+          return null;
+        }
+
+        const newRepaid = Number(loan.amount_repaid) + Number(amount);
+        const fullyRepaid = newRepaid >= Number(loan.amount) - 1e-7;
+
         const {
           rows: [row],
         } = await client.query<Loan>(
@@ -416,6 +473,25 @@ loanRouter.post(
         return row;
       });
 
+      if (notFound) {
+        res.status(404).json({ data: null, error: 'Loan not found' });
+        return;
+      }
+      if (conflictStatus) {
+        res
+          .status(409)
+          .json({ data: null, error: `Cannot repay a loan in status "${String(conflictStatus)}"` });
+        return;
+      }
+      if (exceedsOutstanding !== null) {
+        res.status(400).json({
+          data: null,
+          error: 'Repayment exceeds outstanding balance',
+          meta: { outstanding: (exceedsOutstanding as number).toFixed(7) },
+        });
+        return;
+      }
+
       res.json({ data: updated });
     } catch (err) {
       next(err);
@@ -430,6 +506,7 @@ loanRouter.post(
  */
 loanRouter.post(
   '/:id/default',
+  requireAuth,
   writeLimiter,
   validateBody(defaultLoanSchema),
   async (req: Request, res: Response, next: NextFunction) => {
@@ -441,14 +518,32 @@ loanRouter.post(
         res.status(404).json({ data: null, error: 'Loan not found' });
         return;
       }
+      if (req.auth!.address !== loan.lender_address) {
+        res.status(403).json({ data: null, error: 'Only the lender can default this loan' });
+        return;
+      }
       if (loan.status !== 'active') {
         res
           .status(409)
           .json({ data: null, error: `Cannot default a loan in status "${loan.status}"` });
         return;
       }
+      let notFound = false;
+      let conflictStatus: string | null = null;
 
       const updated = await db.transaction(async (client) => {
+        const [loan] = (
+          await client.query<Loan>('SELECT * FROM loans WHERE id = $1 FOR UPDATE', [req.params.id])
+        ).rows;
+        if (!loan) {
+          notFound = true;
+          return null;
+        }
+        if (loan.status !== 'active') {
+          conflictStatus = loan.status;
+          return null;
+        }
+
         const {
           rows: [row],
         } = await client.query<Loan>(
@@ -469,6 +564,18 @@ loanRouter.post(
         return row;
       });
 
+      if (notFound) {
+        res.status(404).json({ data: null, error: 'Loan not found' });
+        return;
+      }
+      if (conflictStatus) {
+        res.status(409).json({
+          data: null,
+          error: `Cannot default a loan in status "${String(conflictStatus)}"`,
+        });
+        return;
+      }
+
       res.json({ data: updated });
     } catch (err) {
       next(err);
@@ -480,8 +587,21 @@ loanRouter.post(
  * DELETE /api/v1/loans/:id
  * Cancels a loan that has not yet been disbursed (status `pending`).
  */
-loanRouter.delete('/:id', writeLimiter, async (req, res, next) => {
+loanRouter.delete('/:id', requireAuth, writeLimiter, async (req, res, next) => {
   try {
+    const [loan] = await db.query<Loan>('SELECT * FROM loans WHERE id = $1', [req.params.id]);
+    if (!loan) {
+      res.status(404).json({ data: null, error: 'No pending loan found to cancel' });
+      return;
+    }
+    if (req.auth!.address !== loan.borrower_address && req.auth!.address !== loan.lender_address) {
+      res.status(403).json({
+        data: null,
+        error: 'Only the borrower or lender can cancel this loan',
+      });
+      return;
+    }
+
     const result = await db.query<{ id: string }>(
       `UPDATE loans SET status = 'cancelled'
        WHERE id = $1 AND status = 'pending'

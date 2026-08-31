@@ -102,6 +102,17 @@ export async function clearPriceCache(currency = 'USD'): Promise<void> {
   await redisCache.del(key);
 }
 
+/**
+ * Drops every in-process cache entry without touching Redis.
+ *
+ * Test teardown uses this: reaching for Redis there opens a real connection
+ * (and under fake timers its connect promise never settles), which is what
+ * stalled every `afterEach` in CI and then kept Jest alive after the run.
+ */
+export function clearPriceMemoryCache(): void {
+  memoryCache.clear();
+}
+
 // ---------------------------------------------------------------------------
 // Legacy helpers kept for backward compatibility with existing callers that
 // use the generic getCachedPrice / cachePrice signatures.

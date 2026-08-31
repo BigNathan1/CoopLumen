@@ -47,6 +47,25 @@ export const trustlineTokenSchema = z.object({
   limit: amount.optional(),
 });
 
+export const buildIssueTokenSchema = z.object({
+  issuerPublicKey: stellarPublicKey,
+  assetCode,
+  distributorPublicKey: stellarPublicKey,
+  amount,
+  memo: z.string().trim().max(28, 'memo must be 28 characters or fewer').optional(),
+});
+
+export const buildTrustlineTokenSchema = z.object({
+  accountPublicKey: stellarPublicKey,
+  assetCode,
+  assetIssuer: stellarPublicKey,
+  limit: amount.optional(),
+});
+
+export const submitTokenXdrSchema = z.object({
+  signedXdr: z.string().trim().min(1, 'signedXdr is required').max(100_000),
+});
+
 export const burnTokenSchema = z.object({
   holderSecret: stellarSecretKey,
   assetCode,

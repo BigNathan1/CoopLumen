@@ -6,11 +6,16 @@ import { WalletConnect } from './WalletConnect';
 import { ThemeToggle } from './ThemeToggle';
 import { CommunityCard } from './CommunityCard';
 import { BalancePanel } from './BalancePanel';
+import { LoadingSkeleton } from './LoadingSkeleton';
+import { Button } from './ui/Button';
 import styles from './Dashboard.module.css';
 import { EmptyState } from './ui/EmptyState';
 
+/** Placeholder cards shown in the grid while communities are loading. */
+const SKELETON_CARD_COUNT = 6;
+
 export function Dashboard() {
-  const { data: communities, error, isLoading } = useCommunities();
+  const { data: communities, error, isLoading, mutate } = useCommunities();
   const { publicKey, connected } = useWallet();
 
   return (
@@ -41,35 +46,55 @@ export function Dashboard() {
             <span className={styles.count}>{communities?.length ?? 0} registered</span>
           </div>
 
-          {isLoading && <div className={styles.state}>Loading communities…</div>}
-
-          {error && (
-            <div className={`${styles.state} ${styles.error}`}>
-              Could not load communities. Is the API running?
+          {isLoading && (
+            <div className={styles.grid}>
+              {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
+                <div key={index} className={styles.skeletonCard}>
+                  <LoadingSkeleton
+                    variant="text"
+                    width="40%"
+                    decorative={index !== 0}
+                    label={index === 0 ? 'Loading communities' : undefined}
+                  />
+                  <LoadingSkeleton variant="text" count={2} lastLineWidth="60%" decorative />
+                  <LoadingSkeleton variant="text" width="80%" decorative />
+                </div>
+              ))}
             </div>
           )}
 
-         {!isLoading && !error && communities?.length === 0 && (
-  <EmptyState
-    title="No communities yet"
-    message="Create the first community to get started."
-    action={
-      <a
-        href="https://github.com/yourname/cooplumen#quickstart"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Create the first one
-      </a>
-    }
-  />
-)}
+          {error && (
+            <div className={`${styles.state} ${styles.error}`} role="alert">
+              <p>Could not load communities. Is the API running?</p>
+              <Button variant="secondary" size="sm" onClick={() => void mutate()}>
+                Retry
+              </Button>
+            </div>
+          )}
 
-          <div className={styles.grid}>
-            {communities?.map((c) => (
-              <CommunityCard key={c.id} community={c} />
-            ))}
-          </div>
+          {!isLoading && !error && communities?.length === 0 && (
+            <EmptyState
+              title="No communities yet"
+              message="Create the first community to get started."
+              action={
+                <a
+                  href="https://github.com/yourname/cooplumen#quickstart"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Create the first one
+                </a>
+              }
+            />
+          )}
+
+          {!isLoading && (
+            <div className={styles.grid}>
+              {communities?.map((c) => (
+                <CommunityCard key={c.id} community={c} />
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </div>

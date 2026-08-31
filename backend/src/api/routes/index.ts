@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { authRouter } from './auth';
 import { communityRouter } from './communities';
 import { tokenRouter } from './tokens';
 import { balanceRouter } from './balances';
@@ -17,6 +18,7 @@ import { accountsRouter } from './accounts';
  */
 export const apiRouter: Router = Router();
 
+apiRouter.use('/auth', authRouter);
 apiRouter.use('/communities', communityRouter);
 apiRouter.use('/tokens', tokenRouter);
 apiRouter.use('/balances', balanceRouter);
