@@ -3,6 +3,7 @@ import { PoolClient } from 'pg';
 import { Keypair } from '@stellar/stellar-sdk';
 import app from '../../../app';
 import { db } from '../../../db';
+import { createSessionToken } from '../../utils/sessionToken';
 
 jest.mock('../../../db', () => ({
   db: {
@@ -15,8 +16,13 @@ jest.mock('../../../db', () => ({
 const mockDb = db as jest.Mocked<typeof db>;
 const borrower = Keypair.random().publicKey();
 const lender = Keypair.random().publicKey();
+const stranger = Keypair.random().publicKey();
 const communityId = '11111111-1111-4111-8111-111111111111';
 const loanId = '22222222-2222-4222-8222-222222222222';
+
+function authHeader(address: string): string {
+  return `Bearer ${createSessionToken(address).token}`;
+}
 
 /** Runs the route's transaction callback against a fake client returning rows. */
 function runTransaction(rowsByQuery: object[][] = []): void {
@@ -90,25 +96,7 @@ describe('GET /api/v1/loans/:id/events', () => {
 });
 
 describe('POST /api/v1/loans', () => {
-  it('rejects an invalid payload', async () => {
-    const res = await request(app).post('/api/v1/loans').send({});
-    expect(res.status).toBe(400);
-    expect(res.body.meta.errors).toBeDefined();
-  });
-
-  it('rejects an invalid Stellar address', async () => {
-    const res = await request(app).post('/api/v1/loans').send({
-      communityId,
-      borrowerAddress: 'bad',
-      lenderAddress: lender,
-      amount: '50',
-      assetCode: 'ECO',
-    });
-    expect(res.status).toBe(400);
-  });
-
-  it('returns 404 when the community is missing', async () => {
-    mockDb.query.mockResolvedValueOnce([]); // community lookup
+  it('rejects an unauthenticated request', async () => {
     const res = await request(app).post('/api/v1/loans').send({
       communityId,
       borrowerAddress: borrower,
@@ -116,29 +104,103 @@ describe('POST /api/v1/loans', () => {
       amount: '50',
       assetCode: 'ECO',
     });
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects an invalid payload', async () => {
+    const res = await request(app)
+      .post('/api/v1/loans')
+      .set('Authorization', authHeader(lender))
+      .send({});
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toBeDefined();
+  });
+
+  it('rejects an invalid Stellar address', async () => {
+    const res = await request(app)
+      .post('/api/v1/loans')
+      .set('Authorization', authHeader(lender))
+      .send({
+        communityId,
+        borrowerAddress: 'bad',
+        lenderAddress: lender,
+        amount: '50',
+        assetCode: 'ECO',
+      });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects a caller who is neither the borrower nor the lender', async () => {
+    const res = await request(app)
+      .post('/api/v1/loans')
+      .set('Authorization', authHeader(stranger))
+      .send({
+        communityId,
+        borrowerAddress: borrower,
+        lenderAddress: lender,
+        amount: '50',
+        assetCode: 'ECO',
+      });
+    expect(res.status).toBe(403);
+  });
+
+  it('returns 404 when the community is missing', async () => {
+    mockDb.query.mockResolvedValueOnce([]); // community lookup
+    const res = await request(app)
+      .post('/api/v1/loans')
+      .set('Authorization', authHeader(lender))
+      .send({
+        communityId,
+        borrowerAddress: borrower,
+        lenderAddress: lender,
+        amount: '50',
+        assetCode: 'ECO',
+      });
     expect(res.status).toBe(404);
   });
 
   it('creates a loan with a valid payload', async () => {
     mockDb.query.mockResolvedValueOnce([{ id: communityId }]); // community exists
     runTransaction([[{ id: loanId, status: 'pending', amount: '50.0000000' }]]);
-    const res = await request(app).post('/api/v1/loans').send({
-      communityId,
-      borrowerAddress: borrower,
-      lenderAddress: lender,
-      amount: '50',
-      assetCode: 'ECO',
-      purpose: 'Seed capital',
-    });
+    const res = await request(app)
+      .post('/api/v1/loans')
+      .set('Authorization', authHeader(lender))
+      .send({
+        communityId,
+        borrowerAddress: borrower,
+        lenderAddress: lender,
+        amount: '50',
+        assetCode: 'ECO',
+        purpose: 'Seed capital',
+      });
     expect(res.status).toBe(201);
     expect(res.body.data.status).toBe('pending');
   });
 });
 
 describe('POST /api/v1/loans/:id/disburse', () => {
-  it('rejects disbursing a non-pending loan', async () => {
-    mockDb.query.mockResolvedValueOnce([{ id: loanId, status: 'active' }]);
+  it('rejects an unauthenticated request', async () => {
     const res = await request(app).post(`/api/v1/loans/${loanId}/disburse`).send({});
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects a caller who is not the lender', async () => {
+    mockDb.query.mockResolvedValueOnce([
+      { id: loanId, status: 'pending', lender_address: lender },
+    ]);
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/disburse`)
+      .set('Authorization', authHeader(borrower))
+      .send({});
+    expect(res.status).toBe(403);
+  });
+
+  it('rejects disbursing a non-pending loan', async () => {
+    mockDb.query.mockResolvedValueOnce([{ id: loanId, status: 'active', lender_address: lender }]);
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/disburse`)
+      .set('Authorization', authHeader(lender))
+      .send({});
     expect(res.status).toBe(409);
   });
 
@@ -147,18 +209,46 @@ describe('POST /api/v1/loans/:id/disburse', () => {
       { id: loanId, status: 'pending', amount: '50.0000000', lender_address: lender },
     ]);
     runTransaction([[{ id: loanId, status: 'active' }]]);
-    const res = await request(app).post(`/api/v1/loans/${loanId}/disburse`).send({});
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/disburse`)
+      .set('Authorization', authHeader(lender))
+      .send({});
     expect(res.status).toBe(200);
     expect(res.body.data.status).toBe('active');
   });
 });
 
 describe('POST /api/v1/loans/:id/repay', () => {
+  it('rejects an unauthenticated request', async () => {
+    const res = await request(app).post(`/api/v1/loans/${loanId}/repay`).send({ amount: '20' });
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects a caller who is not the borrower', async () => {
+    mockDb.query.mockResolvedValueOnce([
+      { id: loanId, status: 'active', amount: '50.0000000', amount_repaid: '0', borrower_address: borrower },
+    ]);
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/repay`)
+      .set('Authorization', authHeader(lender))
+      .send({ amount: '20' });
+    expect(res.status).toBe(403);
+  });
+
   it('rejects a repayment above the outstanding balance', async () => {
     mockDb.query.mockResolvedValueOnce([
-      { id: loanId, status: 'active', amount: '50.0000000', amount_repaid: '0' },
+      {
+        id: loanId,
+        status: 'active',
+        amount: '50.0000000',
+        amount_repaid: '0',
+        borrower_address: borrower,
+      },
     ]);
-    const res = await request(app).post(`/api/v1/loans/${loanId}/repay`).send({ amount: '60' });
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/repay`)
+      .set('Authorization', authHeader(borrower))
+      .send({ amount: '60' });
     expect(res.status).toBe(400);
   });
 
@@ -173,7 +263,10 @@ describe('POST /api/v1/loans/:id/repay', () => {
       },
     ]);
     runTransaction([[{ id: loanId, status: 'active', amount_repaid: '20.0000000' }]]);
-    const res = await request(app).post(`/api/v1/loans/${loanId}/repay`).send({ amount: '20' });
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/repay`)
+      .set('Authorization', authHeader(borrower))
+      .send({ amount: '20' });
     expect(res.status).toBe(200);
     expect(res.body.data.status).toBe('active');
   });
@@ -189,16 +282,38 @@ describe('POST /api/v1/loans/:id/repay', () => {
       },
     ]);
     runTransaction([[{ id: loanId, status: 'repaid', amount_repaid: '50.0000000' }]]);
-    const res = await request(app).post(`/api/v1/loans/${loanId}/repay`).send({ amount: '20' });
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/repay`)
+      .set('Authorization', authHeader(borrower))
+      .send({ amount: '20' });
     expect(res.status).toBe(200);
     expect(res.body.data.status).toBe('repaid');
   });
 });
 
 describe('POST /api/v1/loans/:id/default', () => {
-  it('rejects defaulting a non-active loan', async () => {
-    mockDb.query.mockResolvedValueOnce([{ id: loanId, status: 'pending' }]);
+  it('rejects an unauthenticated request', async () => {
     const res = await request(app).post(`/api/v1/loans/${loanId}/default`).send({});
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects a caller who is not the lender', async () => {
+    mockDb.query.mockResolvedValueOnce([
+      { id: loanId, status: 'active', borrower_address: borrower, lender_address: lender },
+    ]);
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/default`)
+      .set('Authorization', authHeader(borrower))
+      .send({});
+    expect(res.status).toBe(403);
+  });
+
+  it('rejects defaulting a non-active loan', async () => {
+    mockDb.query.mockResolvedValueOnce([{ id: loanId, status: 'pending', lender_address: lender }]);
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/default`)
+      .set('Authorization', authHeader(lender))
+      .send({});
     expect(res.status).toBe(409);
   });
 
@@ -207,23 +322,49 @@ describe('POST /api/v1/loans/:id/default', () => {
       { id: loanId, status: 'active', borrower_address: borrower, lender_address: lender },
     ]);
     runTransaction([[{ id: loanId, status: 'defaulted' }]]);
-    const res = await request(app).post(`/api/v1/loans/${loanId}/default`).send({});
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/default`)
+      .set('Authorization', authHeader(lender))
+      .send({});
     expect(res.status).toBe(200);
     expect(res.body.data.status).toBe('defaulted');
   });
 });
 
 describe('DELETE /api/v1/loans/:id', () => {
-  it('cancels a pending loan', async () => {
-    mockDb.query.mockResolvedValueOnce([{ id: loanId }]);
+  it('rejects an unauthenticated request', async () => {
     const res = await request(app).delete(`/api/v1/loans/${loanId}`);
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects a caller who is neither the borrower nor the lender', async () => {
+    mockDb.query.mockResolvedValueOnce([
+      { id: loanId, status: 'pending', borrower_address: borrower, lender_address: lender },
+    ]);
+    const res = await request(app)
+      .delete(`/api/v1/loans/${loanId}`)
+      .set('Authorization', authHeader(stranger));
+    expect(res.status).toBe(403);
+  });
+
+  it('cancels a pending loan', async () => {
+    mockDb.query
+      .mockResolvedValueOnce([
+        { id: loanId, status: 'pending', borrower_address: borrower, lender_address: lender },
+      ])
+      .mockResolvedValueOnce([{ id: loanId }]);
+    const res = await request(app)
+      .delete(`/api/v1/loans/${loanId}`)
+      .set('Authorization', authHeader(borrower));
     expect(res.status).toBe(200);
     expect(res.body.data.cancelled).toBe(true);
   });
 
   it('returns 404 when there is no pending loan to cancel', async () => {
     mockDb.query.mockResolvedValueOnce([]);
-    const res = await request(app).delete(`/api/v1/loans/${loanId}`);
+    const res = await request(app)
+      .delete(`/api/v1/loans/${loanId}`)
+      .set('Authorization', authHeader(borrower));
     expect(res.status).toBe(404);
   });
 });
