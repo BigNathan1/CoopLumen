@@ -35,10 +35,7 @@ describe('getOrderBook', () => {
     const mockServer = { orderbook: jest.fn().mockReturnValue(mockOrderBookBuilder) };
     mockGetServer.mockReturnValue(mockServer);
 
-    const result = await getOrderBook(
-      { code: 'XLM' },
-      { code: 'ECO', issuer: issuer }
-    );
+    const result = await getOrderBook({ code: 'XLM' }, { code: 'ECO', issuer: issuer });
 
     expect(mockServer.orderbook).toHaveBeenCalled();
     expect(mockOrderBookCall).toHaveBeenCalled();
@@ -68,10 +65,7 @@ describe('getOrderBook', () => {
     mockGetServer.mockReturnValue(mockServer);
 
     await expect(
-      getOrderBook(
-        { code: 'XLM' },
-        { code: 'ECO', issuer: issuer }
-      )
+      getOrderBook({ code: 'XLM' }, { code: 'ECO', issuer: issuer })
     ).rejects.toBeInstanceOf(StellarError);
   });
 });

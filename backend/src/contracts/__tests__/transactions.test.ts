@@ -20,11 +20,9 @@ jest.mock('../stellar', () => ({
   },
 }));
 
-jest.mock('../../cache/balances', () => (
-  {
-    invalidateBalanceCache: jest.fn().mockResolvedValue(undefined),
-  }
-));
+jest.mock('../../cache/balances', () => ({
+  invalidateBalanceCache: jest.fn().mockResolvedValue(undefined),
+}));
 
 const mockLoadAccount = StellarService.loadAccount as jest.Mock;
 const mockSubmitTransaction = StellarService.submitTransaction as jest.Mock;
@@ -83,7 +81,14 @@ describe('transactions.ts', () => {
     });
 
     it('propagates Horizon submission errors without swallowing them', async () => {
-      const horizonError = { response: { status: 400, data: { extras: { result_codes: { transaction: 'tx_failed', operations: ['op_underfunded'] } } } } };
+      const horizonError = {
+        response: {
+          status: 400,
+          data: {
+            extras: { result_codes: { transaction: 'tx_failed', operations: ['op_underfunded'] } },
+          },
+        },
+      };
       mockSubmitTransaction.mockRejectedValueOnce(horizonError);
 
       await expect(
@@ -157,7 +162,9 @@ describe('transactions.ts', () => {
         fee: BASE_FEE,
         networkPassphrase: Networks.TESTNET,
       })
-        .addOperation(Operation.payment({ destination: recipient, asset: Asset.native(), amount: '1' }))
+        .addOperation(
+          Operation.payment({ destination: recipient, asset: Asset.native(), amount: '1' })
+        )
         .setTimeout(30)
         .build();
       tx.sign(sender);

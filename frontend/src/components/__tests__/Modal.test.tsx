@@ -8,7 +8,7 @@ describe('Modal', () => {
       render(
         <Modal isOpen={true} onClose={jest.fn()} title="Test Modal">
           <p>Test content</p>
-        </Modal>,
+        </Modal>
       );
 
       expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -20,7 +20,7 @@ describe('Modal', () => {
       render(
         <Modal isOpen={false} onClose={jest.fn()} title="Test Modal">
           <p>Test content</p>
-        </Modal>,
+        </Modal>
       );
 
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -30,7 +30,7 @@ describe('Modal', () => {
       const { container } = render(
         <Modal isOpen={true} onClose={jest.fn()} title="Test Modal">
           <p>Test content</p>
-        </Modal>,
+        </Modal>
       );
 
       const backdrop = container.querySelector('[aria-hidden="true"]');
@@ -41,7 +41,7 @@ describe('Modal', () => {
       render(
         <Modal isOpen={true} onClose={jest.fn()} title="Test Modal">
           <p>Test content</p>
-        </Modal>,
+        </Modal>
       );
 
       expect(screen.getByLabelText('Close modal')).toBeInTheDocument();
@@ -53,7 +53,7 @@ describe('Modal', () => {
       render(
         <Modal isOpen={true} onClose={jest.fn()} title="Test Modal">
           <p>Test content</p>
-        </Modal>,
+        </Modal>
       );
 
       const modal = screen.getByRole('dialog');
@@ -64,7 +64,7 @@ describe('Modal', () => {
       render(
         <Modal isOpen={true} onClose={jest.fn()} title="Test Modal">
           <p>Test content</p>
-        </Modal>,
+        </Modal>
       );
 
       const modal = screen.getByRole('dialog');
@@ -79,7 +79,7 @@ describe('Modal', () => {
       render(
         <Modal isOpen={true} onClose={jest.fn()} title="Test Modal" ariaDescribedBy="desc-1">
           <p>Test content</p>
-        </Modal>,
+        </Modal>
       );
 
       const modal = screen.getByRole('dialog');
@@ -90,7 +90,7 @@ describe('Modal', () => {
       const { container } = render(
         <Modal isOpen={true} onClose={jest.fn()} title="Test Modal">
           <p>Test content</p>
-        </Modal>,
+        </Modal>
       );
 
       const backdrop = container.querySelector('[aria-hidden="true"]');
@@ -104,7 +104,7 @@ describe('Modal', () => {
       render(
         <Modal isOpen={true} onClose={onClose} title="Test Modal">
           <p>Test content</p>
-        </Modal>,
+        </Modal>
       );
 
       const closeButton = screen.getByLabelText('Close modal');
@@ -120,7 +120,7 @@ describe('Modal', () => {
       render(
         <Modal isOpen={true} onClose={onClose} title="Test Modal">
           <button>Focusable button</button>
-        </Modal>,
+        </Modal>
       );
 
       const button = screen.getByText('Focusable button');
@@ -136,7 +136,7 @@ describe('Modal', () => {
       render(
         <Modal isOpen={true} onClose={onClose} title="Test Modal">
           <button>Focusable button</button>
-        </Modal>,
+        </Modal>
       );
 
       fireEvent.keyDown(document, { key: 'Enter' });
@@ -149,14 +149,14 @@ describe('Modal', () => {
       const { rerender } = render(
         <Modal isOpen={true} onClose={onClose} title="Test Modal">
           <button>Focusable button</button>
-        </Modal>,
+        </Modal>
       );
 
       // Close the modal
       rerender(
         <Modal isOpen={false} onClose={onClose} title="Test Modal">
           <button>Focusable button</button>
-        </Modal>,
+        </Modal>
       );
 
       // Press ESC after modal is closed
@@ -173,7 +173,7 @@ describe('Modal', () => {
       const { container } = render(
         <Modal isOpen={true} onClose={onClose} title="Test Modal">
           <p>Test content</p>
-        </Modal>,
+        </Modal>
       );
 
       const backdrop = container.querySelector('[aria-hidden="true"]') as HTMLElement;
@@ -187,7 +187,7 @@ describe('Modal', () => {
       const { container } = render(
         <Modal isOpen={true} onClose={onClose} title="Test Modal" closeOnBackdrop={false}>
           <p>Test content</p>
-        </Modal>,
+        </Modal>
       );
 
       const backdrop = container.querySelector('[aria-hidden="true"]') as HTMLElement;
@@ -201,7 +201,7 @@ describe('Modal', () => {
       render(
         <Modal isOpen={true} onClose={onClose} title="Test Modal">
           <p>Test content</p>
-        </Modal>,
+        </Modal>
       );
 
       const content = screen.getByText('Test content');
@@ -217,7 +217,7 @@ describe('Modal', () => {
         <Modal isOpen={true} onClose={jest.fn()} title="Test Modal">
           <button id="btn1">Button 1</button>
           <button id="btn2">Button 2</button>
-        </Modal>,
+        </Modal>
       );
 
       await waitFor(() => {
@@ -229,7 +229,7 @@ describe('Modal', () => {
       render(
         <Modal isOpen={true} onClose={jest.fn()} title="Test Modal">
           <p>Static content</p>
-        </Modal>,
+        </Modal>
       );
 
       await waitFor(() => {
@@ -242,7 +242,7 @@ describe('Modal', () => {
         <Modal isOpen={true} onClose={jest.fn()} title="Test Modal" initialFocus="last">
           <button id="btn1">Button 1</button>
           <button id="btn2">Button 2</button>
-        </Modal>,
+        </Modal>
       );
 
       await waitFor(() => {
@@ -256,7 +256,7 @@ describe('Modal', () => {
         <Modal isOpen={true} onClose={jest.fn()} title="Test Modal">
           <button id="btn1">Button 1</button>
           <button id="btn2">Button 2</button>
-        </Modal>,
+        </Modal>
       );
 
       const btn1 = screen.getByText('Button 1');
@@ -269,7 +269,11 @@ describe('Modal', () => {
       await user.tab();
       expect(btn2).toHaveFocus();
 
-      // Tab from last should wrap to first
+      // Then on to the close button, which is part of the trap
+      await user.tab();
+      expect(screen.getByLabelText('Close modal')).toHaveFocus();
+
+      // Tab from the last element wraps back to the first
       await user.tab();
       expect(btn1).toHaveFocus();
     });
@@ -279,7 +283,7 @@ describe('Modal', () => {
         <Modal isOpen={true} onClose={jest.fn()} title="Test Modal">
           <button id="btn1">Button 1</button>
           <button id="btn2">Button 2</button>
-        </Modal>,
+        </Modal>
       );
 
       const btn1 = screen.getByText('Button 1');
@@ -288,11 +292,14 @@ describe('Modal', () => {
       // Wait for initial focus on btn1
       await waitFor(() => expect(btn1).toHaveFocus());
 
-      // Shift+Tab from first should wrap to last
+      // Shift+Tab from first wraps to the last element (the close button)
+      fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+      expect(screen.getByLabelText('Close modal')).toHaveFocus();
+
+      // Shift+Tab should move to previous button
       fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
       expect(btn2).toHaveFocus();
 
-      // Shift+Tab should move to previous button
       fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
       expect(btn1).toHaveFocus();
     });
@@ -301,7 +308,7 @@ describe('Modal', () => {
       render(
         <Modal isOpen={true} onClose={jest.fn()} title="Test Modal">
           <button id="content-btn">Content Button</button>
-        </Modal>,
+        </Modal>
       );
 
       const closeButton = screen.getByLabelText('Close modal');
@@ -326,7 +333,7 @@ describe('Modal', () => {
             <p>Some text</p>
             <span>More text</span>
           </div>
-        </Modal>,
+        </Modal>
       );
 
       await waitFor(() => {
@@ -341,13 +348,25 @@ describe('Modal', () => {
       const { rerender } = render(
         <>
           <button id="trigger">Open Modal</button>
+          <Modal isOpen={false} onClose={jest.fn()} title="Test Modal">
+            <button>Modal Button</button>
+          </Modal>
+        </>
+      );
+
+      // The trigger holds focus before the modal opens — that is the focus the
+      // modal is expected to hand back on close.
+      const trigger = document.getElementById('trigger') as HTMLButtonElement;
+      trigger.focus();
+
+      rerender(
+        <>
+          <button id="trigger">Open Modal</button>
           <Modal isOpen={true} onClose={jest.fn()} title="Test Modal">
             <button>Modal Button</button>
           </Modal>
-        </>,
+        </>
       );
-
-      const trigger = document.getElementById('trigger') as HTMLButtonElement;
 
       // Modal opens and focuses its content
       await waitFor(() => {
@@ -361,7 +380,7 @@ describe('Modal', () => {
           <Modal isOpen={false} onClose={jest.fn()} title="Test Modal">
             <button>Modal Button</button>
           </Modal>
-        </>,
+        </>
       );
 
       // Focus should be restored to trigger
@@ -382,7 +401,7 @@ describe('Modal', () => {
           <Modal isOpen={false} onClose={onClose2} title="Modal 2">
             <button id="m2-btn">Modal 2 Button</button>
           </Modal>
-        </>,
+        </>
       );
 
       const m1Btn = screen.getByText('Modal 1 Button');
@@ -403,7 +422,7 @@ describe('Modal', () => {
           <input type="text" placeholder="Name" />
           <textarea placeholder="Message" />
           <button>Submit</button>
-        </Modal>,
+        </Modal>
       );
 
       const input = screen.getByPlaceholderText('Name') as HTMLInputElement;
@@ -424,7 +443,7 @@ describe('Modal', () => {
           <a href="#test1">Link 1</a>
           <a href="#test2">Link 2</a>
           <button>Action</button>
-        </Modal>,
+        </Modal>
       );
 
       const link1 = screen.getByText('Link 1') as HTMLAnchorElement;
@@ -442,7 +461,7 @@ describe('Modal', () => {
             Button 2 (disabled)
           </button>
           <button id="btn3">Button 3</button>
-        </Modal>,
+        </Modal>
       );
 
       const btn1 = screen.getByText('Button 1') as HTMLButtonElement;
@@ -463,7 +482,7 @@ describe('Modal', () => {
             Button 2 (tabindex=-1)
           </button>
           <button id="btn3">Button 3</button>
-        </Modal>,
+        </Modal>
       );
 
       const btn1 = screen.getByText('Button 1') as HTMLButtonElement;
@@ -483,20 +502,20 @@ describe('Modal', () => {
       const { rerender } = render(
         <Modal isOpen={true} onClose={onClose} title="Test Modal">
           <button>Button</button>
-        </Modal>,
+        </Modal>
       );
 
       // Rapidly toggle
       rerender(
         <Modal isOpen={false} onClose={onClose} title="Test Modal">
           <button>Button</button>
-        </Modal>,
+        </Modal>
       );
 
       rerender(
         <Modal isOpen={true} onClose={onClose} title="Test Modal">
           <button>Button</button>
-        </Modal>,
+        </Modal>
       );
 
       expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -506,7 +525,7 @@ describe('Modal', () => {
       const { rerender } = render(
         <Modal isOpen={true} onClose={jest.fn()} title="Test Modal">
           <button id="btn1">Button 1</button>
-        </Modal>,
+        </Modal>
       );
 
       expect(screen.getByText('Button 1')).toBeInTheDocument();
@@ -514,7 +533,7 @@ describe('Modal', () => {
       rerender(
         <Modal isOpen={true} onClose={jest.fn()} title="Test Modal">
           <button id="btn2">Button 2</button>
-        </Modal>,
+        </Modal>
       );
 
       expect(screen.queryByText('Button 1')).not.toBeInTheDocument();
@@ -526,7 +545,7 @@ describe('Modal', () => {
       const { unmount } = render(
         <Modal isOpen={true} onClose={onClose} title="Test Modal">
           <button>Button</button>
-        </Modal>,
+        </Modal>
       );
 
       unmount();

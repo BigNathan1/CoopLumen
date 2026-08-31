@@ -24,15 +24,15 @@ function TestComponent({ onReady }: { onReady?: (toast: ReturnType<typeof useToa
  * Helper to render component wrapped in ToastProvider.
  */
 function renderWithToast(
-  component: React.ReactElement,
-  onReady?: (toast: ReturnType<typeof useToast>) => void,
+  component: React.ReactElement | null,
+  onReady?: (toast: ReturnType<typeof useToast>) => void
 ) {
   return render(
     <ToastProvider>
       <TestComponent onReady={onReady} />
       <ToastDisplay />
       {component}
-    </ToastProvider>,
+    </ToastProvider>
   );
 }
 
@@ -552,7 +552,7 @@ describe('Toast System', () => {
           <TestComponent onReady={(api) => (toastApi = api)} />
           <ToastDisplay />
           <input type="text" placeholder="Focus me" data-testid="input" autoFocus />
-        </ToastProvider>,
+        </ToastProvider>
       );
 
       const input = screen.getByTestId('input') as HTMLInputElement;

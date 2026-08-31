@@ -1,3 +1,5 @@
+import { StellarError } from '../../contracts/errors';
+
 interface HorizonErrorShape {
   response?: {
     status?: number;
@@ -114,6 +116,12 @@ const TRANSACTION_MESSAGES: Record<string, string> = {
 
 /** Maps a Horizon/Stellar SDK submission error to a clear, actionable message. */
 export function mapHorizonError(err: unknown, details?: InsufficientBalanceDetails): MappedError {
+  // Contracts-layer helpers already resolved the Horizon result codes into an
+  // actionable message and status; re-deriving them here would only lose detail.
+  if (err instanceof StellarError) {
+    return { status: err.status, message: err.message };
+  }
+
   const horizonErr = err as HorizonErrorShape;
   const resultCodes = horizonErr?.response?.data?.extras?.result_codes;
 

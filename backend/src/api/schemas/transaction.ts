@@ -61,3 +61,72 @@ export const unsignedPaymentSchema = z
   });
 
 export type UnsignedPaymentInput = z.infer<typeof unsignedPaymentSchema>;
+
+// --- NEW SCHEMAS FOR ISSUE #147 & #148 ---
+
+export const submitTransactionSchema = z.object({
+  xdr: z.string().min(1, 'Signed XDR string is required'),
+});
+
+export const getCommunityTransactionsSchema = z.object({
+  params: z.object({
+    communityId: z.string().uuid('Invalid community ID format'),
+  }),
+  query: z.object({
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    from: z.string().datetime('from must be a valid ISO 8601 date').optional(),
+    to: z.string().datetime('to must be a valid ISO 8601 date').optional(),
+  }),
+});
+
+export const transactionHashSchema = z.object({
+  hash: z
+    .string()
+    .trim()
+    .length(64, 'Transaction hash must be exactly 64 characters long')
+    .regex(/^[a-fA-F0-9]{64}$/, 'Transaction hash must be a valid hex-encoded SHA-256 string'),
+});
+
+export type TransactionHashParams = z.infer<typeof transactionHashSchema>;
+
+/** The `action` values `transactions_log` accepts, per its check constraint. */
+export const TRANSACTION_LOG_ACTIONS = [
+  'community_created',
+  'member_added',
+  'member_removed',
+  'token_issued',
+  'payment_sent',
+  'trustline_established',
+  'trustline_removed',
+  'loan_created',
+  'loan_disbursed',
+  'loan_repayment',
+  'loan_closed',
+  'loan_defaulted',
+] as const;
+
+const isoDate = z
+  .string()
+  .trim()
+  .refine((value) => !Number.isNaN(Date.parse(value)), 'must be an ISO 8601 date-time string');
+
+export const communityTransactionsQuerySchema = z
+  .object({
+    page: z.string().trim().optional(),
+    limit: z.string().trim().optional(),
+    from: isoDate.optional(),
+    to: isoDate.optional(),
+    type: z.enum(TRANSACTION_LOG_ACTIONS).optional(),
+  })
+  .superRefine(({ from, to }, context) => {
+    if (from && to && Date.parse(from) > Date.parse(to)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['to'],
+        message: '`to` must not be before `from`',
+      });
+    }
+  });
+
+export type CommunityTransactionsQuery = z.infer<typeof communityTransactionsQuerySchema>;

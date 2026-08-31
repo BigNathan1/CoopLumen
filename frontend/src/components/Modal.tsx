@@ -20,7 +20,19 @@ interface ModalProps {
 function getFocusableElements(container: HTMLElement): HTMLElement[] {
   const selector =
     'button:not([disabled]), [href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
-  return Array.from(container.querySelectorAll(selector));
+  // A natively focusable element still matches the selector when it carries an
+  // explicit tabindex="-1", so drop those: they are out of the tab order.
+  return Array.from(container.querySelectorAll<HTMLElement>(selector)).filter(
+    (el) => el.getAttribute('tabindex') !== '-1'
+  );
+}
+
+/**
+ * The modal's own close control takes part in the focus trap, but it is not
+ * where focus should land on open — that belongs to the dialog's content.
+ */
+function getContentFocusableElements(container: HTMLElement): HTMLElement[] {
+  return getFocusableElements(container).filter((el) => !el.hasAttribute('data-modal-close'));
 }
 
 /**
@@ -79,7 +91,7 @@ export function Modal({
         }
       }
     },
-    [onClose],
+    [onClose]
   );
 
   // Handle backdrop click
@@ -102,12 +114,12 @@ export function Modal({
     // Move focus into modal after a tick (to ensure DOM is rendered)
     const timer = setTimeout(() => {
       if (modalRef.current) {
-        const focusableElements = getFocusableElements(modalRef.current);
+        const focusableElements = getContentFocusableElements(modalRef.current);
         if (focusableElements.length > 0) {
           const index = initialFocus === 'last' ? focusableElements.length - 1 : 0;
           focusableElements[index].focus();
         } else {
-          // If no focusable elements, focus the modal itself
+          // Nothing focusable in the content — focus the dialog itself
           modalRef.current.focus();
         }
       }
@@ -152,15 +164,18 @@ export function Modal({
           <h2 id={titleId} style={{ marginBottom: '16px', marginTop: 0 }}>
             {title}
           </h2>
+          {children}
+          {/* Positioned in the header by CSS, but rendered last so the tab
+              order runs through the content before reaching Close. */}
           <button
             className={styles.closeButton}
             onClick={onClose}
             aria-label="Close modal"
             type="button"
+            data-modal-close
           >
             ×
           </button>
-          {children}
         </div>
       </div>
     </>

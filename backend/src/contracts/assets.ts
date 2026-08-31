@@ -8,9 +8,17 @@ import {
 } from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
 import { MemoInput, buildMemo } from './memo';
-import { TimeBoundsInput, applyTimeBounds } from './timeBounds';
+import { TimeBoundsInput, applyTimeBounds, resolveTimeBounds } from './timeBounds';
 import { invalidateBalanceCache } from '../cache/balances';
 import { withSequenceRetry } from './sequenceCache';
+import { invalidInput, withMappedHorizonError } from './errors';
+import {
+  assertAssetCode,
+  assertPositiveAmount,
+  assertPublicKey,
+  parseSecretKey,
+} from './validation';
+import { logger } from '../utils/logger';
 
 export interface IssueAssetParams {
   issuerSecret: string;
@@ -45,49 +53,157 @@ export interface AssetHolder {
 }
 
 /**
+ * Validates issuance parameters before any network call, so a typo costs a
+ * clear 400 instead of a Horizon round trip and an opaque `op_malformed`.
+ * Returns the issuer keypair, which the caller needs anyway.
+ */
+function parseIssueAssetParams(params: IssueAssetParams): Keypair {
+  const operation = 'issueAsset';
+  const { issuerSecret, assetCode, distributorPublicKey, amount } = params;
+
+  const issuerKeypair = parseSecretKey(operation, 'issuerSecret', issuerSecret);
+  assertAssetCode(operation, 'assetCode', assetCode);
+  assertPublicKey(operation, 'distributorPublicKey', distributorPublicKey);
+  assertPositiveAmount(operation, 'amount', amount);
+
+  if (distributorPublicKey === issuerKeypair.publicKey()) {
+    throw invalidInput(
+      operation,
+      'distributorPublicKey must differ from the issuing account; an issuer paying itself creates no supply.'
+    );
+  }
+
+  return issuerKeypair;
+}
+
+/**
  * Issues a new community token on the Stellar network.
  * The issuer account creates the asset and sends initial supply to a distributor.
- */
-/**
- * Handles Stellar Horizon contract interaction for issueAsset.
- * @param params Parameter description for params.
- * @returns {Promise<any>} Resolves with network response or operation result.
- * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
+ *
+ * Every failure surfaces as a `StellarError` carrying an actionable message
+ * and the HTTP status a route handler should answer with — Horizon result
+ * codes are never re-thrown raw. Logs record the public identifiers of each
+ * attempt; the issuer secret is never logged.
  */
 export async function issueAsset(params: IssueAssetParams): Promise<string> {
-  const { issuerSecret, assetCode, distributorPublicKey, amount, memo, timeBounds } = params;
+  const operation = 'issueAsset';
+  const { assetCode, distributorPublicKey, amount, memo, timeBounds } = params;
 
-  const issuerKeypair = Keypair.fromSecret(issuerSecret);
+  const issuerKeypair = parseIssueAssetParams(params);
+  const issuerPublicKey = issuerKeypair.publicKey();
+  const logContext = {
+    operation,
+    assetCode,
+    issuerPublicKey,
+    distributorPublicKey,
+    amount,
+    hasMemo: memo !== undefined,
+  };
+
+  logger.info('Issuing community token', logContext);
+
+  // Resolved before the wrapper below so a malformed memo or an already-elapsed
+  // time window fails as its own specific error, not a generic mapped one.
+  const builtMemo = buildMemo(memo);
+  const resolvedBounds = resolveTimeBounds(timeBounds);
+
   const network = StellarService.getNetwork();
-  const asset = new Asset(assetCode, issuerKeypair.publicKey());
+  const asset = new Asset(assetCode, issuerPublicKey);
 
-  const result = await withSequenceRetry(issuerKeypair.publicKey(), async (issuerAccount) => {
-    const txBuilder = new TransactionBuilder(issuerAccount, {
-      fee: BASE_FEE,
-      networkPassphrase: network,
-    });
+  // withSequenceRetry supplies the cached Account (so concurrent issuances for
+  // the same issuer get distinct sequence numbers) and retries once on
+  // tx_bad_seq. The mapping wrapper sits outside it, so a failure that survives
+  // that retry is still reported as a StellarError rather than raw.
+  const result = await withMappedHorizonError(operation, logContext, () =>
+    withSequenceRetry(issuerPublicKey, async (issuerAccount) => {
+      const txBuilder = new TransactionBuilder(issuerAccount, {
+        fee: BASE_FEE,
+        networkPassphrase: network,
+      });
 
-    const builtMemo = buildMemo(memo);
-    if (builtMemo) {
-      txBuilder.addMemo(builtMemo);
-    }
+      if (builtMemo) {
+        txBuilder.addMemo(builtMemo);
+      }
 
-    txBuilder.addOperation(
-      Operation.payment({
-        destination: distributorPublicKey,
-        asset,
-        amount,
-      })
-    );
+      txBuilder.addOperation(
+        Operation.payment({
+          destination: distributorPublicKey,
+          asset,
+          amount,
+        })
+      );
 
-    const tx = applyTimeBounds(txBuilder, timeBounds).build();
-    tx.sign(issuerKeypair);
+      const tx = txBuilder.setTimebounds(resolvedBounds.minTime, resolvedBounds.maxTime).build();
+      tx.sign(issuerKeypair);
 
-    return StellarService.submitTransaction(tx);
+      return StellarService.submitTransaction(tx);
+    })
+  );
+
+  logger.info('Community token issued', {
+    ...logContext,
+    txHash: result.hash,
+    ledger: result.ledger,
   });
 
-  await invalidateBalanceCache([issuerKeypair.publicKey(), distributorPublicKey]);
+  // The tokens are already on-chain at this point. A cache eviction failure
+  // must not turn a successful issuance into an error the caller may retry,
+  // so it is logged and swallowed; the entries expire on their own TTL.
+  try {
+    await invalidateBalanceCache([issuerPublicKey, distributorPublicKey]);
+  } catch (error) {
+    logger.warn('Balance cache invalidation failed after issuance', {
+      ...logContext,
+      txHash: result.hash,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
   return result.hash;
+}
+
+export interface BuildUnsignedIssueAssetParams {
+  issuerPublicKey: string;
+  assetCode: string;
+  distributorPublicKey: string;
+  amount: string;
+  memo?: MemoInput;
+}
+
+/**
+ * Builds an unsigned XDR transaction for issuing a community token, for
+ * client-side signing via Freighter. Mirrors issueAsset's transaction shape —
+ * a payment of newly-issued supply from the issuer to the distributor — but
+ * takes the issuer's public key instead of its secret, so the secret never
+ * reaches the server. Sign the returned XDR with the issuer's wallet and
+ * submit it through POST /api/v1/tokens/submit.
+ */
+export async function buildUnsignedIssueAsset(
+  params: BuildUnsignedIssueAssetParams
+): Promise<string> {
+  const { issuerPublicKey, assetCode, distributorPublicKey, amount, memo } = params;
+
+  const network = StellarService.getNetwork();
+  const account = await StellarService.loadAccount(issuerPublicKey);
+  const asset = new Asset(assetCode, issuerPublicKey);
+
+  const txBuilder = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: network,
+  }).addOperation(
+    Operation.payment({
+      destination: distributorPublicKey,
+      asset,
+      amount,
+    })
+  );
+
+  const builtMemo = buildMemo(memo);
+  if (builtMemo) {
+    txBuilder.addMemo(builtMemo);
+  }
+
+  return txBuilder.setTimeout(30).build().toXDR();
 }
 
 /**
@@ -98,12 +214,6 @@ export async function issueAsset(params: IssueAssetParams): Promise<string> {
  * @param params Distribution parameters including issuer secret, asset details, destination, and amount
  * @returns Transaction hash of the distribution
  * @throws Horizon errors (e.g., op_no_trust, op_underfunded) for callers to map
- */
-/**
- * Handles Stellar Horizon contract interaction for distributeAsset.
- * @param params Parameter description for params.
- * @returns {Promise<any>} Resolves with network response or operation result.
- * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
  */
 export async function distributeAsset(params: DistributeAssetParams): Promise<string> {
   const { issuerSecret, assetCode, assetIssuer, distributorPublicKey, amount, memo } = params;
@@ -144,12 +254,6 @@ export async function distributeAsset(params: DistributeAssetParams): Promise<st
  * held by their own issuer are not part of circulating supply, so a payment
  * to the issuer permanently reduces total supply (the issuer never resends it).
  */
-/**
- * Handles Stellar Horizon contract interaction for burnAsset.
- * @param params Parameter description for params.
- * @returns {Promise<any>} Resolves with network response or operation result.
- * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
- */
 export async function burnAsset(params: BurnAssetParams): Promise<string> {
   const { holderSecret, assetCode, assetIssuer, amount, memo, timeBounds } = params;
 
@@ -184,13 +288,6 @@ export async function burnAsset(params: BurnAssetParams): Promise<string> {
 }
 
 /** Lists accounts holding a given asset by querying Horizon's asset endpoint. */
-/**
- * Handles Stellar Horizon contract interaction for getAssetHolders.
- * @param assetCode Parameter description for assetCode.
- * @param assetIssuer Parameter description for assetIssuer.
- * @returns {Promise<any>} Resolves with network response or operation result.
- * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
- */
 export async function getAssetHolders(
   assetCode: string,
   assetIssuer: string
@@ -234,14 +331,6 @@ export async function getAssetHolders(
  * @returns Numeric balance, or 0 if no trustline exists
  * @throws Error if account not found or network error (propagates to route handler for mapping)
  */
-/**
- * Handles Stellar Horizon contract interaction for getAssetBalance.
- * @param publicKey Parameter description for publicKey.
- * @param assetCode Parameter description for assetCode.
- * @param issuer Parameter description for issuer.
- * @returns {Promise<any>} Resolves with network response or operation result.
- * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
- */
 export async function getAssetBalance(
   publicKey: string,
   assetCode: string,
@@ -268,13 +357,6 @@ export async function getAssetBalance(
 }
 
 /** Returns the total supply Horizon's asset stats endpoint reports for an issued asset. */
-/**
- * Handles Stellar Horizon contract interaction for getTotalSupply.
- * @param assetCode Parameter description for assetCode.
- * @param issuer Parameter description for issuer.
- * @returns {Promise<any>} Resolves with network response or operation result.
- * @throws {Error} Maps Horizon/Stellar SDK error codes to actionable messages.
- */
 export async function getTotalSupply(assetCode: string, issuer: string): Promise<string> {
   const server = StellarService.getServer();
   const page = await StellarService.call('assets.forCode', () =>
