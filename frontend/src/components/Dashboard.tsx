@@ -7,6 +7,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { CommunityCard } from './CommunityCard';
 import { BalancePanel } from './BalancePanel';
 import styles from './Dashboard.module.css';
+import { EmptyState } from './ui/EmptyState';
 
 export function Dashboard() {
   const { data: communities, error, isLoading } = useCommunities();
@@ -48,18 +49,21 @@ export function Dashboard() {
             </div>
           )}
 
-          {!isLoading && !error && communities?.length === 0 && (
-            <div className={styles.state}>
-              No communities yet.{' '}
-              <a
-                href="https://github.com/yourname/cooplumen#quickstart"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Create the first one
-              </a>
-            </div>
-          )}
+         {!isLoading && !error && communities?.length === 0 && (
+  <EmptyState
+    title="No communities yet"
+    message="Create the first community to get started."
+    action={
+      <a
+        href="https://github.com/yourname/cooplumen#quickstart"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Create the first one
+      </a>
+    }
+  />
+)}
 
           <div className={styles.grid}>
             {communities?.map((c) => (
