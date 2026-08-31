@@ -8,9 +8,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ---
 
 ## [Unreleased]
-//temporrary commit and pr
 
 ### Fixed
+
+- Restored compilation on `main` after #618 was merged from a stale base: its copies of `contracts/errors.ts` and `contracts/transactions.ts` were spliced on top of the current ones, duplicating `StellarError`, `toStellarError`, `withStellarErrors`, `submitPayment`, `buildUnsignedPayment` and `submitSignedXdr` so that neither file parsed. The canonical versions are back; the opt-in `transactions.testnet.test.ts` suite that PR also contributed is kept. Also removes a stray `//temporrary commit and pr` line that reached `CHANGELOG.md` via #683.
 
 - Restored `main` after PRs #592, #593, #594, #622, #623, #624, #625 and #631 were merged from stale bases: GitHub's merge produced duplicated, interleaved copies of `backend/src/contracts/{assets,errors,transactions,trustlines}.ts`, `backend/src/api/routes/transactions.ts` and `backend/src/api/schemas/transaction.ts`, none of which compiled. The duplicated definitions (a second `StellarOperationError` hierarchy alongside the canonical `StellarError` one, and second copies of `issueAsset`, `revokeTrustline`, `getTrustlineLimit` and `buildMultiSigPayment` already delivered by #666) were removed in favour of the versions the rest of the codebase builds on; `mapHorizonError` and the tokens route keep the pass-through added alongside them, now keyed on `StellarError`. The signed-XDR submit endpoint from #592 is preserved as `POST /api/v1/transactions/submit`, reimplemented on the existing `submitSignedXdr()` helper and the project's pg client (the merged version called a Prisma-style `db.transactionLog` API this project does not have) with real supertest coverage; the redundant community-history route it also carried is already served by `GET /transactions/history/:communityId` from #668.
 - Repaired the frontend build: `frontend/package.json` was invalid JSON (a missing comma before `zod`), which failed every frontend CI job at `npm ci`, and `qrcode.react` was missing from the lock file. `frontend/src/app/globals.css` had an unterminated `@media (prefers-reduced-motion)` block, and `WalletConnect` rendered the connected-account row twice; the surviving row keeps the network badge, XLM balance and the `Button`-based disconnect control.
