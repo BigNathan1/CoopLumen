@@ -396,6 +396,7 @@ button {
       border-color var(--theme-transition-duration) ease,
       color var(--theme-transition-duration) ease;
   }
+}
 
 .network-badge {
   display: inline-flex;
