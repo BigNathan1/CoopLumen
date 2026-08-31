@@ -163,6 +163,7 @@ describe('buildBatchPayment', () => {
       buildBatchPayment({ senderPublicKey: sender.publicKey(), payments })
     ).rejects.toThrow(
       'Batch payment build entry 2 failed: the amount must be a positive number with at most 7 decimal places'
+      'Batch payment build entry 2 failed: amount must be a positive decimal string with at most 7 decimal places.'
     );
     expect(loadAccount).not.toHaveBeenCalled();
   });
@@ -175,6 +176,7 @@ describe('buildBatchPayment', () => {
       buildBatchPayment({ senderPublicKey: sender.publicKey(), payments })
     ).rejects.toThrow(
       'Batch payment build entry 1 failed: the destination is not a valid Stellar public key'
+      'Batch payment build entry 1 failed: destinationPublicKey is not a valid Stellar public key.'
     );
   });
 
@@ -261,6 +263,7 @@ describe('submitBatchPayment', () => {
     await expect(
       submitBatchPayment({ senderSecret: 'not-a-secret', payments: entries(2) })
     ).rejects.toThrow('Batch payment failed: the sender secret is not a valid Stellar secret key');
+    ).rejects.toThrow('Batch payment failed: senderSecret is not a valid Stellar secret key.');
     expect(loadAccount).not.toHaveBeenCalled();
   });
 

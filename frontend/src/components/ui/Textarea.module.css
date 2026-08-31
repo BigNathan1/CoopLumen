@@ -1,0 +1,123 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.label {
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+  width: fit-content;
+}
+
+/*
+ * The asterisk is decorative: the requirement reaches assistive tech through
+ * aria-required on the control itself.
+ */
+.requiredMark {
+  color: var(--color-error);
+  margin-left: 4px;
+}
+
+.textarea {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  min-height: 88px;
+  padding: 10px 12px;
+  resize: vertical;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+  width: 100%;
+}
+
+.textarea:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 30%, transparent);
+  outline: none;
+}
+
+.textarea[data-invalid] {
+  border-color: var(--color-error);
+}
+
+.textarea[data-invalid]:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-error) 30%, transparent);
+}
+
+.textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+/*
+ * The counter sits on the same row as the helper and error text, pushed to the
+ * trailing edge, so it never adds a line of its own to the form rhythm.
+ */
+.footer {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.helper {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.error {
+  color: var(--color-error);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.count {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  margin-left: auto;
+}
+
+.countOver {
+  color: var(--color-error);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .textarea {
+    transition: none;
+  }
+}
+
+.srOnly {
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}

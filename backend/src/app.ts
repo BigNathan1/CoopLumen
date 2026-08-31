@@ -1,4 +1,4 @@
-import express, { NextFunction, Request, Response } from 'express';
+import express, { NextFunction, Request, Response, Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { apiRouter } from './api/routes';
@@ -9,11 +9,20 @@ import { communityWriteLimiter } from './api/middleware/rateLimit';
 import { db } from './db';
 import { StellarService } from './contracts/stellar';
 
-const app = express();
+const app: Application = express();
 
 app.use(helmet());
 app.use(cors({ origin: process.env.FRONTEND_URL ?? 'http://localhost:3000' }));
-app.use(express.json());
+// Captures the exact bytes received so webhook signature verification can
+// HMAC over the same payload the client signed, before JSON parsing/
+// re-serialization has a chance to change its byte representation.
+app.use(
+  express.json({
+    verify: (req: Request & { rawBody?: Buffer }, _res, buf) => {
+      req.rawBody = Buffer.from(buf);
+    },
+  })
+);
 app.use(requestLogger);
 
 const healthHandler = (_req: Request, res: Response, next: NextFunction): void => {

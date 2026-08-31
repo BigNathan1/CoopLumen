@@ -2,6 +2,9 @@ import {
   BASE_FEE,
   Horizon,
   Keypair,
+  Asset,
+  BASE_FEE,
+  Horizon,
   Memo,
   Operation,
   Transaction,
@@ -11,6 +14,8 @@ import { StellarService } from './stellar';
 import { invalidateBalanceCache } from '../cache/balances';
 import { StellarError, withStellarErrors } from './errors';
 import { assertValidPayment, rejectPayment, resolveAsset } from './transactions';
+import { StellarError, invalidInput, withStellarErrors } from './errors';
+import { assertPositiveAmount, assertPublicKey, parseSecretKey } from './validation';
 
 /**
  * Batch disbursal: one transaction carrying many Payment operations.
@@ -26,6 +31,9 @@ export const MAX_BATCH_PAYMENTS = 100;
 
 /** Seconds a built transaction stays valid before Horizon rejects it as too late. */
 const TRANSACTION_TIMEOUT_SECONDS = 30;
+
+/** A text memo is capped at 28 bytes by the protocol. */
+const MEMO_MAX_BYTES = 28;
 
 export interface BatchPaymentEntry {
   destinationPublicKey: string;
@@ -59,6 +67,34 @@ function assertValidBatch(
   if (payments.length > MAX_BATCH_PAYMENTS) {
     rejectPayment(
       action,
+/**
+ * Resolves the asset for one batch entry. `XLM` means the native asset and
+ * needs no issuer; anything else requires one, so a missing issuer is
+ * reported here rather than coming back from Horizon as a bare `op_no_issuer`.
+ */
+function resolveAsset(assetCode: string, assetIssuer: string, operation: string): Asset {
+  if (assetCode === 'XLM') {
+    return Asset.native();
+  }
+  if (!assetIssuer) {
+    throw invalidInput(operation, `an asset issuer is required for ${assetCode}`);
+  }
+  assertPublicKey(operation, 'assetIssuer', assetIssuer);
+  return new Asset(assetCode, assetIssuer);
+}
+
+function assertValidBatch(
+  payments: BatchPaymentEntry[],
+  memo: string | undefined,
+  operation: string
+): void {
+  if (payments.length === 0) {
+    throw invalidInput(operation, 'at least one payment is required');
+  }
+
+  if (payments.length > MAX_BATCH_PAYMENTS) {
+    throw invalidInput(
+      operation,
       `a transaction carries at most ${MAX_BATCH_PAYMENTS} payments, but ${payments.length} were given`
     );
   }
@@ -67,6 +103,17 @@ function assertValidBatch(
     // Name the offending entry: in a batch of fifty, "the amount is invalid" is
     // not enough to act on.
     assertValidPayment({ ...payment, memo }, `${action} entry ${index + 1}`);
+  if (memo !== undefined && Buffer.byteLength(memo, 'utf8') > MEMO_MAX_BYTES) {
+    throw invalidInput(operation, `memo must be ${MEMO_MAX_BYTES} bytes or fewer`);
+  }
+
+  payments.forEach((payment, index) => {
+    // Name the offending entry: in a batch of fifty, "the amount is invalid" is
+    // not enough to act on.
+    const entryOperation = `${operation} entry ${index + 1}`;
+    assertPublicKey(entryOperation, 'destinationPublicKey', payment.destinationPublicKey);
+    assertPositiveAmount(entryOperation, 'amount', payment.amount);
+    resolveAsset(payment.assetCode, payment.assetIssuer, entryOperation);
   });
 }
 
@@ -75,6 +122,7 @@ function buildBatchTransaction(
   payments: BatchPaymentEntry[],
   memo: string | undefined,
   action: string
+  operation: string
 ): Transaction {
   const builder = new TransactionBuilder(account, {
     fee: BASE_FEE,
@@ -86,6 +134,11 @@ function buildBatchTransaction(
       Operation.payment({
         destination: payment.destinationPublicKey,
         asset: resolveAsset(payment.assetCode, payment.assetIssuer, `${action} entry ${index + 1}`),
+        asset: resolveAsset(
+          payment.assetCode,
+          payment.assetIssuer,
+          `${operation} entry ${index + 1}`
+        ),
         amount: payment.amount,
       })
     );
@@ -145,6 +198,14 @@ export async function buildBatchPayment(params: BuildBatchPaymentParams): Promis
   return withStellarErrors(action, async () => {
     const account = await StellarService.loadAccount(senderPublicKey);
     return buildBatchTransaction(account, payments, memo, action).toXDR();
+  const operation = 'Batch payment build';
+  const { senderPublicKey, payments, memo } = params;
+
+  assertValidBatch(payments, memo, operation);
+
+  return withStellarErrors(operation, async () => {
+    const account = await StellarService.loadAccount(senderPublicKey);
+    return buildBatchTransaction(account, payments, memo, operation).toXDR();
   });
 }
 
@@ -167,6 +228,12 @@ export async function submitBatchPayment(params: SubmitBatchPaymentParams): Prom
     rejectPayment(action, 'the sender secret is not a valid Stellar secret key');
   }
 
+  const operation = 'Batch payment';
+  const { senderSecret, payments, memo } = params;
+
+  assertValidBatch(payments, memo, operation);
+
+  const senderKeypair = parseSecretKey(operation, 'senderSecret', senderSecret);
   const senderPublicKey = senderKeypair.publicKey();
 
   let hash: string;
@@ -174,6 +241,9 @@ export async function submitBatchPayment(params: SubmitBatchPaymentParams): Prom
     hash = await withStellarErrors(action, async () => {
       const account = await StellarService.loadAccount(senderPublicKey);
       const transaction = buildBatchTransaction(account, payments, memo, action);
+    hash = await withStellarErrors(operation, async () => {
+      const account = await StellarService.loadAccount(senderPublicKey);
+      const transaction = buildBatchTransaction(account, payments, memo, operation);
       transaction.sign(senderKeypair);
 
       const result = await StellarService.submitTransaction(transaction);
