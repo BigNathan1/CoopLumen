@@ -97,6 +97,19 @@ export async function buildUnsignedPayment(params: BuildUnsignedPaymentParams): 
   return applyTimeBounds(txBuilder, timeBounds).build().toXDR();
 }
 
+/**
+ * Submits an already-signed transaction envelope to Horizon.
+ *
+ * The envelope is signed by the client's wallet, so no secret key reaches the
+ * server. The XDR is parsed against the configured network passphrase before
+ * submission, which rejects an envelope built for a different network.
+ *
+ * @param xdr - Base64-encoded signed transaction envelope.
+ * @returns The hash of the transaction Horizon accepted.
+ * @throws {StellarError} when the envelope is malformed, was built for another
+ * network, or Horizon rejects the submission; the mapped error carries an
+ * actionable message and the HTTP status a route handler should answer with.
+ */
 export async function submitSignedXdr(xdr: string): Promise<string> {
   const network = StellarService.getNetwork();
   const tx = new Transaction(xdr, network);
