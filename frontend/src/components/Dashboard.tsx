@@ -9,6 +9,7 @@ import { BalancePanel } from './BalancePanel';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { Button } from './ui/Button';
 import styles from './Dashboard.module.css';
+import { EmptyState } from './ui/EmptyState';
 
 /** Placeholder cards shown in the grid while communities are loading. */
 const SKELETON_CARD_COUNT = 6;
@@ -72,16 +73,19 @@ export function Dashboard() {
           )}
 
           {!isLoading && !error && communities?.length === 0 && (
-            <div className={styles.state}>
-              No communities yet.{' '}
-              <a
-                href="https://github.com/yourname/cooplumen#quickstart"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Create the first one
-              </a>
-            </div>
+            <EmptyState
+              title="No communities yet"
+              message="Create the first community to get started."
+              action={
+                <a
+                  href="https://github.com/yourname/cooplumen#quickstart"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Create the first one
+                </a>
+              }
+            />
           )}
 
           {!isLoading && (
