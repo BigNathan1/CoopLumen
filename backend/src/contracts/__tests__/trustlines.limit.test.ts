@@ -78,6 +78,8 @@ describe('getTrustlineLimit', () => {
       await expect(getTrustlineLimit(account, assetCode, issuer)).rejects.toMatchObject({
         code: 'INVALID_INPUT',
         httpStatus: 400,
+        name: 'StellarError',
+        status: 400,
         message: expect.stringMatching(expected) as unknown as string,
       });
 
@@ -229,6 +231,32 @@ describe('getTrustlineLimit', () => {
       expect(logger.error).toHaveBeenCalledWith(
         'Stellar operation failed',
         expect.objectContaining({ operation: 'getTrustlineLimit', code: 'HORIZON_UNAVAILABLE' })
+    it('maps a missing account to a 404 rather than returning null', async () => {
+      mockLoadAccount.mockRejectedValueOnce({ response: { status: 404 } });
+
+      await expect(getTrustlineLimit(publicKey, 'ECO', assetIssuer)).rejects.toMatchObject({
+        name: 'StellarError',
+        status: 404,
+      });
+    });
+
+    it('maps a rate-limited read to a 429', async () => {
+      mockLoadAccount.mockRejectedValueOnce({ response: { status: 429 } });
+
+      await expect(getTrustlineLimit(publicKey, 'ECO', assetIssuer)).rejects.toMatchObject({
+        status: 429,
+      });
+    });
+
+    it('maps an upstream failure to a 502 and logs it', async () => {
+      mockLoadAccount.mockRejectedValueOnce({ response: { status: 503 } });
+
+      await expect(getTrustlineLimit(publicKey, 'ECO', assetIssuer)).rejects.toMatchObject({
+        status: 502,
+      });
+      expect(logger.error).toHaveBeenCalledWith(
+        'Stellar operation failed',
+        expect.objectContaining({ operation: 'getTrustlineLimit', status: 502 })
       );
     });
   });

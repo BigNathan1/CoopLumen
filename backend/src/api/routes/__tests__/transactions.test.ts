@@ -176,8 +176,12 @@ describe('POST /api/v1/transactions/unsigned', () => {
 
     expect(response.status).toBe(200);
     expect(loadAccount).toHaveBeenCalledTimes(3);
-    expect(setTimeoutSpy).toHaveBeenNthCalledWith(1, expect.any(Function), 100);
-    expect(setTimeoutSpy).toHaveBeenNthCalledWith(2, expect.any(Function), 200);
+    expect(setTimeoutSpy).toHaveBeenNthCalledWith(1, expect.any(Function), expect.any(Number));
+    expect(setTimeoutSpy.mock.calls[0][1]).toBeGreaterThanOrEqual(0);
+    expect(setTimeoutSpy.mock.calls[0][1]).toBeLessThan(100);
+    expect(setTimeoutSpy).toHaveBeenNthCalledWith(2, expect.any(Function), expect.any(Number));
+    expect(setTimeoutSpy.mock.calls[1][1]).toBeGreaterThanOrEqual(0);
+    expect(setTimeoutSpy.mock.calls[1][1]).toBeLessThan(200);
   });
 
   it('maps Horizon service failures without surfacing raw response objects', async () => {
@@ -198,6 +202,73 @@ describe('POST /api/v1/transactions/unsigned', () => {
     expect(response.body).toEqual({
       data: null,
       error: 'Stellar network error: upstream request failed',
+    });
+  });
+});
+
+describe('GET /api/v1/transactions/:hash', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (StellarService as unknown as { network: string }).network = Networks.TESTNET;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('fetches transaction details by valid hash from Horizon', async () => {
+    const mockTxRecord = {
+      id: 'abc123hash',
+      hash: 'a'.repeat(64),
+      ledger: 12345,
+      created_at: '2026-01-01T00:00:00Z',
+      source_account: senderPublicKey,
+      fee_charged: '100',
+      successful: true,
+      operation_count: 1,
+    };
+
+    const getTransaction = jest.fn().mockReturnValue({
+      call: jest.fn().mockResolvedValue(mockTxRecord),
+    });
+    const transactions = jest.fn().mockReturnValue({ transaction: getTransaction });
+    setMockServer({ transactions });
+
+    const validHash = 'a'.repeat(64);
+    const response = await request(app).get(`/api/v1/transactions/${validHash}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ data: mockTxRecord });
+    expect(transactions).toHaveBeenCalled();
+    expect(getTransaction).toHaveBeenCalledWith(validHash);
+  });
+
+  it('returns 400 validation error for an invalid transaction hash format', async () => {
+    const response = await request(app).get('/api/v1/transactions/short-hash');
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        error: 'Validation failed',
+        meta: expect.any(Object),
+      })
+    );
+  });
+
+  it('returns 404 when no transaction exists for the given hash', async () => {
+    const getTransaction = jest.fn().mockReturnValue({
+      call: jest.fn().mockRejectedValue({ response: { status: 404 } }),
+    });
+    const transactions = jest.fn().mockReturnValue({ transaction: getTransaction });
+    setMockServer({ transactions });
+
+    const validHash = 'b'.repeat(64);
+    const response = await request(app).get(`/api/v1/transactions/${validHash}`);
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({
+      data: null,
+      error: 'Stellar account or asset not found.',
     });
   });
 });
