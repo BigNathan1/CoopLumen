@@ -9,6 +9,9 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- `Pagination` component (`frontend/src/components/ui/Pagination.tsx`) with URL query-param synchronization. The component renders prev/next buttons, numbered page buttons, and ellipsis for large page counts, all wired with `aria-label`, `aria-current`, and `disabled` states for keyboard and screen-reader accessibility. A `usePagination` hook (`frontend/src/hooks/usePagination.ts`) reads and writes the `page` search parameter via Next.js `useSearchParams`, clamping values to valid bounds and preserving other query params. Supports both URL-synced (default) and controlled modes. Styles use design tokens from `globals.css` and support dark mode through token resolution (#198).
+
 ### Security
 - Wallet sign-in and per-resource authorization for the API. `POST /api/v1/auth/challenge` and `POST /api/v1/auth/verify` implement a challenge-response flow: the client requests a one-time message, signs it with Freighter (`signMessage`), and exchanges the signature for an HMAC-signed session token (`backend/src/api/utils/sessionToken.ts`, no external JWT dependency). New `requireAuth` and `requireCommunityRole` middleware (`backend/src/api/middleware/auth.ts`) enforce this on every mutating loan and community route: creating/disbursing/repaying/defaulting/cancelling a loan now requires the caller to be its borrower or lender, and deleting a community, changing a member's role, or adding/removing a member now requires the caller to hold an admin (or treasurer, for settings/avatar) role in that community. Community creation now auto-adds the creator as its first admin member.
 
