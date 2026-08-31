@@ -132,6 +132,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Moved the `Button`, `Input`, `Select`, `Textarea` and `AmountInput` unit tests from `frontend/src/components/__tests__/` into `frontend/src/components/ui/__tests__/`, co-locating each design-system primitive's tests with the rest of `frontend/src/components/ui/` instead of the general component test folder. No test content changed beyond one relative import path (#210).
 - Replaced `express-validator` chains with Zod schemas for `/api/v1/tokens/issue` and `/api/v1/tokens/trustline` bodies, matching the validation convention used across the rest of the API
 - `POST /api/v1/tokens/issue`, `POST /api/v1/tokens/burn`, and `POST /api/v1/tokens/trustline` now return `{ data: { txHash } }` instead of a bare `{ txHash }`, matching the API's `{ data, meta?, error? }` response envelope
 - The repayment-overflow `400` on `POST /api/v1/loans/:id/repay` and the validation-failure `400` from `validateBody` now nest their extra fields (`outstanding`, `errors`) under `meta` instead of alongside `error` at the top level
