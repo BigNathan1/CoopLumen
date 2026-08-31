@@ -13,6 +13,8 @@
  *   maps a bubbled-up `StellarError` exactly as it maps a raw Horizon error.
  */
 
+import { logger } from '../utils/logger';
+
 /** Result codes as returned by Horizon for a failed transaction submission. */
 export interface HorizonResultCodes {
   transaction?: string;
@@ -55,6 +57,9 @@ export class StellarError extends Error {
     }
     if (options.cause !== undefined) {
       // `cause` landed in ES2022; assign it defensively so the ES2020 build keeps it.
+      (this as { cause?: unknown }).cause = options.cause;
+    }
+    // Required for `instanceof` to hold when the class is transpiled to ES5/ES2020.
       (this as { cause?: unknown }).cause = options.cause;
     }
     // Required for `instanceof` to hold when the class is transpiled to ES5/ES2020.
@@ -230,5 +235,172 @@ export async function withStellarErrors<T>(action: string, fn: () => Promise<T>)
     return await fn();
   } catch (err) {
     throw toStellarError(err, action);
+  op_bad_auth: 'the operation is missing a required signature',
+};
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+/**
+ * Pulls the Horizon response off an SDK `NetworkError`. Structural rather than
+ * `instanceof` based, because Horizon errors reach us through several SDK
+ * subclasses and, in tests, as plain objects of the same shape.
+ */
+export function getHorizonResponse(err: unknown): HorizonErrorResponse | undefined {
+  return asRecord(asRecord(err)?.response);
+}
+
+/** Extracts `extras.result_codes` from a Horizon error body, when present. */
+export function extractResultCodes(err: unknown): HorizonResultCodes | undefined {
+  const extras = asRecord(asRecord(getHorizonResponse(err)?.data)?.extras);
+  const codes = asRecord(extras?.result_codes);
+  if (!codes) {
+    return undefined;
+  }
+
+  const transaction = typeof codes.transaction === 'string' ? codes.transaction : undefined;
+  const operations = Array.isArray(codes.operations)
+    ? codes.operations.filter((code): code is string => typeof code === 'string')
+    : undefined;
+
+  if (transaction === undefined && operations === undefined) {
+    return undefined;
+  }
+  return { ...(transaction && { transaction }), ...(operations && { operations }) };
+}
+
+/** The first operation code that actually failed, ignoring the successful ones. */
+function firstFailedOperation(operations?: string[]): string | undefined {
+  return operations?.find((code) => code !== 'op_success' && code !== '');
+}
+
+function describeResultCodes(codes: HorizonResultCodes): string | undefined {
+  const failedOperation = firstFailedOperation(codes.operations);
+  if (failedOperation) {
+    const detail =
+      OPERATION_MESSAGES[failedOperation] ?? 'the operation was rejected by the network';
+    return `${detail} (${failedOperation})`;
+  }
+  if (codes.transaction && codes.transaction !== 'tx_success') {
+    const detail = TRANSACTION_MESSAGES[codes.transaction] ?? 'the transaction was rejected';
+    return `${detail} (${codes.transaction})`;
+  }
+  return undefined;
+}
+
+/** Maps the upstream Horizon status onto the status this API answers with. */
+function mapStatus(horizonStatus: number | undefined): number {
+  switch (horizonStatus) {
+    case 400:
+      return 400;
+    case 404:
+      return 404;
+    case 429:
+      return 429;
+    default:
+      // 5xx responses, timeouts and transport failures are upstream problems
+      // rather than the caller's, so they surface as a gateway error.
+      return 502;
+  }
+}
+
+/**
+ * Normalises anything thrown by the Stellar SDK or Horizon into a `StellarError`.
+ *
+ * @param err    The value caught from an SDK call.
+ * @param action Human-readable action used as the message prefix, e.g. `'Payment'`.
+ */
+export function toStellarError(err: unknown, action: string): StellarError {
+  if (err instanceof StellarError) {
+    return err;
+  }
+
+  const response = getHorizonResponse(err);
+  const resultCodes = extractResultCodes(err);
+  const status = mapStatus(response?.status);
+  const base = { status, ...(response && { response }), cause: err };
+
+  if (response?.status === 404) {
+    return new StellarError(
+      `${action} failed: the account was not found on this Stellar network. Fund the account before using it.`,
+      base
+    );
+  }
+
+  if (response?.status === 429) {
+    return new StellarError(
+      `${action} failed: Horizon rate limit exceeded. Retry after a short delay.`,
+      base
+    );
+  }
+
+  const detail = resultCodes ? describeResultCodes(resultCodes) : undefined;
+  if (detail) {
+    return new StellarError(`${action} failed: ${detail}`, { ...base, resultCodes });
+  }
+
+  if (response) {
+    const data = asRecord(response.data);
+    const summary =
+      typeof data?.detail === 'string'
+        ? data.detail
+        : typeof data?.title === 'string'
+          ? data.title.toLowerCase()
+          : (response.statusText ?? 'Horizon returned an error');
+    return new StellarError(`${action} failed: ${summary}`, {
+      ...base,
+      ...(resultCodes && { resultCodes }),
+    });
+  }
+
+  const message = err instanceof Error ? err.message : String(err);
+  return new StellarError(`${action} failed: ${message}`, { status: 502, cause: err });
+}
+
+/**
+ * Wraps a Horizon call so any failure comes back as a `StellarError`, keeping
+ * call sites free of repeated try/catch blocks.
+ */
+export async function withStellarErrors<T>(action: string, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    throw toStellarError(err, action);
+  }
+}
+
+/**
+ * Builds a pre-flight validation failure that never reaches Horizon — for a
+ * malformed key, asset code, or amount caught before the network call it
+ * would otherwise fail as an opaque `op_malformed`.
+ */
+export function invalidInput(action: string, detail: string): StellarError {
+  return new StellarError(`${action} failed: ${detail}`, { status: 400 });
+}
+
+/**
+ * Like {@link withStellarErrors}, but also logs the failure with the given
+ * context — for call sites where a route handler or caller needs a structured
+ * log line (public identifiers, amounts, ...) alongside the mapped error.
+ * The context should never include secrets.
+ */
+export async function withMappedHorizonError<T>(
+  action: string,
+  context: Record<string, unknown>,
+  fn: () => Promise<T>
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    const mapped = toStellarError(err, action);
+    logger.error('Stellar operation failed', {
+      ...context,
+      message: mapped.message,
+      status: mapped.status,
+    });
+    throw mapped;
   }
 }

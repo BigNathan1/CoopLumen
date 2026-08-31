@@ -1,0 +1,49 @@
+.spinner {
+  animation: spin 0.7s linear infinite;
+  border: 2px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: var(--radius-circle);
+  border-top-color: currentColor;
+  color: inherit;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* Sizes */
+
+.sm {
+  height: 14px;
+  width: 14px;
+}
+
+.md {
+  height: 20px;
+  width: 20px;
+}
+
+.lg {
+  height: 32px;
+  width: 32px;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2s;
+  }
+}
+
+.srOnly {
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}

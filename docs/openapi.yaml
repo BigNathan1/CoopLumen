@@ -1,3 +1,8 @@
+/api/v1/transactions/submit:
+  post:
+    tags: [Transactions]
+    summary: Submit a signed Stellar transaction
+    description: Accepts a base64-encoded signed XDR string (typically from Freighter) and submits it to Horizon. Maps Horizon errors to actionable client messages.
 openapi: 3.0.3
 info:
   title: CoopLumen API
@@ -479,6 +484,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/transactions/submit:
+    post:
+      tags: [Transactions]
+      summary: Submit a signed Stellar transaction
+      description: Accepts a base64-encoded signed XDR string (typically from Freighter) and submits it to Horizon. Maps Horizon errors to actionable client messages.
   /api/v1/trustlines/build:
     post:
       tags: [Transactions, Tokens]
@@ -487,6 +497,87 @@ paths:
         Loads the account and its current sequence number from Horizon,
         then returns a single-operation changeTrust transaction XDR for wallet signing.
         The transaction is not signed or submitted by this endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [xdr]
+              properties:
+                xdr:
+                  type: string
+                  description: The signed transaction envelope XDR
+                  example: 'AAAAAgAAA...'
+      responses:
+        '200':
+          description: Transaction successfully submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      hash: { type: string }
+                      ledger: { type: integer }
+                      status: { type: string }
+                  meta:
+                    type: object
+                    properties:
+                      timestamp: { type: string }
+        '400':
+          description: Validation error or Horizon transaction rejection (e.g., bad sequence, insufficient funds)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      message: { type: string }
+                      rawCode: { type: string }
+                      details: { type: object }
+
+  /api/v1/transactions/{communityId}:
+    get:
+      tags: [Transactions]
+      summary: Get community transaction history
+      description: Returns a paginated transaction-history audit trail for a specific community, ordered newest first.
+      parameters:
+        - $ref: '#/components/parameters/CommunityId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A paginated list of transactions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/BalanceHistoryEntry' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '500':
+          description: Audit history could not be queried
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/tokens/build-trustline:
+    post:
+      tags: [Tokens]
+      summary: Build an unsigned trustline transaction for client-side signing
+      description: >-
+        Returns a base64-encoded XDR envelope establishing a trustline to the
+        given asset. The wallet signs it locally and submits it through
+        POST /api/v1/tokens/submit, so no secret key reaches the server.
       requestBody:
         required: true
         content:
@@ -639,77 +730,15 @@ paths:
           application/json:
             schema:
               type: object
-              required: [accountSecret, assetCode, assetIssuer]
+              required: [xdr]
               properties:
-                accountSecret: { type: string }
-                assetCode: { type: string }
-                assetIssuer: { $ref: '#/components/schemas/StellarKey' }
-                limit: { type: string }
-      responses:
-        '201':
-          description: Trustline established
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TokenTransferResponse'
-        '400': { $ref: '#/components/responses/ValidationError' }
-        '502':
-          description: Horizon is temporarily unavailable
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/v1/tokens/holders/{assetCode}/{issuer}:
-    parameters:
-      - name: assetCode
-        in: path
-        required: true
-        schema: { type: string, pattern: '^[A-Za-z0-9]{1,12}$' }
-      - name: issuer
-        in: path
-        required: true
-        schema: { $ref: '#/components/schemas/StellarKey' }
-    get:
-      tags: [Tokens]
-      summary: List accounts holding a token
-      description: Backed by Horizon's asset endpoint.
+                xdr:
+                  type: string
+                  description: The signed transaction envelope XDR
+                  example: 'AAAAAgAAA...'
       responses:
         '200':
-          description: Accounts holding the asset
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        account: { $ref: '#/components/schemas/StellarKey' }
-                        balance: { type: string }
-        '400': { $ref: '#/components/responses/ValidationError' }
-        '502':
-          description: Horizon is temporarily unavailable
-
-  /api/v1/tokens/supply/{assetCode}/{issuer}:
-    parameters:
-      - name: assetCode
-        in: path
-        required: true
-        schema: { type: string, pattern: '^[A-Za-z0-9]{1,12}$' }
-      - name: issuer
-        in: path
-        required: true
-        schema: { $ref: '#/components/schemas/StellarKey' }
-    get:
-      tags: [Tokens]
-      summary: Get circulating supply
-      description: Returns the circulating supply Horizon reports for the asset.
-      responses:
-        '200':
-          description: Circulating supply
+          description: Transaction successfully submitted
           content:
             application/json:
               schema:
@@ -718,255 +747,26 @@ paths:
                   data:
                     type: object
                     properties:
-                      assetCode: { type: string }
-                      issuer: { $ref: '#/components/schemas/StellarKey' }
-                      supply: { type: string }
-        '400': { $ref: '#/components/responses/ValidationError' }
-        '502':
-          description: Horizon is temporarily unavailable
-
-  /api/v1/tokens/history/{assetCode}/{issuer}:
-    parameters:
-      - name: assetCode
-        in: path
-        required: true
-        schema: { type: string, pattern: '^[A-Za-z0-9]{1,12}$' }
-      - name: issuer
-        in: path
-        required: true
-        schema: { $ref: '#/components/schemas/StellarKey' }
-    get:
-      tags: [Tokens]
-      summary: Get recent payment activity for a token
-      description: >
-        Horizon has no dedicated "payments for an asset" endpoint, so this
-        proxies the issuer account's payment history filtered to the asset.
-      responses:
-        '200':
-          description: Recent payment activity
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items: { type: object }
-        '400': { $ref: '#/components/responses/ValidationError' }
-
-  /api/v1/communities/{id}:
-    parameters:
-      - $ref: '#/components/parameters/CommunityId'
-    get:
-      tags: [Communities]
-      summary: Get a community
-      description: Enriched with member count, token list, and statistics.
-      responses:
-        '200':
-          description: Community detail
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data: { $ref: '#/components/schemas/CommunityDetail' }
-        '404': { $ref: '#/components/responses/NotFound' }
-    put:
-      tags: [Communities]
-      summary: Update a community
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/UpdateCommunity' }
-      responses:
-        '200':
-          description: Updated community
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409':
-          description: Community name already taken
-    delete:
-      tags: [Communities]
-      summary: Soft-delete a community
-      responses:
-        '200':
-          description: Community soft-deleted
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  /api/v1/communities/{id}/avatar:
-    parameters:
-      - $ref: '#/components/parameters/CommunityId'
-    post:
-      tags: [Communities]
-      summary: Set community avatar URL
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [avatarUrl]
-              properties:
-                avatarUrl:
-                  type: string
-                  format: uri
-                  maxLength: 2048
-      responses:
-        '200':
-          description: Avatar updated
-        '400': { $ref: '#/components/responses/ValidationError' }
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  /api/v1/communities/{id}/members:
-    parameters:
-      - $ref: '#/components/parameters/CommunityId'
-    get:
-      tags: [Members]
-      summary: List members
-      description: Paginated member list for a community, optionally filtered by role.
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Limit'
-        - name: role
-          in: query
-          schema:
-            type: string
-            enum: [admin, treasurer, member, observer]
-          description: Restricts the list to a single role. Unrecognized values are ignored.
-      responses:
-        '200':
-          description: A page of members
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/Member' }
-                  meta: { $ref: '#/components/schemas/PageMeta' }
-    post:
-      tags: [Members]
-      summary: Add a member
-      description: >
-        Adds a member to the community. Re-adding a previously removed
-        (soft-deleted) address reactivates it with the given role instead of
-        failing on the unique constraint.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [stellarAddress]
-              properties:
-                stellarAddress: { $ref: '#/components/schemas/StellarKey' }
-                role:
-                  type: string
-                  enum: [admin, treasurer, member, observer]
-                  default: member
-      responses:
-        '201':
-          description: Member added
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data: { $ref: '#/components/schemas/Member' }
-        '400': { $ref: '#/components/responses/ValidationError' }
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  /api/v1/communities/{id}/members/{address}:
-    parameters:
-      - $ref: '#/components/parameters/CommunityId'
-      - name: address
-        in: path
-        required: true
-        schema: { $ref: '#/components/schemas/StellarKey' }
-        description: Stellar public key of the member. Rejected with 400 if not a structurally valid 56-character StrKey.
-    get:
-      tags: [Members]
-      summary: Get a member
-      responses:
-        '200':
-          description: Member detail
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data: { $ref: '#/components/schemas/Member' }
-        '400':
-          description: The address path parameter is not a structurally valid Stellar StrKey
-        '404': { $ref: '#/components/responses/NotFound' }
-    put:
-      tags: [Members]
-      summary: Update a member's role
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [role]
-              properties:
-                role:
-                  type: string
-                  enum: [admin, treasurer, member, observer]
-      responses:
-        '200':
-          description: Member updated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data: { $ref: '#/components/schemas/Member' }
-        '400':
-          description: >
-            The role in the request body failed validation, or the address
-            path parameter is not a structurally valid Stellar StrKey
-        '404': { $ref: '#/components/responses/NotFound' }
-    delete:
-      tags: [Members]
-      summary: Remove a member
-      description: Soft-removes a member; the address can be re-added later via POST.
-      responses:
-        '200':
-          description: Member soft-removed
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
+                      hash: { type: string }
+                      ledger: { type: integer }
+                      status: { type: string }
+                  meta:
                     type: object
                     properties:
-                      stellar_address: { $ref: '#/components/schemas/StellarKey' }
-                      removed: { type: boolean, example: true }
+                      timestamp: { type: string }
         '400':
-          description: The address path parameter is not a structurally valid Stellar StrKey
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  /api/v1/communities/{id}/treasury:
-    parameters:
-      - $ref: '#/components/parameters/CommunityId'
-    get:
-      tags: [Treasury]
-      summary: Get treasury balances
-      description: Returns the issuer account's on-chain Stellar balances, fetched live from Horizon.
-      responses:
-        '200':
-          description: Treasury balances
+          description: Validation error or Horizon transaction rejection (e.g., bad sequence, insufficient funds)
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  data:
+                  error:
                     type: object
                     properties:
+                      message: { type: string }
+                      rawCode: { type: string }
+                      details: { type: object }
                       account: { $ref: '#/components/schemas/StellarKey' }
                       balances:
                         type: array
@@ -978,6 +778,54 @@ paths:
                             asset_issuer: { type: string }
                             balance: { type: string }
         '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/tokens:
+    get:
+      tags: [Tokens]
+      summary: List all tokens (Admin)
+      description: >
+        Admin endpoint to list all tokens across all communities.
+        Requires admin authentication. Supports pagination and sorting.
+      security:
+        - AdminAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [created_at, name, asset_code, total_supply]
+            default: created_at
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Paginated list of tokens across all communities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/TokenWithCommunity' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Admin access required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /api/v1/tokens/issue:
     post:
@@ -1284,17 +1132,17 @@ components:
         balance:
           type: string
           description: Current balance of the asset held by the account
-          example: "10.0000000"
+          example: '10.0000000'
         limit:
           type: string
           description: Maximum amount of the asset the account is willing to hold
-          example: "922337203685.4775807"
+          example: '922337203685.4775807'
         buying_liabilities:
           type: string
-          example: "0.0000000"
+          example: '0.0000000'
         selling_liabilities:
           type: string
-          example: "0.0000000"
+          example: '0.0000000'
         last_modified_ledger:
           type: integer
           description: Ledger sequence when the trustline was last modified
@@ -1315,22 +1163,22 @@ components:
         lastLedger:
           type: string
           description: Sequence number of the most recent ledger used for fee calculation
-          example: "4372364"
+          example: '4372364'
         ledgerCapacityUsage:
           type: string
           description: Fraction of ledger capacity used in the recent ledger sample (0.0–1.0)
-          example: "0.07"
+          example: '0.07'
         feeCharged:
           type: object
           required: [min, mode, p10, p50, p90, p95, p99]
           properties:
-            min:  { type: string, description: Minimum fee charged, example: "100" }
-            mode: { type: string, description: Most common fee charged, example: "100" }
-            p10:  { type: string, description: 10th percentile fee charged, example: "100" }
-            p50:  { type: string, description: 50th percentile (median) fee charged, example: "100" }
-            p90:  { type: string, description: 90th percentile fee charged, example: "95947" }
-            p95:  { type: string, description: 95th percentile fee charged, example: "154834" }
-            p99:  { type: string, description: 99th percentile fee charged, example: "706514" }
+            min: { type: string, description: Minimum fee charged, example: '100' }
+            mode: { type: string, description: Most common fee charged, example: '100' }
+            p10: { type: string, description: 10th percentile fee charged, example: '100' }
+            p50: { type: string, description: 50th percentile (median) fee charged, example: '100' }
+            p90: { type: string, description: 90th percentile fee charged, example: '95947' }
+            p95: { type: string, description: 95th percentile fee charged, example: '154834' }
+            p99: { type: string, description: 99th percentile fee charged, example: '706514' }
     BalanceLine:
       type: object
       properties:
@@ -1641,10 +1489,18 @@ components:
         asset_issuer: { $ref: '#/components/schemas/StellarKey' }
         distributor_address: { $ref: '#/components/schemas/StellarKey' }
         total_supply: { type: string }
+        name: { type: string, nullable: true }
         description: { type: string, nullable: true }
         icon_url: { type: string, nullable: true }
+        decimals: { type: integer, minimum: 0, maximum: 7, nullable: true }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    TokenWithCommunity:
+      allOf:
+        - $ref: '#/components/schemas/Token'
+        - type: object
+          properties:
+            community_name: { type: string, nullable: true }
     BurnToken:
       type: object
       required: [asset_code, asset_issuer]
@@ -1689,11 +1545,15 @@ components:
       required: [issuerSecret, assetCode, distributorPublicKey, amount]
       properties:
         communityId: { type: string, format: uuid }
-        issuerSecret: { type: string }
-        assetCode: { type: string, minLength: 1, maxLength: 12 }
+        issuerSecret: { type: string, pattern: '^S[A-Z2-7]{55}$' }
+        assetCode: { type: string, minLength: 1, maxLength: 12, pattern: '^[A-Za-z0-9]+$' }
         distributorPublicKey: { $ref: '#/components/schemas/StellarKey' }
-        amount: { type: string }
+        amount: { type: string, pattern: '^(?:0|[1-9]\d*)(?:\.\d{1,7})?$' }
         memo: { type: string, maxLength: 28 }
+        name: { type: string, minLength: 1, maxLength: 64 }
+        description: { type: string, maxLength: 500 }
+        iconUrl: { type: string, format: uri }
+        decimals: { type: integer, minimum: 0, maximum: 7, default: 7 }
     ErrorResponse:
       type: object
       required: [data, error]
@@ -1857,4 +1717,11 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/AccountDetails'
-
+  securitySchemes:
+    AdminAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Admin authentication using JWT tokens. 
+        Currently a placeholder - actual implementation pending.

@@ -1,0 +1,112 @@
+.description {
+  margin-bottom: 24px;
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.buttonGroup {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.cancelButton {
+  padding: 10px 20px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text);
+  border-radius: calc(var(--radius) / 2);
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  flex: 1;
+  max-width: 140px;
+}
+
+.cancelButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  border-color: var(--color-primary);
+}
+
+.cancelButton:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.cancelButton:active:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+
+.cancelButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.confirmButton {
+  padding: 10px 20px;
+  border: none;
+  background: var(--color-error);
+  color: white;
+  border-radius: calc(var(--radius) / 2);
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  flex: 1;
+  max-width: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.confirmButton:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-error) 110%, black 8%);
+  box-shadow: 0 2px 8px rgba(225, 112, 85, 0.3);
+}
+
+.confirmButton:focus {
+  outline: 2px solid var(--color-error);
+  outline-offset: 2px;
+}
+
+.confirmButton:active:not(:disabled) {
+  background: color-mix(in srgb, var(--color-error) 120%, black 12%);
+}
+
+.confirmButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 480px) {
+  .buttonGroup {
+    flex-direction: column-reverse;
+    gap: 10px;
+  }
+
+  .cancelButton,
+  .confirmButton {
+    max-width: none;
+    width: 100%;
+  }
+}
