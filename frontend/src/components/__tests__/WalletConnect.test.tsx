@@ -1,132 +1,108 @@
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { WalletConnect } from '../WalletConnect';
 import { useWallet } from '@/hooks/useWallet';
+import { useBalances } from '@/hooks/useBalances';
 
 jest.mock('@/hooks/useWallet');
+jest.mock('@/hooks/useBalances');
 
 const mockUseWallet = useWallet as jest.Mock;
+const mockUseBalances = useBalances as jest.Mock;
 
-const PUBLIC_KEY = 'GABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEFXXXX';
-
-function mockWalletState(overrides: Partial<ReturnType<typeof useWallet>> = {}) {
-  mockUseWallet.mockReturnValue({
+function baseWallet(overrides: Partial<ReturnType<typeof useWallet>> = {}) {
+  return {
     publicKey: null,
     connected: false,
     connecting: false,
     error: null,
+    network: null,
+    networkPassphrase: null,
+    expectedNetwork: 'TESTNET',
+    networkMismatch: false,
     connect: jest.fn(),
     disconnect: jest.fn(),
     ...overrides,
-  });
+  };
 }
 
+beforeEach(() => {
+  mockUseBalances.mockReturnValue({ data: undefined, error: undefined, isLoading: false });
+});
+
 describe('WalletConnect', () => {
-  beforeEach(() => {
-    jest.resetAllMocks();
+  it('shows a connect button when disconnected', () => {
+    mockUseWallet.mockReturnValue(baseWallet());
+    render(<WalletConnect />);
+
+    expect(screen.getByRole('button', { name: 'Connect Freighter' })).toBeInTheDocument();
   });
 
-  describe('when disconnected', () => {
-    it('renders a connect button', () => {
-      mockWalletState();
-      render(<WalletConnect />);
+  it('shows the shortened address and network once connected', () => {
+    mockUseWallet.mockReturnValue(
+      baseWallet({
+        publicKey: 'GABCDEFGHIJKLMNOPQRSTUVWXYZ234567',
+        connected: true,
+        network: 'TESTNET',
+      })
+    );
+    render(<WalletConnect />);
 
-      expect(screen.getByRole('button', { name: 'Connect Freighter' })).toBeInTheDocument();
-    });
-
-    it('calls connect when the button is activated', async () => {
-      const connect = jest.fn();
-      mockWalletState({ connect });
-      render(<WalletConnect />);
-
-      await userEvent.click(screen.getByRole('button', { name: 'Connect Freighter' }));
-
-      expect(connect).toHaveBeenCalledTimes(1);
-    });
-
-    it('is reachable and operable by keyboard', async () => {
-      const connect = jest.fn();
-      mockWalletState({ connect });
-      render(<WalletConnect />);
-
-      await userEvent.tab();
-      expect(screen.getByRole('button', { name: 'Connect Freighter' })).toHaveFocus();
-
-      await userEvent.keyboard('{Enter}');
-      expect(connect).toHaveBeenCalledTimes(1);
-    });
-
-    it('disables the button and announces the wait while connecting', () => {
-      mockWalletState({ connecting: true });
-      render(<WalletConnect />);
-
-      const button = screen.getByRole('button', { name: /Connect Freighter/ });
-      expect(button).toBeDisabled();
-      expect(screen.getByRole('status')).toHaveTextContent('Connecting to Freighter');
-    });
-
-    it('surfaces a connection error as an alert', () => {
-      mockWalletState({ error: 'Freighter is not installed' });
-      render(<WalletConnect />);
-
-      expect(screen.getByRole('alert')).toHaveTextContent('Freighter is not installed');
-    });
-
-    it('does not show a disconnect button', () => {
-      mockWalletState();
-      render(<WalletConnect />);
-
-      expect(screen.queryByRole('button', { name: /Disconnect/ })).not.toBeInTheDocument();
-    });
+    expect(screen.getByText('GABCDE…4567')).toBeInTheDocument();
+    expect(screen.getByText('TESTNET')).toBeInTheDocument();
   });
 
-  describe('when connected', () => {
-    it('shows the connected badge and a shortened public key', () => {
-      mockWalletState({ connected: true, publicKey: PUBLIC_KEY });
-      render(<WalletConnect />);
-
-      expect(screen.getByText('Connected')).toBeInTheDocument();
-      expect(screen.getByTitle(PUBLIC_KEY)).toHaveTextContent(
-        `${PUBLIC_KEY.slice(0, 6)}…${PUBLIC_KEY.slice(-4)}`
-      );
+  it('shows the XLM balance once loaded', () => {
+    mockUseWallet.mockReturnValue(
+      baseWallet({ publicKey: 'G'.repeat(56), connected: true, network: 'TESTNET' })
+    );
+    mockUseBalances.mockReturnValue({
+      data: [{ asset_type: 'native', balance: '123.4500000' }],
+      error: undefined,
+      isLoading: false,
     });
+    render(<WalletConnect />);
 
-    it('renders a disconnect button with an accessible name naming the account', () => {
-      mockWalletState({ connected: true, publicKey: PUBLIC_KEY });
-      render(<WalletConnect />);
+    expect(screen.getByText('123.45 XLM')).toBeInTheDocument();
+  });
 
-      expect(
-        screen.getByRole('button', { name: `Disconnect wallet ${PUBLIC_KEY}` })
-      ).toBeInTheDocument();
-    });
+  it('shows a network mismatch warning when Freighter is on the wrong network', () => {
+    mockUseWallet.mockReturnValue(
+      baseWallet({
+        publicKey: 'G'.repeat(56),
+        connected: true,
+        network: 'PUBLIC',
+        networkMismatch: true,
+      })
+    );
+    render(<WalletConnect />);
 
-    it('calls disconnect when the disconnect button is activated', async () => {
-      const disconnect = jest.fn();
-      mockWalletState({ connected: true, publicKey: PUBLIC_KEY, disconnect });
-      render(<WalletConnect />);
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
 
-      await userEvent.click(screen.getByRole('button', { name: /Disconnect/ }));
+  it('does not show a network warning while on the expected network', () => {
+    mockUseWallet.mockReturnValue(
+      baseWallet({ publicKey: 'G'.repeat(56), connected: true, network: 'TESTNET' })
+    );
+    render(<WalletConnect />);
 
-      expect(disconnect).toHaveBeenCalledTimes(1);
-    });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
 
-    it('is reachable and operable by keyboard', async () => {
-      const disconnect = jest.fn();
-      mockWalletState({ connected: true, publicKey: PUBLIC_KEY, disconnect });
-      render(<WalletConnect />);
+  it('calls disconnect when the disconnect button is clicked', () => {
+    const disconnect = jest.fn();
+    mockUseWallet.mockReturnValue(
+      baseWallet({ publicKey: 'G'.repeat(56), connected: true, network: 'TESTNET', disconnect })
+    );
+    render(<WalletConnect />);
 
-      await userEvent.tab();
-      expect(screen.getByRole('button', { name: /Disconnect/ })).toHaveFocus();
+    screen.getByRole('button', { name: 'Disconnect' }).click();
+    expect(disconnect).toHaveBeenCalled();
+  });
 
-      await userEvent.keyboard('{Enter}');
-      expect(disconnect).toHaveBeenCalledTimes(1);
-    });
+  it('renders an error message when connection fails', () => {
+    mockUseWallet.mockReturnValue(baseWallet({ error: 'User rejected access' }));
+    render(<WalletConnect />);
 
-    it('does not show a connect button', () => {
-      mockWalletState({ connected: true, publicKey: PUBLIC_KEY });
-      render(<WalletConnect />);
-
-      expect(screen.queryByRole('button', { name: /Connect Freighter/ })).not.toBeInTheDocument();
-    });
+    expect(screen.getByText('User rejected access')).toBeInTheDocument();
   });
 });

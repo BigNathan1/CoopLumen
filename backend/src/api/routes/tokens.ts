@@ -16,7 +16,7 @@ import { StellarService } from '../../contracts/stellar';
 import { validateBody } from '../middleware/validate';
 import { idempotent } from '../middleware/idempotency';
 import { requireAdmin } from '../middleware/auth';
-import { tokenIssueLimiter } from '../middleware/rateLimit';
+import { tokenIssueLimiter, writeLimiter } from '../middleware/rateLimit';
 import {
   issueTokenSchema,
   trustlineTokenSchema,
@@ -346,6 +346,7 @@ tokenRouter.post(
 tokenRouter.post(
   '/trustline',
   requireAdmin,
+  writeLimiter,
   validateBody(trustlineTokenSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
