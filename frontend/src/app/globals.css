@@ -285,6 +285,117 @@ button {
   font-family: inherit;
 }
 
+/*
+ * A single visible focus ring for every interactive element. `:focus-visible`
+ * keeps it off for pointer users while guaranteeing keyboard users always see
+ * where they are.
+ */
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/*
+ * Responsive layout utilities.
+ *
+ * Mobile-first: the base rules describe the narrowest viewport and each
+ * breakpoint widens them.
+ */
+.container {
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding-inline: var(--container-gutter);
+}
+
+/*
+ * Column count resolves through a fallback chain, so a caller declares only the
+ * steps that differ from the one below:
+ *
+ *   <div class="grid" style="--grid-columns-md: 2; --grid-columns-lg: 3">
+ */
+.grid {
+  --grid-columns: var(--grid-columns-base);
+
+  display: grid;
+  gap: var(--grid-gap);
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+}
+
+/*
+ * The common case: as many equal columns as fit, with no count to maintain per
+ * breakpoint. `min()` keeps a single column from overflowing a narrow screen.
+ */
+.grid-auto {
+  display: grid;
+  gap: var(--grid-gap);
+  grid-template-columns: repeat(auto-fill, minmax(min(var(--grid-min-column), 100%), 1fr));
+}
+
+@media (min-width: 640px) {
+  :root {
+    --container-max: var(--container-max-sm);
+  }
+
+  .grid {
+    --grid-columns: var(--grid-columns-sm, var(--grid-columns-base));
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --container-max: var(--container-max-md);
+    --container-gutter: var(--space-6);
+  }
+
+  .grid {
+    --grid-columns: var(--grid-columns-md, var(--grid-columns-sm, var(--grid-columns-base)));
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --container-max: var(--container-max-lg);
+  }
+
+  .grid {
+    --grid-columns: var(
+      --grid-columns-lg,
+      var(--grid-columns-md, var(--grid-columns-sm, var(--grid-columns-base)))
+    );
+  }
+}
+
+@media (min-width: 1280px) {
+  :root {
+    --container-max: var(--container-max-xl);
+    --container-gutter: var(--space-8);
+  }
+
+  .grid {
+    --grid-columns: var(
+      --grid-columns-xl,
+      var(
+        --grid-columns-lg,
+        var(--grid-columns-md, var(--grid-columns-sm, var(--grid-columns-base)))
+      )
+    );
+  }
+}
+
+/*
+ * Ease the palette swap so toggling the theme does not read as a flash. Scoped
+ * to the properties that actually change, and dropped entirely for anyone who
+ * has asked for reduced motion.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  body,
+  body * {
+    transition:
+      background-color var(--theme-transition-duration) ease,
+      border-color var(--theme-transition-duration) ease,
+      color var(--theme-transition-duration) ease;
+  }
 
 .network-badge {
   display: inline-flex;
