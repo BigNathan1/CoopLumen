@@ -1,7 +1,7 @@
 import { createRef } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { AmountInput, sanitizeAmountInput } from '../ui/AmountInput';
+import { AmountInput, sanitizeAmountInput } from '../AmountInput';
 
 describe('sanitizeAmountInput', () => {
   it('passes an already-valid amount through unchanged', () => {

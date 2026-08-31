@@ -162,6 +162,50 @@ export async function issueAsset(params: IssueAssetParams): Promise<string> {
   return result.hash;
 }
 
+export interface BuildUnsignedIssueAssetParams {
+  issuerPublicKey: string;
+  assetCode: string;
+  distributorPublicKey: string;
+  amount: string;
+  memo?: MemoInput;
+}
+
+/**
+ * Builds an unsigned XDR transaction for issuing a community token, for
+ * client-side signing via Freighter. Mirrors issueAsset's transaction shape —
+ * a payment of newly-issued supply from the issuer to the distributor — but
+ * takes the issuer's public key instead of its secret, so the secret never
+ * reaches the server. Sign the returned XDR with the issuer's wallet and
+ * submit it through POST /api/v1/tokens/submit.
+ */
+export async function buildUnsignedIssueAsset(
+  params: BuildUnsignedIssueAssetParams
+): Promise<string> {
+  const { issuerPublicKey, assetCode, distributorPublicKey, amount, memo } = params;
+
+  const network = StellarService.getNetwork();
+  const account = await StellarService.loadAccount(issuerPublicKey);
+  const asset = new Asset(assetCode, issuerPublicKey);
+
+  const txBuilder = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: network,
+  }).addOperation(
+    Operation.payment({
+      destination: distributorPublicKey,
+      asset,
+      amount,
+    })
+  );
+
+  const builtMemo = buildMemo(memo);
+  if (builtMemo) {
+    txBuilder.addMemo(builtMemo);
+  }
+
+  return txBuilder.setTimeout(30).build().toXDR();
+}
+
 /**
  * Distributes tokens from the issuer to a distributor or holder account.
  * The destination account must already have a trustline for the asset.
