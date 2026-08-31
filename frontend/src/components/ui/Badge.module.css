@@ -1,0 +1,102 @@
+.badge {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  font-family: inherit;
+  font-weight: 600;
+  gap: var(--space-1);
+  justify-content: center;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+/* Sizes */
+
+.sm {
+  font-size: 0.6875rem;
+  padding: 2px 8px;
+}
+
+.md {
+  font-size: 0.75rem;
+  padding: 3px 10px;
+}
+
+.lg {
+  font-size: 0.8125rem;
+  padding: 4px 12px;
+}
+
+/* Variants */
+
+.success {
+  background: var(--color-success-subtle);
+  color: var(--color-success);
+  border-color: var(--color-success-subtle);
+}
+
+.warning {
+  background: var(--color-warning-subtle);
+  color: var(--color-warning);
+  border-color: var(--color-warning-subtle);
+}
+
+.error {
+  background: var(--color-error-subtle);
+  color: var(--color-error);
+  border-color: var(--color-error-subtle);
+}
+
+.info {
+  background: var(--color-info-subtle);
+  color: var(--color-info);
+  border-color: var(--color-info-subtle);
+}
+
+.neutral {
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+}
+
+/* Dot indicator */
+
+.dot {
+  border-radius: var(--radius-circle);
+  flex-shrink: 0;
+  height: 6px;
+  width: 6px;
+  background: currentColor;
+}
+
+.sm .dot {
+  height: 5px;
+  width: 5px;
+}
+
+.lg .dot {
+  height: 7px;
+  width: 7px;
+}
+
+/* Icon container */
+
+.icon {
+  align-items: center;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+/* Accessible text for screen readers */
+
+.srOnly {
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}

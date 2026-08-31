@@ -1,0 +1,134 @@
+.wrapper {
+  display: inline-flex;
+  position: relative;
+}
+
+/* Fallback trigger when children is not an element (e.g. plain text). */
+.fallbackTrigger {
+  display: inline-flex;
+}
+
+.fallbackTrigger:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+.tooltip {
+  background: var(--color-text);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-inverse);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.4;
+  max-width: 240px;
+  padding: var(--space-1) var(--space-2);
+  position: absolute;
+  text-align: left;
+  white-space: normal;
+  word-wrap: break-word;
+  z-index: var(--z-index-overlay);
+  /* Subtle shadow so the bubble reads as raised from the page. */
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-text) 18%, transparent);
+}
+
+/* Placement – anchored to the wrapper edges. */
+.tooltip[data-placement='top'] {
+  bottom: calc(100% + var(--space-2));
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tooltip[data-placement='bottom'] {
+  left: 50%;
+  top: calc(100% + var(--space-2));
+  transform: translateX(-50%);
+}
+
+.tooltip[data-placement='left'] {
+  right: calc(100% + var(--space-2));
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.tooltip[data-placement='right'] {
+  left: calc(100% + var(--space-2));
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Arrow – a small rotated square matching the bubble background. */
+.tooltip::after {
+  background: var(--color-text);
+  content: '';
+  height: 8px;
+  position: absolute;
+  width: 8px;
+  transform: rotate(45deg);
+}
+
+.tooltip[data-placement='top']::after {
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%) translateY(-50%) rotate(45deg);
+}
+
+.tooltip[data-placement='bottom']::after {
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(50%) rotate(45deg);
+}
+
+.tooltip[data-placement='left']::after {
+  left: 100%;
+  top: 50%;
+  transform: translateX(-50%) translateY(-50%) rotate(45deg);
+}
+
+.tooltip[data-placement='right']::after {
+  right: 100%;
+  top: 50%;
+  transform: translateX(50%) translateY(-50%) rotate(45deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tooltip {
+    animation: tooltipIn 120ms ease-out;
+  }
+}
+
+@keyframes tooltipIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Left/right keep their own centering axis, so override the top/bottom keyframes. */
+.tooltip[data-placement='left'],
+.tooltip[data-placement='right'] {
+  animation-name: tooltipInSide;
+}
+
+@keyframes tooltipInSide {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tooltip {
+    animation: none;
+  }
+}
