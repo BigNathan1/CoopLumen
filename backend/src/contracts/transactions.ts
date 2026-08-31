@@ -10,6 +10,14 @@ import { StellarService } from './stellar';
 import { MemoInput, buildMemo } from './memo';
 import { TimeBoundsInput, applyTimeBounds, DEFAULT_TIMEOUT_SECONDS } from './timeBounds';
 import { invalidateBalanceCache } from '../cache/balances';
+import { StellarOperationError, invalidInput, withMappedHorizonError } from './errors';
+import {
+  TRANSACTION_TIMEOUT_SECONDS,
+  assertAssetCode,
+  assertMemoLength,
+  assertPositiveAmount,
+  assertPublicKey,
+} from './validation';
 import { StellarError, invalidInput, withMappedHorizonError } from './errors';
 import { assertAssetCode, assertPositiveAmount, assertPublicKey } from './validation';
 import { logger } from '../utils/logger';
@@ -112,6 +120,7 @@ export interface MultiSigPaymentParams {
   assetCode: string;
   assetIssuer?: string;
   amount: string;
+  memo?: string;
   memo?: MemoInput;
   /** How long the collected signatures have to arrive. Defaults to 30 seconds. */
   timeoutSeconds?: number;
@@ -155,6 +164,8 @@ export interface MultiSigPayment {
  * the payment can never be authorized, so this fails immediately rather than
  * returning an envelope that is impossible to satisfy.
  *
+ * @throws {StellarOperationError} on invalid input, an unreachable threshold,
+ * or any Horizon failure.
  * @throws {StellarError} on invalid input, an unreachable threshold, or any
  * Horizon failure.
  */
@@ -169,6 +180,7 @@ export async function buildMultiSigPayment(
     assetIssuer,
     amount,
     memo,
+    timeoutSeconds = TRANSACTION_TIMEOUT_SECONDS,
     timeoutSeconds = DEFAULT_TIMEOUT_SECONDS,
   } = params;
 
@@ -176,6 +188,7 @@ export async function buildMultiSigPayment(
   assertPublicKey(operation, 'destinationPublicKey', destinationPublicKey);
   assertAssetCode(operation, 'assetCode', assetCode);
   assertPositiveAmount(operation, 'amount', amount);
+  assertMemoLength(operation, memo);
   const builtMemo = buildMemo(memo);
 
   const isNative = assetCode === 'XLM';
@@ -216,6 +229,12 @@ export async function buildMultiSigPayment(
   const availableWeight = signers.reduce((total, signer) => total + signer.weight, 0);
 
   if (availableWeight < requiredWeight) {
+    throw new StellarOperationError({
+      operation,
+      code: 'MISSING_SIGNATURES',
+      message: `Account ${sourcePublicKey} has a combined signer weight of ${availableWeight}, below its medium threshold of ${requiredWeight}; no payment from it can be authorized until a signer is added or the threshold is lowered.`,
+      httpStatus: 409,
+    });
     throw new StellarError(
       `${operation} failed: account ${sourcePublicKey} has a combined signer weight of ${availableWeight}, below its medium threshold of ${requiredWeight}; no payment from it can be authorized until a signer is added or the threshold is lowered.`,
       { status: 409 }
@@ -238,6 +257,8 @@ export async function buildMultiSigPayment(
     networkPassphrase: StellarService.getNetwork(),
   }).addOperation(Operation.payment({ destination: destinationPublicKey, asset, amount }));
 
+  if (memo) {
+    txBuilder.addMemo(Memo.text(memo));
   if (builtMemo) {
     txBuilder.addMemo(builtMemo);
   }

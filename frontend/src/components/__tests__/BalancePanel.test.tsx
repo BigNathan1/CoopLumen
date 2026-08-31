@@ -58,7 +58,12 @@ describe('BalancePanel', () => {
     mockUseBalances.mockReturnValue({
       data: [
         { asset_type: 'native', balance: '100.0000000' },
-        { asset_type: 'credit_alphanum4', asset_code: 'ECO', asset_issuer: 'GISSUER', balance: '50.5' },
+        {
+          asset_type: 'credit_alphanum4',
+          asset_code: 'ECO',
+          asset_issuer: 'GISSUER',
+          balance: '50.5',
+        },
       ],
       error: undefined,
       isLoading: false,

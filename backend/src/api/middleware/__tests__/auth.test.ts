@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import { requireAuth, requireCommunityRole } from '../auth';
 import { createSessionToken } from '../../utils/sessionToken';
 import { db } from '../../../db';

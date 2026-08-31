@@ -285,115 +285,94 @@ button {
   font-family: inherit;
 }
 
-/*
- * A single visible focus ring for every interactive element. `:focus-visible`
- * keeps it off for pointer users while guaranteeing keyboard users always see
- * where they are.
- */
-:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-focus-ring);
-  outline-offset: var(--focus-ring-offset);
+
+.network-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: fit-content;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--color-surface);
 }
 
-/*
- * Responsive layout utilities.
- *
- * Mobile-first: the base rules describe the narrowest viewport and each
- * breakpoint widens them.
- */
-.container {
-  width: 100%;
-  max-width: var(--container-max);
-  margin-inline: auto;
-  padding-inline: var(--container-gutter);
+.network-badge-testnet {
+  color: var(--color-warning);
 }
 
-/*
- * Column count resolves through a fallback chain, so a caller declares only the
- * steps that differ from the one below:
- *
- *   <div class="grid" style="--grid-columns-md: 2; --grid-columns-lg: 3">
- */
-.grid {
-  --grid-columns: var(--grid-columns-base);
-
-  display: grid;
-  gap: var(--grid-gap);
-  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+.network-badge-mainnet {
+  color: var(--color-success);
 }
 
-/*
- * The common case: as many equal columns as fit, with no count to maintain per
- * breakpoint. `min()` keeps a single column from overflowing a narrow screen.
- */
-.grid-auto {
-  display: grid;
-  gap: var(--grid-gap);
-  grid-template-columns: repeat(auto-fill, minmax(min(var(--grid-min-column), 100%), 1fr));
+.network-badge-indicator {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
 }
 
-@media (min-width: 640px) {
-  :root {
-    --container-max: var(--container-max-sm);
-  }
-
-  .grid {
-    --grid-columns: var(--grid-columns-sm, var(--grid-columns-base));
-  }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
-@media (min-width: 768px) {
-  :root {
-    --container-max: var(--container-max-md);
-    --container-gutter: var(--space-6);
-  }
-
-  .grid {
-    --grid-columns: var(--grid-columns-md, var(--grid-columns-sm, var(--grid-columns-base)));
-  }
+.clipboard-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
 }
 
-@media (min-width: 1024px) {
-  :root {
-    --container-max: var(--container-max-lg);
-  }
-
-  .grid {
-    --grid-columns: var(
-      --grid-columns-lg,
-      var(--grid-columns-md, var(--grid-columns-sm, var(--grid-columns-base)))
-    );
-  }
+.clipboard-button:hover {
+  border-color: var(--color-primary);
 }
 
-@media (min-width: 1280px) {
-  :root {
-    --container-max: var(--container-max-xl);
-    --container-gutter: var(--space-8);
-  }
-
-  .grid {
-    --grid-columns: var(
-      --grid-columns-xl,
-      var(
-        --grid-columns-lg,
-        var(--grid-columns-md, var(--grid-columns-sm, var(--grid-columns-base)))
-      )
-    );
-  }
+.clipboard-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
-/*
- * Ease the palette swap so toggling the theme does not read as a flash. Scoped
- * to the properties that actually change, and dropped entirely for anyone who
- * has asked for reduced motion.
- */
-@media (prefers-reduced-motion: no-preference) {
-  body,
-  body * {
-    transition:
-      background-color var(--theme-transition-duration) ease,
-      border-color var(--theme-transition-duration) ease,
-      color var(--theme-transition-duration) ease;
-  }
+.stellar-address {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.stellar-address code {
+  color: var(--color-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.stellar-address a {
+  color: var(--color-primary);
+  font-size: 0.875rem;
+}
+
+.stellar-address a:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }

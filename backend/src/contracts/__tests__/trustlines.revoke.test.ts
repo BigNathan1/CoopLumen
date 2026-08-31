@@ -105,6 +105,8 @@ describe('revokeTrustline', () => {
       ],
     ])('rejects %s before calling Horizon', async (_case, params, expected) => {
       await expect(revokeTrustline(params)).rejects.toMatchObject({
+        code: 'INVALID_INPUT',
+        httpStatus: 400,
         name: 'StellarError',
         status: 400,
         message: expect.stringMatching(expected) as unknown as string,
@@ -122,6 +124,9 @@ describe('revokeTrustline', () => {
       );
 
       await expect(revokeTrustline(validParams)).rejects.toMatchObject({
+        name: 'StellarOperationError',
+        code: 'TRUSTLINE_MISSING',
+        httpStatus: 404,
         name: 'StellarError',
         status: 404,
         message: expect.stringContaining('nothing to revoke') as unknown as string,
@@ -135,6 +140,9 @@ describe('revokeTrustline', () => {
         accountStub([trustlineBalance({ asset_issuer: Keypair.random().publicKey() })])
       );
 
+      await expect(revokeTrustline(validParams)).rejects.toMatchObject({
+        code: 'TRUSTLINE_MISSING',
+      });
       await expect(revokeTrustline(validParams)).rejects.toMatchObject({ status: 404 });
     });
 
@@ -144,6 +152,8 @@ describe('revokeTrustline', () => {
       );
 
       await expect(revokeTrustline(validParams)).rejects.toMatchObject({
+        code: 'TRUSTLINE_HAS_BALANCE',
+        httpStatus: 409,
         status: 409,
         message: expect.stringContaining('42.5000000 ECO') as unknown as string,
       });
@@ -157,6 +167,8 @@ describe('revokeTrustline', () => {
       );
 
       await expect(revokeTrustline(validParams)).rejects.toMatchObject({
+        code: 'TRUSTLINE_HAS_BALANCE',
+        httpStatus: 409,
         status: 409,
         message: expect.stringContaining('open liabilities') as unknown as string,
       });
@@ -169,6 +181,9 @@ describe('revokeTrustline', () => {
         accountStub([trustlineBalance({ buying_liabilities: '5.0000000' })])
       );
 
+      await expect(revokeTrustline(validParams)).rejects.toMatchObject({
+        code: 'TRUSTLINE_HAS_BALANCE',
+      });
       await expect(revokeTrustline(validParams)).rejects.toMatchObject({ status: 409 });
     });
 
@@ -236,6 +251,21 @@ describe('revokeTrustline', () => {
   });
 
   describe('Horizon failures', () => {
+    it('maps an unfunded account to ACCOUNT_NOT_FOUND', async () => {
+      mockLoadAccount.mockRejectedValueOnce({ response: { status: 404 } });
+
+      await expect(revokeTrustline(validParams)).rejects.toMatchObject({
+        code: 'ACCOUNT_NOT_FOUND',
+        httpStatus: 404,
+      });
+    });
+
+    it('maps a racing op_invalid_limit to TRUSTLINE_HAS_BALANCE', async () => {
+      mockSubmit.mockRejectedValueOnce(horizonFailure({ operations: ['op_invalid_limit'] }));
+
+      await expect(revokeTrustline(validParams)).rejects.toMatchObject({
+        code: 'TRUSTLINE_HAS_BALANCE',
+        httpStatus: 409,
     it('maps an unfunded account to a 404', async () => {
       mockLoadAccount.mockRejectedValueOnce({ response: { status: 404 } });
 
@@ -262,12 +292,25 @@ describe('revokeTrustline', () => {
       expect(mockSubmit).toHaveBeenCalledTimes(2);
     });
 
+    it('maps a stale sequence number to BAD_SEQUENCE once the retry is exhausted', async () => {
     it('maps a stale sequence number once the retry is exhausted', async () => {
       mockSubmit
         .mockRejectedValueOnce(horizonFailure({ transaction: 'tx_bad_seq' }))
         .mockRejectedValueOnce(horizonFailure({ transaction: 'tx_bad_seq' }));
 
       await expect(revokeTrustline(validParams)).rejects.toMatchObject({
+        code: 'BAD_SEQUENCE',
+        httpStatus: 409,
+      });
+    });
+
+    it('never surfaces the raw Horizon error and logs the mapped one', async () => {
+      mockSubmit.mockRejectedValueOnce(horizonFailure({ transaction: 'tx_insufficient_fee' }));
+
+      await expect(revokeTrustline(validParams)).rejects.not.toHaveProperty('response');
+      expect(logger.error).toHaveBeenCalledWith(
+        'Stellar operation failed',
+        expect.objectContaining({ operation: 'revokeTrustline', code: 'INSUFFICIENT_FEE' })
         name: 'StellarError',
         status: 400,
         message: expect.stringContaining('tx_bad_seq') as unknown as string,
