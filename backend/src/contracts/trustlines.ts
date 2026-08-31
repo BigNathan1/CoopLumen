@@ -12,6 +12,14 @@ import { TimeBoundsInput, applyTimeBounds } from './timeBounds';
 import { invalidateBalanceCache } from '../cache/balances';
 import { StellarError, withStellarErrors, withMappedHorizonError } from './errors';
 import { withSequenceRetry } from './sequenceCache';
+import { StellarOperationError, withMappedHorizonError } from './errors';
+import {
+  TRANSACTION_TIMEOUT_SECONDS,
+  assertAssetCode,
+  assertPublicKey,
+  parseSecretKey,
+} from './validation';
+import { logger } from '../utils/logger';
 import { assertAssetCode, assertPublicKey, parseSecretKey } from './validation';
 import { logger } from '../utils/logger';
 
@@ -210,6 +218,9 @@ export async function buildUnsignedTrustline(
  * `op_invalid_limit`, and no fee is spent on a submission that cannot succeed.
  *
  * @returns the hash of the submitted revocation transaction.
+ * @throws {StellarOperationError} when the input is invalid, the trustline
+ * does not exist, it still holds a balance or open liabilities, or Horizon
+ * rejects the submission.
  * @throws {StellarError} when the input is invalid, the trustline does not
  * exist, it still holds a balance or open liabilities, or Horizon rejects the
  * submission.
@@ -234,6 +245,21 @@ export async function revokeTrustline(params: RevokeTrustlineParams): Promise<st
   const trustline = findTrustline(account.balances, assetCode, assetIssuer);
 
   if (!trustline) {
+    throw new StellarOperationError({
+      operation,
+      code: 'TRUSTLINE_MISSING',
+      message: `Account holds no trustline for ${assetCode}:${assetIssuer}; there is nothing to revoke.`,
+      httpStatus: 404,
+    });
+  }
+
+  if (Number(trustline.balance) > 0) {
+    throw new StellarOperationError({
+      operation,
+      code: 'TRUSTLINE_HAS_BALANCE',
+      message: `Trustline still holds ${trustline.balance} ${assetCode}; transfer or burn the balance before revoking trust.`,
+      httpStatus: 409,
+    });
     throw new StellarError(
       `${operation} failed: account holds no trustline for ${assetCode}:${assetIssuer}; there is nothing to revoke.`,
       { status: 404 }
@@ -252,6 +278,12 @@ export async function revokeTrustline(params: RevokeTrustlineParams): Promise<st
   const sellingLiabilities = Number(trustline.selling_liabilities ?? '0');
   const buyingLiabilities = Number(trustline.buying_liabilities ?? '0');
   if (sellingLiabilities > 0 || buyingLiabilities > 0) {
+    throw new StellarOperationError({
+      operation,
+      code: 'TRUSTLINE_HAS_BALANCE',
+      message: `Trustline has open liabilities for ${assetCode} (selling ${trustline.selling_liabilities}, buying ${trustline.buying_liabilities}); cancel the outstanding offers before revoking trust.`,
+      httpStatus: 409,
+    });
     throw new StellarError(
       `${operation} failed: trustline has open liabilities for ${assetCode} (selling ${trustline.selling_liabilities}, buying ${trustline.buying_liabilities}); cancel the outstanding offers before revoking trust.`,
       { status: 409 }
@@ -264,6 +296,7 @@ export async function revokeTrustline(params: RevokeTrustlineParams): Promise<st
   // Build from the cached, serialized sequence number the way establishTrustline
   // does; the account loaded above was only for the pre-flight balance checks.
   // The mapping wrapper sits outside, so a tx_bad_seq surviving the single
+  // retry is still reported as BAD_SEQUENCE rather than raw.
   // retry is still reported as a StellarError rather than raw.
   const result = await withMappedHorizonError(operation, logContext, () =>
     withSequenceRetry(publicKey, async (sourceAccount) => {
@@ -272,6 +305,7 @@ export async function revokeTrustline(params: RevokeTrustlineParams): Promise<st
         networkPassphrase: network,
       })
         .addOperation(Operation.changeTrust({ asset, limit: '0' }))
+        .setTimeout(TRANSACTION_TIMEOUT_SECONDS)
         .setTimeout(TRUSTLINE_TIMEOUT_SECONDS)
         .build();
 
