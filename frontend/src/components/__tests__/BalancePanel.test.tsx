@@ -1,16 +1,27 @@
-import { render, screen } from '@testing-library/react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { BalancePanel } from '../BalancePanel';
 import { useBalances } from '@/hooks/useBalances';
 
 jest.mock('@/hooks/useBalances');
 
-const mockUseBalances = useBalances as jest.Mock;
+const mockUseBalances = useBalances as jest.MockedFunction<typeof useBalances>;
+
+const PUBLIC_KEY = 'G' + 'A'.repeat(55);
 
 describe('BalancePanel', () => {
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
   it('announces a loading state through a polite status region', () => {
-    mockUseBalances.mockReturnValue({ data: undefined, error: undefined, isLoading: true });
-    render(<BalancePanel publicKey="G".repeat(56) />);
+    mockUseBalances.mockReturnValue({
+      data: undefined,
+      error: undefined,
+      isLoading: true,
+      isValidating: false,
+      mutate: jest.fn(),
+    } as unknown as ReturnType<typeof useBalances>);
+    render(<BalancePanel publicKey={PUBLIC_KEY} />);
 
     const status = screen.getByRole('status');
     expect(status).toHaveAttribute('aria-live', 'polite');
@@ -22,15 +33,23 @@ describe('BalancePanel', () => {
       data: undefined,
       error: new Error('network down'),
       isLoading: false,
-    });
-    render(<BalancePanel publicKey="G".repeat(56) />);
+      isValidating: false,
+      mutate: jest.fn(),
+    } as unknown as ReturnType<typeof useBalances>);
+    render(<BalancePanel publicKey={PUBLIC_KEY} />);
 
     expect(screen.getByRole('alert')).toHaveTextContent('Failed to load balances');
   });
 
   it('shows an empty state when there are no balances', () => {
-    mockUseBalances.mockReturnValue({ data: [], error: undefined, isLoading: false });
-    render(<BalancePanel publicKey="G".repeat(56) />);
+    mockUseBalances.mockReturnValue({
+      data: [],
+      error: undefined,
+      isLoading: false,
+      isValidating: false,
+      mutate: jest.fn(),
+    } as unknown as ReturnType<typeof useBalances>);
+    render(<BalancePanel publicKey={PUBLIC_KEY} />);
 
     expect(screen.getByText('No balances found')).toBeInTheDocument();
   });
@@ -39,12 +58,19 @@ describe('BalancePanel', () => {
     mockUseBalances.mockReturnValue({
       data: [
         { asset_type: 'native', balance: '100.0000000' },
-        { asset_type: 'credit_alphanum4', asset_code: 'ECO', asset_issuer: 'GISSUER', balance: '50.5' },
+        {
+          asset_type: 'credit_alphanum4',
+          asset_code: 'ECO',
+          asset_issuer: 'GISSUER',
+          balance: '50.5',
+        },
       ],
       error: undefined,
       isLoading: false,
-    });
-    render(<BalancePanel publicKey="G".repeat(56) />);
+      isValidating: false,
+      mutate: jest.fn(),
+    } as unknown as ReturnType<typeof useBalances>);
+    render(<BalancePanel publicKey={PUBLIC_KEY} />);
 
     expect(screen.getByText('XLM')).toBeInTheDocument();
     expect(screen.getByText('100.00')).toBeInTheDocument();
@@ -57,17 +83,12 @@ describe('BalancePanel', () => {
       data: [{ asset_type: 'native', balance: '1' }],
       error: undefined,
       isLoading: false,
-    });
-    render(<BalancePanel publicKey="G".repeat(56) />);
+      isValidating: false,
+      mutate: jest.fn(),
+    } as unknown as ReturnType<typeof useBalances>);
+    render(<BalancePanel publicKey={PUBLIC_KEY} />);
 
     expect(screen.getByRole('heading', { name: 'Your Balances' })).toBeInTheDocument();
-const mockUseBalances = useBalances as jest.MockedFunction<typeof useBalances>;
-
-const PUBLIC_KEY = 'G' + 'A'.repeat(55);
-
-describe('BalancePanel', () => {
-  afterEach(() => {
-    jest.resetAllMocks();
   });
 
   it('renders a loading state without a refresh button', () => {

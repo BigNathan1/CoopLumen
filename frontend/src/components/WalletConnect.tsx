@@ -16,8 +16,17 @@ function formatXlm(balances: ReturnType<typeof useBalances>['data']): string | n
 }
 
 export function WalletConnect() {
-  const { publicKey, connected, connecting, error, network, expectedNetwork, networkMismatch, connect, disconnect } =
-    useWallet();
+  const {
+    publicKey,
+    connected,
+    connecting,
+    error,
+    network,
+    expectedNetwork,
+    networkMismatch,
+    connect,
+    disconnect,
+  } = useWallet();
   const { data: balances, isLoading: balancesLoading } = useBalances(connected ? publicKey : null);
 
   const shortKey = publicKey ? `${publicKey.slice(0, 6)}…${publicKey.slice(-4)}` : null;
