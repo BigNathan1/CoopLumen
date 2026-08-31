@@ -120,8 +120,18 @@ describe('buildMultiSigPayment', () => {
       await expect(buildMultiSigPayment(params)).rejects.toMatchObject({
         code: 'INVALID_INPUT',
         httpStatus: 400,
+        name: 'StellarError',
+        status: 400,
         message: expect.stringMatching(expected) as unknown as string,
       });
+
+      expect(mockLoadAccount).not.toHaveBeenCalled();
+    });
+
+    it('rejects a memo longer than 28 bytes before calling Horizon', async () => {
+      await expect(
+        buildMultiSigPayment({ ...validParams, memo: 'x'.repeat(29) })
+      ).rejects.toMatchObject({ name: 'MemoValidationError' });
 
       expect(mockLoadAccount).not.toHaveBeenCalled();
     });
@@ -266,6 +276,8 @@ describe('buildMultiSigPayment', () => {
         name: 'StellarOperationError',
         code: 'MISSING_SIGNATURES',
         httpStatus: 409,
+        name: 'StellarError',
+        status: 409,
         message: expect.stringContaining('combined signer weight of 2') as unknown as string,
       });
     });
@@ -299,11 +311,25 @@ describe('buildMultiSigPayment', () => {
       mockLoadAccount.mockRejectedValueOnce({ response: { status: 503 } });
 
       await expect(buildMultiSigPayment(validParams)).rejects.not.toHaveProperty('response');
+    it('maps a missing source account to a 404', async () => {
+      mockLoadAccount.mockRejectedValueOnce({ response: { status: 404 } });
+
+      await expect(buildMultiSigPayment(validParams)).rejects.toMatchObject({
+        name: 'StellarError',
+        status: 404,
+      });
+    });
+
+    it('maps an upstream failure to a 502 and logs it', async () => {
+      mockLoadAccount.mockRejectedValueOnce({ response: { status: 503 } });
+
+      await expect(buildMultiSigPayment(validParams)).rejects.toMatchObject({ status: 502 });
       expect(logger.error).toHaveBeenCalledWith(
         'Stellar operation failed',
         expect.objectContaining({
           operation: 'buildMultiSigPayment',
           code: 'HORIZON_UNAVAILABLE',
+          status: 502,
         })
       );
     });

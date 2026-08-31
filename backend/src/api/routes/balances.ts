@@ -8,7 +8,7 @@ import { cacheBalances, getCachedBalances } from '../../cache/balances';
 import { mapHorizonError } from '../utils/horizonError';
 import { logger } from '../../utils/logger';
 
-export const balanceRouter = Router();
+export const balanceRouter: Router = Router();
 
 interface BalanceHistoryEntry {
   id: string;

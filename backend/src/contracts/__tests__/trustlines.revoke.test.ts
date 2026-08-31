@@ -107,6 +107,8 @@ describe('revokeTrustline', () => {
       await expect(revokeTrustline(params)).rejects.toMatchObject({
         code: 'INVALID_INPUT',
         httpStatus: 400,
+        name: 'StellarError',
+        status: 400,
         message: expect.stringMatching(expected) as unknown as string,
       });
 
@@ -125,6 +127,8 @@ describe('revokeTrustline', () => {
         name: 'StellarOperationError',
         code: 'TRUSTLINE_MISSING',
         httpStatus: 404,
+        name: 'StellarError',
+        status: 404,
         message: expect.stringContaining('nothing to revoke') as unknown as string,
       });
 
@@ -139,6 +143,7 @@ describe('revokeTrustline', () => {
       await expect(revokeTrustline(validParams)).rejects.toMatchObject({
         code: 'TRUSTLINE_MISSING',
       });
+      await expect(revokeTrustline(validParams)).rejects.toMatchObject({ status: 404 });
     });
 
     it('refuses to revoke a trustline that still holds a balance, naming the amount', async () => {
@@ -149,6 +154,7 @@ describe('revokeTrustline', () => {
       await expect(revokeTrustline(validParams)).rejects.toMatchObject({
         code: 'TRUSTLINE_HAS_BALANCE',
         httpStatus: 409,
+        status: 409,
         message: expect.stringContaining('42.5000000 ECO') as unknown as string,
       });
 
@@ -163,6 +169,7 @@ describe('revokeTrustline', () => {
       await expect(revokeTrustline(validParams)).rejects.toMatchObject({
         code: 'TRUSTLINE_HAS_BALANCE',
         httpStatus: 409,
+        status: 409,
         message: expect.stringContaining('open liabilities') as unknown as string,
       });
 
@@ -177,6 +184,7 @@ describe('revokeTrustline', () => {
       await expect(revokeTrustline(validParams)).rejects.toMatchObject({
         code: 'TRUSTLINE_HAS_BALANCE',
       });
+      await expect(revokeTrustline(validParams)).rejects.toMatchObject({ status: 409 });
     });
 
     it('proceeds when Horizon omits the liability fields entirely', async () => {
@@ -258,6 +266,21 @@ describe('revokeTrustline', () => {
       await expect(revokeTrustline(validParams)).rejects.toMatchObject({
         code: 'TRUSTLINE_HAS_BALANCE',
         httpStatus: 409,
+    it('maps an unfunded account to a 404', async () => {
+      mockLoadAccount.mockRejectedValueOnce({ response: { status: 404 } });
+
+      await expect(revokeTrustline(validParams)).rejects.toMatchObject({
+        name: 'StellarError',
+        status: 404,
+      });
+    });
+
+    it('maps a racing op_invalid_limit to an actionable message', async () => {
+      mockSubmit.mockRejectedValueOnce(horizonFailure({ operations: ['op_invalid_limit'] }));
+
+      await expect(revokeTrustline(validParams)).rejects.toMatchObject({
+        status: 400,
+        message: expect.stringContaining('op_invalid_limit') as unknown as string,
       });
     });
 
@@ -270,6 +293,7 @@ describe('revokeTrustline', () => {
     });
 
     it('maps a stale sequence number to BAD_SEQUENCE once the retry is exhausted', async () => {
+    it('maps a stale sequence number once the retry is exhausted', async () => {
       mockSubmit
         .mockRejectedValueOnce(horizonFailure({ transaction: 'tx_bad_seq' }))
         .mockRejectedValueOnce(horizonFailure({ transaction: 'tx_bad_seq' }));
@@ -287,6 +311,19 @@ describe('revokeTrustline', () => {
       expect(logger.error).toHaveBeenCalledWith(
         'Stellar operation failed',
         expect.objectContaining({ operation: 'revokeTrustline', code: 'INSUFFICIENT_FEE' })
+        name: 'StellarError',
+        status: 400,
+        message: expect.stringContaining('tx_bad_seq') as unknown as string,
+      });
+    });
+
+    it('logs the mapped failure', async () => {
+      mockSubmit.mockRejectedValueOnce(horizonFailure({ transaction: 'tx_insufficient_fee' }));
+
+      await expect(revokeTrustline(validParams)).rejects.toMatchObject({ status: 400 });
+      expect(logger.error).toHaveBeenCalledWith(
+        'Stellar operation failed',
+        expect.objectContaining({ operation: 'revokeTrustline', status: 400 })
       );
     });
   });
