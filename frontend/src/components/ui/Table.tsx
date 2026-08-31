@@ -181,9 +181,7 @@ export function Table<T extends Record<string, unknown>>({
           {data.length === 0 ? (
             <tr>
               <td colSpan={columns.length} className={styles.emptyCell}>
-                {emptyState ?? (
-                  <span className={styles.emptyMessage}>{emptyMessage}</span>
-                )}
+                {emptyState ?? <span className={styles.emptyMessage}>{emptyMessage}</span>}
               </td>
             </tr>
           ) : (

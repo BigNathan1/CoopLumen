@@ -11,7 +11,10 @@ jest.mock('../../../db', () => ({
   },
 }));
 
+// Only `requireAdmin` is stubbed; the rest of the module is kept intact so the
+// other routers mounted on `app` still receive their real middleware.
 jest.mock('../../middleware/auth', () => ({
+  ...jest.requireActual('../../middleware/auth'),
   requireAdmin: jest.fn((req, res, next) => next()),
 }));
 

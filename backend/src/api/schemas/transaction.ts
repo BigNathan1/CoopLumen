@@ -79,8 +79,7 @@ export const getCommunityTransactionsSchema = z.object({
     to: z.string().datetime('to must be a valid ISO 8601 date').optional(),
   }),
 });
-  }),
-});
+
 export const transactionHashSchema = z.object({
   hash: z
     .string()

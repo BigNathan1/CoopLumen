@@ -78,7 +78,7 @@ export function PaginationInner({
   pagination,
 }: PaginationInnerProps) {
   const p = pagination;
-  const current = p ? p.page : controlledPage ?? 1;
+  const current = p ? p.page : (controlledPage ?? 1);
   const total = p ? p.totalPages : Math.max(1, totalPages);
 
   const handlePageChange = useCallback(
@@ -92,13 +92,13 @@ export function PaginationInner({
     [p, onPageChange]
   );
 
-  const pages = useMemo(() => buildPageRange(current, total, maxVisible), [current, total, maxVisible]);
+  const pages = useMemo(
+    () => buildPageRange(current, total, maxVisible),
+    [current, total, maxVisible]
+  );
 
   return (
-    <nav
-      aria-label="Pagination"
-      className={[styles.nav, className].filter(Boolean).join(' ')}
-    >
+    <nav aria-label="Pagination" className={[styles.nav, className].filter(Boolean).join(' ')}>
       <ul className={styles.list}>
         <li>
           <button

@@ -269,7 +269,11 @@ describe('Modal', () => {
       await user.tab();
       expect(btn2).toHaveFocus();
 
-      // Tab from last should wrap to first
+      // Then on to the close button, which is part of the trap
+      await user.tab();
+      expect(screen.getByLabelText('Close modal')).toHaveFocus();
+
+      // Tab from the last element wraps back to the first
       await user.tab();
       expect(btn1).toHaveFocus();
     });
@@ -288,11 +292,14 @@ describe('Modal', () => {
       // Wait for initial focus on btn1
       await waitFor(() => expect(btn1).toHaveFocus());
 
-      // Shift+Tab from first should wrap to last
+      // Shift+Tab from first wraps to the last element (the close button)
+      fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+      expect(screen.getByLabelText('Close modal')).toHaveFocus();
+
+      // Shift+Tab should move to previous button
       fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
       expect(btn2).toHaveFocus();
 
-      // Shift+Tab should move to previous button
       fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
       expect(btn1).toHaveFocus();
     });
@@ -341,13 +348,25 @@ describe('Modal', () => {
       const { rerender } = render(
         <>
           <button id="trigger">Open Modal</button>
-          <Modal isOpen={true} onClose={jest.fn()} title="Test Modal">
+          <Modal isOpen={false} onClose={jest.fn()} title="Test Modal">
             <button>Modal Button</button>
           </Modal>
         </>
       );
 
+      // The trigger holds focus before the modal opens — that is the focus the
+      // modal is expected to hand back on close.
       const trigger = document.getElementById('trigger') as HTMLButtonElement;
+      trigger.focus();
+
+      rerender(
+        <>
+          <button id="trigger">Open Modal</button>
+          <Modal isOpen={true} onClose={jest.fn()} title="Test Modal">
+            <button>Modal Button</button>
+          </Modal>
+        </>
+      );
 
       // Modal opens and focuses its content
       await waitFor(() => {

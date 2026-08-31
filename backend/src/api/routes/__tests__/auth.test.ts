@@ -50,14 +50,16 @@ describe('POST /api/v1/auth/verify', () => {
     const keypair = Keypair.random();
     const address = keypair.publicKey();
 
-    const challengeRes = await request(app)
-      .post('/api/v1/auth/challenge')
-      .send({ address });
+    const challengeRes = await request(app).post('/api/v1/auth/challenge').send({ address });
     const { challenge } = challengeRes.body.data as { challenge: string };
 
     const res = await request(app)
       .post('/api/v1/auth/verify')
-      .send({ address, challenge, signature: Buffer.from('not a real signature').toString('base64') });
+      .send({
+        address,
+        challenge,
+        signature: Buffer.from('not a real signature').toString('base64'),
+      });
     expect(res.status).toBe(401);
   });
 
@@ -65,14 +67,14 @@ describe('POST /api/v1/auth/verify', () => {
     const keypair = Keypair.random();
     const address = keypair.publicKey();
 
-    const challengeRes = await request(app)
-      .post('/api/v1/auth/challenge')
-      .send({ address });
+    const challengeRes = await request(app).post('/api/v1/auth/challenge').send({ address });
     const { challenge } = challengeRes.body.data as { challenge: string };
 
     const signature = keypair.sign(Buffer.from(challenge, 'utf8')).toString('base64');
 
-    const res = await request(app).post('/api/v1/auth/verify').send({ address, challenge, signature });
+    const res = await request(app)
+      .post('/api/v1/auth/verify')
+      .send({ address, challenge, signature });
 
     expect(res.status).toBe(200);
     expect(res.body.data.address).toBe(address);
@@ -86,9 +88,7 @@ describe('POST /api/v1/auth/verify', () => {
     const keypair = Keypair.random();
     const address = keypair.publicKey();
 
-    const challengeRes = await request(app)
-      .post('/api/v1/auth/challenge')
-      .send({ address });
+    const challengeRes = await request(app).post('/api/v1/auth/challenge').send({ address });
     const { challenge } = challengeRes.body.data as { challenge: string };
     const signature = keypair.sign(Buffer.from(challenge, 'utf8')).toString('base64');
 
