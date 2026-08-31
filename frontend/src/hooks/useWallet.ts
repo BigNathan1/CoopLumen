@@ -40,14 +40,14 @@ export function useWallet() {
   });
 
   const authenticate = useCallback(async (publicKey: string) => {
-    const { signMessage } = await import('@stellar/freighter-api');
+    const { signBlob } = await import('@stellar/freighter-api');
 
     const { challenge } = await api.post<ChallengeResponse>(
       '/api/v1/auth/challenge',
       { address: publicKey },
       { auth: false }
     );
-    const signature = await signMessage(challenge, { address: publicKey });
+    const signature = await signBlob(challenge, { accountToSign: publicKey });
     const verified = await api.post<VerifyResponse>(
       '/api/v1/auth/verify',
       { address: publicKey, challenge, signature },
