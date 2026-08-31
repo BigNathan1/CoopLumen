@@ -33,11 +33,7 @@ function ControlledPagination({
   const pagination = useMockPagination(initialPage, totalPages);
   return (
     <>
-      <PaginationInner
-        totalPages={totalPages}
-        pagination={pagination}
-        maxVisible={maxVisible}
-      />
+      <PaginationInner totalPages={totalPages} pagination={pagination} maxVisible={maxVisible} />
       <span data-testid="page-display">Page {pagination.page}</span>
     </>
   );
@@ -148,24 +144,18 @@ describe('Pagination', () => {
     });
 
     it('shows ellipsis when total exceeds maxVisible', () => {
-      render(
-        <ControlledPagination initialPage={5} totalPages={20} maxVisible={7} />
-      );
+      render(<ControlledPagination initialPage={5} totalPages={20} maxVisible={7} />);
       expect(screen.getAllByText('…').length).toBeGreaterThanOrEqual(1);
     });
 
     it('shows ellipsis on both sides when far from both ends', () => {
-      render(
-        <ControlledPagination initialPage={10} totalPages={20} maxVisible={7} />
-      );
+      render(<ControlledPagination initialPage={10} totalPages={20} maxVisible={7} />);
       const ellipses = screen.getAllByText('…');
       expect(ellipses).toHaveLength(2);
     });
 
     it('always shows the first and last page buttons', () => {
-      render(
-        <ControlledPagination initialPage={10} totalPages={20} maxVisible={7} />
-      );
+      render(<ControlledPagination initialPage={10} totalPages={20} maxVisible={7} />);
       expect(screen.getByRole('button', { name: 'Page 1' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Page 20' })).toBeInTheDocument();
     });
@@ -208,9 +198,7 @@ describe('Pagination', () => {
     it('applies className to the nav element', () => {
       function Wrapper() {
         const pagination = useMockPagination(1, 5);
-        return (
-          <PaginationInner totalPages={5} className="my-pagination" pagination={pagination} />
-        );
+        return <PaginationInner totalPages={5} className="my-pagination" pagination={pagination} />;
       }
 
       render(<Wrapper />);

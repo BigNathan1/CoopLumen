@@ -42,9 +42,9 @@ describe('buildUnsignedIssueAsset', () => {
       amount: '1000.0000000',
     });
     expect((tx.operations[0] as { asset: { getCode(): string } }).asset.getCode()).toBe('ECO');
-    expect(
-      (tx.operations[0] as { asset: { getIssuer(): string } }).asset.getIssuer()
-    ).toBe(issuerKeypair.publicKey());
+    expect((tx.operations[0] as { asset: { getIssuer(): string } }).asset.getIssuer()).toBe(
+      issuerKeypair.publicKey()
+    );
   });
 
   it('leaves the envelope unsigned', async () => {

@@ -1,4 +1,3 @@
-
 import { StellarService } from '../stellar';
 
 describe('StellarService.streamPayments', () => {
@@ -43,7 +42,7 @@ describe('StellarService.streamPayments', () => {
     streamArgs.onerror(mockError);
     // Since toStellarError maps the error, we just check that mockOnError is called
     expect(mockOnError).toHaveBeenCalled();
-    
+
     // We can also check that the error passed to mockOnError is an Error instance
     const errorArg = mockOnError.mock.calls[0][0];
     expect(errorArg).toBeInstanceOf(Error);

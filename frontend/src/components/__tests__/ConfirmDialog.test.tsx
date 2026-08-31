@@ -357,7 +357,11 @@ describe('ConfirmDialog', () => {
       await user.tab();
       expect(confirmBtn).toHaveFocus();
 
-      // Tab wraps to cancel
+      // Then the modal's close button, which is also inside the trap
+      await user.tab();
+      expect(screen.getByLabelText('Close modal')).toHaveFocus();
+
+      // Tab wraps back to cancel
       await user.tab();
       expect(cancelBtn).toHaveFocus();
     });

@@ -66,7 +66,7 @@ describeIf('streamPayments testnet integration', () => {
 
     expect(errors).toHaveLength(0);
     expect(messages.length).toBeGreaterThan(0);
-    
+
     const paymentMsg = messages.find((m) => m.transaction_hash === txHash);
     expect(paymentMsg).toBeDefined();
     expect(paymentMsg.type).toBe('payment');

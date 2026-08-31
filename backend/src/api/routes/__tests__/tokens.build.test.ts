@@ -152,7 +152,10 @@ describe('POST /api/v1/tokens/submit', () => {
 
   it('maps a Horizon rejection', async () => {
     mockSubmitSignedXdr.mockRejectedValueOnce({
-      response: { status: 400, data: { extras: { result_codes: { operations: ['op_no_trust'] } } } },
+      response: {
+        status: 400,
+        data: { extras: { result_codes: { operations: ['op_no_trust'] } } },
+      },
     });
 
     const response = await request(app)
