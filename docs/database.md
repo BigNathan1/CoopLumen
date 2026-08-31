@@ -356,12 +356,12 @@ CHECK constraints — these mirror the request validation in `backend/src/api/sc
 
 Indexes:
 
-| Index                               | Definition                                                | Serves                                        |
-| ----------------------------------- | ---------------------------------------------------------- | ---------------------------------------------- |
-| `communities_name_key`              | `UNIQUE (name)`                                             | duplicate-name 409s                            |
-| `idx_communities_active_created_at` | `(created_at DESC) WHERE deleted_at IS NULL`                | default community listing                      |
-| `idx_communities_asset`             | `(asset_code, asset_issuer)`                                | resolving a community from its Stellar asset   |
-| `idx_communities_fts`               | GIN over `to_tsvector(name \| ' ' \| description)`          | full-text search                               |
+| Index                               | Definition                                         | Serves                                       |
+| ----------------------------------- | -------------------------------------------------- | -------------------------------------------- |
+| `communities_name_key`              | `UNIQUE (name)`                                    | duplicate-name 409s                          |
+| `idx_communities_active_created_at` | `(created_at DESC) WHERE deleted_at IS NULL`       | default community listing                    |
+| `idx_communities_asset`             | `(asset_code, asset_issuer)`                       | resolving a community from its Stellar asset |
+| `idx_communities_fts`               | GIN over `to_tsvector(name \| ' ' \| description)` | full-text search                             |
 
 Integration tests use deterministic seed fixtures from `backend/src/test/fixtures.ts` to create and tear down the baseline `EcoDAO` and `AgriCoop` records used by the HTTP suite.
 
@@ -710,47 +710,51 @@ Unique constraint: `(community_id, stellar_address)` — one KYC record per addr
 
 ## Foreign Key `ON DELETE` Summary
 
-| Child table          | FK column      | References        | Behaviour           |
-| -------------------- | -------------- | ----------------- | ------------------- |
-| `members`            | `community_id` | `communities(id)` | CASCADE             |
+| Child table          | FK column      | References        | Behaviour               |
+| -------------------- | -------------- | ----------------- | ----------------------- |
+| `members`            | `community_id` | `communities(id)` | CASCADE                 |
 | `loans`              | `community_id` | `communities(id)` | CASCADE (migration 019) |
-| `payments`           | `community_id` | `communities(id)` | SET NULL (nullable) |
-| `payments`           | `loan_id`      | `loans(id)`       | SET NULL (nullable) |
-| `trustlines`         | —              | —                 | standalone          |
-| `loan_events`        | `loan_id`      | `loans(id)`       | CASCADE             |
-| `loan_events`        | `payment_id`   | `payments(id)`    | SET NULL (nullable) |
-| `tokens`             | `community_id` | `communities(id)` | CASCADE             |
-| `transactions_log`   | `community_id` | `communities(id)` | SET NULL (nullable) |
-| `reputation_scores`  | `community_id` | `communities(id)` | CASCADE             |
-| `community_settings` | `community_id` | `communities(id)` | CASCADE             |
-| `notifications`      | `community_id` | `communities(id)` | CASCADE             |
-| `multisig_requests`  | `community_id` | `communities(id)` | CASCADE             |
-| `proposals`          | `community_id` | `communities(id)` | CASCADE             |
-| `votes`              | `proposal_id`  | `proposals(id)`   | CASCADE             |
-| `kyc_records`        | `community_id` | `communities(id)` | CASCADE             |
-
+| `payments`           | `community_id` | `communities(id)` | SET NULL (nullable)     |
+| `payments`           | `loan_id`      | `loans(id)`       | SET NULL (nullable)     |
+| `trustlines`         | —              | —                 | standalone              |
+| `loan_events`        | `loan_id`      | `loans(id)`       | CASCADE                 |
+| `loan_events`        | `payment_id`   | `payments(id)`    | SET NULL (nullable)     |
+| `tokens`             | `community_id` | `communities(id)` | CASCADE                 |
+| `transactions_log`   | `community_id` | `communities(id)` | SET NULL (nullable)     |
+| `reputation_scores`  | `community_id` | `communities(id)` | CASCADE                 |
+| `community_settings` | `community_id` | `communities(id)` | CASCADE                 |
+| `notifications`      | `community_id` | `communities(id)` | CASCADE                 |
+| `multisig_requests`  | `community_id` | `communities(id)` | CASCADE                 |
+| `proposals`          | `community_id` | `communities(id)` | CASCADE                 |
+| `votes`              | `proposal_id`  | `proposals(id)`   | CASCADE                 |
+| `kyc_records`        | `community_id` | `communities(id)` | CASCADE                 |
 
 ### ON DELETE Behavior Design Rationale
 
 **CASCADE** (most common): Used for dependent entities that have no meaning without their parent.
+
 - **Examples**: `members`, `loans`, `tokens`, `reputation_scores`, `community_settings`
 - **Rationale**: These entities are intrinsically tied to their parent community. If a community is deleted, its members, loans, tokens, reputation scores, and settings should also be removed to maintain data consistency.
 
 **SET NULL**: Used for audit trails and immutable records that should survive parent deletion.
+
 - **Examples**: `transactions_log`, `payments.community_id`, `payments.loan_id`, `loan_events.payment_id`
 - **Rationale**: Audit records should be preserved for compliance and historical analysis. Setting the foreign key to NULL preserves the immutable record while breaking the relationship with the deleted parent.
 
 **RESTRICT/NO ACTION**: Not used in this schema (all foreign keys have explicit behaviors).
+
 - **Rationale**: Default PostgreSQL behavior prevents accidental data loss but requires explicit design decisions for each relationship.
 
 ### Connection Pooling Guidelines
 
 **PostgreSQL Connection Pool (backend/src/db/index.ts)**:
+
 - **PGPOOL_MAX=10**: Default pool size suitable for most applications. Increase for high-traffic production.
 - **PGPOOL_IDLE_TIMEOUT=30000**: 30 seconds idle timeout prevents connection accumulation.
 - **PGPOOL_CONNECTION_TIMEOUT=2000**: 2 second connection timeout ensures quick failure for unavailable databases.
 
 **PgBouncer (docker-compose.yml)**:
+
 - **PGBOUNCER_POOL_MODE=transaction**: Transaction pooling for maximum connection reuse.
 - **PGBOUNCER_MAX_CLIENT_CONN=100**: Maximum client connections through PgBouncer.
 - **PGBOUNCER_DEFAULT_POOL_SIZE=20**: Default pool size per database.
@@ -758,11 +762,13 @@ Unique constraint: `(community_id, stellar_address)` — one KYC record per addr
 ### Backup Strategy
 
 **Automated Backups (`scripts/backup-db.sh`)**:
+
 - **Format**: PostgreSQL custom format (`-Fc`) for efficient compression and selective restore.
 - **Retention**: Keeps 10 most recent backups, automatically prunes older ones.
 - **Scheduling**: Recommended to run daily via cron or CI/CD pipeline.
 
 **Restore Procedure**:
+
 ```bash
 # Restore from backup
 pg_restore --clean --if-exists --dbname=cooplumen backups/cooplumen_YYYYMMDDTHHMMSSZ.dump
