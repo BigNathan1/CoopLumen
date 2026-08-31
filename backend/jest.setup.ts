@@ -9,8 +9,9 @@ afterEach(async () => {
   try {
     // Dynamic import avoids a hard dependency — if the module is not loaded
     // yet (e.g. in suites that don't touch prices at all) this is a no-op.
-    const { clearPriceCache } = await import('./src/cache/prices');
-    await clearPriceCache();
+    // In-process only: touching Redis here opens a connection per test.
+    const { clearPriceMemoryCache } = await import('./src/cache/prices');
+    clearPriceMemoryCache();
   } catch {
     // Module not loaded in this test run — nothing to clear.
   }

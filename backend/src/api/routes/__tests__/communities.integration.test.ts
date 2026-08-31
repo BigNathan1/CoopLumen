@@ -89,7 +89,8 @@ describeIf('Community CRUD (integration)', () => {
     const res = await request(app).get(`/api/v1/communities/${communityId}`);
     expect(res.status).toBe(200);
     expect(res.body.data.community.name).toBe('IntegrationDAO');
-    expect(res.body.data.community.member_count).toBe(0);
+    // Creating a community auto-adds its creator as the first admin member.
+    expect(res.body.data.community.member_count).toBe(1);
     expect(res.body.data.statistics).toEqual({
       totalTransactions: 1,
       totalTokenSupply: 0,
@@ -169,8 +170,11 @@ describeIf('Community CRUD (integration)', () => {
 
     const list = await request(app).get(`/api/v1/communities/${communityId}/members`);
     expect(list.status).toBe(200);
-    expect(list.body.meta.total).toBe(1);
-    expect(list.body.data[0].stellar_address).toBe(member);
+    // The creator's own admin row plus the member just added.
+    expect(list.body.meta.total).toBe(2);
+    expect(
+      list.body.data.some((m: { stellar_address: string }) => m.stellar_address === member)
+    ).toBe(true);
   });
 
   it('fetches a single member by address', async () => {
