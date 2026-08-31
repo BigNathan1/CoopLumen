@@ -118,6 +118,10 @@ describe('issueAsset', () => {
       await expect(issueAsset(params)).rejects.toMatchObject({
         code: 'INVALID_INPUT',
         httpStatus: 400,
+    ])('rejects %s before calling Horizon', async (_case, params, expected) => {
+      await expect(issueAsset(params)).rejects.toMatchObject({
+        name: 'StellarError',
+        status: 400,
         message: expect.stringMatching(expected) as unknown as string,
       });
 
@@ -206,6 +210,9 @@ describe('issueAsset', () => {
 
       await expect(issueAsset(validParams)).rejects.toMatchObject({
         code: 'TRUSTLINE_LIMIT_EXCEEDED',
+        name: 'StellarError',
+        status: 400,
+        message: expect.stringContaining('op_no_trust') as unknown as string,
       });
     });
 
@@ -218,6 +225,7 @@ describe('issueAsset', () => {
     });
 
     it('maps a stale sequence number to BAD_SEQUENCE once the retry is exhausted', async () => {
+    it('maps a stale sequence number once the retry is exhausted', async () => {
       mockSubmit
         .mockRejectedValueOnce(horizonFailure({ transaction: 'tx_bad_seq' }))
         .mockRejectedValueOnce(horizonFailure({ transaction: 'tx_bad_seq' }));
@@ -234,6 +242,18 @@ describe('issueAsset', () => {
       await expect(issueAsset(validParams)).rejects.toMatchObject({
         code: 'ACCOUNT_NOT_FOUND',
         httpStatus: 404,
+        name: 'StellarError',
+        status: 400,
+        message: expect.stringContaining('tx_bad_seq') as unknown as string,
+      });
+    });
+
+    it('maps an unfunded issuer account to a 404', async () => {
+      mockLoadAccount.mockRejectedValueOnce({ response: { status: 404 } });
+
+      await expect(issueAsset(validParams)).rejects.toMatchObject({
+        name: 'StellarError',
+        status: 404,
       });
       expect(mockSubmit).not.toHaveBeenCalled();
     });
@@ -245,6 +265,13 @@ describe('issueAsset', () => {
       expect(logger.error).toHaveBeenCalledWith(
         'Stellar operation failed',
         expect.objectContaining({ operation: 'issueAsset', code: 'INSUFFICIENT_BALANCE' })
+    it('logs the mapped failure', async () => {
+      mockSubmit.mockRejectedValueOnce(horizonFailure({ operations: ['op_underfunded'] }));
+
+      await expect(issueAsset(validParams)).rejects.toMatchObject({ status: 400 });
+      expect(logger.error).toHaveBeenCalledWith(
+        'Stellar operation failed',
+        expect.objectContaining({ operation: 'issueAsset', status: 400 })
       );
     });
   });

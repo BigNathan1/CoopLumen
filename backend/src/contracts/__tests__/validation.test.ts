@@ -23,6 +23,10 @@ describe('parseSecretKey', () => {
     );
     expect(() => parseSecretKey('op', 'accountSecret', 'nope')).toThrow(
       expect.objectContaining({ code: 'INVALID_INPUT', httpStatus: 400 }) as unknown as Error
+      'op failed: accountSecret is not a valid Stellar secret key.'
+    );
+    expect(() => parseSecretKey('op', 'accountSecret', 'nope')).toThrow(
+      expect.objectContaining({ name: 'StellarError', status: 400 }) as unknown as Error
     );
   });
 

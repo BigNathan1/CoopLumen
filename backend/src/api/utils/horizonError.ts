@@ -95,6 +95,7 @@ const OPERATION_MESSAGES: Record<string, string> = {
  * https://developers.stellar.org/docs/data/horizon/api-reference/errors/result-codes/transactions
  */
 const TRANSACTION_MESSAGES: Record<string, string> = {
+  tx_failed: 'One or more operations in the transaction failed.',
   tx_too_early: 'Transaction submitted before its valid start time.',
   tx_too_late: 'Transaction submitted after its valid end time; please rebuild and resubmit.',
   tx_missing_operation: 'Transaction must contain at least one operation.',

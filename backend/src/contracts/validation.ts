@@ -5,6 +5,7 @@
  * Horizon round trip ending in an opaque `op_malformed` — or an unlabelled
  * throw from deep inside the SDK — into an `INVALID_INPUT` error naming the
  * offending field.
+ * throw from deep inside the SDK — into a 400 naming the offending field.
  */
 
 import { Keypair, StrKey } from '@stellar/stellar-sdk';

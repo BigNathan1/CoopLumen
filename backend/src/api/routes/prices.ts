@@ -39,7 +39,10 @@ pricesRouter.get('/xlm', async (req: Request, res: Response, next: NextFunction)
 
     res.status(200).json({ data: priceData });
   } catch (err) {
-    if (err instanceof Error && err.message.includes('public source')) {
+    if (
+      err instanceof Error &&
+      (err.message.includes('public source') || err.message.includes('public sources'))
+    ) {
       res.status(502).json({
         data: null,
         error: 'Failed to fetch price from public source.',

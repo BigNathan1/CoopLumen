@@ -5,8 +5,10 @@ import { StellarService } from '../../contracts/stellar';
 import { logger } from '../../utils/logger';
 import { parsePagination, pageMeta, parseSort, queryString } from '../utils/http';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate';
+import { requireAuth, requireCommunityRole } from '../middleware/auth';
 import { writeLimiter } from '../middleware/rateLimit';
 import { isValidStellarPublicKey } from '../utils/stellar';
+import { mapHorizonError } from '../utils/horizonError';
 import {
   createCommunitySchema,
   updateCommunitySchema,
@@ -17,7 +19,7 @@ import {
   getCommunitiesQuerySchema,
 } from '../schemas/community';
 
-export const communityRouter = Router();
+export const communityRouter: Router = Router();
 
 interface Community {
   id: string;
@@ -322,6 +324,7 @@ communityRouter.get('/:id', validateParams(communityIdParamsSchema), async (req,
  */
 communityRouter.post(
   '/',
+  requireAuth,
   writeLimiter,
   validateBody(createCommunitySchema),
   async (req: Request, res: Response) => {
@@ -333,6 +336,14 @@ communityRouter.post(
         assetCode: string;
         assetIssuer: string;
       };
+
+      if (req.auth!.address !== issuerPublicKey) {
+        res.status(403).json({
+          data: null,
+          error: 'issuerPublicKey must be the authenticated address',
+        });
+        return;
+      }
 
       const existing = await findCommunityByNormalizedName(name);
       if (existing) {
@@ -348,6 +359,13 @@ communityRouter.post(
           [name, description ?? null, issuerPublicKey, assetCode, assetIssuer]
         );
         const created = result.rows[0];
+        // The creator becomes the community's first admin so someone can
+        // manage roles and settings from the moment it exists.
+        await client.query(
+          `INSERT INTO members (community_id, stellar_address, role)
+           VALUES ($1, $2, 'admin')`,
+          [created.id, issuerPublicKey]
+        );
         await client.query(
           `INSERT INTO transactions_log (community_id, actor_address, action, metadata)
            VALUES ($1, $2, 'community_created', $3)`,
@@ -387,6 +405,8 @@ communityRouter.post(
  */
 communityRouter.put(
   '/:id',
+  requireAuth,
+  requireCommunityRole(['admin', 'treasurer']),
   writeLimiter,
   validateParams(communityIdParamsSchema),
   validateBody(updateCommunitySchema),
@@ -471,30 +491,36 @@ communityRouter.put(
  * @returns {404} Community not found or already soft-deleted.
  * @see docs/openapi.yaml — DELETE /api/v1/communities/{id}
  */
-communityRouter.delete('/:id', writeLimiter, async (req, res, next) => {
-  if (!z.string().uuid().safeParse(req.params.id).success) {
-    res.status(400).json({
-      data: null,
-      error: 'Validation failed',
-      meta: { errors: [{ path: 'id', message: 'id must be a valid UUID' }] },
-    });
-    return;
-  }
-
-  try {
-    const result = await db.query<{ id: string }>(
-      'UPDATE communities SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id',
-      [req.params.id]
-    );
-    if (result.length === 0) {
-      res.status(404).json({ data: null, error: 'Community not found' });
+communityRouter.delete(
+  '/:id',
+  requireAuth,
+  writeLimiter,
+  requireCommunityRole(['admin']),
+  async (req, res, next) => {
+    if (!z.string().uuid().safeParse(req.params.id).success) {
+      res.status(400).json({
+        data: null,
+        error: 'Validation failed',
+        meta: { errors: [{ path: 'id', message: 'id must be a valid UUID' }] },
+      });
       return;
     }
-    res.json({ data: { id: result[0].id, deleted: true } });
-  } catch (err) {
-    next(err);
+
+    try {
+      const result = await db.query<{ id: string }>(
+        'UPDATE communities SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id',
+        [req.params.id]
+      );
+      if (result.length === 0) {
+        res.status(404).json({ data: null, error: 'Community not found' });
+        return;
+      }
+      res.json({ data: { id: result[0].id, deleted: true } });
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 /**
  * @route GET /api/v1/communities/:id/members
@@ -564,6 +590,8 @@ communityRouter.get('/:id/members', async (req, res, next) => {
  */
 communityRouter.post(
   '/:id/members',
+  requireAuth,
+  requireCommunityRole(['admin']),
   writeLimiter,
   validateBody(addMemberSchema),
   async (req: Request, res: Response, next: NextFunction) => {
@@ -641,6 +669,8 @@ communityRouter.get('/:id/members/:address', async (req, res, next) => {
  */
 communityRouter.put(
   '/:id/members/:address',
+  requireAuth,
+  requireCommunityRole(['admin']),
   writeLimiter,
   validateBody(updateMemberSchema),
   async (req: Request, res: Response, next: NextFunction) => {
@@ -679,28 +709,49 @@ communityRouter.put(
  * @returns {404} Member not found or already soft-removed.
  * @see docs/openapi.yaml — DELETE /api/v1/communities/{id}/members/{address}
  */
-communityRouter.delete('/:id/members/:address', writeLimiter, async (req, res, next) => {
-  try {
-    if (!isValidStellarPublicKey(req.params.address)) {
-      res.status(400).json({ data: null, error: 'Invalid Stellar address' });
-      return;
-    }
+communityRouter.delete(
+  '/:id/members/:address',
+  requireAuth,
+  writeLimiter,
+  async (req, res, next) => {
+    try {
+      if (!isValidStellarPublicKey(req.params.address)) {
+        res.status(400).json({ data: null, error: 'Invalid Stellar address' });
+        return;
+      }
 
-    const result = await db.query<{ stellar_address: string }>(
-      `UPDATE members SET deleted_at = NOW()
-       WHERE community_id = $1 AND stellar_address = $2 AND deleted_at IS NULL
-       RETURNING stellar_address`,
-      [req.params.id, req.params.address]
-    );
-    if (result.length === 0) {
-      res.status(404).json({ data: null, error: 'Member not found' });
-      return;
+      // A member may remove themselves; removing anyone else requires admin.
+      if (req.auth!.address !== req.params.address) {
+        const [caller] = await db.query<{ role: string }>(
+          `SELECT role FROM members
+           WHERE community_id = $1 AND stellar_address = $2 AND deleted_at IS NULL`,
+          [req.params.id, req.auth!.address]
+        );
+        if (!caller || caller.role !== 'admin') {
+          res.status(403).json({
+            data: null,
+            error: 'Only an admin can remove another member',
+          });
+          return;
+        }
+      }
+
+      const result = await db.query<{ stellar_address: string }>(
+        `UPDATE members SET deleted_at = NOW()
+         WHERE community_id = $1 AND stellar_address = $2 AND deleted_at IS NULL
+         RETURNING stellar_address`,
+        [req.params.id, req.params.address]
+      );
+      if (result.length === 0) {
+        res.status(404).json({ data: null, error: 'Member not found' });
+        return;
+      }
+      res.json({ data: { stellar_address: result[0].stellar_address, removed: true } });
+    } catch (err) {
+      next(err);
     }
-    res.json({ data: { stellar_address: result[0].stellar_address, removed: true } });
-  } catch (err) {
-    next(err);
   }
-});
+);
 
 /**
  * @route GET /api/v1/communities/:id/treasury
@@ -728,6 +779,11 @@ communityRouter.get(
       const balances = await StellarService.getAccountBalance(community.issuer_public_key);
       res.json({ data: { account: community.issuer_public_key, balances } });
     } catch (err) {
+      if ((err as { response?: unknown }).response) {
+        const mapped = mapHorizonError(err);
+        res.status(mapped.status).json({ data: null, error: mapped.message });
+        return;
+      }
       next(err);
     }
   }
@@ -746,6 +802,8 @@ communityRouter.get(
  */
 communityRouter.post(
   '/:id/avatar',
+  requireAuth,
+  requireCommunityRole(['admin', 'treasurer']),
   writeLimiter,
   validateBody(setAvatarSchema),
   async (req: Request, res: Response, next: NextFunction) => {
