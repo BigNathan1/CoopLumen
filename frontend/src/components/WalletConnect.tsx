@@ -36,18 +36,6 @@ export function WalletConnect() {
     <div className={styles.container}>
       {connected && publicKey ? (
         <div className={styles.connected}>
-          <span className={styles.badge}>Connected</span>
-          <span className={styles.key} title={publicKey}>
-            {shortKey}
-          </span>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={disconnect}
-            aria-label={`Disconnect wallet ${publicKey}`}
-          >
-            Disconnect
-          </Button>
           <div className={styles.row}>
             <span className={styles.badge}>Connected</span>
             <span className={styles.key} title={publicKey}>
@@ -57,9 +45,9 @@ export function WalletConnect() {
             <span className={styles.balance}>
               {balancesLoading ? 'Loading XLM…' : xlmBalance !== null ? `${xlmBalance} XLM` : '—'}
             </span>
-            <button className={styles.btn} onClick={disconnect}>
+            <Button variant="secondary" size="sm" onClick={disconnect}>
               Disconnect
-            </button>
+            </Button>
           </div>
           {networkMismatch && network && (
             <NetworkWarning currentNetwork={network} expectedNetwork={expectedNetwork} />

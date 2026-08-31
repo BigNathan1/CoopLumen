@@ -309,9 +309,7 @@ loanRouter.post(
 
       const updated = await db.transaction(async (client) => {
         const [loan] = (
-          await client.query<Loan>('SELECT * FROM loans WHERE id = $1 FOR UPDATE', [
-            req.params.id,
-          ])
+          await client.query<Loan>('SELECT * FROM loans WHERE id = $1 FOR UPDATE', [req.params.id])
         ).rows;
         if (!loan) {
           notFound = true;
@@ -351,9 +349,10 @@ loanRouter.post(
         return;
       }
       if (conflictStatus) {
-        res
-          .status(409)
-          .json({ data: null, error: `Cannot disburse a loan in status "${String(conflictStatus)}"` });
+        res.status(409).json({
+          data: null,
+          error: `Cannot disburse a loan in status "${String(conflictStatus)}"`,
+        });
         return;
       }
 
@@ -403,9 +402,7 @@ loanRouter.post(
 
       const updated = await db.transaction(async (client) => {
         const [loan] = (
-          await client.query<Loan>('SELECT * FROM loans WHERE id = $1 FOR UPDATE', [
-            req.params.id,
-          ])
+          await client.query<Loan>('SELECT * FROM loans WHERE id = $1 FOR UPDATE', [req.params.id])
         ).rows;
         if (!loan) {
           notFound = true;
@@ -536,9 +533,7 @@ loanRouter.post(
 
       const updated = await db.transaction(async (client) => {
         const [loan] = (
-          await client.query<Loan>('SELECT * FROM loans WHERE id = $1 FOR UPDATE', [
-            req.params.id,
-          ])
+          await client.query<Loan>('SELECT * FROM loans WHERE id = $1 FOR UPDATE', [req.params.id])
         ).rows;
         if (!loan) {
           notFound = true;
@@ -574,9 +569,10 @@ loanRouter.post(
         return;
       }
       if (conflictStatus) {
-        res
-          .status(409)
-          .json({ data: null, error: `Cannot default a loan in status "${String(conflictStatus)}"` });
+        res.status(409).json({
+          data: null,
+          error: `Cannot default a loan in status "${String(conflictStatus)}"`,
+        });
         return;
       }
 

@@ -63,9 +63,7 @@ describe('Table', () => {
     });
 
     it('uses column className on cells', () => {
-      const cols: TableColumn<TestRow>[] = [
-        { key: 'name', label: 'Name', className: 'name-cell' },
-      ];
+      const cols: TableColumn<TestRow>[] = [{ key: 'name', label: 'Name', className: 'name-cell' }];
       render(<Table columns={cols} data={[{ name: 'Alice', email: '', role: '' }]} />);
       expect(screen.getByText('Alice')).toHaveClass('name-cell');
     });
@@ -94,17 +92,9 @@ describe('Table', () => {
 
     it('passes row and index to render', () => {
       const renderFn = jest.fn((value) => String(value));
-      const cols: TableColumn<TestRow>[] = [
-        { key: 'name', label: 'Name', render: renderFn },
-      ];
-      render(
-        <Table columns={cols} data={[{ name: 'Alice', email: '', role: '' }]} />
-      );
-      expect(renderFn).toHaveBeenCalledWith(
-        'Alice',
-        { name: 'Alice', email: '', role: '' },
-        0
-      );
+      const cols: TableColumn<TestRow>[] = [{ key: 'name', label: 'Name', render: renderFn }];
+      render(<Table columns={cols} data={[{ name: 'Alice', email: '', role: '' }]} />);
+      expect(renderFn).toHaveBeenCalledWith('Alice', { name: 'Alice', email: '', role: '' }, 0);
     });
 
     it('uses renderHeader for header content', () => {
@@ -184,25 +174,19 @@ describe('Table', () => {
     });
 
     it('sets aria-sort="ascending" on the ascending sorted column', () => {
-      render(
-        <Table columns={columns} data={rows} sortKey="name" sortDirection="asc" />
-      );
+      render(<Table columns={columns} data={rows} sortKey="name" sortDirection="asc" />);
       const th = screen.getByText('Name').closest('th');
       expect(th).toHaveAttribute('aria-sort', 'ascending');
     });
 
     it('sets aria-sort="descending" on the descending sorted column', () => {
-      render(
-        <Table columns={columns} data={rows} sortKey="name" sortDirection="desc" />
-      );
+      render(<Table columns={columns} data={rows} sortKey="name" sortDirection="desc" />);
       const th = screen.getByText('Name').closest('th');
       expect(th).toHaveAttribute('aria-sort', 'descending');
     });
 
     it('sets aria-sort="none" on sortable columns that are not active', () => {
-      render(
-        <Table columns={columns} data={rows} sortKey="name" sortDirection="asc" />
-      );
+      render(<Table columns={columns} data={rows} sortKey="name" sortDirection="asc" />);
       const th = screen.getByText('Role').closest('th');
       expect(th).toHaveAttribute('aria-sort', 'none');
     });
@@ -244,25 +228,19 @@ describe('Table', () => {
     });
 
     it('sets data-active on the currently sorted column', () => {
-      render(
-        <Table columns={columns} data={rows} sortKey="name" sortDirection="asc" />
-      );
+      render(<Table columns={columns} data={rows} sortKey="name" sortDirection="asc" />);
       const th = screen.getByText('Name').closest('th');
       expect(th).toHaveAttribute('data-active', 'true');
     });
 
     it('does not set data-active on unsorted columns', () => {
-      render(
-        <Table columns={columns} data={rows} sortKey="name" sortDirection="asc" />
-      );
+      render(<Table columns={columns} data={rows} sortKey="name" sortDirection="asc" />);
       const th = screen.getByText('Role').closest('th');
       expect(th).not.toHaveAttribute('data-active');
     });
 
     it('sort button includes direction in aria-label', () => {
-      render(
-        <Table columns={columns} data={rows} sortKey="name" sortDirection="asc" />
-      );
+      render(<Table columns={columns} data={rows} sortKey="name" sortDirection="asc" />);
       expect(
         screen.getByRole('button', { name: /Sort by Name, currently ascending/ })
       ).toBeInTheDocument();
@@ -352,16 +330,12 @@ describe('Table', () => {
     });
 
     it('sort direction indicator shows ▲ for ascending', () => {
-      render(
-        <Table columns={columns} data={rows} sortKey="name" sortDirection="asc" />
-      );
+      render(<Table columns={columns} data={rows} sortKey="name" sortDirection="asc" />);
       expect(screen.getByText('▲')).toBeInTheDocument();
     });
 
     it('sort direction indicator shows ▼ for descending', () => {
-      render(
-        <Table columns={columns} data={rows} sortKey="name" sortDirection="desc" />
-      );
+      render(<Table columns={columns} data={rows} sortKey="name" sortDirection="desc" />);
       expect(screen.getByText('▼')).toBeInTheDocument();
     });
   });

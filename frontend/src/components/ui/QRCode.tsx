@@ -16,11 +16,7 @@ export function QRCode({
   className,
 }: QRCodeProps) {
   return (
-    <div
-      className={className}
-      role="img"
-      aria-label={`${label}: ${address}`}
-    >
+    <div className={className} role="img" aria-label={`${label}: ${address}`}>
       <QRCodeSVG
         value={address}
         size={size}

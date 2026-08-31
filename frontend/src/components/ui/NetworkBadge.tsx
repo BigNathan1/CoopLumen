@@ -3,10 +3,7 @@ interface NetworkBadgeProps {
   className?: string;
 }
 
-export function NetworkBadge({
-  network,
-  className = '',
-}: NetworkBadgeProps) {
+export function NetworkBadge({ network, className = '' }: NetworkBadgeProps) {
   const isTestnet = network === 'TESTNET';
 
   return (

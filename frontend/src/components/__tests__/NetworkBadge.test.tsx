@@ -10,7 +10,7 @@ describe('NetworkBadge', () => {
     expect(
       screen.getByRole('status', {
         name: 'Stellar network: TESTNET',
-      }),
+      })
     ).toBeInTheDocument();
   });
 
@@ -21,7 +21,7 @@ describe('NetworkBadge', () => {
     expect(
       screen.getByRole('status', {
         name: 'Stellar network: MAINNET',
-      }),
+      })
     ).toBeInTheDocument();
   });
 });
