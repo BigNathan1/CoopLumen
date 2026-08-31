@@ -1,6 +1,7 @@
 'use client';
 
 import { useWallet } from '@/hooks/useWallet';
+import { Button } from './ui/Button';
 import styles from './WalletConnect.module.css';
 
 export function WalletConnect() {
@@ -16,16 +17,30 @@ export function WalletConnect() {
           <span className={styles.key} title={publicKey}>
             {shortKey}
           </span>
-          <button className={styles.btn} onClick={disconnect}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={disconnect}
+            aria-label={`Disconnect wallet ${publicKey}`}
+          >
             Disconnect
-          </button>
+          </Button>
         </div>
       ) : (
-        <button className={styles.btn} onClick={() => void connect()} disabled={connecting}>
-          {connecting ? 'Connecting…' : 'Connect Freighter'}
-        </button>
+        <Button
+          size="sm"
+          onClick={() => void connect()}
+          isLoading={connecting}
+          loadingLabel="Connecting to Freighter"
+        >
+          Connect Freighter
+        </Button>
       )}
-      {error && <p className={styles.error}>{error}</p>}
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

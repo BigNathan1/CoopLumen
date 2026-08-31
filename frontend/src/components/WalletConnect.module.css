@@ -25,26 +25,6 @@
   color: var(--color-text-muted);
 }
 
-.btn {
-  background: var(--color-primary);
-  color: #fff;
-  border: none;
-  padding: 8px 16px;
-  border-radius: var(--radius);
-  font-size: 0.875rem;
-  font-weight: 600;
-  transition: opacity 0.15s;
-}
-
-.btn:hover:not(:disabled) {
-  opacity: 0.85;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .error {
   font-size: 0.75rem;
   color: var(--color-error);
