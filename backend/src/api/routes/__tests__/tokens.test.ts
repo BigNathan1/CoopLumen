@@ -63,4 +63,29 @@ describe('GET /api/v1/tokens/:assetCode/:issuer', () => {
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ data: null, error: 'Token not found' });
   });
+
+  it('handles database errors gracefully', async () => {
+    mockQuery.mockRejectedValueOnce(new Error('Database connection failed'));
+
+    const response = await request(app).get(`/api/v1/tokens/ECO/${issuer}`);
+
+    expect(response.status).toBe(500);
+  });
+
+  it('validates asset code length', async () => {
+    const longAssetCode = 'VERYLONGASSETCODE'; // exceeds 12 chars
+    const response = await request(app).get(`/api/v1/tokens/${longAssetCode}/${issuer}`);
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('Validation failed');
+    expect(mockQuery).not.toHaveBeenCalled();
+  });
+
+  it('validates asset code characters', async () => {
+    const response = await request(app).get(`/api/v1/tokens/ECO-COIN/${issuer}`);
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toBe('Validation failed');
+    expect(mockQuery).not.toHaveBeenCalled();
+  });
 });

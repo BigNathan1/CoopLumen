@@ -8,7 +8,7 @@ import { cacheBalances, getCachedBalances } from '../../cache/balances';
 import { mapHorizonError } from '../utils/horizonError';
 import { logger } from '../../utils/logger';
 
-export const balanceRouter = Router();
+export const balanceRouter: Router = Router();
 
 interface BalanceHistoryEntry {
   id: string;
@@ -50,7 +50,23 @@ function respondValidationError(res: Response, error: z.ZodError): void {
 
 /**
  * GET /api/v1/balances/:publicKey
- * Returns all asset balances for a Stellar account.
+ *
+ * Returns all on-chain asset balances for a Stellar account.
+ *
+ * Successful responses are cached in Redis for up to 5 seconds (BALANCE_CACHE_TTL_SECONDS).
+ * A cache hit skips the Horizon call entirely. On a cache miss the account is fetched from
+ * Horizon and the result is written to cache before responding.
+ *
+ * Horizon 429 and 503 errors are retried with exponential backoff (up to 4 attempts).
+ * All other Horizon errors are mapped to actionable HTTP responses via mapHorizonError.
+ *
+ * @route   GET /api/v1/balances/:publicKey
+ * @param   {string} req.params.publicKey - 56-character Stellar ed25519 public key (StrKey G...)
+ * @returns {200} BalanceResponse - Array of balance lines (native XLM + any custom assets)
+ * @returns {400} ValidationErrorResponse - publicKey failed Stellar key validation
+ * @returns {404} ErrorResponse - Account does not exist on the configured Stellar network
+ * @returns {502} ErrorResponse - Horizon is temporarily unavailable after retry exhaustion
+ * @see     {@link https://developers.stellar.org/docs/data/horizon/api-reference/resources/retrieve-an-account} Horizon account endpoint
  */
 balanceRouter.get('/:publicKey', async (req: Request, res: Response, next: NextFunction) => {
   const parsedParams = balanceParamsSchema.safeParse(req.params);
@@ -91,7 +107,24 @@ balanceRouter.get('/:publicKey', async (req: Request, res: Response, next: NextF
 
 /**
  * GET /api/v1/balances/:publicKey/history
- * Returns newest-first balance-related audit history for a Stellar address.
+ *
+ * Returns a paginated, newest-first list of balance-related audit entries from the
+ * transactions_log table for a given Stellar address.
+ *
+ * Each entry records an action (e.g. payment_sent, token_issued, loan_repayment) along
+ * with optional metadata specific to that action (amount, asset_code, loan_id, etc.).
+ *
+ * Database errors are caught, logged via the logger, and returned as a sanitised 500
+ * response — raw error details are never surfaced to the caller.
+ *
+ * @route   GET /api/v1/balances/:publicKey/history
+ * @param   {string}  req.params.publicKey - 56-character Stellar ed25519 public key
+ * @param   {number}  [req.query.page=1]   - 1-based page number
+ * @param   {number}  [req.query.limit=20] - Entries per page (1–100)
+ * @returns {200} BalanceHistoryResponse - Paginated { data: BalanceHistoryEntry[], meta: PageMeta }
+ * @returns {400} ValidationErrorResponse - publicKey or pagination params failed validation
+ * @returns {500} ErrorResponse - Audit history could not be queried ("Failed to load balance history.")
+ * @see     transactions_log table
  */
 balanceRouter.get('/:publicKey/history', async (req: Request, res: Response) => {
   const parsedParams = balanceParamsSchema.safeParse(req.params);
@@ -135,7 +168,16 @@ balanceRouter.get('/:publicKey/history', async (req: Request, res: Response) => 
 
 /**
  * GET /api/v1/balances/:publicKey/loans
- * Returns all loans involving a specific Stellar address.
+ *
+ * Returns a paginated list of loans where the given Stellar address appears as either
+ * the borrower or the lender, ordered newest-first.
+ *
+ * @route   GET /api/v1/balances/:publicKey/loans
+ * @param   {string}  req.params.publicKey - 56-character Stellar ed25519 public key
+ * @param   {number}  [req.query.page=1]   - 1-based page number
+ * @param   {number}  [req.query.limit=20] - Loans per page (1–100)
+ * @returns {200} { data: Loan[], meta: PageMeta } - Paginated loan records
+ * @returns {400} ValidationErrorResponse - publicKey or pagination params failed validation
  */
 balanceRouter.get('/:publicKey/loans', async (req: Request, res: Response, next: NextFunction) => {
   const parsedParams = balanceParamsSchema.safeParse(req.params);
@@ -184,7 +226,15 @@ balanceRouter.get('/:publicKey/loans', async (req: Request, res: Response, next:
 
 /**
  * GET /api/v1/balances/community/:communityId/loans
- * Returns all loans in a community.
+ *
+ * Returns a paginated list of all loans belonging to a community, ordered newest-first.
+ *
+ * @route   GET /api/v1/balances/community/:communityId/loans
+ * @param   {string}  req.params.communityId - Community UUID
+ * @param   {number}  [req.query.page=1]     - 1-based page number
+ * @param   {number}  [req.query.limit=20]   - Loans per page (1–100)
+ * @returns {200} { data: Loan[], meta: PageMeta } - Paginated loan records for the community
+ * @returns {400} ValidationErrorResponse - communityId failed UUID validation or pagination params invalid
  */
 balanceRouter.get(
   '/community/:communityId/loans',

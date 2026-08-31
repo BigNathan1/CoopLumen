@@ -17,7 +17,8 @@ const describeIf = RUN ? describe : describe.skip;
 jest.setTimeout(120_000);
 
 function databaseUrlFor(databaseName: string): string {
-  const url = new URL(configuredDatabaseUrl!);
+  if (!configuredDatabaseUrl) return '';
+  const url = new URL(configuredDatabaseUrl);
   url.pathname = `/${databaseName}`;
   return url.toString();
 }
