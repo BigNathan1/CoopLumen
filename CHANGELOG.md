@@ -8,6 +8,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ---
 
 ## [Unreleased]
+//temporrary commit and pr
 
 ### Security
 - Added a client-sign flow for issuing tokens and establishing trustlines, so a wallet's secret key no longer has to travel to the server in plaintext for these actions. `buildUnsignedIssueAsset()` (`backend/src/contracts/assets.ts`) builds an unsigned issuance payment from the issuer's public key; combined with the existing `buildUnsignedTrustline()`, both are now exposed as `POST /api/v1/tokens/build-issue` and `POST /api/v1/tokens/build-trustline`. A wallet (e.g. Freighter) signs the returned XDR locally and submits it through the new `POST /api/v1/tokens/submit`, which wires up the previously-unused `submitSignedXdr()` helper. The existing secret-key endpoints, `POST /api/v1/tokens/issue` and `POST /api/v1/tokens/trustline`, are now gated behind `requireAdmin` and their doc comments updated to steer callers to the new flow; removing them from the public API surface entirely is tracked as a follow-up once `requireAdmin` is a real auth check rather than a placeholder (see the separately-filed auth-bypass issue). `POST /api/v1/tokens/burn` and `POST /api/v1/tokens/airdrop` accept the same kind of raw secret key and were not in scope of this change; they should be tracked separately.
