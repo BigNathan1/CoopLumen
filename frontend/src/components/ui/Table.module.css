@@ -1,0 +1,111 @@
+.wrapper {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.table {
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: 0.9375rem;
+  width: 100%;
+}
+
+.thead {
+  border-bottom: 2px solid var(--color-border);
+}
+
+.th {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.th[data-active] {
+  color: var(--color-primary);
+}
+
+.thContent {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.sortButton {
+  align-items: center;
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  gap: var(--space-1);
+  padding: 0;
+  text-align: left;
+}
+
+.sortButton:hover {
+  color: var(--color-primary);
+}
+
+.sortButton:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}
+
+.sortIcon {
+  font-size: 0.625rem;
+  line-height: 1;
+  opacity: 0.5;
+  user-select: none;
+}
+
+.sortIcon[data-direction] {
+  opacity: 1;
+}
+
+.tbody {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.row {
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color 0.1s;
+}
+
+.row:hover {
+  background: color-mix(in srgb, var(--color-surface) 92%, var(--color-emphasis-mix));
+}
+
+.td {
+  padding: var(--space-2) var(--space-3);
+  vertical-align: middle;
+}
+
+.compact .td,
+.compact .th {
+  padding: var(--space-1) var(--space-2);
+}
+
+.emptyCell {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  vertical-align: middle;
+}
+
+.emptyMessage {
+  color: var(--color-text-muted);
+  font-size: 0.9375rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row {
+    transition: none;
+  }
+}
