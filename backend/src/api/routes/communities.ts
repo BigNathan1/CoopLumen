@@ -7,6 +7,7 @@ import { parsePagination, pageMeta, parseSort, queryString } from '../utils/http
 import { validateBody, validateParams, validateQuery } from '../middleware/validate';
 import { writeLimiter } from '../middleware/rateLimit';
 import { isValidStellarPublicKey } from '../utils/stellar';
+import { mapHorizonError } from '../utils/horizonError';
 import {
   createCommunitySchema,
   updateCommunitySchema,
@@ -728,6 +729,11 @@ communityRouter.get(
       const balances = await StellarService.getAccountBalance(community.issuer_public_key);
       res.json({ data: { account: community.issuer_public_key, balances } });
     } catch (err) {
+      if ((err as { response?: unknown }).response) {
+        const mapped = mapHorizonError(err);
+        res.status(mapped.status).json({ data: null, error: mapped.message });
+        return;
+      }
       next(err);
     }
   }
