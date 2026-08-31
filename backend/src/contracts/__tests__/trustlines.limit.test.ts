@@ -76,6 +76,8 @@ describe('getTrustlineLimit', () => {
       ],
     ])('rejects %s before calling Horizon', async (_case, account, assetCode, issuer, expected) => {
       await expect(getTrustlineLimit(account, assetCode, issuer)).rejects.toMatchObject({
+        code: 'INVALID_INPUT',
+        httpStatus: 400,
         name: 'StellarError',
         status: 400,
         message: expect.stringMatching(expected) as unknown as string,
@@ -202,6 +204,33 @@ describe('getTrustlineLimit', () => {
   });
 
   describe('Horizon failures', () => {
+    it('maps a missing account to ACCOUNT_NOT_FOUND rather than returning null', async () => {
+      mockLoadAccount.mockRejectedValueOnce({ response: { status: 404 } });
+
+      await expect(getTrustlineLimit(publicKey, 'ECO', assetIssuer)).rejects.toMatchObject({
+        name: 'StellarOperationError',
+        code: 'ACCOUNT_NOT_FOUND',
+        httpStatus: 404,
+      });
+    });
+
+    it('maps a rate-limited read to RATE_LIMITED', async () => {
+      mockLoadAccount.mockRejectedValueOnce({ response: { status: 429 } });
+
+      await expect(getTrustlineLimit(publicKey, 'ECO', assetIssuer)).rejects.toMatchObject({
+        code: 'RATE_LIMITED',
+      });
+    });
+
+    it('never surfaces the raw Horizon error and logs the mapped one', async () => {
+      mockLoadAccount.mockRejectedValueOnce({ response: { status: 503 } });
+
+      await expect(getTrustlineLimit(publicKey, 'ECO', assetIssuer)).rejects.not.toHaveProperty(
+        'response'
+      );
+      expect(logger.error).toHaveBeenCalledWith(
+        'Stellar operation failed',
+        expect.objectContaining({ operation: 'getTrustlineLimit', code: 'HORIZON_UNAVAILABLE' })
     it('maps a missing account to a 404 rather than returning null', async () => {
       mockLoadAccount.mockRejectedValueOnce({ response: { status: 404 } });
 

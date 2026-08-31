@@ -3,6 +3,8 @@
  *
  * Catching a malformed key, asset code, or amount here turns what would be a
  * Horizon round trip ending in an opaque `op_malformed` — or an unlabelled
+ * throw from deep inside the SDK — into an `INVALID_INPUT` error naming the
+ * offending field.
  * throw from deep inside the SDK — into a 400 naming the offending field.
  */
 
@@ -14,6 +16,12 @@ const ASSET_CODE_PATTERN = /^[A-Za-z0-9]{1,12}$/;
 
 /** Non-negative decimal with at most 7 places, matching Stellar's stroop precision. */
 const AMOUNT_PATTERN = /^(?:0|[1-9]\d*)(?:\.\d{1,7})?$/;
+
+/** `Memo.text` is capped at 28 bytes on the wire, not 28 characters. */
+export const MEMO_MAX_BYTES = 28;
+
+/** Seconds a built transaction stays valid before Horizon rejects it as expired. */
+export const TRANSACTION_TIMEOUT_SECONDS = 30;
 
 /** Parses a secret seed into a keypair, or fails with a field-named 400. */
 export function parseSecretKey(operation: string, field: string, value: string): Keypair {
@@ -54,6 +62,15 @@ export function assertNonNegativeAmount(operation: string, field: string, value:
     throw invalidInput(
       operation,
       `${field} must be a non-negative decimal string with at most 7 decimal places.`
+    );
+  }
+}
+
+export function assertMemoLength(operation: string, memo: string | undefined): void {
+  if (memo !== undefined && Buffer.byteLength(memo, 'utf8') > MEMO_MAX_BYTES) {
+    throw invalidInput(
+      operation,
+      `memo must be ${MEMO_MAX_BYTES} bytes or fewer when UTF-8 encoded.`
     );
   }
 }
