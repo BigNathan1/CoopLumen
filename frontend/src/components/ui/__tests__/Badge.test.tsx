@@ -44,9 +44,7 @@ describe('Badge', () => {
   });
 
   it('renders an icon before the label when provided', () => {
-    render(
-      <Badge icon={<svg data-testid="icon" />}>Info</Badge>
-    );
+    render(<Badge icon={<svg data-testid="icon" />}>Info</Badge>);
     const icon = screen.getByTestId('icon');
     expect(icon).toBeInTheDocument();
     expect(icon.parentElement).toHaveAttribute('aria-hidden', 'true');

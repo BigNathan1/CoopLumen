@@ -32,7 +32,7 @@ export interface BadgeProps extends ComponentPropsWithoutRef<'span'> {
   dot?: boolean;
   /** Decorative element rendered before the label. */
   icon?: ReactNode;
-  /** Screen-reader-only text that replaces the visible label. */
+  /** Screen-reader-only text announced before the visible label. */
   srLabel?: string;
 }
 
@@ -44,9 +44,9 @@ export interface BadgeProps extends ComponentPropsWithoutRef<'span'> {
  *
  * Accessibility notes:
  *
- * - When `srLabel` is provided the visible text is hidden from assistive
- *   technology and replaced by the screen-reader-only string, allowing a
- *   verbose accessible name without truncating the visible label.
+ * - `srLabel` prepends screen-reader-only text to the visible label, so a
+ *   short visible badge ("Active") can carry a fuller spoken form
+ *   ("Status: active") without lengthening the layout.
  * - Decorative icons and the dot indicator are `aria-hidden` so they do not
  *   add noise to the accessible tree.
  * - `data-variant` and `data-size` are mirrored onto the element so
@@ -73,23 +73,12 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(function Badge(
   },
   ref
 ) {
-  const classes = [
-    styles.badge,
-    VARIANT_CLASS[variant],
-    SIZE_CLASS[size],
-    className,
-  ]
+  const classes = [styles.badge, VARIANT_CLASS[variant], SIZE_CLASS[size], className]
     .filter(Boolean)
     .join(' ');
 
   return (
-    <span
-      {...spanProps}
-      ref={ref}
-      className={classes}
-      data-variant={variant}
-      data-size={size}
-    >
+    <span {...spanProps} ref={ref} className={classes} data-variant={variant} data-size={size}>
       {dot && <span aria-hidden="true" className={styles.dot} />}
 
       {icon && !dot && (
