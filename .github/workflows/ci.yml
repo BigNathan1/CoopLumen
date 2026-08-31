@@ -50,6 +50,11 @@ jobs:
         working-directory: frontend
         run: npm run format:check
 
+      # docs/ sits outside both workspaces, so a malformed openapi.yaml could
+      # otherwise reach main without any job noticing.
+      - name: Check docs formatting
+        run: npx --yes prettier@3 --check "docs/**/*.{md,yaml,yml}"
+
   typecheck:
     name: Type-check
     runs-on: ubuntu-latest
