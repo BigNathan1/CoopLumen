@@ -42,6 +42,7 @@ export function useWallet() {
   });
 
   const authenticate = useCallback(async (publicKey: string) => {
+    const { signBlob } = await import('@stellar/freighter-api');
     const freighter = (await import('@stellar/freighter-api')) as unknown as {
       signMessage?: (
         message: string,
@@ -55,6 +56,7 @@ export function useWallet() {
       { address: publicKey },
       { auth: false }
     );
+    const signature = await signBlob(challenge, { accountToSign: publicKey });
     const signFn = freighter.signMessage ?? freighter.signBlob;
     if (!signFn) {
       throw new Error('Freighter signing function not available');
