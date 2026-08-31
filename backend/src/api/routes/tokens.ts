@@ -1,8 +1,15 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { Asset, Keypair, Operation, TransactionBuilder, BASE_FEE } from '@stellar/stellar-sdk';
 import { z } from 'zod';
-import { issueAsset, burnAsset, getAssetHolders, getTotalSupply } from '../../contracts/assets';
-import { establishTrustline } from '../../contracts/trustlines';
+import {
+  issueAsset,
+  burnAsset,
+  buildUnsignedIssueAsset,
+  getAssetHolders,
+  getTotalSupply,
+} from '../../contracts/assets';
+import { establishTrustline, buildUnsignedTrustline } from '../../contracts/trustlines';
+import { submitSignedXdr } from '../../contracts/transactions';
 import { db } from '../../db';
 import { invalidateBalanceCache } from '../../cache/balances';
 import { StellarService } from '../../contracts/stellar';
@@ -14,6 +21,9 @@ import {
   issueTokenSchema,
   trustlineTokenSchema,
   burnTokenSchema,
+  buildIssueTokenSchema,
+  buildTrustlineTokenSchema,
+  submitTokenXdrSchema,
   adminTokensQuerySchema,
 } from '../schemas/token';
 import { isValidStellarPublicKey } from '../utils/stellar';
@@ -146,9 +156,18 @@ tokenRouter.get('/', requireAdmin, async (req: Request, res: Response, next: Nex
 
 /**
  * POST /api/v1/tokens/issue
- * Issues a community token on the Stellar network.
- * The issuer secret must be held server-side for this endpoint (e.g., community treasury key).
- * In production, prefer the client-sign flow (/api/tokens/build-issue).
+ * Issues a community token on the Stellar network from a secret key held in
+ * the request body.
+ *
+ * SECURITY: this sends the issuer's full Stellar secret key to the server in
+ * plaintext, over the network, on every call — that key grants complete,
+ * irreversible control of the issuing account. Prefer the client-sign flow
+ * instead: POST /api/v1/tokens/build-issue returns an unsigned transaction
+ * the issuer's own wallet (e.g. Freighter) signs locally, then
+ * POST /api/v1/tokens/submit broadcasts it — the secret never leaves the
+ * client. This endpoint is gated behind requireAdmin and kept only for
+ * server-side tooling; it should not be reachable from untrusted clients.
+ *
  * Accepts an optional Idempotency-Key header; a retried request with the same
  * key replays the original response instead of issuing a second time.
  * When `communityId` is supplied, the issued token's metadata is persisted to
@@ -157,6 +176,7 @@ tokenRouter.get('/', requireAdmin, async (req: Request, res: Response, next: Nex
  */
 tokenRouter.post(
   '/issue',
+  requireAdmin,
   tokenIssueLimiter,
   idempotent('POST /api/v1/tokens/issue'),
   validateBody(issueTokenSchema),
@@ -314,10 +334,18 @@ tokenRouter.post(
 
 /**
  * POST /api/v1/tokens/trustline
- * Establishes a trustline so a member account can hold a community token.
+ * Establishes a trustline so a member account can hold a community token,
+ * from a secret key held in the request body.
+ *
+ * SECURITY: this sends the holder's full Stellar secret key to the server in
+ * plaintext. Prefer the client-sign flow instead: POST /api/v1/tokens/build-
+ * trustline returns an unsigned transaction the holder's own wallet signs
+ * locally, then POST /api/v1/tokens/submit broadcasts it. This endpoint is
+ * gated behind requireAdmin and kept only for server-side tooling.
  */
 tokenRouter.post(
   '/trustline',
+  requireAdmin,
   writeLimiter,
   validateBody(trustlineTokenSchema),
   async (req: Request, res: Response, next: NextFunction) => {
@@ -342,6 +370,115 @@ tokenRouter.post(
     }
   }
 );
+
+/**
+ * POST /api/v1/tokens/build-issue
+ * Builds an unsigned XDR transaction for issuing a community token, so the
+ * issuer's wallet (e.g. Freighter) can sign it client-side instead of
+ * sending the issuer's secret key to the server. Sign the returned XDR and
+ * submit it through POST /api/v1/tokens/submit.
+ */
+tokenRouter.post(
+  '/build-issue',
+  validateBody(buildIssueTokenSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { issuerPublicKey, assetCode, distributorPublicKey, amount, memo } = req.body as {
+        issuerPublicKey: string;
+        assetCode: string;
+        distributorPublicKey: string;
+        amount: string;
+        memo?: string;
+      };
+
+      const xdr = await buildUnsignedIssueAsset({
+        issuerPublicKey,
+        assetCode,
+        distributorPublicKey,
+        amount,
+        memo,
+      });
+
+      res.status(200).json({ data: { xdr } });
+    } catch (err) {
+      if ((err as { response?: unknown }).response) {
+        const mapped = mapHorizonError(err);
+        res.status(mapped.status).json({ data: null, error: mapped.message });
+        return;
+      }
+      next(err);
+    }
+  }
+);
+
+/**
+ * POST /api/v1/tokens/build-trustline
+ * Builds an unsigned changeTrust XDR transaction so a member's wallet can
+ * sign it client-side instead of sending the account's secret key to the
+ * server. Sign the returned XDR and submit it through
+ * POST /api/v1/tokens/submit.
+ */
+tokenRouter.post(
+  '/build-trustline',
+  validateBody(buildTrustlineTokenSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { accountPublicKey, assetCode, assetIssuer, limit } = req.body as {
+        accountPublicKey: string;
+        assetCode: string;
+        assetIssuer: string;
+        limit?: string;
+      };
+
+      const xdr = await buildUnsignedTrustline({ accountPublicKey, assetCode, assetIssuer, limit });
+
+      res.status(200).json({ data: { xdr } });
+    } catch (err) {
+      if ((err as { response?: unknown }).response) {
+        const mapped = mapHorizonError(err);
+        res.status(mapped.status).json({ data: null, error: mapped.message });
+        return;
+      }
+      next(err);
+    }
+  }
+);
+
+/**
+ * POST /api/v1/tokens/submit
+ * Submits a client-signed transaction XDR built by /build-issue or
+ * /build-trustline. Unlike POST /api/v1/tokens/transfer, this does not
+ * restrict the transaction to a single payment operation, since a signed
+ * changeTrust envelope must also pass through here.
+ */
+tokenRouter.post('/submit', async (req: Request, res: Response): Promise<void> => {
+  const parsed = submitTokenXdrSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({
+      data: null,
+      meta: {
+        errors: parsed.error.issues.map((issue) => ({ path: issue.path, message: issue.message })),
+      },
+      error: 'Invalid request body',
+    });
+    return;
+  }
+
+  try {
+    const txHash = await submitSignedXdr(parsed.data.signedXdr);
+    res.status(200).json({ data: { txHash } });
+  } catch (error) {
+    if ((error as { response?: unknown }).response) {
+      const mapped = mapHorizonError(error);
+      res.status(mapped.status).json({ data: null, error: mapped.message });
+      return;
+    }
+    res.status(400).json({
+      data: null,
+      error: 'The signedXdr is not a valid transaction for the configured Stellar network.',
+    });
+  }
+});
 
 /**
  * POST /api/v1/tokens/transfer
