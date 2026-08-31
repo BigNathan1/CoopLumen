@@ -102,6 +102,11 @@ describe('buildMultiSigPayment', () => {
         /amount must be a positive decimal string/,
       ],
       [
+        'an over-long memo',
+        { ...validParams, memo: 'x'.repeat(29) },
+        /memo must be 28 bytes or fewer/,
+      ],
+      [
         'a zero timeout',
         { ...validParams, timeoutSeconds: 0 },
         /timeoutSeconds must be a positive whole number/,
@@ -113,6 +118,8 @@ describe('buildMultiSigPayment', () => {
       ],
     ])('rejects %s before calling Horizon', async (_case, params, expected) => {
       await expect(buildMultiSigPayment(params)).rejects.toMatchObject({
+        code: 'INVALID_INPUT',
+        httpStatus: 400,
         name: 'StellarError',
         status: 400,
         message: expect.stringMatching(expected) as unknown as string,
@@ -266,6 +273,9 @@ describe('buildMultiSigPayment', () => {
       );
 
       await expect(buildMultiSigPayment(validParams)).rejects.toMatchObject({
+        name: 'StellarOperationError',
+        code: 'MISSING_SIGNATURES',
+        httpStatus: 409,
         name: 'StellarError',
         status: 409,
         message: expect.stringContaining('combined signer weight of 2') as unknown as string,
@@ -288,6 +298,19 @@ describe('buildMultiSigPayment', () => {
   });
 
   describe('Horizon failures', () => {
+    it('maps a missing source account to ACCOUNT_NOT_FOUND', async () => {
+      mockLoadAccount.mockRejectedValueOnce({ response: { status: 404 } });
+
+      await expect(buildMultiSigPayment(validParams)).rejects.toMatchObject({
+        code: 'ACCOUNT_NOT_FOUND',
+        httpStatus: 404,
+      });
+    });
+
+    it('never surfaces the raw Horizon error and logs the mapped one', async () => {
+      mockLoadAccount.mockRejectedValueOnce({ response: { status: 503 } });
+
+      await expect(buildMultiSigPayment(validParams)).rejects.not.toHaveProperty('response');
     it('maps a missing source account to a 404', async () => {
       mockLoadAccount.mockRejectedValueOnce({ response: { status: 404 } });
 
@@ -305,6 +328,7 @@ describe('buildMultiSigPayment', () => {
         'Stellar operation failed',
         expect.objectContaining({
           operation: 'buildMultiSigPayment',
+          code: 'HORIZON_UNAVAILABLE',
           status: 502,
         })
       );

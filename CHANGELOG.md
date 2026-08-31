@@ -119,6 +119,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `db.end()` helper for clean test teardown
 - Loans API: full lifecycle â€” create, disburse, repay (partial/full), default, and cancel
 - Loan event log and per-loan repayment summary (`GET /api/loans/:id`, `/events`)
+- `buildMultiSigPayment()` in `contracts/transactions.ts`, building an unsigned payment from an N-of-M account and reporting the medium threshold to reach, the eligible signers with their weights, and the fewest signatures that satisfy it; refuses to build when the signers cannot collectively reach the threshold (#228)
 - Borrower reputation scoring driven by loan outcomes (on-time repayments vs. defaults)
 - Migration 015: loan lifecycle columns (status constraint, repayment tracking, timestamps)
 - Project renamed from StellarCommons to CoopLumen
