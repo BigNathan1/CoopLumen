@@ -389,10 +389,8 @@ export class StellarError extends Error {
       this.response = options.response;
     }
     if (options.cause !== undefined) {
-      // `cause` landed in ES2022; assign it defensively so the ES2020 build keeps it.
       (this as { cause?: unknown }).cause = options.cause;
     }
-    // Required for `instanceof` to hold when the class is transpiled to ES5/ES2020.
     Object.setPrototypeOf(this, StellarError.prototype);
   }
 }
@@ -430,141 +428,106 @@ const OPERATION_MESSAGES: Record<string, string> = {
   op_no_trust_line: 'the target account has no trustline for this asset',
   op_cant_revoke: 'the issuer cannot revoke authorization because it is not set as revocable',
   op_invalid_state: 'the requested flag combination is not valid for this trustline',
-  op_immutable_set: 'the issuer account is immutable, so its flags cannot be changed',
-  op_cross_self: 'the operation would trade the account against itself',
+  op_bad_auth: 'the operation is missing a required signature',
 };
 
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null
-    ? (value as Record<string, unknown>)
-    : undefined;
+/** Extracts transaction and operation result codes from a Horizon error response, if present. */
+export function extractResultCodes(error: unknown): HorizonResultCodes | undefined {
+  if (!error || typeof error !== 'object') return undefined;
+  const response = (error as { response?: { data?: unknown } }).response;
+  const data = response?.data;
+  if (!data || typeof data !== 'object') return undefined;
+
+  const extras = (data as { extras?: { result_codes?: unknown } }).extras;
+  const resultCodes = extras?.result_codes;
+  if (!resultCodes || typeof resultCodes !== 'object') return undefined;
+
+  const txCode = (resultCodes as { transaction?: unknown }).transaction;
+  const opCodes = (resultCodes as { operations?: unknown }).operations;
+
+  return {
+    ...(typeof txCode === 'string' && { transaction: txCode }),
+    ...(Array.isArray(opCodes) && { operations: opCodes.filter((c): c is string => typeof c === 'string') }),
+  };
 }
 
-/**
- * Pulls the Horizon response off an SDK `NetworkError`. Structural rather than
- * `instanceof` based, because Horizon errors reach us through several SDK
- * subclasses and, in tests, as plain objects of the same shape.
- */
-export function getHorizonResponse(err: unknown): HorizonErrorResponse | undefined {
-  return asRecord(asRecord(err)?.response);
+/** Maps a raw Horizon or SDK error into a structured `StellarError`. */
+export function toStellarError(error: unknown, actionName = 'Operation'): StellarError {
+  if (error instanceof StellarError) {
+    return error;
+  }
+
+  let status = 502;
+  let detail: string | undefined;
+  let response: HorizonErrorResponse | undefined;
+
+  if (error && typeof error === 'object') {
+    const err = error as { response?: { status?: number; statusText?: string; data?: unknown }; message?: string };
+    if (err.response) {
+      status = err.response.status ?? 502;
+      response = {
+        status: err.response.status,
+        statusText: err.response.statusText,
+        data: err.response.data,
+      };
+      const data = err.response.data as { title?: string; detail?: string } | undefined;
+      if (data?.detail) {
+        detail = data.detail;
+      } else if (data?.title) {
+        detail = data.title;
+      }
+    } else if (err.message) {
+      detail = err.message;
+    }
+  } else if (typeof error === 'string') {
+    detail = error;
+  }
+
+  const resultCodes = extractResultCodes(error);
+  let reason: string | undefined;
+
+  if (resultCodes) {
+    if (resultCodes.operations && resultCodes.operations.length > 0) {
+      const failedOp = resultCodes.operations.find((code) => code !== 'op_success');
+      if (failedOp) {
+        reason = OPERATION_MESSAGES[failedOp] ?? `the operation was rejected by the network (${failedOp})`;
+      }
+    }
+    if (!reason && resultCodes.transaction) {
+      const txCode = resultCodes.transaction;
+      if (txCode !== 'tx_success') {
+        reason = TRANSACTION_MESSAGES[txCode] ?? `the transaction was rejected by the network (${txCode})`;
+      }
+    }
+  }
+
+  if (!reason) {
+    if (status === 404) {
+      reason = 'the requested account or resource was not found on this Stellar network';
+    } else if (status === 429) {
+      reason = 'rate limit exceeded; please slow down your requests to Horizon';
+    } else if (status === 400) {
+      reason = detail ?? 'the request was rejected by Horizon';
+    } else {
+      reason = detail ?? 'an unexpected error occurred while communicating with Horizon';
+    }
+  }
+
+  const message = `${actionName} failed: ${reason}`;
+  return new StellarError(message, {
+    status,
+    ...(resultCodes && { resultCodes }),
+    ...(response && { response }),
+    ...(error !== undefined && { cause: error }),
+  });
 }
 
-/** Extracts `extras.result_codes` from a Horizon error body, when present. */
-export function extractResultCodes(err: unknown): HorizonResultCodes | undefined {
-  const extras = asRecord(asRecord(getHorizonResponse(err)?.data)?.extras);
-  const codes = asRecord(extras?.result_codes);
-  if (!codes) {
-    return undefined;
-  }
-
-  const transaction = typeof codes.transaction === 'string' ? codes.transaction : undefined;
-  const operations = Array.isArray(codes.operations)
-    ? codes.operations.filter((code): code is string => typeof code === 'string')
-    : undefined;
-
-  if (transaction === undefined && operations === undefined) {
-    return undefined;
-  }
-  return { ...(transaction && { transaction }), ...(operations && { operations }) };
-}
-
-/** The first operation code that actually failed, ignoring the successful ones. */
-function firstFailedOperation(operations?: string[]): string | undefined {
-  return operations?.find((code) => code !== 'op_success' && code !== '');
-}
-
-function describeResultCodes(codes: HorizonResultCodes): string | undefined {
-  const failedOperation = firstFailedOperation(codes.operations);
-  if (failedOperation) {
-    const detail =
-      OPERATION_MESSAGES[failedOperation] ?? 'the operation was rejected by the network';
-    return `${detail} (${failedOperation})`;
-  }
-  if (codes.transaction && codes.transaction !== 'tx_success') {
-    const detail = TRANSACTION_MESSAGES[codes.transaction] ?? 'the transaction was rejected';
-    return `${detail} (${codes.transaction})`;
-  }
-  return undefined;
-}
-
-/** Maps the upstream Horizon status onto the status this API answers with. */
-function mapStatus(horizonStatus: number | undefined): number {
-  switch (horizonStatus) {
-    case 400:
-      return 400;
-    case 404:
-      return 404;
-    case 429:
-      return 429;
-    default:
-      // 5xx responses, timeouts and transport failures are upstream problems
-      // rather than the caller's, so they surface as a gateway error.
-      return 502;
-  }
-}
-
-/**
- * Normalises anything thrown by the Stellar SDK or Horizon into a `StellarError`.
- *
- * @param err    The value caught from an SDK call.
- * @param action Human-readable action used as the message prefix, e.g. `'Payment'`.
- */
-export function toStellarError(err: unknown, action: string): StellarError {
-  if (err instanceof StellarError) {
-    return err;
-  }
-
-  const response = getHorizonResponse(err);
-  const resultCodes = extractResultCodes(err);
-  const status = mapStatus(response?.status);
-  const base = { status, ...(response && { response }), cause: err };
-
-  if (response?.status === 404) {
-    return new StellarError(
-      `${action} failed: the account was not found on this Stellar network. Fund the account before using it.`,
-      base
-    );
-  }
-
-  if (response?.status === 429) {
-    return new StellarError(
-      `${action} failed: Horizon rate limit exceeded. Retry after a short delay.`,
-      base
-    );
-  }
-
-  const detail = resultCodes ? describeResultCodes(resultCodes) : undefined;
-  if (detail) {
-    return new StellarError(`${action} failed: ${detail}`, { ...base, resultCodes });
-  }
-
-  if (response) {
-    const data = asRecord(response.data);
-    const summary =
-      typeof data?.detail === 'string'
-        ? data.detail
-        : typeof data?.title === 'string'
-          ? data.title.toLowerCase()
-          : (response.statusText ?? 'Horizon returned an error');
-    return new StellarError(`${action} failed: ${summary}`, {
-      ...base,
-      ...(resultCodes && { resultCodes }),
-    });
-  }
-
-  const message = err instanceof Error ? err.message : String(err);
-  return new StellarError(`${action} failed: ${message}`, { status: 502, cause: err });
-}
-
-/**
- * Wraps a Horizon call so any failure comes back as a `StellarError`, keeping
- * call sites free of repeated try/catch blocks.
- */
-export async function withStellarErrors<T>(action: string, fn: () => Promise<T>): Promise<T> {
+/** Wraps an async contract call, mapping any thrown error via `toStellarError`. */
+export async function withStellarErrors<T>(actionName: string, fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
-  } catch (err) {
-    throw toStellarError(err, action);
+  } catch (error) {
+    throw toStellarError(error, actionName);
   }
 }
 
