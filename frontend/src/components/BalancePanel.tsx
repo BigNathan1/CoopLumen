@@ -41,11 +41,11 @@ export function BalancePanel({ publicKey }: Props) {
 
   if (error) {
     return (
-      <div className={`${styles.state} ${styles.error}`} role="alert">
-        Failed to load balances
       <div className={styles.panel}>
         <div className={styles.header}>
-          <div className={`${styles.state} ${styles.error}`}>Failed to load balances</div>
+          <div className={`${styles.state} ${styles.error}`} role="alert">
+            Failed to load balances
+          </div>
           {refreshButton}
         </div>
       </div>
@@ -54,11 +54,11 @@ export function BalancePanel({ publicKey }: Props) {
 
   if (!balances?.length) {
     return (
-      <div className={styles.state} role="status">
-        No balances found
       <div className={styles.panel}>
         <div className={styles.header}>
-          <div className={styles.state}>No balances found</div>
+          <div className={styles.state} role="status">
+            No balances found
+          </div>
           {refreshButton}
         </div>
       </div>

@@ -21,7 +21,9 @@ interface VerifyResponse {
 }
 
 /** The network CoopLumen expects Freighter to be connected to. */
-export const EXPECTED_NETWORK = (process.env.NEXT_PUBLIC_STELLAR_NETWORK ?? 'TESTNET').toUpperCase();
+export const EXPECTED_NETWORK = (
+  process.env.NEXT_PUBLIC_STELLAR_NETWORK ?? 'TESTNET'
+).toUpperCase();
 
 /**
  * Manages Freighter wallet connection state: connecting, reading the active
@@ -40,14 +42,24 @@ export function useWallet() {
   });
 
   const authenticate = useCallback(async (publicKey: string) => {
-    const { signMessage } = await import('@stellar/freighter-api');
+    const freighter = (await import('@stellar/freighter-api')) as unknown as {
+      signMessage?: (
+        message: string,
+        opts?: { address?: string; accountToSign?: string }
+      ) => Promise<string>;
+      signBlob?: (blob: string, opts?: { accountToSign?: string }) => Promise<string>;
+    };
 
     const { challenge } = await api.post<ChallengeResponse>(
       '/api/v1/auth/challenge',
       { address: publicKey },
       { auth: false }
     );
-    const signature = await signMessage(challenge, { address: publicKey });
+    const signFn = freighter.signMessage ?? freighter.signBlob;
+    if (!signFn) {
+      throw new Error('Freighter signing function not available');
+    }
+    const signature = await signFn(challenge, { address: publicKey, accountToSign: publicKey });
     const verified = await api.post<VerifyResponse>(
       '/api/v1/auth/verify',
       { address: publicKey, challenge, signature },
@@ -59,9 +71,8 @@ export function useWallet() {
   const connect = useCallback(async () => {
     setState((s) => ({ ...s, connecting: true, error: null }));
     try {
-      const { isConnected, getPublicKey, setAllowed, getNetworkDetails } = await import(
-        '@stellar/freighter-api'
-      );
+      const { isConnected, getPublicKey, setAllowed, getNetworkDetails } =
+        await import('@stellar/freighter-api');
 
       const connected = await isConnected();
       if (!connected) {
@@ -129,7 +140,8 @@ export function useWallet() {
     };
   }, [state.connected]);
 
-  const networkMismatch = state.connected && state.network !== null && state.network !== EXPECTED_NETWORK;
+  const networkMismatch =
+    state.connected && state.network !== null && state.network !== EXPECTED_NETWORK;
 
   return { ...state, expectedNetwork: EXPECTED_NETWORK, networkMismatch, connect, disconnect };
 }
