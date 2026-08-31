@@ -75,6 +75,10 @@ export const getCommunityTransactionsSchema = z.object({
   query: z.object({
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(20),
+    from: z.string().datetime('from must be a valid ISO 8601 date').optional(),
+    to: z.string().datetime('to must be a valid ISO 8601 date').optional(),
+  }),
+});
   }),
 });
 export const transactionHashSchema = z.object({
