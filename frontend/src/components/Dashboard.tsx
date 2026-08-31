@@ -6,10 +6,15 @@ import { WalletConnect } from './WalletConnect';
 import { ThemeToggle } from './ThemeToggle';
 import { CommunityCard } from './CommunityCard';
 import { BalancePanel } from './BalancePanel';
+import { LoadingSkeleton } from './LoadingSkeleton';
+import { Button } from './ui/Button';
 import styles from './Dashboard.module.css';
 
+/** Placeholder cards shown in the grid while communities are loading. */
+const SKELETON_CARD_COUNT = 6;
+
 export function Dashboard() {
-  const { data: communities, error, isLoading } = useCommunities();
+  const { data: communities, error, isLoading, mutate } = useCommunities();
   const { publicKey, connected } = useWallet();
 
   return (
@@ -40,11 +45,29 @@ export function Dashboard() {
             <span className={styles.count}>{communities?.length ?? 0} registered</span>
           </div>
 
-          {isLoading && <div className={styles.state}>Loading communities…</div>}
+          {isLoading && (
+            <div className={styles.grid}>
+              {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
+                <div key={index} className={styles.skeletonCard}>
+                  <LoadingSkeleton
+                    variant="text"
+                    width="40%"
+                    decorative={index !== 0}
+                    label={index === 0 ? 'Loading communities' : undefined}
+                  />
+                  <LoadingSkeleton variant="text" count={2} lastLineWidth="60%" decorative />
+                  <LoadingSkeleton variant="text" width="80%" decorative />
+                </div>
+              ))}
+            </div>
+          )}
 
           {error && (
-            <div className={`${styles.state} ${styles.error}`}>
-              Could not load communities. Is the API running?
+            <div className={`${styles.state} ${styles.error}`} role="alert">
+              <p>Could not load communities. Is the API running?</p>
+              <Button variant="secondary" size="sm" onClick={() => void mutate()}>
+                Retry
+              </Button>
             </div>
           )}
 
@@ -61,11 +84,13 @@ export function Dashboard() {
             </div>
           )}
 
-          <div className={styles.grid}>
-            {communities?.map((c) => (
-              <CommunityCard key={c.id} community={c} />
-            ))}
-          </div>
+          {!isLoading && (
+            <div className={styles.grid}>
+              {communities?.map((c) => (
+                <CommunityCard key={c.id} community={c} />
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </div>
