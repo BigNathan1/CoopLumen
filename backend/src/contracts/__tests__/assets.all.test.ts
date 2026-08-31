@@ -99,7 +99,11 @@ describe('assets.ts comprehensive unit tests (mock Horizon)', () => {
           distributorPublicKey,
           amount: '10',
         })
-      ).rejects.toEqual(horizonError);
+      ).rejects.toMatchObject({
+        name: 'StellarError',
+        status: 400,
+        message: expect.stringContaining('tx_bad_seq'),
+      });
     });
   });
 

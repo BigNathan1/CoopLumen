@@ -14,6 +14,7 @@ export const metadata: Metadata = {
   description: 'Open-source community finance network powered by the Stellar blockchain.',
 };
 
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     // The pre-paint script below adds a theme class to this element, so the
