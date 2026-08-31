@@ -10,6 +10,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `Table` component (`frontend/src/components/ui/Table.tsx`) — a semantic data table with sortable column headers and an empty state. Columns are defined via a typed `columns` array with optional `sortable`, `render`, `renderHeader`, `className` and `headerClassName` per column. Sortable columns render `<button>` elements inside `<th>` so they are keyboard reachable, with `aria-sort` (`ascending`/`descending`/`none`) and `aria-label` communicating the current sort state. The empty state spans all columns with a configurable message or custom content. A `compact` prop reduces cell padding. Styles use design tokens from `globals.css` and support dark mode through token resolution (#197).
 - `Pagination` component (`frontend/src/components/ui/Pagination.tsx`) with URL query-param synchronization. The component renders prev/next buttons, numbered page buttons, and ellipsis for large page counts, all wired with `aria-label`, `aria-current`, and `disabled` states for keyboard and screen-reader accessibility. A `usePagination` hook (`frontend/src/hooks/usePagination.ts`) reads and writes the `page` search parameter via Next.js `useSearchParams`, clamping values to valid bounds and preserving other query params. Supports both URL-synced (default) and controlled modes. Styles use design tokens from `globals.css` and support dark mode through token resolution (#198).
 
 ### Security
