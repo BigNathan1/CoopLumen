@@ -1,3 +1,8 @@
+/api/v1/transactions/submit:
+    post:
+      tags: [Transactions]
+      summary: Submit a signed Stellar transaction
+      description: Accepts a base64-encoded signed XDR string (typically from Freighter) and submits it to Horizon. Maps Horizon errors to actionable client messages.
 openapi: 3.0.3
 info:
   title: CoopLumen API
@@ -639,77 +644,15 @@ paths:
           application/json:
             schema:
               type: object
-              required: [accountSecret, assetCode, assetIssuer]
+              required: [xdr]
               properties:
-                accountSecret: { type: string }
-                assetCode: { type: string }
-                assetIssuer: { $ref: '#/components/schemas/StellarKey' }
-                limit: { type: string }
-      responses:
-        '201':
-          description: Trustline established
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TokenTransferResponse'
-        '400': { $ref: '#/components/responses/ValidationError' }
-        '502':
-          description: Horizon is temporarily unavailable
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/v1/tokens/holders/{assetCode}/{issuer}:
-    parameters:
-      - name: assetCode
-        in: path
-        required: true
-        schema: { type: string, pattern: '^[A-Za-z0-9]{1,12}$' }
-      - name: issuer
-        in: path
-        required: true
-        schema: { $ref: '#/components/schemas/StellarKey' }
-    get:
-      tags: [Tokens]
-      summary: List accounts holding a token
-      description: Backed by Horizon's asset endpoint.
+                xdr:
+                  type: string
+                  description: The signed transaction envelope XDR
+                  example: "AAAAAgAAA..."
       responses:
         '200':
-          description: Accounts holding the asset
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        account: { $ref: '#/components/schemas/StellarKey' }
-                        balance: { type: string }
-        '400': { $ref: '#/components/responses/ValidationError' }
-        '502':
-          description: Horizon is temporarily unavailable
-
-  /api/v1/tokens/supply/{assetCode}/{issuer}:
-    parameters:
-      - name: assetCode
-        in: path
-        required: true
-        schema: { type: string, pattern: '^[A-Za-z0-9]{1,12}$' }
-      - name: issuer
-        in: path
-        required: true
-        schema: { $ref: '#/components/schemas/StellarKey' }
-    get:
-      tags: [Tokens]
-      summary: Get circulating supply
-      description: Returns the circulating supply Horizon reports for the asset.
-      responses:
-        '200':
-          description: Circulating supply
+          description: Transaction successfully submitted
           content:
             application/json:
               schema:
@@ -718,255 +661,26 @@ paths:
                   data:
                     type: object
                     properties:
-                      assetCode: { type: string }
-                      issuer: { $ref: '#/components/schemas/StellarKey' }
-                      supply: { type: string }
-        '400': { $ref: '#/components/responses/ValidationError' }
-        '502':
-          description: Horizon is temporarily unavailable
-
-  /api/v1/tokens/history/{assetCode}/{issuer}:
-    parameters:
-      - name: assetCode
-        in: path
-        required: true
-        schema: { type: string, pattern: '^[A-Za-z0-9]{1,12}$' }
-      - name: issuer
-        in: path
-        required: true
-        schema: { $ref: '#/components/schemas/StellarKey' }
-    get:
-      tags: [Tokens]
-      summary: Get recent payment activity for a token
-      description: >
-        Horizon has no dedicated "payments for an asset" endpoint, so this
-        proxies the issuer account's payment history filtered to the asset.
-      responses:
-        '200':
-          description: Recent payment activity
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items: { type: object }
-        '400': { $ref: '#/components/responses/ValidationError' }
-
-  /api/v1/communities/{id}:
-    parameters:
-      - $ref: '#/components/parameters/CommunityId'
-    get:
-      tags: [Communities]
-      summary: Get a community
-      description: Enriched with member count, token list, and statistics.
-      responses:
-        '200':
-          description: Community detail
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data: { $ref: '#/components/schemas/CommunityDetail' }
-        '404': { $ref: '#/components/responses/NotFound' }
-    put:
-      tags: [Communities]
-      summary: Update a community
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/UpdateCommunity' }
-      responses:
-        '200':
-          description: Updated community
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409':
-          description: Community name already taken
-    delete:
-      tags: [Communities]
-      summary: Soft-delete a community
-      responses:
-        '200':
-          description: Community soft-deleted
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  /api/v1/communities/{id}/avatar:
-    parameters:
-      - $ref: '#/components/parameters/CommunityId'
-    post:
-      tags: [Communities]
-      summary: Set community avatar URL
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [avatarUrl]
-              properties:
-                avatarUrl:
-                  type: string
-                  format: uri
-                  maxLength: 2048
-      responses:
-        '200':
-          description: Avatar updated
-        '400': { $ref: '#/components/responses/ValidationError' }
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  /api/v1/communities/{id}/members:
-    parameters:
-      - $ref: '#/components/parameters/CommunityId'
-    get:
-      tags: [Members]
-      summary: List members
-      description: Paginated member list for a community, optionally filtered by role.
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Limit'
-        - name: role
-          in: query
-          schema:
-            type: string
-            enum: [admin, treasurer, member, observer]
-          description: Restricts the list to a single role. Unrecognized values are ignored.
-      responses:
-        '200':
-          description: A page of members
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items: { $ref: '#/components/schemas/Member' }
-                  meta: { $ref: '#/components/schemas/PageMeta' }
-    post:
-      tags: [Members]
-      summary: Add a member
-      description: >
-        Adds a member to the community. Re-adding a previously removed
-        (soft-deleted) address reactivates it with the given role instead of
-        failing on the unique constraint.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [stellarAddress]
-              properties:
-                stellarAddress: { $ref: '#/components/schemas/StellarKey' }
-                role:
-                  type: string
-                  enum: [admin, treasurer, member, observer]
-                  default: member
-      responses:
-        '201':
-          description: Member added
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data: { $ref: '#/components/schemas/Member' }
-        '400': { $ref: '#/components/responses/ValidationError' }
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  /api/v1/communities/{id}/members/{address}:
-    parameters:
-      - $ref: '#/components/parameters/CommunityId'
-      - name: address
-        in: path
-        required: true
-        schema: { $ref: '#/components/schemas/StellarKey' }
-        description: Stellar public key of the member. Rejected with 400 if not a structurally valid 56-character StrKey.
-    get:
-      tags: [Members]
-      summary: Get a member
-      responses:
-        '200':
-          description: Member detail
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data: { $ref: '#/components/schemas/Member' }
-        '400':
-          description: The address path parameter is not a structurally valid Stellar StrKey
-        '404': { $ref: '#/components/responses/NotFound' }
-    put:
-      tags: [Members]
-      summary: Update a member's role
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [role]
-              properties:
-                role:
-                  type: string
-                  enum: [admin, treasurer, member, observer]
-      responses:
-        '200':
-          description: Member updated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data: { $ref: '#/components/schemas/Member' }
-        '400':
-          description: >
-            The role in the request body failed validation, or the address
-            path parameter is not a structurally valid Stellar StrKey
-        '404': { $ref: '#/components/responses/NotFound' }
-    delete:
-      tags: [Members]
-      summary: Remove a member
-      description: Soft-removes a member; the address can be re-added later via POST.
-      responses:
-        '200':
-          description: Member soft-removed
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
+                      hash: { type: string }
+                      ledger: { type: integer }
+                      status: { type: string }
+                  meta:
                     type: object
                     properties:
-                      stellar_address: { $ref: '#/components/schemas/StellarKey' }
-                      removed: { type: boolean, example: true }
+                      timestamp: { type: string }
         '400':
-          description: The address path parameter is not a structurally valid Stellar StrKey
-        '404': { $ref: '#/components/responses/NotFound' }
-
-  /api/v1/communities/{id}/treasury:
-    parameters:
-      - $ref: '#/components/parameters/CommunityId'
-    get:
-      tags: [Treasury]
-      summary: Get treasury balances
-      description: Returns the issuer account's on-chain Stellar balances, fetched live from Horizon.
-      responses:
-        '200':
-          description: Treasury balances
+          description: Validation error or Horizon transaction rejection (e.g., bad sequence, insufficient funds)
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  data:
+                  error:
                     type: object
                     properties:
+                      message: { type: string }
+                      rawCode: { type: string }
+                      details: { type: object }
                       account: { $ref: '#/components/schemas/StellarKey' }
                       balances:
                         type: array
