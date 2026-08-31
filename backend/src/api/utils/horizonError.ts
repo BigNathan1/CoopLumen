@@ -1,3 +1,5 @@
+import { isStellarOperationError } from '../../contracts/errors';
+
 interface HorizonErrorShape {
   response?: {
     status?: number;
@@ -93,6 +95,7 @@ const OPERATION_MESSAGES: Record<string, string> = {
  * https://developers.stellar.org/docs/data/horizon/api-reference/errors/result-codes/transactions
  */
 const TRANSACTION_MESSAGES: Record<string, string> = {
+  tx_failed: 'One or more operations in the transaction failed.',
   tx_too_early: 'Transaction submitted before its valid start time.',
   tx_too_late: 'Transaction submitted after its valid end time; please rebuild and resubmit.',
   tx_missing_operation: 'Transaction must contain at least one operation.',
@@ -113,6 +116,12 @@ const TRANSACTION_MESSAGES: Record<string, string> = {
 
 /** Maps a Horizon/Stellar SDK submission error to a clear, actionable message. */
 export function mapHorizonError(err: unknown, details?: InsufficientBalanceDetails): MappedError {
+  // Contracts-layer helpers already resolved the Horizon result codes into an
+  // actionable message and status; re-deriving them here would only lose detail.
+  if (isStellarOperationError(err)) {
+    return { status: err.httpStatus, message: err.message, code: err.code };
+  }
+
   const horizonErr = err as HorizonErrorShape;
   const resultCodes = horizonErr?.response?.data?.extras?.result_codes;
 

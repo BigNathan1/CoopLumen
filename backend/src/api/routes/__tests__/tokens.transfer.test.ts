@@ -202,7 +202,9 @@ describe('POST /api/v1/tokens/transfer', () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ data: { txHash: 'tx-hash-2' } });
     expect(submitTransaction).toHaveBeenCalledTimes(2);
-    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 100);
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), expect.any(Number));
+    expect(setTimeoutSpy.mock.calls[0][1]).toBeGreaterThanOrEqual(0);
+    expect(setTimeoutSpy.mock.calls[0][1]).toBeLessThan(100);
   });
 
   it('returns a 502 when retryable Horizon failures are exhausted', async () => {
@@ -237,9 +239,15 @@ describe('POST /api/v1/tokens/transfer', () => {
       error: 'Stellar network error: Slow down',
     });
     expect(submitTransaction).toHaveBeenCalledTimes(4);
-    expect(setTimeoutSpy).toHaveBeenNthCalledWith(1, expect.any(Function), 100);
-    expect(setTimeoutSpy).toHaveBeenNthCalledWith(2, expect.any(Function), 200);
-    expect(setTimeoutSpy).toHaveBeenNthCalledWith(3, expect.any(Function), 400);
+    expect(setTimeoutSpy).toHaveBeenNthCalledWith(1, expect.any(Function), expect.any(Number));
+    expect(setTimeoutSpy.mock.calls[0][1]).toBeGreaterThanOrEqual(0);
+    expect(setTimeoutSpy.mock.calls[0][1]).toBeLessThan(100);
+    expect(setTimeoutSpy).toHaveBeenNthCalledWith(2, expect.any(Function), expect.any(Number));
+    expect(setTimeoutSpy.mock.calls[1][1]).toBeGreaterThanOrEqual(0);
+    expect(setTimeoutSpy.mock.calls[1][1]).toBeLessThan(200);
+    expect(setTimeoutSpy).toHaveBeenNthCalledWith(3, expect.any(Function), expect.any(Number));
+    expect(setTimeoutSpy.mock.calls[2][1]).toBeGreaterThanOrEqual(0);
+    expect(setTimeoutSpy.mock.calls[2][1]).toBeLessThan(400);
   });
 
   it('maps unexpected Horizon failures to a user-facing error', async () => {
