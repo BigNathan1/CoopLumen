@@ -8,7 +8,28 @@ interface Props {
 }
 
 export function BalancePanel({ publicKey }: Props) {
-  const { data: balances, error, isLoading } = useBalances(publicKey);
+  const { data: balances, error, isLoading, isValidating, mutate } = useBalances(publicKey);
+
+  const handleRefresh = () => {
+    void mutate();
+  };
+
+  const refreshButton = (
+    <button
+      type="button"
+      className={styles.refreshButton}
+      onClick={handleRefresh}
+      disabled={isValidating}
+      aria-label={isValidating ? 'Refreshing balances…' : 'Refresh balances'}
+    >
+      <span
+        className={`${styles.refreshIcon} ${isValidating ? styles.spinning : ''}`}
+        aria-hidden="true"
+      >
+        ⟳
+      </span>
+    </button>
+  );
 
   if (isLoading) {
     return (
@@ -22,6 +43,11 @@ export function BalancePanel({ publicKey }: Props) {
     return (
       <div className={`${styles.state} ${styles.error}`} role="alert">
         Failed to load balances
+      <div className={styles.panel}>
+        <div className={styles.header}>
+          <div className={`${styles.state} ${styles.error}`}>Failed to load balances</div>
+          {refreshButton}
+        </div>
       </div>
     );
   }
@@ -30,13 +56,21 @@ export function BalancePanel({ publicKey }: Props) {
     return (
       <div className={styles.state} role="status">
         No balances found
+      <div className={styles.panel}>
+        <div className={styles.header}>
+          <div className={styles.state}>No balances found</div>
+          {refreshButton}
+        </div>
       </div>
     );
   }
 
   return (
     <div className={styles.panel}>
-      <h3 className={styles.title}>Your Balances</h3>
+      <div className={styles.header}>
+        <h3 className={styles.title}>Your Balances</h3>
+        {refreshButton}
+      </div>
       <ul className={styles.list}>
         {balances.map((b) => {
           const asset = b.asset_type === 'native' ? 'XLM' : (b.asset_code ?? 'Unknown asset');
