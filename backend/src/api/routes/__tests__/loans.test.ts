@@ -185,9 +185,7 @@ describe('POST /api/v1/loans/:id/disburse', () => {
   });
 
   it('rejects a caller who is not the lender', async () => {
-    mockDb.query.mockResolvedValueOnce([
-      { id: loanId, status: 'pending', lender_address: lender },
-    ]);
+    mockDb.query.mockResolvedValueOnce([{ id: loanId, status: 'pending', lender_address: lender }]);
     const res = await request(app)
       .post(`/api/v1/loans/${loanId}/disburse`)
       .set('Authorization', authHeader(borrower))
@@ -208,7 +206,11 @@ describe('POST /api/v1/loans/:id/disburse', () => {
     mockDb.query.mockResolvedValueOnce([
       { id: loanId, status: 'pending', amount: '50.0000000', lender_address: lender },
     ]);
-    runTransaction([[{ id: loanId, status: 'active' }]]);
+    // First in-transaction query is the `SELECT ... FOR UPDATE` re-read of the loan.
+    runTransaction([
+      [{ id: loanId, status: 'pending', amount: '50.0000000', lender_address: lender }],
+      [{ id: loanId, status: 'active' }],
+    ]);
     const res = await request(app)
       .post(`/api/v1/loans/${loanId}/disburse`)
       .set('Authorization', authHeader(lender))
@@ -226,7 +228,13 @@ describe('POST /api/v1/loans/:id/repay', () => {
 
   it('rejects a caller who is not the borrower', async () => {
     mockDb.query.mockResolvedValueOnce([
-      { id: loanId, status: 'active', amount: '50.0000000', amount_repaid: '0', borrower_address: borrower },
+      {
+        id: loanId,
+        status: 'active',
+        amount: '50.0000000',
+        amount_repaid: '0',
+        borrower_address: borrower,
+      },
     ]);
     const res = await request(app)
       .post(`/api/v1/loans/${loanId}/repay`)
@@ -245,6 +253,17 @@ describe('POST /api/v1/loans/:id/repay', () => {
         borrower_address: borrower,
       },
     ]);
+    runTransaction([
+      [
+        {
+          id: loanId,
+          status: 'active',
+          amount: '50.0000000',
+          amount_repaid: '0',
+          borrower_address: borrower,
+        },
+      ],
+    ]);
     const res = await request(app)
       .post(`/api/v1/loans/${loanId}/repay`)
       .set('Authorization', authHeader(borrower))
@@ -262,7 +281,18 @@ describe('POST /api/v1/loans/:id/repay', () => {
         borrower_address: borrower,
       },
     ]);
-    runTransaction([[{ id: loanId, status: 'active', amount_repaid: '20.0000000' }]]);
+    runTransaction([
+      [
+        {
+          id: loanId,
+          status: 'active',
+          amount: '50.0000000',
+          amount_repaid: '0',
+          borrower_address: borrower,
+        },
+      ],
+      [{ id: loanId, status: 'active', amount_repaid: '20.0000000' }],
+    ]);
     const res = await request(app)
       .post(`/api/v1/loans/${loanId}/repay`)
       .set('Authorization', authHeader(borrower))
@@ -281,7 +311,18 @@ describe('POST /api/v1/loans/:id/repay', () => {
         borrower_address: borrower,
       },
     ]);
-    runTransaction([[{ id: loanId, status: 'repaid', amount_repaid: '50.0000000' }]]);
+    runTransaction([
+      [
+        {
+          id: loanId,
+          status: 'active',
+          amount: '50.0000000',
+          amount_repaid: '30.0000000',
+          borrower_address: borrower,
+        },
+      ],
+      [{ id: loanId, status: 'repaid', amount_repaid: '50.0000000' }],
+    ]);
     const res = await request(app)
       .post(`/api/v1/loans/${loanId}/repay`)
       .set('Authorization', authHeader(borrower))
@@ -321,7 +362,10 @@ describe('POST /api/v1/loans/:id/default', () => {
     mockDb.query.mockResolvedValueOnce([
       { id: loanId, status: 'active', borrower_address: borrower, lender_address: lender },
     ]);
-    runTransaction([[{ id: loanId, status: 'defaulted' }]]);
+    runTransaction([
+      [{ id: loanId, status: 'active', borrower_address: borrower, lender_address: lender }],
+      [{ id: loanId, status: 'defaulted' }],
+    ]);
     const res = await request(app)
       .post(`/api/v1/loans/${loanId}/default`)
       .set('Authorization', authHeader(lender))

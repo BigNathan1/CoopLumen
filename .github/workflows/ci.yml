@@ -18,6 +18,7 @@ jobs:
   lint:
     name: Lint & format
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -49,9 +50,15 @@ jobs:
         working-directory: frontend
         run: npm run format:check
 
+      # docs/ sits outside both workspaces, so a malformed openapi.yaml could
+      # otherwise reach main without any job noticing.
+      - name: Check docs formatting
+        run: npx --yes prettier@3 --check "docs/**/*.{md,yaml,yml}"
+
   typecheck:
     name: Type-check
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -78,6 +85,7 @@ jobs:
   test-backend:
     name: Backend tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     services:
       postgres:
@@ -133,6 +141,7 @@ jobs:
   test-frontend:
     name: Frontend tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 

@@ -1,8 +1,8 @@
 /api/v1/transactions/submit:
-    post:
-      tags: [Transactions]
-      summary: Submit a signed Stellar transaction
-      description: Accepts a base64-encoded signed XDR string (typically from Freighter) and submits it to Horizon. Maps Horizon errors to actionable client messages.
+  post:
+    tags: [Transactions]
+    summary: Submit a signed Stellar transaction
+    description: Accepts a base64-encoded signed XDR string (typically from Freighter) and submits it to Horizon. Maps Horizon errors to actionable client messages.
 openapi: 3.0.3
 info:
   title: CoopLumen API
@@ -182,7 +182,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/v1/balances/{publicKey}/history:
   /api/v1/balances/{publicKey}:
     parameters:
       - name: publicKey
@@ -509,7 +508,7 @@ paths:
                 xdr:
                   type: string
                   description: The signed transaction envelope XDR
-                  example: "AAAAAgAAA..."
+                  example: 'AAAAAgAAA...'
       responses:
         '200':
           description: Transaction successfully submitted
@@ -566,6 +565,24 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '500':
           description: Audit history could not be queried
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/tokens/build-trustline:
+    post:
+      tags: [Tokens]
+      summary: Build an unsigned trustline transaction for client-side signing
+      description: >-
+        Returns a base64-encoded XDR envelope establishing a trustline to the
+        given asset. The wallet signs it locally and submits it through
+        POST /api/v1/tokens/submit, so no secret key reaches the server.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
               $ref: '#/components/schemas/BuildTrustlineRequest'
       responses:
         '200':
@@ -718,7 +735,7 @@ paths:
                 xdr:
                   type: string
                   description: The signed transaction envelope XDR
-                  example: "AAAAAgAAA..."
+                  example: 'AAAAAgAAA...'
       responses:
         '200':
           description: Transaction successfully submitted
@@ -1057,40 +1074,6 @@ paths:
         '409':
           description: Loan is not in `active` status
 
-  /api/v1/prices/xlm:
-    get:
-      tags: [Prices]
-      summary: Get XLM/USD price
-      description: Returns the latest XLM/USD spot price from a public market source with caching and fallback providers.
-      parameters:
-        - name: currency
-          in: query
-          required: false
-          description: Target fiat currency. Defaults to USD.
-          schema:
-            type: string
-            enum: [USD]
-            default: USD
-      responses:
-        '200':
-          description: Current XLM/USD price
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    $ref: '#/components/schemas/PriceData'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '502':
-          description: Failed to fetch price from public sources
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
 components:
   parameters:
     CommunityId:
@@ -1149,17 +1132,17 @@ components:
         balance:
           type: string
           description: Current balance of the asset held by the account
-          example: "10.0000000"
+          example: '10.0000000'
         limit:
           type: string
           description: Maximum amount of the asset the account is willing to hold
-          example: "922337203685.4775807"
+          example: '922337203685.4775807'
         buying_liabilities:
           type: string
-          example: "0.0000000"
+          example: '0.0000000'
         selling_liabilities:
           type: string
-          example: "0.0000000"
+          example: '0.0000000'
         last_modified_ledger:
           type: integer
           description: Ledger sequence when the trustline was last modified
@@ -1180,22 +1163,22 @@ components:
         lastLedger:
           type: string
           description: Sequence number of the most recent ledger used for fee calculation
-          example: "4372364"
+          example: '4372364'
         ledgerCapacityUsage:
           type: string
           description: Fraction of ledger capacity used in the recent ledger sample (0.0–1.0)
-          example: "0.07"
+          example: '0.07'
         feeCharged:
           type: object
           required: [min, mode, p10, p50, p90, p95, p99]
           properties:
-            min:  { type: string, description: Minimum fee charged, example: "100" }
-            mode: { type: string, description: Most common fee charged, example: "100" }
-            p10:  { type: string, description: 10th percentile fee charged, example: "100" }
-            p50:  { type: string, description: 50th percentile (median) fee charged, example: "100" }
-            p90:  { type: string, description: 90th percentile fee charged, example: "95947" }
-            p95:  { type: string, description: 95th percentile fee charged, example: "154834" }
-            p99:  { type: string, description: 99th percentile fee charged, example: "706514" }
+            min: { type: string, description: Minimum fee charged, example: '100' }
+            mode: { type: string, description: Most common fee charged, example: '100' }
+            p10: { type: string, description: 10th percentile fee charged, example: '100' }
+            p50: { type: string, description: 50th percentile (median) fee charged, example: '100' }
+            p90: { type: string, description: 90th percentile fee charged, example: '95947' }
+            p95: { type: string, description: 95th percentile fee charged, example: '154834' }
+            p99: { type: string, description: 99th percentile fee charged, example: '706514' }
     BalanceLine:
       type: object
       properties:
@@ -1629,15 +1612,6 @@ components:
         assetIssuer: { $ref: '#/components/schemas/StellarKey' }
         purpose: { type: string, maxLength: 280 }
         dueAt: { type: string, format: date-time }
-        dueAt: { type: string, format: date-time }
-  securitySchemes:
-    AdminAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: >
-        Admin authentication using JWT tokens. 
-        Currently a placeholder - actual implementation pending.
     PriceData:
       type: object
       required: [asset, currency, price, source, timestamp]
@@ -1743,4 +1717,11 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/AccountDetails'
-
+  securitySchemes:
+    AdminAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Admin authentication using JWT tokens. 
+        Currently a placeholder - actual implementation pending.
