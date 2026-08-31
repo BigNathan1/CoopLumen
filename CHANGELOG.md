@@ -90,6 +90,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `POST /api/v1/trustlines/build` to generate unsigned trustline establishment XDR for wallet signing (#124).
 - `GET /api/v1/accounts/:publicKey` returning full Stellar account details from Horizon with Zod validation, retries, and mapped error codes (#122).
 - `POST /api/v1/transactions/unsigned` to build unsigned Stellar payment XDR for wallet signing (#146).
+- `submitPayment()` in `contracts/transactions.ts`, signing and submitting a payment from a server-held key, with Horizon result codes (`op_underfunded`, `op_no_trust`, `tx_bad_seq`, ...) mapped to actionable `StellarError` messages carrying the matching HTTP status (#227)
 - `GET /api/v1/balances/:publicKey/history` for paginated balance-change audit history from `transactions_log` (#145).
 - `GET /api/v1/communities` pagination support via `page`, `limit`, and `offset` query parameters. When `offset` is provided, it takes precedence for querying and calculates the appropriate page in the metadata.
 - `npm run db:status` command showing which migrations are applied vs pending, with drift detection (#50)
@@ -176,6 +177,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `contracts/transactions.ts` was missing from the tree, so `POST /api/v1/transactions/unsigned` failed to compile and the backend type-check and test suites could not run; the module is restored alongside the completed `submitPayment()` (#227)
 - Restored `backend/src/api/routes/transactions.ts`, `backend/src/api/schemas/transaction.ts`, `backend/src/contracts/stellar.ts`, `backend/src/api/middleware/rateLimit.ts`, and `backend/src/api/routes/tokens.ts` after three PRs generated against a stale base were merged directly and left `main` unable to compile — each duplicated functionality already added in a prior PR (transaction-hash lookup, CSV export, and token-issuance rate limiting), and GitHub's merge produced garbled, duplicated code in the process. Also removed two stray `pnpm-lock.yaml` files (this is an npm-only monorepo).
 - `frontend/src/hooks/useToast.tsx` is now marked `'use client'`. It uses `useState`/`useEffect` and is rendered from the root layout, so without the directive `npm run build` failed with a Server Component error (#260).
 - Restored `backend/src/contracts/transactions.ts` (`buildUnsignedPayment`), which a prior cleanup commit deleted as unused dead code without also removing its only caller, `POST /api/v1/transactions/unsigned` — leaving the backend unable to compile or run its test suite.
