@@ -353,7 +353,7 @@ loanRouter.post(
       if (conflictStatus) {
         res
           .status(409)
-          .json({ data: null, error: `Cannot disburse a loan in status "${conflictStatus}"` });
+          .json({ data: null, error: `Cannot disburse a loan in status "${String(conflictStatus)}"` });
         return;
       }
 
@@ -483,7 +483,7 @@ loanRouter.post(
       if (conflictStatus) {
         res
           .status(409)
-          .json({ data: null, error: `Cannot repay a loan in status "${conflictStatus}"` });
+          .json({ data: null, error: `Cannot repay a loan in status "${String(conflictStatus)}"` });
         return;
       }
       if (exceedsOutstanding !== null) {
@@ -576,7 +576,7 @@ loanRouter.post(
       if (conflictStatus) {
         res
           .status(409)
-          .json({ data: null, error: `Cannot default a loan in status "${conflictStatus}"` });
+          .json({ data: null, error: `Cannot default a loan in status "${String(conflictStatus)}"` });
         return;
       }
 
