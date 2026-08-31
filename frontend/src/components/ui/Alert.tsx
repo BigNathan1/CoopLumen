@@ -81,16 +81,8 @@ const icons: Record<AlertVariant, ReactNode> = {
   ),
 };
 
-export function Alert({
-  children,
-  variant = 'info',
-  title,
-  className,
-  ...props
-}: AlertProps) {
-  const classes = ['alert', `alert-${variant}`, className]
-    .filter(Boolean)
-    .join(' ');
+export function Alert({ children, variant = 'info', title, className, ...props }: AlertProps) {
+  const classes = ['alert', `alert-${variant}`, className].filter(Boolean).join(' ');
 
   const role = variant === 'error' ? 'alert' : 'status';
 

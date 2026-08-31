@@ -1,7 +1,6 @@
 import type { ImgHTMLAttributes } from 'react';
 
-export interface AvatarProps
-  extends Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt'> {
+export interface AvatarProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'alt'> {
   address: string;
   src?: string;
   alt?: string;
@@ -43,9 +42,7 @@ function createIdenticon(address: string): string {
         cells.push(`<rect x="${x}" y="${row * 20}" width="20" height="20"/>`);
 
         if (column !== 2) {
-          cells.push(
-            `<rect x="${mirroredX}" y="${row * 20}" width="20" height="20"/>`,
-          );
+          cells.push(`<rect x="${mirroredX}" y="${row * 20}" width="20" height="20"/>`);
         }
       }
     }
@@ -68,14 +65,7 @@ function createIdenticon(address: string): string {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
-export function Avatar({
-  address,
-  src,
-  alt,
-  size = 40,
-  className,
-  ...props
-}: AvatarProps) {
+export function Avatar({ address, src, alt, size = 40, className, ...props }: AvatarProps) {
   const label = alt ?? `Stellar address ${truncateAddress(address)}`;
   const fallback = createIdenticon(address);
 

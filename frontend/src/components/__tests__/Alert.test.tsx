@@ -6,7 +6,7 @@ describe('Alert', () => {
     render(
       <Alert variant="info" title="Information">
         Your community is ready.
-      </Alert>,
+      </Alert>
     );
 
     expect(screen.getByRole('status')).toBeInTheDocument();
@@ -17,24 +17,16 @@ describe('Alert', () => {
   it('uses alert semantics for errors', () => {
     render(<Alert variant="error">Unable to load communities.</Alert>);
 
-    expect(
-      screen.getByRole('alert', {
-        name: 'Unable to load communities.',
-      }),
-    ).toBeInTheDocument();
+    // `alert` does not take its accessible name from content, so assert the
+    // role and its text separately.
+    expect(screen.getByRole('alert')).toHaveTextContent('Unable to load communities.');
   });
 
-  it.each(['success', 'warning', 'info', 'error'] as const)(
-    'renders the %s variant',
-    (variant) => {
-      render(<Alert variant={variant}>Feedback message</Alert>);
+  it.each(['success', 'warning', 'info', 'error'] as const)('renders the %s variant', (variant) => {
+    render(<Alert variant={variant}>Feedback message</Alert>);
 
-      const element =
-        variant === 'error'
-          ? screen.getByRole('alert')
-          : screen.getByRole('status');
+    const element = variant === 'error' ? screen.getByRole('alert') : screen.getByRole('status');
 
-      expect(element).toHaveClass(`alert-${variant}`);
-    },
-  );
+    expect(element).toHaveClass(`alert-${variant}`);
+  });
 });

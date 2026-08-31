@@ -46,11 +46,7 @@ export interface CardDescriptionProps extends HTMLAttributes<HTMLParagraphElemen
   children: ReactNode;
 }
 
-export function CardDescription({
-  children,
-  className,
-  ...props
-}: CardDescriptionProps) {
+export function CardDescription({ children, className, ...props }: CardDescriptionProps) {
   const classes = ['card-description', className].filter(Boolean).join(' ');
 
   return (

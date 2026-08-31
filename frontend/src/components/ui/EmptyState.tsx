@@ -8,13 +8,7 @@ export interface EmptyStateProps {
   className?: string;
 }
 
-export function EmptyState({
-  icon,
-  message,
-  title,
-  action,
-  className,
-}: EmptyStateProps) {
+export function EmptyState({ icon, message, title, action, className }: EmptyStateProps) {
   const classes = ['empty-state', className].filter(Boolean).join(' ');
 
   return (

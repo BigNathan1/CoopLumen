@@ -22,7 +22,7 @@ describe('Card', () => {
         <CardFooter>
           <button type="button">View details</button>
         </CardFooter>
-      </Card>,
+      </Card>
     );
 
     expect(screen.getByTestId('card')).toBeInTheDocument();
@@ -36,12 +36,9 @@ describe('Card', () => {
     render(
       <Card aria-label="Treasury card" data-testid="card">
         Content
-      </Card>,
+      </Card>
     );
 
-    expect(screen.getByTestId('card')).toHaveAttribute(
-      'aria-label',
-      'Treasury card',
-    );
+    expect(screen.getByTestId('card')).toHaveAttribute('aria-label', 'Treasury card');
   });
 });
