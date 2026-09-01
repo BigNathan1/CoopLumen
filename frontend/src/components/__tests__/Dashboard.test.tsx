@@ -76,7 +76,7 @@ describe('Dashboard', () => {
     render(<Dashboard />);
 
     expect(screen.getByRole('status')).toHaveTextContent('Loading communities');
-    expect(screen.queryByText('Eco Coop')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Eco Coop' })).not.toBeInTheDocument();
   });
 
   it('renders the community grid once loaded', () => {
@@ -84,7 +84,9 @@ describe('Dashboard', () => {
     render(<Dashboard />);
 
     expect(screen.getByText('1 registered')).toBeInTheDocument();
-    expect(screen.getByText('Eco Coop')).toBeInTheDocument();
+    // The name also appears in the loans filter's community dropdown, so match
+    // the card's heading specifically.
+    expect(screen.getByRole('heading', { name: 'Eco Coop' })).toBeInTheDocument();
   });
 
   it('shows an accessible error state with a working retry action', async () => {

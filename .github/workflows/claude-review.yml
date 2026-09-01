@@ -1,0 +1,64 @@
+name: Claude PR Review
+
+# Automated first-pass review for contributor PRs, using Anthropic's official
+# Claude Code GitHub Action. This is a complement to human review, not a
+# replacement — it runs the same kind of review a maintainer would do with
+# `/code-review` locally, so a human isn't the first read on every PR.
+#
+# Disabled until ANTHROPIC_API_KEY is added as a repo secret (Settings ->
+# Secrets and variables -> Actions). Until then this workflow's job is
+# skipped, not failed, so its absence never blocks a contributor's PR.
+#
+# Verify the action name/version/inputs below against
+# https://github.com/anthropics/claude-code-action before relying on this —
+# it was current at the time this workflow was written, but action inputs
+# do change across major versions.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    name: Claude review
+    runs-on: ubuntu-latest
+    # `secrets` is not available in a job-level `if`, so the key is lifted into
+    # the job env and each step is gated on that instead. Without the secret
+    # the steps are skipped and the job passes, so a missing key never blocks
+    # a contributor's PR.
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.ANTHROPIC_API_KEY != ''
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code review
+        if: env.ANTHROPIC_API_KEY != ''
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ env.ANTHROPIC_API_KEY }}
+          # Scope the review to correctness bugs and reuse/simplification/
+          # efficiency issues in the diff — mirrors this repo's own
+          # /code-review convention rather than a generic style pass.
+          prompt: |
+            Review this pull request's diff against main. Focus on:
+            - Correctness bugs (logic errors, unhandled edge cases, race conditions)
+            - Reuse, simplification, and efficiency opportunities
+            - Whether the change matches CONTRIBUTING.md conventions (Conventional
+              Commits, existing code style, the `{ data, meta?, error? }` API
+              envelope, test coverage expectations)
+
+            Post findings as inline review comments. If nothing significant is
+            found, leave a single short comment saying so — do not invent
+            findings to have something to say.

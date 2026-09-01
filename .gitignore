@@ -10,6 +10,10 @@ out/
 build/
 *.tsbuildinfo
 
+# Next.js / TypeScript generated files
+next-env.d.ts
+*.tsbuildinfo
+
 # Environment
 .env
 .env.local

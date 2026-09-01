@@ -27,6 +27,8 @@ export const createLoanSchema = z.object({
   assetIssuer: stellarPublicKey.optional(),
   purpose: z.string().trim().max(280).optional(),
   dueAt: z.coerce.date().optional(),
+  // Flat interest as a percent of principal (e.g. 5 => 5%). Defaults to 0.
+  interestRate: z.coerce.number().min(0).max(1000).optional(),
 });
 
 export const disburseLoanSchema = z.object({

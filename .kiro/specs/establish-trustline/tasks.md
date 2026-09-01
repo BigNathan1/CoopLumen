@@ -1,11 +1,11 @@
 # Implementation Plan: Complete establishTrustline() with Server-Side Signing
 
-
 ## Overview
 
 Five targeted tasks across four files. Tasks 1 and 2 are independent and can run in parallel. Task 3 depends on Task 2 (route handler uses the updated error mapper). Tasks 4 and 5 depend on Tasks 1 and 2 respectively and can also run in parallel.
 
 ## Tasks
+
 - [ ] 1. Add self-trustline guard to `establishTrustline()`
   - In `establishTrustline()`, after deriving `accountKeypair` from `accountSecret`, add a guard that checks `accountKeypair.publicKey() === assetIssuer` and throws `new Error('Cannot establish a trustline to your own issuer account')` if true
   - Place the guard before the `StellarService.loadAccount()` call so no network request is made for self-trustline attempts
@@ -46,14 +46,14 @@ Five targeted tasks across four files. Tasks 1 and 2 are independent and can run
     3. An unmapped operation code â†’ status 502 fallback
   - **Files:** `backend/src/api/utils/__tests__/horizonError.test.ts`
 
-
 ## Notes
 
 - No new npm dependencies required.
 - No database schema changes.
-- All unit tests must mock StellarService and invalidateBalanceCache — no real Horizon or Redis calls.
+- All unit tests must mock StellarService and invalidateBalanceCache ï¿½ no real Horizon or Redis calls.
 - After all tasks complete, run cd backend && npm test to verify the full suite passes.
 - Update CHANGELOG.md under [Unreleased] with an entry for the error-mapping additions and the route handler fix.
+
 ## Task Dependency Graph
 
 ```json

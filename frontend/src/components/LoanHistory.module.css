@@ -1,0 +1,53 @@
+.timeline {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.event {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.75rem;
+  padding: 6px 8px;
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+  border-radius: calc(var(--radius) / 2);
+}
+
+.type {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.amount {
+  font-family: monospace;
+  color: var(--color-secondary);
+}
+
+.note {
+  color: var(--color-text-muted);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.time {
+  color: var(--color-text-muted);
+  font-family: monospace;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.state {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  padding: 6px 0;
+}
+
+.error {
+  color: var(--color-error);
+}

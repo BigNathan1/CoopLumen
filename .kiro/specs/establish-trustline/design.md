@@ -34,6 +34,7 @@ mapHorizonError (horizonError.ts)  ← Layer 2: result-code → status + message
 ```
 
 Each layer has a single responsibility:
+
 - **Layer 1** validates inputs and orchestrates the Stellar transaction.
 - **Layer 2** translates opaque Horizon result codes into structured `{ status, message }` objects.
 - **Layer 3** calls Layer 1, handles the result, and delegates error formatting to Layer 2.
@@ -94,16 +95,16 @@ Add the two entries to the existing `OPERATION_MESSAGES` map. The HTTP status fo
 ```typescript
 const OPERATION_MESSAGES: Record<string, string> = {
   // existing entries — unchanged
-  op_underfunded:    'Insufficient balance to complete this operation.',
-  op_no_trust:       'Destination account does not have a trustline for this asset.',
-  op_line_full:      "Destination account's trustline limit would be exceeded.",
+  op_underfunded: 'Insufficient balance to complete this operation.',
+  op_no_trust: 'Destination account does not have a trustline for this asset.',
+  op_line_full: "Destination account's trustline limit would be exceeded.",
   op_no_destination: 'Destination account does not exist.',
-  op_src_no_trust:   'Source account does not have a trustline for this asset.',
+  op_src_no_trust: 'Source account does not have a trustline for this asset.',
   op_not_authorized: 'Account is not authorized to hold or transfer this asset.',
 
   // new entries
   op_already_exists: 'Trustline already exists at that limit',
-  op_low_reserve:    'Account does not have sufficient XLM reserve to add a trustline',
+  op_low_reserve: 'Account does not have sufficient XLM reserve to add a trustline',
 };
 ```
 
@@ -115,7 +116,7 @@ The existing `mapHorizonError` function already checks `OPERATION_MESSAGES[opCod
 // Per-code HTTP status overrides. Codes not listed here default to 422.
 const OPERATION_STATUS_OVERRIDES: Record<string, number> = {
   op_already_exists: 409,
-  op_low_reserve:    400,
+  op_low_reserve: 400,
 };
 
 // Inside mapHorizonError, replace the existing operations block:
@@ -230,7 +231,7 @@ jest.mock('../stellar', () => ({
     getNetwork: jest.fn().mockReturnValue('Test SDF Network ; September 2015'),
     getAccountBalance: jest.fn(),
     loadAccount: jest.fn(),
-    submitTransaction: jest.fn(),           // ← add
+    submitTransaction: jest.fn(), // ← add
   },
 }));
 
@@ -251,15 +252,15 @@ import { Keypair } from '@stellar/stellar-sdk';
 
 ```typescript
 describe('establishTrustline', () => {
-  const mockLoadAccount  = StellarService.loadAccount as jest.Mock;
-  const mockSubmitTx     = StellarService.submitTransaction as jest.Mock;
-  const mockInvalidate   = invalidateBalanceCache as jest.Mock;
+  const mockLoadAccount = StellarService.loadAccount as jest.Mock;
+  const mockSubmitTx = StellarService.submitTransaction as jest.Mock;
+  const mockInvalidate = invalidateBalanceCache as jest.Mock;
 
   // Real keypair for deterministic public key derivation
-  const keypair   = Keypair.random();
-  const secret    = keypair.secret();
+  const keypair = Keypair.random();
+  const secret = keypair.secret();
   const publicKey = keypair.publicKey();
-  const assetCode   = 'ECO';
+  const assetCode = 'ECO';
   const assetIssuer = Keypair.random().publicKey(); // distinct from signer
 
   // Minimal account stub — only sequence number is used by TransactionBuilder
@@ -315,7 +316,9 @@ describe('establishTrustline', () => {
 
     await expect(
       establishTrustline({ accountSecret: secret, assetCode, assetIssuer })
-    ).rejects.toMatchObject({ response: { data: { extras: { result_codes: { operations: ['op_already_exists'] } } } } });
+    ).rejects.toMatchObject({
+      response: { data: { extras: { result_codes: { operations: ['op_already_exists'] } } } },
+    });
   });
 });
 ```
@@ -347,9 +350,7 @@ describe('mapHorizonError — trustline operation codes', () => {
   it('maps op_low_reserve to 400 with correct message', () => {
     const result = mapHorizonError(makeHorizonError('op_low_reserve'));
     expect(result.status).toBe(400);
-    expect(result.message).toBe(
-      'Account does not have sufficient XLM reserve to add a trustline'
-    );
+    expect(result.message).toBe('Account does not have sufficient XLM reserve to add a trustline');
   });
 });
 
@@ -388,21 +389,21 @@ describe('mapHorizonError — existing codes regression', () => {
 
 Complete reference for Horizon result codes relevant to trustline operations, including all existing codes for context.
 
-| Result code | Layer | HTTP status | Message |
-|---|---|---|---|
-| `op_already_exists` | operation | **409** | Trustline already exists at that limit |
-| `op_low_reserve` | operation | **400** | Account does not have sufficient XLM reserve to add a trustline |
-| `op_underfunded` | operation | 422 | Insufficient balance to complete this operation. |
-| `op_no_trust` | operation | 422 | Destination account does not have a trustline for this asset. |
-| `op_line_full` | operation | 422 | Destination account's trustline limit would be exceeded. |
-| `op_no_destination` | operation | 422 | Destination account does not exist. |
-| `op_src_no_trust` | operation | 422 | Source account does not have a trustline for this asset. |
-| `op_not_authorized` | operation | 422 | Account is not authorized to hold or transfer this asset. |
-| `tx_bad_seq` | transaction | 422 | Transaction sequence number is stale; please retry. |
-| `tx_insufficient_balance` | transaction | 402 | Account balance is insufficient to cover the transaction and fees. |
-| `tx_insufficient_fee` | transaction | 422 | Submitted fee is below the network minimum. |
-| 404 response (no result codes) | HTTP status | 404 | Stellar account or asset not found. |
-| Any other / unknown | fallback | 502 | Stellar network error. Please try again later. |
+| Result code                    | Layer       | HTTP status | Message                                                            |
+| ------------------------------ | ----------- | ----------- | ------------------------------------------------------------------ |
+| `op_already_exists`            | operation   | **409**     | Trustline already exists at that limit                             |
+| `op_low_reserve`               | operation   | **400**     | Account does not have sufficient XLM reserve to add a trustline    |
+| `op_underfunded`               | operation   | 422         | Insufficient balance to complete this operation.                   |
+| `op_no_trust`                  | operation   | 422         | Destination account does not have a trustline for this asset.      |
+| `op_line_full`                 | operation   | 422         | Destination account's trustline limit would be exceeded.           |
+| `op_no_destination`            | operation   | 422         | Destination account does not exist.                                |
+| `op_src_no_trust`              | operation   | 422         | Source account does not have a trustline for this asset.           |
+| `op_not_authorized`            | operation   | 422         | Account is not authorized to hold or transfer this asset.          |
+| `tx_bad_seq`                   | transaction | 422         | Transaction sequence number is stale; please retry.                |
+| `tx_insufficient_balance`      | transaction | 402         | Account balance is insufficient to cover the transaction and fees. |
+| `tx_insufficient_fee`          | transaction | 422         | Submitted fee is below the network minimum.                        |
+| 404 response (no result codes) | HTTP status | 404         | Stellar account or asset not found.                                |
+| Any other / unknown            | fallback    | 502         | Stellar network error. Please try again later.                     |
 
 The two new entries (bold) differ from the existing operation codes: `op_already_exists` returns 409 because the resource already exists (idempotent retry semantics), and `op_low_reserve` returns 400 because it is a caller-correctable condition (fund the account with more XLM), not a processing error.
 
@@ -410,64 +411,63 @@ The two new entries (bold) differ from the existing operation codes: `op_already
 
 ## Correctness Properties
 
-*A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
+_A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees._
 
 ### Property 1: Balance cache is always invalidated after a successful trustline
 
-*For any* valid `accountSecret`, if `establishTrustline()` resolves successfully, then `invalidateBalanceCache` must be called with an array containing exactly the public key derived from that `accountSecret`.
+_For any_ valid `accountSecret`, if `establishTrustline()` resolves successfully, then `invalidateBalanceCache` must be called with an array containing exactly the public key derived from that `accountSecret`.
 
 **Validates: Requirements 1.4**
 
 ### Property 2: Transaction hash is always returned from a successful submission
 
-*For any* successful `StellarService.submitTransaction` response that contains a `hash` field, `establishTrustline()` must return that exact hash value as a string.
+_For any_ successful `StellarService.submitTransaction` response that contains a `hash` field, `establishTrustline()` must return that exact hash value as a string.
 
 **Validates: Requirements 1.5**
 
 ### Property 3: Self-trustline guard always fires before any network call
 
-*For any* `accountSecret` whose derived public key equals `assetIssuer`, `establishTrustline()` must throw an error with the message `"Cannot establish a trustline to your own issuer account"` and `StellarService.loadAccount` and `StellarService.submitTransaction` must not be called.
+_For any_ `accountSecret` whose derived public key equals `assetIssuer`, `establishTrustline()` must throw an error with the message `"Cannot establish a trustline to your own issuer account"` and `StellarService.loadAccount` and `StellarService.submitTransaction` must not be called.
 
 **Validates: Requirements 1.6**
 
 ### Property 4: op_already_exists always maps to 409
 
-*For any* Horizon error payload where `result_codes.operations[0]` equals `"op_already_exists"`, `mapHorizonError()` must return `{ status: 409, message: "Trustline already exists at that limit" }`.
+_For any_ Horizon error payload where `result_codes.operations[0]` equals `"op_already_exists"`, `mapHorizonError()` must return `{ status: 409, message: "Trustline already exists at that limit" }`.
 
 **Validates: Requirements 2.1**
 
 ### Property 5: op_low_reserve always maps to 400
 
-*For any* Horizon error payload where `result_codes.operations[0]` equals `"op_low_reserve"`, `mapHorizonError()` must return `{ status: 400, message: "Account does not have sufficient XLM reserve to add a trustline" }`.
+_For any_ Horizon error payload where `result_codes.operations[0]` equals `"op_low_reserve"`, `mapHorizonError()` must return `{ status: 400, message: "Account does not have sufficient XLM reserve to add a trustline" }`.
 
 **Validates: Requirements 2.2**
 
 ### Property 6: Unknown operation codes always fall through to 502
 
-*For any* Horizon error payload where `result_codes.operations[0]` contains a code that is not present in `OPERATION_MESSAGES`, `mapHorizonError()` must return a response with HTTP status 502.
+_For any_ Horizon error payload where `result_codes.operations[0]` contains a code that is not present in `OPERATION_MESSAGES`, `mapHorizonError()` must return a response with HTTP status 502.
 
 **Validates: Requirements 2.3**
 
 ### Property 7: Route handler always returns structured error envelope for Horizon errors
 
-*For any* Horizon error thrown by `establishTrustline()` (i.e., any error with a `.response` property), the `/trustline` route handler must respond with `{ data: null, error: <string> }` at the status code returned by `mapHorizonError()`.
+_For any_ Horizon error thrown by `establishTrustline()` (i.e., any error with a `.response` property), the `/trustline` route handler must respond with `{ data: null, error: <string> }` at the status code returned by `mapHorizonError()`.
 
 **Validates: Requirements 3.1, 3.2**
-
 
 ---
 
 ## Components and Interfaces
 
-| Component | File | Role |
-|---|---|---|
-| establishTrustline(params: TrustlineParams): Promise<string> | ackend/src/contracts/trustlines.ts | Builds, signs, and submits a Stellar changeTrust operation server-side; returns transaction hash |
-| hasTrustline(publicKey, assetCode, assetIssuer): Promise<boolean> | ackend/src/contracts/trustlines.ts | Queries Horizon to check whether a trustline already exists; unchanged |
-| mapHorizonError(err, details?): MappedError | ackend/src/api/utils/horizonError.ts | Translates Horizon result codes into { status, message, code? } objects; extended with op_already_exists and op_low_reserve |
-| POST /api/v1/tokens/trustline route handler | ackend/src/api/routes/tokens.ts | Validates request body, calls establishTrustline, maps Horizon errors via mapHorizonError |
-| TrustlineParams interface | ackend/src/contracts/trustlines.ts | Input type: { accountSecret: string; assetCode: string; assetIssuer: string; limit?: string } |
-| MappedError interface | ackend/src/api/utils/horizonError.ts | Output type: { status: number; message: string; code?: string; requiredXlm?: string; currentBalance?: string } |
-| OPERATION_STATUS_OVERRIDES | ackend/src/api/utils/horizonError.ts | New constant map: per-code HTTP status overrides for operation result codes that deviate from the default 422 |
+| Component                                                         | File                                 | Role                                                                                                                        |
+| ----------------------------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| establishTrustline(params: TrustlineParams): Promise<string>      | ackend/src/contracts/trustlines.ts   | Builds, signs, and submits a Stellar changeTrust operation server-side; returns transaction hash                            |
+| hasTrustline(publicKey, assetCode, assetIssuer): Promise<boolean> | ackend/src/contracts/trustlines.ts   | Queries Horizon to check whether a trustline already exists; unchanged                                                      |
+| mapHorizonError(err, details?): MappedError                       | ackend/src/api/utils/horizonError.ts | Translates Horizon result codes into { status, message, code? } objects; extended with op_already_exists and op_low_reserve |
+| POST /api/v1/tokens/trustline route handler                       | ackend/src/api/routes/tokens.ts      | Validates request body, calls establishTrustline, maps Horizon errors via mapHorizonError                                   |
+| TrustlineParams interface                                         | ackend/src/contracts/trustlines.ts   | Input type: { accountSecret: string; assetCode: string; assetIssuer: string; limit?: string }                               |
+| MappedError interface                                             | ackend/src/api/utils/horizonError.ts | Output type: { status: number; message: string; code?: string; requiredXlm?: string; currentBalance?: string }              |
+| OPERATION_STATUS_OVERRIDES                                        | ackend/src/api/utils/horizonError.ts | New constant map: per-code HTTP status overrides for operation result codes that deviate from the default 422               |
 
 No new modules, no new interfaces. All changes extend existing types in-place.
 
@@ -506,15 +506,16 @@ The TrustlineParams interface and MappedError interface are unchanged.
 
 All error handling follows the existing patterns in the codebase:
 
-| Error source | Condition | Handler | HTTP response |
-|---|---|---|---|
-| Keypair.fromSecret | Invalid secret format | Caught by alidateBody(trustlineTokenSchema) before reaching establishTrustline | 400 |
-| Self-trustline guard | ccountKeypair.publicKey() === assetIssuer | Throws 
-ew Error(...) with no .response; route handler calls 
+| Error source         | Condition                                 | Handler                                                                        | HTTP response |
+| -------------------- | ----------------------------------------- | ------------------------------------------------------------------------------ | ------------- |
+| Keypair.fromSecret   | Invalid secret format                     | Caught by alidateBody(trustlineTokenSchema) before reaching establishTrustline | 400           |
+| Self-trustline guard | ccountKeypair.publicKey() === assetIssuer | Throws                                                                         |
+
+ew Error(...) with no .response; route handler calls
 ext(err) | 500 via global error handler |
 | StellarService.loadAccount | Account not found (Horizon 404) | Horizon error shape with .response; route handler calls mapHorizonError | 404 |
 | StellarService.submitTransaction | Horizon result code op_already_exists | Horizon error shape with .response; mapped to 409 | 409 |
 | StellarService.submitTransaction | Horizon result code op_low_reserve | Horizon error shape with .response; mapped to 400 | 400 |
 | StellarService.submitTransaction | Any other mapped Horizon code | Horizon error shape with .response; mapped per existing OPERATION_MESSAGES | 422 |
 | StellarService.submitTransaction | Unmapped Horizon error | Horizon error shape with .response; falls through to 502 fallback | 502 |
-| invalidateBalanceCache | Redis failure | Not caught; treated as non-fatal best-effort (existing pattern) | � |
+| invalidateBalanceCache | Redis failure | Not caught; treated as non-fatal best-effort (existing pattern) | � |

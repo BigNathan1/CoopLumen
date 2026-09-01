@@ -332,6 +332,124 @@ describe('POST /api/v1/loans/:id/repay', () => {
   });
 });
 
+describe('loan interest', () => {
+  it('creates a loan carrying an interest rate', async () => {
+    mockDb.query.mockResolvedValueOnce([{ id: communityId }]); // community exists
+    runTransaction([
+      [{ id: loanId, status: 'pending', amount: '100.0000000', interest_rate: '10.00' }],
+    ]);
+    const res = await request(app)
+      .post('/api/v1/loans')
+      .set('Authorization', authHeader(lender))
+      .send({
+        communityId,
+        borrowerAddress: borrower,
+        lenderAddress: lender,
+        amount: '100',
+        assetCode: 'ECO',
+        interestRate: 10,
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.data.interest_rate).toBe('10.00');
+  });
+
+  it('keeps a loan active until principal plus interest is repaid', async () => {
+    // 100 principal at 10% => 110 total due; repaying 105 leaves 5 outstanding.
+    mockDb.query.mockResolvedValueOnce([
+      {
+        id: loanId,
+        status: 'active',
+        amount: '100.0000000',
+        amount_repaid: '0',
+        interest_rate: '10.00',
+        borrower_address: borrower,
+      },
+    ]);
+    runTransaction([
+      [
+        {
+          id: loanId,
+          status: 'active',
+          amount: '100.0000000',
+          amount_repaid: '0',
+          interest_rate: '10.00',
+          borrower_address: borrower,
+        },
+      ],
+      [{ id: loanId, status: 'active', amount_repaid: '105.0000000' }],
+    ]);
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/repay`)
+      .set('Authorization', authHeader(borrower))
+      .send({ amount: '105' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe('active');
+  });
+
+  it('rejects a repayment above principal plus interest', async () => {
+    mockDb.query.mockResolvedValueOnce([
+      {
+        id: loanId,
+        status: 'active',
+        amount: '100.0000000',
+        amount_repaid: '0',
+        interest_rate: '10.00',
+        borrower_address: borrower,
+      },
+    ]);
+    runTransaction([
+      [
+        {
+          id: loanId,
+          status: 'active',
+          amount: '100.0000000',
+          amount_repaid: '0',
+          interest_rate: '10.00',
+          borrower_address: borrower,
+        },
+      ],
+    ]);
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/repay`)
+      .set('Authorization', authHeader(borrower))
+      .send({ amount: '111' });
+    expect(res.status).toBe(400);
+    expect(res.body.meta.outstanding).toBe('110.0000000');
+  });
+
+  it('marks the loan repaid once interest is covered', async () => {
+    mockDb.query.mockResolvedValueOnce([
+      {
+        id: loanId,
+        status: 'active',
+        amount: '100.0000000',
+        amount_repaid: '100.0000000',
+        interest_rate: '10.00',
+        borrower_address: borrower,
+      },
+    ]);
+    runTransaction([
+      [
+        {
+          id: loanId,
+          status: 'active',
+          amount: '100.0000000',
+          amount_repaid: '100.0000000',
+          interest_rate: '10.00',
+          borrower_address: borrower,
+        },
+      ],
+      [{ id: loanId, status: 'repaid', amount_repaid: '110.0000000' }],
+    ]);
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/repay`)
+      .set('Authorization', authHeader(borrower))
+      .send({ amount: '10' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe('repaid');
+  });
+});
+
 describe('POST /api/v1/loans/:id/default', () => {
   it('rejects an unauthenticated request', async () => {
     const res = await request(app).post(`/api/v1/loans/${loanId}/default`).send({});

@@ -1074,6 +1074,76 @@ paths:
         '409':
           description: Loan is not in `active` status
 
+  /api/v1/reputation:
+    get:
+      tags: [Reputation]
+      summary: Reputation leaderboard
+      description: Paginated leaderboard, highest score first by default.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+        - name: communityId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [score, total_loans, on_time_repayments, defaults, updated_at]
+            default: score
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: A page of reputation scores
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/ReputationScore' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+
+  /api/v1/reputation/{address}:
+    parameters:
+      - name: address
+        in: path
+        required: true
+        schema: { $ref: '#/components/schemas/StellarKey' }
+    get:
+      tags: [Reputation]
+      summary: Get a member's reputation
+      description: >
+        A member's reputation across every community they participate in, plus
+        an aggregate summary. Optionally narrowed with `communityId`.
+      parameters:
+        - name: communityId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Member reputation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      address: { $ref: '#/components/schemas/StellarKey' }
+                      communities:
+                        type: array
+                        items: { $ref: '#/components/schemas/ReputationScore' }
+                      summary: { $ref: '#/components/schemas/ReputationSummary' }
+        '404':
+          description: No reputation found for this address
 components:
   parameters:
     CommunityId:
@@ -1717,6 +1787,44 @@ components:
       properties:
         data:
           $ref: '#/components/schemas/AccountDetails'
+    LoanDetail:
+      allOf:
+        - $ref: '#/components/schemas/Loan'
+        - type: object
+          properties:
+            events:
+              type: array
+              items: { $ref: '#/components/schemas/LoanEvent' }
+    LoanStatus:
+      type: string
+      enum: [pending, active, repaid, defaulted, cancelled]
+    RepayLoan:
+      type: object
+      required: [amount]
+      properties:
+        amount: { type: string, pattern: '^\d+(\.\d{1,7})?$' }
+        paymentId: { type: string, format: uuid }
+        note: { type: string, maxLength: 280 }
+    ReputationScore:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        stellar_address: { $ref: '#/components/schemas/StellarKey' }
+        community_id: { type: string, format: uuid }
+        score: { type: string, description: 'NUMERIC(5,2), 0–100' }
+        total_loans: { type: integer }
+        on_time_repayments: { type: integer }
+        defaults: { type: integer }
+        last_calculated_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ReputationSummary:
+      type: object
+      properties:
+        total_loans: { type: integer }
+        on_time_repayments: { type: integer }
+        defaults: { type: integer }
+        offset: { type: integer }
   securitySchemes:
     AdminAuth:
       type: http
