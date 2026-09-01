@@ -54,7 +54,24 @@ export class ErrorBoundary extends React.Component<Props, State> {
         <div className={styles.container}>
           <div className={styles.content}>
             <div className={styles.iconContainer}>
-              <span className={styles.icon}>⚠️</span>
+              <span className={styles.icon}>
+                <svg
+                  viewBox="0 0 24 24"
+                  width="32"
+                  height="32"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="M10.3 3.3 2.2 17a2 2 0 0 0 1.7 3h16.2a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z" />
+                  <path d="M12 9v4" />
+                  <path d="M12 17h.01" />
+                </svg>
+              </span>
             </div>
             <h1 className={styles.title}>Something went wrong</h1>
             <p className={styles.message}>We encountered an unexpected error. Please try again.</p>
