@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { db } from '../../db';
 import { verifySessionToken } from '../utils/sessionToken';
+import { logger } from '../../utils/logger';
 
 export interface AuthContext {
   /** The Stellar address that proved control of its key via /api/v1/auth/verify. */
@@ -72,18 +73,24 @@ export function requireCommunityRole(roles: string[]) {
   };
 }
 
+let hasWarnedAboutOpenAdminRoutes = false;
+
 /**
- * Placeholder admin authentication middleware.
- * TODO: Replace with proper authentication/authorization when implemented.
+ * Admin gate for routes that accept a raw secret key or expose every token in
+ * the system: GET /api/v1/tokens, POST /api/v1/tokens/issue and
+ * POST /api/v1/tokens/trustline.
  *
- * For now, this is a no-op that allows all requests through.
- * In a production system, this would:
- * 1. Validate JWT tokens or API keys
- * 2. Check user roles/permissions
- * 3. Return 401/403 for unauthorized access
+ * It currently authorises nothing - every request passes. Anyone who can reach
+ * the API can call those endpoints. The first call logs a warning so this
+ * cannot sit unnoticed in a deployed environment; treat it as an open door
+ * until it validates a credential and checks a role.
  */
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  // TODO: Implement proper admin authentication
-  // For now, allow all requests through as a placeholder
+  if (!hasWarnedAboutOpenAdminRoutes) {
+    hasWarnedAboutOpenAdminRoutes = true;
+    logger.warn('Admin routes are unauthenticated: requireAdmin lets every request through', {
+      path: req.path,
+    });
+  }
   next();
 }
