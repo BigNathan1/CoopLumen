@@ -2,7 +2,7 @@
 
 import { useToast, Toast, ToastVariant } from '@/hooks/useToast';
 import { useState, useEffect } from 'react';
-import styles from './Toast.module.css';
+import styles from './ToastDisplay.module.css';
 
 /**
  * Icons for each toast variant.
