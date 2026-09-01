@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Usage: ./scripts/validate-fk.sh [database-url]
+# Usage: ./scripts/db/validate-fk.sh [database-url]
 # Validates all foreign key constraints have explicit ON DELETE behaviors
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

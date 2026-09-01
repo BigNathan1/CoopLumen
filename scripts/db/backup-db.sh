@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: ./scripts/backup-db.sh [output-dir]
+# Usage: ./scripts/db/backup-db.sh [output-dir]
 # Reads DATABASE_URL from environment or .env file.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
