@@ -161,6 +161,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `.dockerignore` files for backend and frontend
 - `CODEOWNERS`, issue templates, PR template, `SECURITY.md`, `CHANGELOG.md`
 
+### Removed
+
+- `POST /api/v1/tokens/issue` and `POST /api/v1/tokens/trustline`. Both accepted a full Stellar secret key in the request body, which granted the server irreversible control of the account for as long as the key lived in a log, a proxy buffer or a crash dump. The client-sign flow that replaced them - `POST /api/v1/tokens/build-issue` and `/build-trustline` to get an unsigned XDR, the wallet to sign it, `POST /api/v1/tokens/submit` to broadcast - covers the same two operations without the secret ever leaving the client. `tokenIssueLimiter` went with them, having no remaining caller.
+
 ### Changed
 
 - Repository layout and hygiene pass. Backend: the market price feed moved out of `contracts/` (which is the Stellar layer) into `services/`, manual testnet verification scripts moved from `src/contracts/__tests__/` to `backend/scripts/`, `src/test/` became `src/testing/`, and the duplicate halves of the price feed and the price cache were folded into one implementation each. Frontend: components are grouped into `ui/`, `loans/`, `reputation/` and `wallet/`, every `ui/` suite sits beside its component, and the generic primitives (Modal, ConfirmDialog, LoadingSkeleton, Form, ErrorBoundary) joined the design system. Testnet suites share one filename convention and one `STELLAR_TESTNET_E2E` switch instead of two. Emoji and box-drawing decoration are gone from script output and component icons, which are drawn as inline SVG. `.kiro/` and `.claude/` tooling directories are no longer tracked, `morgan`, `express-validator` and two stale `@types` packages are removed, and CI checks formatting across the whole repository rather than three directories.
@@ -205,6 +209,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- `requireAdmin` now authorises. It previously called `next()` for every request while guarding routes that list every token in the system and, until this release, two that accepted a raw secret key - so anyone who could reach the API could call them. It requires an authenticated session (`requireAuth` runs first) whose address appears in `ADMIN_ADDRESSES`, and fails closed: an unset list rejects everyone with 403 rather than admitting everyone.
 - Added a client-sign flow for issuing tokens and establishing trustlines, so a wallet's secret key no longer has to travel to the server in plaintext for these actions. `buildUnsignedIssueAsset()` (`backend/src/contracts/assets.ts`) builds an unsigned issuance payment from the issuer's public key; combined with the existing `buildUnsignedTrustline()`, both are now exposed as `POST /api/v1/tokens/build-issue` and `POST /api/v1/tokens/build-trustline`. A wallet (e.g. Freighter) signs the returned XDR locally and submits it through the new `POST /api/v1/tokens/submit`, which wires up the previously-unused `submitSignedXdr()` helper. The existing secret-key endpoints, `POST /api/v1/tokens/issue` and `POST /api/v1/tokens/trustline`, are now gated behind `requireAdmin` and their doc comments updated to steer callers to the new flow; removing them from the public API surface entirely is tracked as a follow-up once `requireAdmin` is a real auth check rather than a placeholder (see the separately-filed auth-bypass issue). `POST /api/v1/tokens/burn` and `POST /api/v1/tokens/airdrop` accept the same kind of raw secret key and were not in scope of this change; they should be tracked separately.
 
 ## [0.1.0] - 2026-05-13

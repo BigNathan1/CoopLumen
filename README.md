@@ -202,10 +202,12 @@ You will need a local PostgreSQL instance. Set `DATABASE_URL` in `backend/.env`.
 
 ### Tokens
 
-| Method | Path                    | Description                      |
-| ------ | ----------------------- | -------------------------------- |
-| `POST` | `/api/tokens/issue`     | Issue community token on Stellar |
-| `POST` | `/api/tokens/trustline` | Establish trustline for a member |
+| Method | Path                             | Description                                                             |
+| ------ | -------------------------------- | ----------------------------------------------------------------------- |
+| `POST` | `/api/v1/tokens/build-issue`     | Build an unsigned issuance transaction for the issuer's wallet to sign  |
+| `POST` | `/api/v1/tokens/build-trustline` | Build an unsigned trustline transaction for the holder's wallet to sign |
+| `POST` | `/api/v1/tokens/submit`          | Submit a signed transaction envelope                                    |
+| `GET`  | `/api/v1/tokens`                 | List every token (operators only)                                       |
 
 ### Balances
 
