@@ -6,7 +6,7 @@ import {
   PRICE_CACHE_TTL_SECONDS,
 } from '../prices';
 import { redisCache } from '../redis';
-import { XlmPriceResult } from '../../contracts/prices';
+import { XlmPriceResult } from '../../services/prices';
 
 jest.mock('../redis', () => ({
   redisCache: {

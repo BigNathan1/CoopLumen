@@ -1,6 +1,6 @@
 import { redisCache } from './redis';
 import { logger } from '../utils/logger';
-import { XlmPriceResult } from '../contracts/prices';
+import { XlmPriceResult } from '../services/prices';
 
 export const PRICE_CACHE_TTL_SECONDS = 30;
 
