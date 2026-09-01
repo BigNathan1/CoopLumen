@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useLoans, type LoanStatus } from '@/hooks/useLoans';
 import type { Community } from '@/hooks/useCommunities';
 import { LoanCard } from './LoanCard';
-import styles from './Dashboard.module.css';
+import styles from './LoansSection.module.css';
 
 interface Props {
   communities?: Community[];
