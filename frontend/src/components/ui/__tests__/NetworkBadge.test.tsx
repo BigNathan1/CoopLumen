@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 
-import { NetworkBadge } from '../ui/NetworkBadge';
+import { NetworkBadge } from '../NetworkBadge';
 
 describe('NetworkBadge', () => {
   it('renders TESTNET with the correct accessible label', () => {

@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import { CopyToClipboard } from '../ui/CopyToClipboard';
+import { CopyToClipboard } from '../CopyToClipboard';
 
 describe('CopyToClipboard', () => {
   // `userEvent.setup()` installs its own clipboard stub, so the component's
