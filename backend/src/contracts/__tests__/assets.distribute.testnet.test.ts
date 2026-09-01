@@ -17,10 +17,10 @@ import { distributeAsset } from '../assets';
 import { establishTrustline } from '../trustlines';
 
 // Opt-in, matching every other testnet-integration suite in this codebase
-// (see assets.getBalance.integration.test.ts, transactions.testnet.test.ts,
-// etc.): CI does not set STELLAR_TESTNET_INTEGRATION, so this suite is
+// (see assets.getBalance.testnet.test.ts, transactions.testnet.test.ts,
+// etc.): CI does not set STELLAR_TESTNET_E2E, so this suite is
 // skipped by default rather than attempting real network calls on every run.
-const runTestnet = process.env.STELLAR_TESTNET_INTEGRATION === '1';
+const runTestnet = process.env.STELLAR_TESTNET_E2E === '1';
 const describeTestnet = runTestnet ? describe : describe.skip;
 
 describeTestnet('distributeAsset - testnet integration', () => {

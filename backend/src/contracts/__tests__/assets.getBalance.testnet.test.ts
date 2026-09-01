@@ -19,9 +19,9 @@ import { establishTrustline } from '../trustlines';
 import { issueAsset } from '../assets';
 
 // Opt-in, matching every other testnet-integration suite in this codebase:
-// CI does not set STELLAR_TESTNET_INTEGRATION, so this suite is skipped by
+// CI does not set STELLAR_TESTNET_E2E, so this suite is skipped by
 // default rather than attempting real network calls on every run.
-const runTestnet = process.env.STELLAR_TESTNET_INTEGRATION === '1';
+const runTestnet = process.env.STELLAR_TESTNET_E2E === '1';
 const describeTestnet = runTestnet ? describe : describe.skip;
 
 describeTestnet('getAssetBalance - testnet integration', () => {

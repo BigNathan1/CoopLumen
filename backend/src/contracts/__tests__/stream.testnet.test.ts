@@ -6,7 +6,7 @@ import { Keypair } from '@stellar/stellar-sdk';
 import { StellarService } from '../stellar';
 import { submitPayment } from '../transactions';
 
-const RUN = process.env.STELLAR_TESTNET_INTEGRATION === '1';
+const RUN = process.env.STELLAR_TESTNET_E2E === '1';
 const describeIf = RUN ? describe : describe.skip;
 
 const FRIENDBOT_URL = process.env.STELLAR_FRIENDBOT_URL ?? 'https://friendbot.stellar.org';

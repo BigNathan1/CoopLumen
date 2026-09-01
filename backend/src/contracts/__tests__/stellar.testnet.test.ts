@@ -3,7 +3,7 @@
  * Exercises end-to-end flows for keypair funding, account creation, trustlines,
  * asset issuance, payments, balance verification, and error handling.
  *
- * Skipped unless STELLAR_TESTNET_INTEGRATION=1 or SKIP_TESTNET_TESTS is false/unset
+ * Skipped unless STELLAR_TESTNET_E2E=1 or SKIP_TESTNET_TESTS is false/unset
  * and testnet is reachable.
  */
 
@@ -13,7 +13,7 @@ import { getAssetBalance, issueAsset } from '../assets';
 import { establishTrustline } from '../trustlines';
 import { submitPayment } from '../transactions';
 
-const RUN = process.env.STELLAR_TESTNET_INTEGRATION === '1';
+const RUN = process.env.STELLAR_TESTNET_E2E === '1';
 const describeIf = RUN ? describe : describe.skip;
 
 const FRIENDBOT_URL = process.env.STELLAR_FRIENDBOT_URL ?? 'https://friendbot.stellar.org';
