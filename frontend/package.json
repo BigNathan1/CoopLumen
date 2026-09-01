@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@stellar/freighter-api": "^2.0.0",
-    "next": "^14.2.35",
+    "next": "^15.5.25",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -44,5 +44,8 @@
     "prettier": "^3.8.3",
     "ts-jest": "^29.2.2",
     "typescript": "^5.5.3"
+  },
+  "overrides": {
+    "postcss": "^8.5.23"
   }
 }
