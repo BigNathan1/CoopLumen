@@ -92,7 +92,7 @@ Then re-run this test.
       expect(txHash).toBeDefined();
       expect(txHash).toMatch(/^[a-f0-9]{64}$/); // SHA-256 hash format
 
-      console.log(`✓ Trustline established: ${txHash}`);
+      console.log(`Trustline established: ${txHash}`);
 
       // Verify the trustline was created by loading the account
       const account = await StellarService.loadAccount(distributorKeypair.publicKey());
@@ -127,7 +127,7 @@ Then re-run this test.
       expect(txHash).toBeDefined();
       expect(txHash).toMatch(/^[a-f0-9]{64}$/); // SHA-256 hash format
 
-      console.log(`✓ Distribution successful: ${txHash}`);
+      console.log(`Distribution successful: ${txHash}`);
     } catch (error) {
       console.error('Failed to distribute asset:', error);
       throw error;
@@ -148,7 +148,7 @@ Then re-run this test.
       expect(assetBalance).toBeDefined();
       if (assetBalance && 'balance' in assetBalance) {
         expect(Number(assetBalance.balance)).toBeGreaterThan(0);
-        console.log(`✓ Distributor balance verified: ${assetBalance.balance} ${assetCode}`);
+        console.log(`Distributor balance verified: ${assetBalance.balance} ${assetCode}`);
       }
     } catch (error) {
       console.error('Failed to verify asset balance:', error);
@@ -179,6 +179,6 @@ Then re-run this test.
 
     // Should fail with op_no_trust
     await expect(distributionAttempt).rejects.toThrow();
-    console.log('✓ Distribution correctly rejected for account without trustline');
+    console.log('Distribution correctly rejected for account without trustline');
   }, 15000);
 });

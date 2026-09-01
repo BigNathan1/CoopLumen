@@ -42,34 +42,30 @@ async function main() {
   const issuerKeypair = Keypair.random();
   const holderKeypair = Keypair.random();
 
-  logger.info(`
-╔════════════════════════════════════════════════════════════╗
-║       Stellar getAssetBalance() Verification Script       ║
-╠════════════════════════════════════════════════════════════╣
-║ Issuer:              ${issuerKeypair.publicKey()} ║
-║ Holder:              ${holderKeypair.publicKey()} ║
-║ Asset Code:          ${ASSET_CODE}                               ║
-║ Distribution Amount: ${DISTRIBUTION_AMOUNT}                    ║
-╚════════════════════════════════════════════════════════════╝
+  logger.info('Stellar getAssetBalance verification', {
+    issuer: issuerKeypair.publicKey(),
+    holder: holderKeypair.publicKey(),
+    assetCode: ASSET_CODE,
+    distributionAmount: DISTRIBUTION_AMOUNT,
+  });
 
-STEP 1: Fund the issuer and holder accounts on testnet faucet:
-  Issuer: https://friendbot.stellar.org/?addr=${issuerKeypair.publicKey()}
-  Holder: https://friendbot.stellar.org/?addr=${holderKeypair.publicKey()}
-
-After funding, this script will proceed with the verification.
-  `);
+  logger.info(
+    `Fund both accounts on the testnet faucet, then this script continues:
+  issuer: https://friendbot.stellar.org/?addr=${issuerKeypair.publicKey()}
+  holder: https://friendbot.stellar.org/?addr=${holderKeypair.publicKey()}`
+  );
 
   try {
     // Step 1: Verify accounts are funded
     logger.info('[1/5] Verifying issuer account is funded...');
     const issuerAccount = await StellarService.loadAccount(issuerKeypair.publicKey());
     const issuerXlmBalance = issuerAccount.balances.find((b) => b.asset_type === 'native');
-    logger.info(`  ✓ Issuer funded with ${issuerXlmBalance?.balance} XLM`);
+    logger.info(`Issuer funded with ${issuerXlmBalance?.balance} XLM`);
 
     logger.info('[1/5] Verifying holder account is funded...');
     const holderAccount = await StellarService.loadAccount(holderKeypair.publicKey());
     const holderXlmBalance = holderAccount.balances.find((b) => b.asset_type === 'native');
-    logger.info(`  ✓ Holder funded with ${holderXlmBalance?.balance} XLM`);
+    logger.info(`Holder funded with ${holderXlmBalance?.balance} XLM`);
 
     // Step 2: Establish trustline for holder
     logger.info('[2/5] Establishing trustline for holder...');
@@ -78,7 +74,7 @@ After funding, this script will proceed with the verification.
       assetCode: ASSET_CODE,
       assetIssuer: issuerKeypair.publicKey(),
     });
-    logger.info(`  ✓ Trustline established: ${trustlineTxHash}`);
+    logger.info(`Trustline established: ${trustlineTxHash}`);
 
     // Step 3: Verify balance is 0 before distribution
     logger.info('[3/5] Verifying balance is 0 before distribution...');
@@ -87,7 +83,7 @@ After funding, this script will proceed with the verification.
       ASSET_CODE,
       issuerKeypair.publicKey()
     );
-    logger.info(`  ✓ Pre-distribution balance: ${balance} (expected 0)`);
+    logger.info(`Pre-distribution balance: ${balance} (expected 0)`);
     if (balance !== 0) {
       throw new Error(`Expected 0 balance before distribution, got ${balance}`);
     }
@@ -101,7 +97,7 @@ After funding, this script will proceed with the verification.
       amount: DISTRIBUTION_AMOUNT,
       memo: 'Manual verification distribution',
     });
-    logger.info(`  ✓ Asset issued: ${issueTxHash}`);
+    logger.info(`Asset issued: ${issueTxHash}`);
 
     // Step 5: Verify balance matches distribution amount
     logger.info('[5/5] Verifying final balance...');
@@ -110,27 +106,14 @@ After funding, this script will proceed with the verification.
       ASSET_CODE,
       issuerKeypair.publicKey()
     );
-    logger.info(`  ✓ Post-distribution balance: ${balance}`);
+    logger.info(`Post-distribution balance: ${balance}`);
 
     const expectedBalance = Number(DISTRIBUTION_AMOUNT);
     if (balance !== expectedBalance) {
       throw new Error(`Expected ${expectedBalance}, got ${balance}`);
     }
 
-    logger.info(`
-╔════════════════════════════════════════════════════════════╗
-║      ✓ Verification Complete - All Steps Passed!           ║
-╚════════════════════════════════════════════════════════════╝
-
-Summary:
-- Issuer: ${issuerKeypair.publicKey()}
-- Holder: ${holderKeypair.publicKey()}
-- Asset: ${ASSET_CODE}
-- Distribution Amount: ${DISTRIBUTION_AMOUNT}
-- Final Balance: ${balance}
-
-getAssetBalance() correctly returns the numeric asset balance!
-    `);
+    logger.info('Verification complete: all steps passed');
   } catch (error) {
     logger.error('Verification failed:', error);
     process.exit(1);

@@ -90,7 +90,7 @@ Then re-run this test.
       expect(txHash).toBeDefined();
       expect(txHash).toMatch(/^[a-f0-9]{64}$/); // SHA-256 hash format
 
-      console.log(`✓ Trustline established: ${txHash}`);
+      console.log(`Trustline established: ${txHash}`);
 
       // Verify the trustline was created
       const balance = await getAssetBalance(
@@ -118,7 +118,7 @@ Then re-run this test.
       expect(txHash).toBeDefined();
       expect(txHash).toMatch(/^[a-f0-9]{64}$/);
 
-      console.log(`✓ Asset issued: ${txHash}`);
+      console.log(`Asset issued: ${txHash}`);
     } catch (error) {
       console.error('Failed to issue asset:', error);
       throw error;
@@ -135,7 +135,7 @@ Then re-run this test.
 
       expect(balance).toBe(Number(distributionAmount));
       expect(balance).toBe(500.1234567); // Verify full precision
-      console.log(`✓ Balance verified: ${balance} ${assetCode}`);
+      console.log(`Balance verified: ${balance} ${assetCode}`);
     } catch (error) {
       console.error('Failed to verify balance:', error);
       throw error;
@@ -154,7 +154,7 @@ Then re-run this test.
 
       // Should return 0 because account has no trustline
       expect(balance).toBe(0);
-      console.log(`✓ Unfunded account correctly returns 0 balance`);
+      console.log(`Unfunded account correctly returns 0 balance`);
     } catch (error) {
       // This is expected - the unfunded account might not exist
       // which throws an error. That's also acceptable for this test.
@@ -186,7 +186,7 @@ Then re-run this test.
 
       const expectedBalance = Number(distributionAmount) + Number(additionalAmount);
       expect(newBalance).toBe(expectedBalance);
-      console.log(`✓ Multiple distributions: balance is now ${newBalance}`);
+      console.log(`Multiple distributions: balance is now ${newBalance}`);
     } catch (error) {
       console.error('Failed to distribute additional amount:', error);
       throw error;
