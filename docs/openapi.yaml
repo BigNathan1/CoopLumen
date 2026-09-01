@@ -605,39 +605,43 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/v1/tokens/airdrop:
+  /api/v1/tokens/build-airdrop:
     post:
-      tags: [Transactions]
-      summary: Airdrop a community token to all community members
+      tags: [Tokens]
+      summary: Build an unsigned airdrop transaction for client-side signing
+      description: >-
+        Returns one base64-encoded XDR envelope paying an equal amount of the
+        community's token to every current member, for the issuer's wallet to
+        sign. The batch is atomic: every member is paid or none is.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AirdropRequest'
+              type: object
+              required: [communityId, issuerPublicKey, amount]
+              properties:
+                communityId: { type: string, format: uuid }
+                issuerPublicKey: { $ref: '#/components/schemas/StellarKey' }
+                amount: { type: string }
+                memo: { type: string, maxLength: 28 }
       responses:
         '200':
-          description: Airdrop submitted successfully
+          description: Unsigned airdrop transaction built successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AirdropResponse'
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      xdr: { type: string }
+                      recipientCount: { type: integer }
+                      amount: { type: string }
         '400': { $ref: '#/components/responses/ValidationError' }
-        '402':
-          description: The issuer account does not have enough XLM for transaction fees
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InsufficientBalanceResponse'
-        '404': { $ref: '#/components/responses/NotFound' }
-        '422':
-          description: The Stellar network rejected the airdrop transaction
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '502':
-          description: Horizon is temporarily unavailable
+        '404':
+          description: Community does not exist
           content:
             application/json:
               schema:
@@ -694,23 +698,40 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/Token' }
 
-  /api/v1/tokens/burn:
+  /api/v1/tokens/build-burn:
     post:
       tags: [Tokens]
-      summary: Burn tokens
-      description: Reduces circulating supply by returning tokens to the issuing account.
+      summary: Build an unsigned burn transaction for client-side signing
+      description: >-
+        Returns a base64-encoded XDR envelope returning tokens to their issuing
+        account, where they stop counting toward circulating supply. The
+        holder's wallet signs it locally and submits it through
+        POST /api/v1/tokens/submit with `refreshSupply` set, so no secret key
+        reaches the server.
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/BurnToken' }
+            schema:
+              type: object
+              required: [holderPublicKey, assetCode, assetIssuer, amount]
+              properties:
+                holderPublicKey: { $ref: '#/components/schemas/StellarKey' }
+                assetCode: { type: string, minLength: 1, maxLength: 12 }
+                assetIssuer: { $ref: '#/components/schemas/StellarKey' }
+                amount: { type: string }
       responses:
         '200':
-          description: Tokens burned
+          description: Unsigned burn transaction built successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TokenTransferResponse'
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      xdr: { type: string }
         '400': { $ref: '#/components/responses/ValidationError' }
         '502':
           description: Horizon is temporarily unavailable

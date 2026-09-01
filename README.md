@@ -206,6 +206,8 @@ You will need a local PostgreSQL instance. Set `DATABASE_URL` in `backend/.env`.
 | ------ | -------------------------------- | ----------------------------------------------------------------------- |
 | `POST` | `/api/v1/tokens/build-issue`     | Build an unsigned issuance transaction for the issuer's wallet to sign  |
 | `POST` | `/api/v1/tokens/build-trustline` | Build an unsigned trustline transaction for the holder's wallet to sign |
+| `POST` | `/api/v1/tokens/build-burn`      | Build an unsigned burn transaction for the holder's wallet to sign      |
+| `POST` | `/api/v1/tokens/build-airdrop`   | Build one unsigned transaction paying every community member            |
 | `POST` | `/api/v1/tokens/submit`          | Submit a signed transaction envelope                                    |
 | `GET`  | `/api/v1/tokens`                 | List every token (operators only)                                       |
 

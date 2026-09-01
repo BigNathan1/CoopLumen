@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `refreshSupply` on `POST /api/v1/tokens/submit`. Supplying an asset code and issuer asks the server to re-read that asset's circulating supply from Horizon once the transaction lands, keeping the `tokens` table accurate after a client-signed burn. Only the asset is taken from the caller; the figure itself comes from the ledger.
+
 - `Badge` component (`frontend/src/components/ui/Badge.tsx`) — an inline status/category label with `success`, `warning`, `error`, `info` and `neutral` colour variants. Ships in `sm`/`md`/`lg` sizes with an optional `dot` indicator and leading `icon`, both hidden from assistive technology. An `srLabel` prop provides a verbose screen-reader-only accessible name without truncating the visible label. `data-variant` and `data-size` are mirrored onto the element for layout and test targeting. Styles use design tokens from `globals.css` and inherit dark-mode support automatically (#268).
 - `claimableBalance.claim(balanceId)` in `backend/src/contracts/claimableBalance.ts` — claims an existing Stellar claimable balance using the `ClaimClaimableBalance` operation, signs as the claimant, supports memo/time bounds, invalidates the claimant’s cached balance, and wraps Horizon result codes with the same actionable error handling as the other contract helpers (#175).
 - `Spinner` loading component (`frontend/src/components/ui/Spinner.tsx`) — an animated CSS spinner with `sm`/`md`/`lg` size presets, an optional accessible `label` that announces loading through a polite `role="status"` live region, and a `color` override. Without a label the spinner is `aria-hidden` so a parent that already announces loading avoids duplicate announcements. The animation slows under `prefers-reduced-motion: reduce`. Forwards `ref` and arbitrary span attributes. Styles use design tokens from `globals.css` (#196).
@@ -163,6 +165,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
+- `POST /api/v1/tokens/burn` and `POST /api/v1/tokens/airdrop`, the last two endpoints that accepted a Stellar secret key in the request body - and unlike the pair below, they were never gated at all. `POST /api/v1/tokens/build-burn` and `/build-airdrop` return an unsigned XDR for the wallet to sign instead. The airdrop is now a single atomic batch transaction rather than one transaction per member in a loop, so a payout can no longer stop half way through having already paid some members.
 - `POST /api/v1/tokens/issue` and `POST /api/v1/tokens/trustline`. Both accepted a full Stellar secret key in the request body, which granted the server irreversible control of the account for as long as the key lived in a log, a proxy buffer or a crash dump. The client-sign flow that replaced them - `POST /api/v1/tokens/build-issue` and `/build-trustline` to get an unsigned XDR, the wallet to sign it, `POST /api/v1/tokens/submit` to broadcast - covers the same two operations without the secret ever leaving the client. `tokenIssueLimiter` went with them, having no remaining caller.
 
 ### Changed

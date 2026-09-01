@@ -1,21 +1,18 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { Asset, Keypair, Operation, TransactionBuilder, BASE_FEE } from '@stellar/stellar-sdk';
+import { TransactionBuilder } from '@stellar/stellar-sdk';
 import { z } from 'zod';
-import {
-  burnAsset,
-  buildUnsignedIssueAsset,
-  getAssetHolders,
-  getTotalSupply,
-} from '../../contracts/assets';
+import { buildUnsignedIssueAsset, getAssetHolders, getTotalSupply } from '../../contracts/assets';
 import { buildUnsignedTrustline } from '../../contracts/trustlines';
-import { submitSignedXdr } from '../../contracts/transactions';
+import { buildBatchPayment } from '../../contracts/batchPayments';
+import { buildUnsignedPayment, submitSignedXdr } from '../../contracts/transactions';
 import { db } from '../../db';
 import { invalidateBalanceCache } from '../../cache/balances';
 import { StellarService } from '../../contracts/stellar';
 import { validateBody } from '../middleware/validate';
 import { requireAdmin, requireAuth } from '../middleware/auth';
 import {
-  burnTokenSchema,
+  buildAirdropSchema,
+  buildBurnTokenSchema,
   buildIssueTokenSchema,
   buildTrustlineTokenSchema,
   submitTokenXdrSchema,
@@ -24,10 +21,8 @@ import {
 import { isValidStellarPublicKey } from '../utils/stellar';
 import { mapHorizonError } from '../utils/horizonError';
 import { parsePagination, pageMeta, parseSort } from '../utils/http';
-import { withSequenceRetry } from '../../contracts/sequenceCache';
 import {
   getNativeBalance,
-  getRequiredXlmForFee,
   getRequiredXlmForTransaction,
   getTransactionDestination,
   getTransactionSource,
@@ -47,16 +42,6 @@ const tokenParamsSchema = z.object({
 
 const transferSchema = z.object({
   signedXdr: z.string().trim().min(1, 'signedXdr is required').max(100_000),
-});
-
-const airdropSchema = z.object({
-  communityId: z.string().uuid(),
-  amount: z
-    .string()
-    .trim()
-    .regex(/^\d+(\.\d{1,7})?$/, 'amount must be a positive decimal with up to 7 places')
-    .refine((value) => Number(value) > 0, 'amount must be greater than zero'),
-  issuerSecret: z.string().trim().min(1, 'issuerSecret is required'),
 });
 
 interface Token {
@@ -155,43 +140,6 @@ tokenRouter.get(
 );
 
 /**
- * POST /api/v1/tokens/burn
- * Reduces circulating supply by sending tokens from a holder back to the
- * issuing account, where they cease to count toward circulation.
- */
-tokenRouter.post(
-  '/burn',
-  validateBody(burnTokenSchema),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { holderSecret, assetCode, assetIssuer, amount } = req.body as {
-        holderSecret: string;
-        assetCode: string;
-        assetIssuer: string;
-        amount: string;
-      };
-
-      const txHash = await burnAsset({ holderSecret, assetCode, assetIssuer, amount });
-
-      await db.query(
-        `UPDATE tokens SET total_supply = total_supply - $1
-         WHERE asset_code = $2 AND asset_issuer = $3`,
-        [amount, assetCode, assetIssuer]
-      );
-
-      res.status(200).json({ data: { txHash } });
-    } catch (err) {
-      if ((err as { response?: unknown }).response) {
-        const mapped = mapHorizonError(err);
-        res.status(mapped.status).json({ data: null, error: mapped.message });
-        return;
-      }
-      next(err);
-    }
-  }
-);
-
-/**
  * POST /api/v1/tokens/build-issue
  * Builds an unsigned XDR transaction for issuing a community token, so the
  * issuer's wallet (e.g. Freighter) can sign it client-side instead of
@@ -265,6 +213,119 @@ tokenRouter.post(
 );
 
 /**
+ * POST /api/v1/tokens/build-burn
+ * Builds an unsigned transaction returning tokens to their issuing account,
+ * where they stop counting toward circulating supply. The holder's wallet
+ * signs the returned XDR; submit it through POST /api/v1/tokens/submit with
+ * `refreshSupply` set so the recorded supply is re-read from Horizon.
+ */
+tokenRouter.post(
+  '/build-burn',
+  validateBody(buildBurnTokenSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { holderPublicKey, assetCode, assetIssuer, amount } = req.body as {
+        holderPublicKey: string;
+        assetCode: string;
+        assetIssuer: string;
+        amount: string;
+      };
+
+      const xdr = await buildUnsignedPayment({
+        senderPublicKey: holderPublicKey,
+        destinationPublicKey: assetIssuer,
+        assetCode,
+        assetIssuer,
+        amount,
+      });
+
+      res.status(200).json({ data: { xdr } });
+    } catch (err) {
+      if ((err as { response?: unknown }).response) {
+        const mapped = mapHorizonError(err);
+        res.status(mapped.status).json({ data: null, error: mapped.message });
+        return;
+      }
+      next(err);
+    }
+  }
+);
+
+/**
+ * POST /api/v1/tokens/build-airdrop
+ * Builds one unsigned transaction paying an equal amount of the community's
+ * token to every current member, for the issuer's wallet to sign.
+ *
+ * The batch is atomic: every member is paid or none is, which is why this
+ * replaced the previous implementation's loop of one transaction per member -
+ * that could stop half way through, having already paid some of them.
+ */
+tokenRouter.post(
+  '/build-airdrop',
+  validateBody(buildAirdropSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { communityId, issuerPublicKey, amount, memo } = req.body as {
+        communityId: string;
+        issuerPublicKey: string;
+        amount: string;
+        memo?: string;
+      };
+
+      const [community] = await db.query<CommunityRow>(
+        `SELECT asset_code, asset_issuer FROM communities WHERE id = $1 AND deleted_at IS NULL`,
+        [communityId]
+      );
+
+      if (!community) {
+        res.status(404).json({ data: null, error: 'Community not found' });
+        return;
+      }
+
+      if (community.asset_issuer !== issuerPublicKey) {
+        res.status(400).json({
+          data: null,
+          error: 'issuerPublicKey does not belong to the community token issuer',
+        });
+        return;
+      }
+
+      const members = await db.query<MemberRow>(
+        `SELECT stellar_address FROM members WHERE community_id = $1 AND deleted_at IS NULL`,
+        [communityId]
+      );
+
+      if (members.length === 0) {
+        res
+          .status(400)
+          .json({ data: null, error: 'Community has no members to receive the airdrop' });
+        return;
+      }
+
+      const xdr = await buildBatchPayment({
+        senderPublicKey: issuerPublicKey,
+        payments: members.map((member) => ({
+          destinationPublicKey: member.stellar_address,
+          assetCode: community.asset_code,
+          assetIssuer: community.asset_issuer,
+          amount,
+        })),
+        memo,
+      });
+
+      res.status(200).json({ data: { xdr, recipientCount: members.length, amount } });
+    } catch (err) {
+      if ((err as { response?: unknown }).response) {
+        const mapped = mapHorizonError(err);
+        res.status(mapped.status).json({ data: null, error: mapped.message });
+        return;
+      }
+      next(err);
+    }
+  }
+);
+
+/**
  * POST /api/v1/tokens/submit
  * Submits a client-signed transaction XDR built by /build-issue or
  * /build-trustline. Unlike POST /api/v1/tokens/transfer, this does not
@@ -286,6 +347,19 @@ tokenRouter.post('/submit', async (req: Request, res: Response): Promise<void> =
 
   try {
     const txHash = await submitSignedXdr(parsed.data.signedXdr);
+
+    // A burn changes circulating supply, and the transaction that did it was
+    // built and signed on the client, so the server reads the new figure back
+    // from Horizon rather than deriving it from anything the caller sent.
+    const refresh = parsed.data.refreshSupply;
+    if (refresh) {
+      const supply = await getTotalSupply(refresh.assetCode, refresh.assetIssuer);
+      await db.query(
+        `UPDATE tokens SET total_supply = $1 WHERE asset_code = $2 AND asset_issuer = $3`,
+        [supply, refresh.assetCode, refresh.assetIssuer]
+      );
+    }
+
     res.status(200).json({ data: { txHash } });
   } catch (error) {
     if ((error as { response?: unknown }).response) {
@@ -352,144 +426,6 @@ tokenRouter.post('/transfer', async (req: Request, res: Response): Promise<void>
     const mapped = mapHorizonError(error, {
       requiredXlm: getRequiredXlmForTransaction(transaction),
       currentBalance: account ? getNativeBalance(account) : undefined,
-    });
-
-    if (mapped.code === 'INSUFFICIENT_BALANCE') {
-      res.status(mapped.status).json({
-        data: null,
-        error: {
-          code: mapped.code,
-          message: mapped.message,
-          requiredXlm: mapped.requiredXlm,
-          currentBalance: mapped.currentBalance,
-        },
-      });
-      return;
-    }
-
-    res.status(mapped.status).json({ data: null, error: mapped.message });
-  }
-});
-
-/**
- * POST /api/v1/tokens/airdrop
- * Distributes an equal token amount from the community's issuer account to
- * every current member.
- */
-tokenRouter.post('/airdrop', async (req: Request, res: Response): Promise<void> => {
-  const parsed = airdropSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({
-      data: null,
-      error: 'Invalid request body',
-      meta: { errors: parsed.error.flatten().fieldErrors },
-    });
-    return;
-  }
-
-  let currentBalance: string | undefined;
-
-  try {
-    const { communityId, amount, issuerSecret } = parsed.data;
-    const communities = await db.query<CommunityRow>(
-      `SELECT asset_code, asset_issuer
-       FROM communities
-       WHERE id = $1 AND deleted_at IS NULL`,
-      [communityId]
-    );
-
-    if (communities.length === 0) {
-      res.status(404).json({ data: null, error: 'Community not found' });
-      return;
-    }
-
-    const members = await db.query<MemberRow>(
-      `SELECT stellar_address
-       FROM members
-       WHERE community_id = $1`,
-      [communityId]
-    );
-
-    if (members.length === 0) {
-      res
-        .status(400)
-        .json({ data: null, error: 'Community has no members to receive the airdrop' });
-      return;
-    }
-
-    let issuer: Keypair;
-    try {
-      issuer = Keypair.fromSecret(issuerSecret);
-    } catch {
-      res.status(400).json({ data: null, error: 'issuerSecret is not a valid Stellar secret key' });
-      return;
-    }
-
-    const community = communities[0];
-    if (issuer.publicKey() !== community.asset_issuer) {
-      res.status(400).json({
-        data: null,
-        error: 'issuerSecret does not belong to the community token issuer',
-      });
-      return;
-    }
-
-    const network = StellarService.getNetwork();
-    const asset = new Asset(community.asset_code, community.asset_issuer);
-    const txHashes: string[] = [];
-
-    currentBalance = getNativeBalance(await StellarService.loadAccount(issuer.publicKey()));
-
-    // Sequence numbers are handed out from an in-memory, per-account cache
-    // (see contracts/sequenceCache.ts) instead of reloading the issuer
-    // account from Horizon before every payment. This keeps a burst of
-    // airdrop payments — or a concurrent request touching the same issuer
-    // account — from racing on the same stale sequence number and getting
-    // rejected with tx_bad_seq.
-    for (const member of members) {
-      const result = await withSequenceRetry(issuer.publicKey(), async (account) => {
-        const transaction = new TransactionBuilder(account, {
-          fee: BASE_FEE,
-          networkPassphrase: network,
-        })
-          .addOperation(
-            Operation.payment({
-              destination: member.stellar_address,
-              asset,
-              amount,
-            })
-          )
-          .setTimeout(30)
-          .build();
-
-        transaction.sign(issuer);
-        return StellarService.submitTransaction(transaction);
-      });
-
-      txHashes.push(result.hash);
-    }
-
-    await invalidateBalanceCache([
-      issuer.publicKey(),
-      ...members.map((member) => member.stellar_address),
-    ]);
-
-    res.status(200).json({
-      data: {
-        amount,
-        recipientCount: members.length,
-        txHashes,
-      },
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('Invalid Stellar')) {
-      res.status(400).json({ data: null, error: error.message });
-      return;
-    }
-
-    const mapped = mapHorizonError(error, {
-      requiredXlm: getRequiredXlmForFee(BASE_FEE),
-      currentBalance,
     });
 
     if (mapped.code === 'INSUFFICIENT_BALANCE') {
