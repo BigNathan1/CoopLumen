@@ -5,7 +5,7 @@
  */
 
 import { Pool, PoolClient } from 'pg';
-import { createCommunity, makeTestPool, truncateAll } from '../../test/fixtures';
+import { createCommunity, makeTestPool, truncateAll } from '../../testing/fixtures';
 
 const RUN = Boolean(process.env.DATABASE_URL);
 const describeIf = RUN ? describe : describe.skip;
