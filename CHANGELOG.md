@@ -163,6 +163,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Repository layout and hygiene pass. Backend: the market price feed moved out of `contracts/` (which is the Stellar layer) into `services/`, manual testnet verification scripts moved from `src/contracts/__tests__/` to `backend/scripts/`, `src/test/` became `src/testing/`, and the duplicate halves of the price feed and the price cache were folded into one implementation each. Frontend: components are grouped into `ui/`, `loans/`, `reputation/` and `wallet/`, every `ui/` suite sits beside its component, and the generic primitives (Modal, ConfirmDialog, LoadingSkeleton, Form, ErrorBoundary) joined the design system. Testnet suites share one filename convention and one `STELLAR_TESTNET_E2E` switch instead of two. Emoji and box-drawing decoration are gone from script output and component icons, which are drawn as inline SVG. `.kiro/` and `.claude/` tooling directories are no longer tracked, `morgan`, `express-validator` and two stale `@types` packages are removed, and CI checks formatting across the whole repository rather than three directories.
+
 - Loan totals are now computed once, server-side: `GET /api/v1/loans` (the list) returns `total_due` and `outstanding` on every loan just like `GET /api/v1/loans/:id` already did, via a shared `withTotals` helper. The frontend loan card and repay control consume those fields instead of re-deriving `amount × (1 + rate)` client-side, so the interest formula lives in exactly one place. The OpenAPI `Loan` schema documents both fields.
 
 ### Fixed
