@@ -62,22 +62,8 @@ export const unsignedPaymentSchema = z
 
 export type UnsignedPaymentInput = z.infer<typeof unsignedPaymentSchema>;
 
-// --- NEW SCHEMAS FOR ISSUE #147 & #148 ---
-
 export const submitTransactionSchema = z.object({
   xdr: z.string().min(1, 'Signed XDR string is required'),
-});
-
-export const getCommunityTransactionsSchema = z.object({
-  params: z.object({
-    communityId: z.string().uuid('Invalid community ID format'),
-  }),
-  query: z.object({
-    page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(100).default(20),
-    from: z.string().datetime('from must be a valid ISO 8601 date').optional(),
-    to: z.string().datetime('to must be a valid ISO 8601 date').optional(),
-  }),
 });
 
 export const transactionHashSchema = z.object({
