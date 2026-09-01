@@ -38,7 +38,7 @@ export function ReputationPanel({ communityId }: Props) {
               {shortAddress(s.stellar_address)}
             </span>
             <span className={styles.detail}>
-              {s.on_time_repayments}✓ / {s.defaults}✗
+              {s.on_time_repayments} on time / {s.defaults} defaulted
             </span>
             <span className={styles.score}>{parseFloat(s.score).toFixed(0)}</span>
           </li>

@@ -1,17 +1,33 @@
 'use client';
 
 import { useToast, Toast, ToastVariant } from '@/hooks/useToast';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import styles from './ToastDisplay.module.css';
 
-/**
- * Icons for each toast variant.
- */
-const VARIANT_ICONS: Record<ToastVariant, string> = {
-  success: '✓',
-  error: '✕',
-  info: 'ℹ',
-  warning: '⚠',
+/** Stroke icon per toast variant, drawn rather than typed so it renders the same everywhere. */
+const VARIANT_ICONS: Record<ToastVariant, ReactNode> = {
+  success: <path d="m5 12 4 4L19 6" />,
+  error: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="m15 9-6 6" />
+      <path d="m9 9 6 6" />
+    </>
+  ),
+  info: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 16v-4" />
+      <path d="M12 8h.01" />
+    </>
+  ),
+  warning: (
+    <>
+      <path d="M10.3 3.3 2.2 17a2 2 0 0 0 1.7 3h16.2a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </>
+  ),
 };
 
 /**
@@ -55,7 +71,19 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
       aria-atomic="true"
     >
       <div className={styles.icon} aria-hidden="true">
-        {VARIANT_ICONS[toast.variant]}
+        <svg
+          viewBox="0 0 24 24"
+          width="18"
+          height="18"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          focusable="false"
+        >
+          {VARIANT_ICONS[toast.variant]}
+        </svg>
       </div>
       <div className={styles.content}>
         <div className={styles.message}>{toast.message}</div>

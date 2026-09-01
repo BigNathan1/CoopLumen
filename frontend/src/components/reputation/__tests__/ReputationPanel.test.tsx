@@ -51,6 +51,6 @@ describe('ReputationPanel', () => {
     render(<ReputationPanel />);
     expect(screen.getByText('GAAA…AAAA')).toBeInTheDocument();
     expect(screen.getByText('88')).toBeInTheDocument();
-    expect(screen.getByText('4✓ / 1✗')).toBeInTheDocument();
+    expect(screen.getByText('4 on time / 1 defaulted')).toBeInTheDocument();
   });
 });
