@@ -719,66 +719,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/v1/tokens/trustline:
-    post:
-      tags: [Tokens]
-      summary: Establish a trustline
-      description: Allows an account to hold a community token; must be called before it can receive the asset.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [xdr]
-              properties:
-                xdr:
-                  type: string
-                  description: The signed transaction envelope XDR
-                  example: 'AAAAAgAAA...'
-      responses:
-        '200':
-          description: Transaction successfully submitted
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      hash: { type: string }
-                      ledger: { type: integer }
-                      status: { type: string }
-                  meta:
-                    type: object
-                    properties:
-                      timestamp: { type: string }
-        '400':
-          description: Validation error or Horizon transaction rejection (e.g., bad sequence, insufficient funds)
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      message: { type: string }
-                      rawCode: { type: string }
-                      details: { type: object }
-                      account: { $ref: '#/components/schemas/StellarKey' }
-                      balances:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            asset_type: { type: string }
-                            asset_code: { type: string }
-                            asset_issuer: { type: string }
-                            balance: { type: string }
-        '404': { $ref: '#/components/responses/NotFound' }
-
   /api/v1/tokens:
     get:
       tags: [Tokens]
@@ -826,40 +766,6 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
-
-  /api/v1/tokens/issue:
-    post:
-      tags: [Tokens]
-      summary: Issue a community token
-      description: >
-        Issues a community token on the Stellar network. Accepts an optional
-        Idempotency-Key header; a retried request with the same key replays
-        the original response instead of issuing a second time.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/IssueToken' }
-      responses:
-        '201':
-          description: Token issued
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TokenTransferResponse'
-        '400': { $ref: '#/components/responses/ValidationError' }
-        '500':
-          description: The asset was issued but its metadata could not be persisted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '502':
-          description: Horizon is temporarily unavailable
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
 
   /api/v1/loans:
     get:

@@ -2,25 +2,19 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { Asset, Keypair, Operation, TransactionBuilder, BASE_FEE } from '@stellar/stellar-sdk';
 import { z } from 'zod';
 import {
-  issueAsset,
   burnAsset,
   buildUnsignedIssueAsset,
   getAssetHolders,
   getTotalSupply,
 } from '../../contracts/assets';
-import { establishTrustline, buildUnsignedTrustline } from '../../contracts/trustlines';
+import { buildUnsignedTrustline } from '../../contracts/trustlines';
 import { submitSignedXdr } from '../../contracts/transactions';
 import { db } from '../../db';
 import { invalidateBalanceCache } from '../../cache/balances';
 import { StellarService } from '../../contracts/stellar';
-import { StellarError } from '../../contracts/errors';
 import { validateBody } from '../middleware/validate';
-import { idempotent } from '../middleware/idempotency';
-import { requireAdmin } from '../middleware/auth';
-import { tokenIssueLimiter, writeLimiter } from '../middleware/rateLimit';
+import { requireAdmin, requireAuth } from '../middleware/auth';
 import {
-  issueTokenSchema,
-  trustlineTokenSchema,
   burnTokenSchema,
   buildIssueTokenSchema,
   buildTrustlineTokenSchema,
@@ -99,33 +93,37 @@ interface TokenWithCommunity extends Token {
  * Requires admin authentication (currently placeholder).
  * Supports pagination via page/limit query parameters.
  */
-tokenRouter.get('/', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const queryValidation = adminTokensQuerySchema.safeParse(req.query);
-    if (!queryValidation.success) {
-      res.status(400).json({
-        data: null,
-        error: 'Invalid query parameters',
-        meta: {
-          errors: queryValidation.error.issues.map((issue) => ({
-            path: issue.path.join('.'),
-            message: issue.message,
-          })),
-        },
-      });
-      return;
-    }
+tokenRouter.get(
+  '/',
+  requireAuth,
+  requireAdmin,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const queryValidation = adminTokensQuerySchema.safeParse(req.query);
+      if (!queryValidation.success) {
+        res.status(400).json({
+          data: null,
+          error: 'Invalid query parameters',
+          meta: {
+            errors: queryValidation.error.issues.map((issue) => ({
+              path: issue.path.join('.'),
+              message: issue.message,
+            })),
+          },
+        });
+        return;
+      }
 
-    const pagination = parsePagination(req);
-    const allowedSortColumns = ['created_at', 'name', 'asset_code', 'total_supply'];
-    const { sortBy, order } = parseSort(req, allowedSortColumns, 'created_at');
+      const pagination = parsePagination(req);
+      const allowedSortColumns = ['created_at', 'name', 'asset_code', 'total_supply'];
+      const { sortBy, order } = parseSort(req, allowedSortColumns, 'created_at');
 
-    const [{ count }] = await db.query<{ count: number }>(
-      'SELECT COUNT(*)::int AS count FROM tokens'
-    );
+      const [{ count }] = await db.query<{ count: number }>(
+        'SELECT COUNT(*)::int AS count FROM tokens'
+      );
 
-    const tokens = await db.query<TokenWithCommunity>(
-      `SELECT 
+      const tokens = await db.query<TokenWithCommunity>(
+        `SELECT 
            t.id,
            t.community_id,
            t.asset_code,
@@ -143,154 +141,14 @@ tokenRouter.get('/', requireAdmin, async (req: Request, res: Response, next: Nex
          LEFT JOIN communities c ON t.community_id = c.id
          ORDER BY ${sortBy === 'name' ? 't.name' : sortBy === 'asset_code' ? 't.asset_code' : sortBy === 'total_supply' ? 't.total_supply' : 't.created_at'} ${order}
          LIMIT $1 OFFSET $2`,
-      [pagination.limit, pagination.offset]
-    );
+        [pagination.limit, pagination.offset]
+      );
 
-    res.json({
-      data: tokens,
-      meta: pageMeta(count, pagination),
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
- * POST /api/v1/tokens/issue
- * Issues a community token on the Stellar network from a secret key held in
- * the request body.
- *
- * SECURITY: this sends the issuer's full Stellar secret key to the server in
- * plaintext, over the network, on every call — that key grants complete,
- * irreversible control of the issuing account. Prefer the client-sign flow
- * instead: POST /api/v1/tokens/build-issue returns an unsigned transaction
- * the issuer's own wallet (e.g. Freighter) signs locally, then
- * POST /api/v1/tokens/submit broadcasts it — the secret never leaves the
- * client. This endpoint is gated behind requireAdmin and kept only for
- * server-side tooling; it should not be reachable from untrusted clients.
- *
- * Accepts an optional Idempotency-Key header; a retried request with the same
- * key replays the original response instead of issuing a second time.
- * When `communityId` is supplied, the issued token's metadata is persisted to
- * the `tokens` table so it is immediately visible via GET /:communityId.
- * Rate limited to 3 requests per minute per authenticated user (or IP).
- */
-tokenRouter.post(
-  '/issue',
-  requireAdmin,
-  tokenIssueLimiter,
-  idempotent('POST /api/v1/tokens/issue'),
-  validateBody(issueTokenSchema),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const {
-        communityId,
-        issuerSecret,
-        assetCode,
-        distributorPublicKey,
-        amount,
-        memo,
-        name,
-        description,
-        iconUrl,
-        decimals,
-      } = req.body as {
-        communityId?: string;
-        issuerSecret: string;
-        assetCode: string;
-        distributorPublicKey: string;
-        amount: string;
-        memo?: string;
-        name?: string;
-        description?: string;
-        iconUrl?: string;
-        decimals: number;
-      };
-
-      const txHash = await issueAsset({
-        issuerSecret,
-        assetCode,
-        distributorPublicKey,
-        amount,
-        memo,
+      res.json({
+        data: tokens,
+        meta: pageMeta(count, pagination),
       });
-
-      let issuerPublicKey: string | undefined;
-      if (communityId) {
-        try {
-          issuerPublicKey = Keypair.fromSecret(issuerSecret).publicKey();
-          await db.query(
-            `INSERT INTO tokens
-               (community_id, asset_code, asset_issuer, issuer_public_key,
-                distributor_public_key, total_supply, issuance_tx_hash, name, description, icon_url, decimals)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-            [
-              communityId,
-              assetCode,
-              issuerPublicKey,
-              issuerPublicKey,
-              distributorPublicKey,
-              amount,
-              txHash,
-              name ?? null,
-              description ?? null,
-              iconUrl ?? null,
-              decimals,
-            ]
-          );
-        } catch {
-          res.status(500).json({
-            data: null,
-            error: {
-              code: 'TOKEN_METADATA_PERSISTENCE_FAILED',
-              message:
-                'The asset was issued, but its metadata could not be saved. Do not retry automatically.',
-            },
-          });
-          return;
-        }
-      }
-
-      // Log token_issued event after successful issuance
-      try {
-        if (!issuerPublicKey) {
-          issuerPublicKey = Keypair.fromSecret(issuerSecret).publicKey();
-        }
-
-        await db.query(
-          `INSERT INTO transactions_log (community_id, actor_address, action, stellar_tx_hash, metadata)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [
-            communityId ?? null,
-            issuerPublicKey,
-            'token_issued',
-            txHash,
-            JSON.stringify({
-              asset_code: assetCode,
-              asset_issuer: issuerPublicKey,
-              distributor_public_key: distributorPublicKey,
-              amount: amount,
-              memo: memo ?? null,
-              name: name ?? null,
-              description: description ?? null,
-              icon_url: iconUrl ?? null,
-              decimals: decimals,
-            }),
-          ]
-        );
-      } catch (logError) {
-        // Log the error but don't fail the issuance response
-        // The token was successfully issued on Stellar, logging failure is not critical
-        console.warn('Failed to log token_issued event:', logError);
-      }
-
-      res.status(201).json({ data: { txHash } });
     } catch (err) {
-      if (err instanceof StellarError || (err as { response?: unknown }).response) {
-        const mapped = mapHorizonError(err);
-        res.status(mapped.status).json({ data: null, error: mapped.message });
-        return;
-      }
       next(err);
     }
   }
@@ -328,45 +186,6 @@ tokenRouter.post(
         res.status(mapped.status).json({ data: null, error: mapped.message });
         return;
       }
-      next(err);
-    }
-  }
-);
-
-/**
- * POST /api/v1/tokens/trustline
- * Establishes a trustline so a member account can hold a community token,
- * from a secret key held in the request body.
- *
- * SECURITY: this sends the holder's full Stellar secret key to the server in
- * plaintext. Prefer the client-sign flow instead: POST /api/v1/tokens/build-
- * trustline returns an unsigned transaction the holder's own wallet signs
- * locally, then POST /api/v1/tokens/submit broadcasts it. This endpoint is
- * gated behind requireAdmin and kept only for server-side tooling.
- */
-tokenRouter.post(
-  '/trustline',
-  requireAdmin,
-  writeLimiter,
-  validateBody(trustlineTokenSchema),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { accountSecret, assetCode, assetIssuer, limit } = req.body as {
-        accountSecret: string;
-        assetCode: string;
-        assetIssuer: string;
-        limit?: string;
-      };
-
-      const txHash = await establishTrustline({
-        accountSecret,
-        assetCode,
-        assetIssuer,
-        limit,
-      });
-
-      res.status(201).json({ data: { txHash } });
-    } catch (err) {
       next(err);
     }
   }

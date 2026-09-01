@@ -2,7 +2,8 @@ import request from 'supertest';
 import { Keypair } from '@stellar/stellar-sdk';
 import app from '../../../app';
 import { db } from '../../../db';
-import { requireAdmin } from '../../middleware/auth';
+import { resetAdminAddressCache } from '../../middleware/auth';
+import { createSessionToken } from '../../utils/sessionToken';
 
 jest.mock('../../../db', () => ({
   db: {
@@ -11,31 +12,58 @@ jest.mock('../../../db', () => ({
   },
 }));
 
-// Only `requireAdmin` is stubbed; the rest of the module is kept intact so the
-// other routers mounted on `app` still receive their real middleware.
-jest.mock('../../middleware/auth', () => ({
-  ...jest.requireActual('../../middleware/auth'),
-  requireAdmin: jest.fn((req, res, next) => next()),
-}));
-
 const mockQuery = db.query as jest.Mock;
-const mockRequireAdmin = requireAdmin as jest.Mock;
+
+const ADMIN = Keypair.random().publicKey();
+const OUTSIDER = Keypair.random().publicKey();
+
+/** Bearer header for an address, as POST /api/v1/auth/verify would mint. */
+function authHeader(address: string): string {
+  return `Bearer ${createSessionToken(address).token}`;
+}
 
 describe('GET /api/v1/tokens (admin endpoint)', () => {
+  const originalAdmins = process.env.ADMIN_ADDRESSES;
+
   beforeEach(() => {
     jest.resetAllMocks();
-    mockRequireAdmin.mockImplementation((req, res, next) => next());
+    process.env.ADMIN_ADDRESSES = ADMIN;
+    resetAdminAddressCache();
   });
 
-  it('requires admin authentication', async () => {
-    mockRequireAdmin.mockImplementation((req, res, _next) => {
-      res.status(401).json({ data: null, error: 'Authentication required' });
-    });
+  afterAll(() => {
+    if (originalAdmins === undefined) delete process.env.ADMIN_ADDRESSES;
+    else process.env.ADMIN_ADDRESSES = originalAdmins;
+    resetAdminAddressCache();
+  });
 
+  it('rejects an unauthenticated request', async () => {
     const response = await request(app).get('/api/v1/tokens');
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({ data: null, error: 'Authentication required' });
+    expect(mockQuery).not.toHaveBeenCalled();
+  });
+
+  it('rejects an authenticated address that is not an operator', async () => {
+    const response = await request(app)
+      .get('/api/v1/tokens')
+      .set('Authorization', authHeader(OUTSIDER));
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({ data: null, error: 'Requires operator privileges' });
+    expect(mockQuery).not.toHaveBeenCalled();
+  });
+
+  it('rejects every address when ADMIN_ADDRESSES is unset', async () => {
+    delete process.env.ADMIN_ADDRESSES;
+    resetAdminAddressCache();
+
+    const response = await request(app)
+      .get('/api/v1/tokens')
+      .set('Authorization', authHeader(ADMIN));
+
+    expect(response.status).toBe(403);
     expect(mockQuery).not.toHaveBeenCalled();
   });
 
@@ -62,7 +90,9 @@ describe('GET /api/v1/tokens (admin endpoint)', () => {
       .mockResolvedValueOnce([{ count: 1 }]) // COUNT query
       .mockResolvedValueOnce(tokens); // SELECT query
 
-    const response = await request(app).get('/api/v1/tokens');
+    const response = await request(app)
+      .get('/api/v1/tokens')
+      .set('Authorization', authHeader(ADMIN));
 
     expect(response.status).toBe(200);
     expect(response.body.data).toEqual(tokens);
@@ -84,7 +114,9 @@ describe('GET /api/v1/tokens (admin endpoint)', () => {
   it('supports pagination parameters', async () => {
     mockQuery.mockResolvedValueOnce([{ count: 25 }]).mockResolvedValueOnce([]);
 
-    const response = await request(app).get('/api/v1/tokens?page=2&limit=10');
+    const response = await request(app)
+      .get('/api/v1/tokens?page=2&limit=10')
+      .set('Authorization', authHeader(ADMIN));
 
     expect(response.status).toBe(200);
     expect(response.body.meta).toEqual({
@@ -101,14 +133,18 @@ describe('GET /api/v1/tokens (admin endpoint)', () => {
   it('supports sorting by different columns', async () => {
     mockQuery.mockResolvedValueOnce([{ count: 0 }]).mockResolvedValueOnce([]);
 
-    const response = await request(app).get('/api/v1/tokens?sortBy=name&order=asc');
+    const response = await request(app)
+      .get('/api/v1/tokens?sortBy=name&order=asc')
+      .set('Authorization', authHeader(ADMIN));
 
     expect(response.status).toBe(200);
     expect(mockQuery).toHaveBeenCalledWith(expect.stringContaining('ORDER BY t.name ASC'), [20, 0]);
   });
 
   it('validates query parameters and rejects invalid values', async () => {
-    const response = await request(app).get('/api/v1/tokens?page=0&limit=101');
+    const response = await request(app)
+      .get('/api/v1/tokens?page=0&limit=101')
+      .set('Authorization', authHeader(ADMIN));
 
     expect(response.status).toBe(400);
     expect(response.body.error).toBe('Invalid query parameters');
@@ -119,7 +155,9 @@ describe('GET /api/v1/tokens (admin endpoint)', () => {
   it('returns empty list when no tokens exist', async () => {
     mockQuery.mockResolvedValueOnce([{ count: 0 }]).mockResolvedValueOnce([]);
 
-    const response = await request(app).get('/api/v1/tokens');
+    const response = await request(app)
+      .get('/api/v1/tokens')
+      .set('Authorization', authHeader(ADMIN));
 
     expect(response.status).toBe(200);
     expect(response.body.data).toEqual([]);
@@ -135,7 +173,9 @@ describe('GET /api/v1/tokens (admin endpoint)', () => {
   it('handles database errors gracefully', async () => {
     mockQuery.mockRejectedValueOnce(new Error('Database connection failed'));
 
-    const response = await request(app).get('/api/v1/tokens');
+    const response = await request(app)
+      .get('/api/v1/tokens')
+      .set('Authorization', authHeader(ADMIN));
 
     expect(response.status).toBe(500);
   });

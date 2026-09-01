@@ -40,24 +40,29 @@ jest.mock('@stellar/stellar-sdk', () => ({
 }));
 
 jest.mock('../../../contracts/assets', () => ({
-  issueAsset: jest.fn(),
+  buildUnsignedIssueAsset: jest.fn(),
   burnAsset: jest.fn(),
   getAssetHolders: jest.fn(),
   getAssetSupply: jest.fn(),
 }));
 
 jest.mock('../../../contracts/trustlines', () => ({
-  establishTrustline: jest.fn(),
+  buildUnsignedTrustline: jest.fn(),
+}));
+
+jest.mock('../../../contracts/transactions', () => ({
+  submitSignedXdr: jest.fn(),
 }));
 
 import app from '../../../app';
-import { issueAsset } from '../../../contracts/assets';
-import { establishTrustline } from '../../../contracts/trustlines';
+import { buildUnsignedIssueAsset } from '../../../contracts/assets';
+import { buildUnsignedTrustline } from '../../../contracts/trustlines';
+import { submitSignedXdr } from '../../../contracts/transactions';
 import { StellarService } from '../../../contracts/stellar';
 
 const mockFromXDR = TransactionBuilder.fromXDR as jest.Mock;
 
-describe('Token Integration Flow: Issue -> Trustline -> Transfer', () => {
+describe('Token lifecycle: build, sign, submit, transfer', () => {
   const issuerKeypair = Keypair.random();
   const distributorKeypair = Keypair.random();
   const userKeypair = Keypair.random();
@@ -71,53 +76,59 @@ describe('Token Integration Flow: Issue -> Trustline -> Transfer', () => {
     await db.end();
   });
 
-  it('should complete the full token lifecycle successfully', async () => {
-    // 1. Issue Token
-    (issueAsset as jest.Mock).mockResolvedValueOnce('tx-hash-issue');
-    const submitTransactionMock = jest.fn().mockResolvedValue({ hash: 'tx-hash-issue' });
-    const loadAccountMock = jest.fn().mockResolvedValue({
-      id: issuerKeypair.publicKey(),
-      sequenceNumber: () => '1',
-      incrementSequenceNumber: () => {},
-      balances: [],
-    });
+  it('carries a token through issuance, trustline and transfer', async () => {
+    // Build the unsigned issuance transaction. The issuer's secret never
+    // reaches the server; the wallet signs the XDR that comes back.
+    (buildUnsignedIssueAsset as jest.Mock).mockResolvedValueOnce('unsigned-issue-xdr');
 
-    (StellarService as any).server = {
-      submitTransaction: submitTransactionMock,
-      loadAccount: loadAccountMock,
-    };
-
-    const issueRes = await request(app).post('/api/v1/tokens/issue').send({
-      issuerSecret: issuerKeypair.secret(),
+    const buildIssueRes = await request(app).post('/api/v1/tokens/build-issue').send({
+      issuerPublicKey: issuerKeypair.publicKey(),
       assetCode,
       distributorPublicKey: distributorKeypair.publicKey(),
       amount: '1000',
     });
 
-    expect(issueRes.status).toBe(201);
-    expect(issueRes.body.data.txHash).toBe('tx-hash-issue');
+    expect(buildIssueRes.status).toBe(200);
+    expect(buildIssueRes.body.data.xdr).toBe('unsigned-issue-xdr');
 
-    // 2. Establish Trustline
-    (establishTrustline as jest.Mock).mockResolvedValueOnce('tx-hash-trustline');
-    loadAccountMock.mockResolvedValueOnce({
-      id: userKeypair.publicKey(),
-      sequenceNumber: () => '1',
-      incrementSequenceNumber: () => {},
-      balances: [],
-    });
+    (submitSignedXdr as jest.Mock).mockResolvedValueOnce('tx-hash-issue');
 
-    const trustlineRes = await request(app).post('/api/v1/tokens/trustline').send({
-      accountSecret: userKeypair.secret(),
+    const submitIssueRes = await request(app)
+      .post('/api/v1/tokens/submit')
+      .send({ signedXdr: 'signed-issue-xdr' });
+
+    expect(submitIssueRes.status).toBe(200);
+    expect(submitIssueRes.body.data.txHash).toBe('tx-hash-issue');
+    expect(submitSignedXdr).toHaveBeenCalledWith('signed-issue-xdr');
+
+    // Same shape for the holder's trustline.
+    (buildUnsignedTrustline as jest.Mock).mockResolvedValueOnce('unsigned-trustline-xdr');
+
+    const buildTrustlineRes = await request(app).post('/api/v1/tokens/build-trustline').send({
+      accountPublicKey: userKeypair.publicKey(),
       assetCode,
       assetIssuer: issuerKeypair.publicKey(),
     });
 
-    expect(trustlineRes.status).toBe(201);
-    expect(trustlineRes.body.data.txHash).toBe('tx-hash-trustline');
+    expect(buildTrustlineRes.status).toBe(200);
+    expect(buildTrustlineRes.body.data.xdr).toBe('unsigned-trustline-xdr');
 
-    // 3. Transfer Token
-    submitTransactionMock.mockResolvedValue({ hash: 'tx-hash-transfer' });
-    const transaction = {
+    (submitSignedXdr as jest.Mock).mockResolvedValueOnce('tx-hash-trustline');
+
+    const submitTrustlineRes = await request(app)
+      .post('/api/v1/tokens/submit')
+      .send({ signedXdr: 'signed-trustline-xdr' });
+
+    expect(submitTrustlineRes.status).toBe(200);
+    expect(submitTrustlineRes.body.data.txHash).toBe('tx-hash-trustline');
+
+    // Transfer already took a signed envelope.
+    const submitTransactionMock = jest.fn().mockResolvedValue({ hash: 'tx-hash-transfer' });
+    (StellarService as unknown as { server: unknown }).server = {
+      submitTransaction: submitTransactionMock,
+    };
+
+    mockFromXDR.mockReturnValueOnce({
       fee: 100,
       source: distributorKeypair.publicKey(),
       operations: [
@@ -132,8 +143,7 @@ describe('Token Integration Flow: Issue -> Trustline -> Transfer', () => {
           amount: '100',
         },
       ],
-    };
-    mockFromXDR.mockReturnValueOnce(transaction);
+    });
 
     const transferRes = await request(app).post('/api/v1/tokens/transfer').send({
       signedXdr: 'fake_xdr',
@@ -143,21 +153,16 @@ describe('Token Integration Flow: Issue -> Trustline -> Transfer', () => {
     expect(transferRes.body.data.txHash).toBe('tx-hash-transfer');
   });
 
-  it('should reject invalid assetCode', async () => {
-    const issueRes = await request(app).post('/api/v1/tokens/issue').send({
-      issuerSecret: issuerKeypair.secret(),
+  it('rejects an invalid asset code before building anything', async () => {
+    const res = await request(app).post('/api/v1/tokens/build-issue').send({
+      issuerPublicKey: issuerKeypair.publicKey(),
       assetCode: 'INVALID-CODE_WITH_SPECIAL_CHARS',
       distributorPublicKey: distributorKeypair.publicKey(),
       amount: '1000',
     });
 
-    expect(issueRes.status).toBe(400);
-    expect(issueRes.body.meta.errors).toBeDefined();
-  });
-
-  it('should rate-limit issue endpoint to 3 requests per minute', async () => {
-    // Disable isTest in rateLimit temporarily if we can, or just mock rateLimit?
-    // Wait, the rate limit skip is (req) => isTest.
-    // To test it we would need to override process.env.NODE_ENV.
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toBeDefined();
+    expect(buildUnsignedIssueAsset).not.toHaveBeenCalled();
   });
 });
