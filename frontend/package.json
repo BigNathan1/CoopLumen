@@ -21,19 +21,18 @@
   },
   "dependencies": {
     "@stellar/freighter-api": "^2.0.0",
-    "next": "14.2.5",
+    "next": "^14.2.35",
+    "qrcode.react": "^4.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.86.0",
     "swr": "^2.2.5",
-    "qrcode.react": "^4.2.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.6",
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^14.5.2",
-    "@types/jest": "^29.5.14",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.14.9",
     "@types/react": "^18.3.3",
