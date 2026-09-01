@@ -6,7 +6,7 @@
  */
 
 import { Pool, PoolClient } from 'pg';
-import { makeTestPool, TEST_ISSUER_1 } from '../../test/fixtures';
+import { makeTestPool, TEST_ISSUER_1 } from '../../testing/fixtures';
 
 const RUN = Boolean(process.env.DATABASE_URL);
 const describeIf = RUN ? describe : describe.skip;

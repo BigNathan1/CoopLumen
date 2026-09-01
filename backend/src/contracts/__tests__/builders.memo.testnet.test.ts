@@ -6,7 +6,7 @@
  * for. Also confirms that a memo Stellar cannot represent is rejected locally,
  * before a Horizon round trip is spent on it.
  *
- * Skipped unless STELLAR_TESTNET_INTEGRATION=1, so the default suite stays
+ * Skipped unless STELLAR_TESTNET_E2E=1, so the default suite stays
  * fast, deterministic and offline.
  */
 
@@ -19,7 +19,7 @@ jest.mock('../../cache/balances', () => ({
   invalidateBalanceCache: jest.fn().mockResolvedValue(undefined),
 }));
 
-const RUN = process.env.STELLAR_TESTNET_INTEGRATION === '1';
+const RUN = process.env.STELLAR_TESTNET_E2E === '1';
 const describeIf = RUN ? describe : describe.skip;
 
 const HORIZON_URL = process.env.STELLAR_HORIZON_URL ?? 'https://horizon-testnet.stellar.org';

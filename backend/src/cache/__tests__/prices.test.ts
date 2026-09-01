@@ -1,12 +1,12 @@
 import {
-  getCachedXlmPrice,
-  cacheXlmPrice,
+  getCachedPrice,
+  cachePrice,
   clearPriceCache,
   PRICE_CACHE_KEY,
   PRICE_CACHE_TTL_SECONDS,
 } from '../prices';
 import { redisCache } from '../redis';
-import { XlmPriceResult } from '../../contracts/prices';
+import { XlmPriceResult } from '../../services/prices';
 
 jest.mock('../redis', () => ({
   redisCache: {
@@ -34,13 +34,13 @@ describe('cache/prices', () => {
   it('returns null on cache miss', async () => {
     (redisCache.get as jest.Mock).mockResolvedValue(null);
 
-    const result = await getCachedXlmPrice();
+    const result = await getCachedPrice('XLM', 'USD');
     expect(result).toBeNull();
     expect(redisCache.get).toHaveBeenCalledWith(PRICE_CACHE_KEY);
   });
 
   it('caches price to memory and redis', async () => {
-    await cacheXlmPrice(samplePrice);
+    await cachePrice('XLM', 'USD', samplePrice);
 
     expect(redisCache.setEx).toHaveBeenCalledWith(
       PRICE_CACHE_KEY,
@@ -50,7 +50,7 @@ describe('cache/prices', () => {
 
     // Reading back should hit memory cache without calling redis.get
     (redisCache.get as jest.Mock).mockClear();
-    const result = await getCachedXlmPrice();
+    const result = await getCachedPrice('XLM', 'USD');
     expect(result).toEqual(samplePrice);
     expect(redisCache.get).not.toHaveBeenCalled();
   });
@@ -58,12 +58,12 @@ describe('cache/prices', () => {
   it('populates memory cache when reading from Redis', async () => {
     (redisCache.get as jest.Mock).mockResolvedValue(JSON.stringify(samplePrice));
 
-    const result = await getCachedXlmPrice();
+    const result = await getCachedPrice('XLM', 'USD');
     expect(result).toEqual(samplePrice);
     expect(redisCache.get).toHaveBeenCalledTimes(1);
 
     // Subsequent read hits memory cache
-    const secondResult = await getCachedXlmPrice();
+    const secondResult = await getCachedPrice('XLM', 'USD');
     expect(secondResult).toEqual(samplePrice);
     expect(redisCache.get).toHaveBeenCalledTimes(1);
   });
@@ -71,7 +71,7 @@ describe('cache/prices', () => {
   it('discards malformed redis cache payloads and cleans key', async () => {
     (redisCache.get as jest.Mock).mockResolvedValue('{"invalid": true}');
 
-    const result = await getCachedXlmPrice();
+    const result = await getCachedPrice('XLM', 'USD');
     expect(result).toBeNull();
     expect(redisCache.del).toHaveBeenCalledWith(PRICE_CACHE_KEY);
   });
@@ -79,7 +79,7 @@ describe('cache/prices', () => {
   it('handles unparseable JSON from Redis gracefully', async () => {
     (redisCache.get as jest.Mock).mockResolvedValue('not-json{');
 
-    const result = await getCachedXlmPrice();
+    const result = await getCachedPrice('XLM', 'USD');
     expect(result).toBeNull();
     expect(redisCache.del).toHaveBeenCalledWith(PRICE_CACHE_KEY);
   });

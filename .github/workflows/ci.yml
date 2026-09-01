@@ -34,10 +34,6 @@ jobs:
         working-directory: backend
         run: npm run lint
 
-      - name: Check backend formatting
-        working-directory: backend
-        run: npm run format:check
-
       - name: Install frontend deps
         working-directory: frontend
         run: npm ci
@@ -46,14 +42,14 @@ jobs:
         working-directory: frontend
         run: npm run lint
 
-      - name: Check frontend formatting
-        working-directory: frontend
-        run: npm run format:check
+      # One check for the whole repository. Per-workspace checks left root
+      # configs, scripts/ and docs/ unexamined, which is how a malformed
+      # openapi.yaml and a drifting set of config files reached main.
+      - name: Install root deps
+        run: npm ci
 
-      # docs/ sits outside both workspaces, so a malformed openapi.yaml could
-      # otherwise reach main without any job noticing.
-      - name: Check docs formatting
-        run: npx --yes prettier@3 --check "docs/**/*.{md,yaml,yml}"
+      - name: Check formatting
+        run: npm run format:check
 
   typecheck:
     name: Type-check

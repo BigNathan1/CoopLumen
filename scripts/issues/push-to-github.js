@@ -37,7 +37,7 @@ const ALL_LABELS = {
   stellar: '000075',
   auth: 'b60205',
   test: 'c5def5',
-  'e2e': 'bfd4f2',
+  e2e: 'bfd4f2',
   'ci/cd': '0052cc',
   security: 'd93f0b',
   'phase-2': 'e99695',
@@ -106,9 +106,7 @@ function main() {
   const repo = args.repo ?? detectRepo();
   console.log(`Target repo: ${repo} (issues ${args.from}-${args.to}, dry-run: ${args.dryRun})`);
 
-  const items = parseBacklog(ISSUE_MD).filter(
-    (i) => i.number >= args.from && i.number <= args.to
-  );
+  const items = parseBacklog(ISSUE_MD).filter((i) => i.number >= args.from && i.number <= args.to);
   if (items.length === 0) {
     console.log('No matching backlog items in that range.');
     return;

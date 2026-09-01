@@ -10,9 +10,8 @@ out/
 build/
 *.tsbuildinfo
 
-# Next.js / TypeScript generated files
+# Next.js generated files
 next-env.d.ts
-*.tsbuildinfo
 
 # Environment
 .env
@@ -31,9 +30,11 @@ yarn-error.log*
 coverage/
 .nyc_output/
 
-# Editor
+# Editor and assistant tooling
 .vscode/
 .idea/
+.kiro/
+.claude/
 *.suo
 *.ntvs*
 *.njsproj

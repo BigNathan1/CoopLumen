@@ -2,16 +2,16 @@
 
 import { useCommunities } from '@/hooks/useCommunities';
 import { useWallet } from '@/hooks/useWallet';
-import { WalletConnect } from './WalletConnect';
+import { WalletConnect } from '@/components/wallet/WalletConnect';
 import { ThemeToggle } from './ThemeToggle';
 import { CommunityCard } from './CommunityCard';
-import { BalancePanel } from './BalancePanel';
-import { PortfolioPanel } from './PortfolioPanel';
-import { MyReputationPanel } from './MyReputationPanel';
-import { ReputationPanel } from './ReputationPanel';
-import { LoansSection } from './LoansSection';
-import { CreateLoanForm } from './CreateLoanForm';
-import { LoadingSkeleton } from './LoadingSkeleton';
+import { BalancePanel } from '@/components/wallet/BalancePanel';
+import { PortfolioPanel } from '@/components/loans/PortfolioPanel';
+import { MyReputationPanel } from '@/components/reputation/MyReputationPanel';
+import { ReputationPanel } from '@/components/reputation/ReputationPanel';
+import { LoansSection } from '@/components/loans/LoansSection';
+import { CreateLoanForm } from '@/components/loans/CreateLoanForm';
+import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 import { Button } from './ui/Button';
 import styles from './Dashboard.module.css';
 import { EmptyState } from './ui/EmptyState';

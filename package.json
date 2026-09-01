@@ -4,18 +4,19 @@
   "private": true,
   "description": "Decentralized community finance on the Stellar blockchain",
   "scripts": {
+    "build": "npm run build --prefix backend && npm run build --prefix frontend",
+    "db:migrate": "npm run db:migrate --prefix backend",
     "dev": "docker-compose up",
-    "dev:backend": "cd backend && npm run dev",
-    "dev:frontend": "cd frontend && npm run dev",
-    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
-    "lint": "cd backend && npm run lint && cd ../frontend && npm run lint",
-    "type-check": "cd backend && npm run type-check && cd ../frontend && npm run type-check",
-    "test": "cd backend && npm test && cd ../frontend && npm test",
-    "test:coverage": "cd backend && npm run test:coverage && cd ../frontend && npm run test:coverage",
-    "db:migrate": "cd backend && npm run db:migrate",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,css,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,css,md,yml,yaml}\"",
-    "prepare": "husky"
+    "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend",
+    "lint": "npm run lint --prefix backend && npm run lint --prefix frontend",
+    "prepare": "husky",
+    "test": "npm test --prefix backend && npm test --prefix frontend",
+    "test:coverage": "npm run test:coverage --prefix backend && npm run test:coverage --prefix frontend",
+    "type-check": "npm run type-check --prefix backend && npm run type-check --prefix frontend"
   },
   "repository": {
     "type": "git",
