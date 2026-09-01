@@ -11,7 +11,7 @@ import { MyReputationPanel } from '@/components/reputation/MyReputationPanel';
 import { ReputationPanel } from '@/components/reputation/ReputationPanel';
 import { LoansSection } from '@/components/loans/LoansSection';
 import { CreateLoanForm } from '@/components/loans/CreateLoanForm';
-import { LoadingSkeleton } from './LoadingSkeleton';
+import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 import { Button } from './ui/Button';
 import styles from './Dashboard.module.css';
 import { EmptyState } from './ui/EmptyState';
