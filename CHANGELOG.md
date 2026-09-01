@@ -232,3 +232,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - ESLint + TypeScript strict mode across both workspaces
 - Winston structured logging
 - `README.md`, `PRD.md`, `CONTRIBUTING.md`
+
+
+## [Unreleased]
+### Added
+- **Frontend**: Community discovery page (`/communities`) enabling members to browse the network (Resolves #299, #221).
+- **Frontend**: `CommunityList` component featuring client-side search filtering, pagination, and empty state handling (Resolves #298, #220).
+- **Frontend**: `CommunityCard` component displaying key metrics (member count, token volume) with dynamic join buttons and accessible overlay linking (Resolves #296, #297, #218, #219).
