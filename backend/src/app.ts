@@ -1,4 +1,4 @@
-import express, { NextFunction, Request, Response } from 'express';
+import express, { NextFunction, Request, Response, Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { apiRouter } from './api/routes';
@@ -9,7 +9,7 @@ import { communityWriteLimiter } from './api/middleware/rateLimit';
 import { db } from './db';
 import { StellarService } from './contracts/stellar';
 
-const app = express();
+const app: Application = express();
 
 app.use(helmet());
 app.use(cors({ origin: process.env.FRONTEND_URL ?? 'http://localhost:3000' }));

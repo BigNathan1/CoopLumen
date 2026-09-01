@@ -31,16 +31,23 @@ jobs:
   review:
     name: Claude review
     runs-on: ubuntu-latest
-    if: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+    # `secrets` is not available in a job-level `if`, so the key is lifted into
+    # the job env and each step is gated on that instead. Without the secret
+    # the steps are skipped and the job passes, so a missing key never blocks
+    # a contributor's PR.
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@v4
+        if: env.ANTHROPIC_API_KEY != ''
         with:
           fetch-depth: 0
 
       - name: Run Claude Code review
+        if: env.ANTHROPIC_API_KEY != ''
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          anthropic_api_key: ${{ env.ANTHROPIC_API_KEY }}
           # Scope the review to correctness bugs and reuse/simplification/
           # efficiency issues in the diff — mirrors this repo's own
           # /code-review convention rather than a generic style pass.

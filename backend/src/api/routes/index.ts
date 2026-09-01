@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { authRouter } from './auth';
 import { communityRouter } from './communities';
 import { tokenRouter } from './tokens';
 import { balanceRouter } from './balances';
@@ -16,8 +17,9 @@ import { accountsRouter } from './accounts';
  * that future breaking changes can ship under `/api/v2` without disturbing
  * existing clients.
  */
-export const apiRouter = Router();
+export const apiRouter: Router = Router();
 
+apiRouter.use('/auth', authRouter);
 apiRouter.use('/communities', communityRouter);
 apiRouter.use('/tokens', tokenRouter);
 apiRouter.use('/balances', balanceRouter);

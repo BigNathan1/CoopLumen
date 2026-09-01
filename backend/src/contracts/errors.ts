@@ -13,6 +13,8 @@
  *   maps a bubbled-up `StellarError` exactly as it maps a raw Horizon error.
  */
 
+import { logger } from '../utils/logger';
+
 /** Result codes as returned by Horizon for a failed transaction submission. */
 export interface HorizonResultCodes {
   transaction?: string;
@@ -230,5 +232,38 @@ export async function withStellarErrors<T>(action: string, fn: () => Promise<T>)
     return await fn();
   } catch (err) {
     throw toStellarError(err, action);
+  }
+}
+
+/**
+ * Builds a pre-flight validation failure that never reaches Horizon — for a
+ * malformed key, asset code, or amount caught before the network call it
+ * would otherwise fail as an opaque `op_malformed`.
+ */
+export function invalidInput(action: string, detail: string): StellarError {
+  return new StellarError(`${action} failed: ${detail}`, { status: 400 });
+}
+
+/**
+ * Like {@link withStellarErrors}, but also logs the failure with the given
+ * context — for call sites where a route handler or caller needs a structured
+ * log line (public identifiers, amounts, ...) alongside the mapped error.
+ * The context should never include secrets.
+ */
+export async function withMappedHorizonError<T>(
+  action: string,
+  context: Record<string, unknown>,
+  fn: () => Promise<T>
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    const mapped = toStellarError(err, action);
+    logger.error('Stellar operation failed', {
+      ...context,
+      message: mapped.message,
+      status: mapped.status,
+    });
+    throw mapped;
   }
 }

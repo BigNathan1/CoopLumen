@@ -8,6 +8,26 @@ class RedisCacheClient {
   private connectPromise: Promise<RedisClient | null> | null = null;
   private hasLoggedDisabledState = false;
 
+  /**
+   * Closes the connection if one was opened. Callers that need the process to
+   * exit cleanly (tests, a graceful shutdown) must call this — an open Redis
+   * socket keeps the Node event loop alive indefinitely.
+   */
+  async disconnect(): Promise<void> {
+    const client = this.client;
+    this.client = null;
+    this.connectPromise = null;
+    if (!client) return;
+
+    try {
+      await client.quit();
+    } catch (error) {
+      logger.warn('Redis disconnect failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   async get(key: string): Promise<string | null> {
     const client = await this.getClient();
     if (!client) return null;

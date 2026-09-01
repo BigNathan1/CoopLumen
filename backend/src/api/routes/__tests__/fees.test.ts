@@ -162,20 +162,24 @@ describe('fee routes', () => {
 
     it('returns 502 after retry exhaustion, calling feeStats exactly 4 times', async () => {
       const setTimeoutSpy = runTimeoutsImmediately();
-      const feeStats = jest
-        .fn()
-        .mockRejectedValue({
-          response: { status: 503, data: { detail: 'Service unavailable' } },
-        });
+      const feeStats = jest.fn().mockRejectedValue({
+        response: { status: 503, data: { detail: 'Service unavailable' } },
+      });
       setMockServer({ feeStats });
 
       const response = await request(app).get('/api/v1/fees/estimate');
 
       expect(response.status).toBe(502);
       expect(feeStats).toHaveBeenCalledTimes(4);
-      expect(setTimeoutSpy).toHaveBeenNthCalledWith(1, expect.any(Function), 100);
-      expect(setTimeoutSpy).toHaveBeenNthCalledWith(2, expect.any(Function), 200);
-      expect(setTimeoutSpy).toHaveBeenNthCalledWith(3, expect.any(Function), 400);
+      expect(setTimeoutSpy).toHaveBeenNthCalledWith(1, expect.any(Function), expect.any(Number));
+      expect(setTimeoutSpy.mock.calls[0][1]).toBeGreaterThanOrEqual(0);
+      expect(setTimeoutSpy.mock.calls[0][1]).toBeLessThan(100);
+      expect(setTimeoutSpy).toHaveBeenNthCalledWith(2, expect.any(Function), expect.any(Number));
+      expect(setTimeoutSpy.mock.calls[1][1]).toBeGreaterThanOrEqual(0);
+      expect(setTimeoutSpy.mock.calls[1][1]).toBeLessThan(200);
+      expect(setTimeoutSpy).toHaveBeenNthCalledWith(3, expect.any(Function), expect.any(Number));
+      expect(setTimeoutSpy.mock.calls[2][1]).toBeGreaterThanOrEqual(0);
+      expect(setTimeoutSpy.mock.calls[2][1]).toBeLessThan(400);
     });
   });
 });

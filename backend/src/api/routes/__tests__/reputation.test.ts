@@ -25,7 +25,7 @@ describe('GET /api/v1/reputation', () => {
     const res = await request(app).get('/api/v1/reputation');
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual([]);
-    expect(res.body.meta).toEqual({ total: 0, page: 1, limit: 20, pages: 0 });
+    expect(res.body.meta).toEqual({ total: 0, page: 1, limit: 20, pages: 0, offset: 0 });
   });
 
   it('returns scores filtered by community', async () => {
