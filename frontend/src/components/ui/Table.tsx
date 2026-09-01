@@ -56,7 +56,10 @@ export interface TableProps<T extends Record<string, unknown>> {
 function SortIcon({ direction }: { direction?: SortDirection }) {
   return (
     <span aria-hidden="true" className={styles.sortIcon} data-direction={direction}>
-      {direction === 'asc' ? '▲' : direction === 'desc' ? '▼' : '⇅'}
+      <svg viewBox="0 0 12 12" width="10" height="10" fill="currentColor" focusable="false">
+        {direction !== 'desc' && <path d="M6 1 10 6H2Z" />}
+        {direction !== 'asc' && <path d="M6 11 2 6h8Z" />}
+      </svg>
     </span>
   );
 }

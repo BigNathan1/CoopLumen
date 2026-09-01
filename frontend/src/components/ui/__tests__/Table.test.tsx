@@ -321,22 +321,26 @@ describe('Table', () => {
       expect(screen.getAllByRole('button')).toHaveLength(2);
     });
 
-    it('sort direction indicator shows default when no sort is active', () => {
+    it('sort direction indicator shows both arrows when no sort is active', () => {
       render(<Table columns={columns} data={rows} />);
-      // The sort icon for an unsorted column shows ⇅ (default)
-      const sortButtons = screen.getAllByRole('button');
-      const nameButton = sortButtons[0];
-      expect(nameButton).toHaveTextContent('⇅');
+      const [nameButton] = screen.getAllByRole('button');
+      expect(nameButton.querySelectorAll('path')).toHaveLength(2);
     });
 
-    it('sort direction indicator shows ▲ for ascending', () => {
-      render(<Table columns={columns} data={rows} sortKey="name" sortDirection="asc" />);
-      expect(screen.getByText('▲')).toBeInTheDocument();
+    it('sort direction indicator shows a single arrow for ascending', () => {
+      const { container } = render(
+        <Table columns={columns} data={rows} sortKey="name" sortDirection="asc" />
+      );
+      const icon = container.querySelector('[data-direction="asc"]');
+      expect(icon?.querySelectorAll('path')).toHaveLength(1);
     });
 
-    it('sort direction indicator shows ▼ for descending', () => {
-      render(<Table columns={columns} data={rows} sortKey="name" sortDirection="desc" />);
-      expect(screen.getByText('▼')).toBeInTheDocument();
+    it('sort direction indicator shows a single arrow for descending', () => {
+      const { container } = render(
+        <Table columns={columns} data={rows} sortKey="name" sortDirection="desc" />
+      );
+      const icon = container.querySelector('[data-direction="desc"]');
+      expect(icon?.querySelectorAll('path')).toHaveLength(1);
     });
   });
 });
