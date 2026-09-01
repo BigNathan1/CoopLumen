@@ -1,7 +1,7 @@
 'use client';
 
 import { useWallet } from '@/hooks/useWallet';
-import { Button } from './ui/Button';
+import { Button } from '@/components/ui/Button';
 import { useBalances } from '@/hooks/useBalances';
 import { NetworkWarning } from './NetworkWarning';
 import styles from './WalletConnect.module.css';

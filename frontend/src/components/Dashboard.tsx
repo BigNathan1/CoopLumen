@@ -2,10 +2,10 @@
 
 import { useCommunities } from '@/hooks/useCommunities';
 import { useWallet } from '@/hooks/useWallet';
-import { WalletConnect } from './WalletConnect';
+import { WalletConnect } from '@/components/wallet/WalletConnect';
 import { ThemeToggle } from './ThemeToggle';
 import { CommunityCard } from './CommunityCard';
-import { BalancePanel } from './BalancePanel';
+import { BalancePanel } from '@/components/wallet/BalancePanel';
 import { PortfolioPanel } from '@/components/loans/PortfolioPanel';
 import { MyReputationPanel } from '@/components/reputation/MyReputationPanel';
 import { ReputationPanel } from '@/components/reputation/ReputationPanel';

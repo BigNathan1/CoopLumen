@@ -11,11 +11,11 @@ jest.mock('../ThemeToggle', () => ({
   ThemeToggle: () => <button type="button">Toggle theme</button>,
 }));
 
-jest.mock('../WalletConnect', () => ({
+jest.mock('@/components/wallet/WalletConnect', () => ({
   WalletConnect: () => <div data-testid="wallet-connect" />,
 }));
 
-jest.mock('../BalancePanel', () => ({
+jest.mock('@/components/wallet/BalancePanel', () => ({
   BalancePanel: ({ publicKey }: { publicKey: string }) => (
     <div data-testid="balance-panel">{publicKey}</div>
   ),
