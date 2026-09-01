@@ -5,7 +5,7 @@
  * against actual Stellar testnet, end-to-end.
  *
  * Usage:
- *   npx ts-node src/contracts/__tests__/verify-get-asset-balance.manual.ts
+ *   npx ts-node scripts/verify-get-asset-balance.ts
  *
  * Prerequisites:
  * 1. .env file configured with STELLAR_NETWORK=testnet
@@ -24,11 +24,10 @@
 
 import 'dotenv/config';
 import { Keypair } from '@stellar/stellar-sdk';
-import { StellarService } from '../stellar';
-import { getAssetBalance } from '../assets';
-import { establishTrustline } from '../trustlines';
-import { issueAsset } from '../assets';
-import { logger } from '../../utils/logger';
+import { StellarService } from '../src/contracts/stellar';
+import { getAssetBalance, issueAsset } from '../src/contracts/assets';
+import { establishTrustline } from '../src/contracts/trustlines';
+import { logger } from '../src/utils/logger';
 
 const ASSET_CODE = 'TBAL';
 const DISTRIBUTION_AMOUNT = '750.5432100';

@@ -5,7 +5,7 @@
  * against actual Stellar testnet, end-to-end.
  *
  * Usage:
- *   npx ts-node src/contracts/__tests__/verify-distribute-asset.manual.ts
+ *   npx ts-node scripts/verify-distribute-asset.ts
  *
  * Prerequisites:
  * 1. .env file configured with STELLAR_NETWORK=testnet
@@ -24,11 +24,10 @@
 
 import 'dotenv/config';
 import { Keypair } from '@stellar/stellar-sdk';
-import { StellarService } from '../stellar';
-import { distributeAsset } from '../assets';
-import { establishTrustline } from '../trustlines';
-import { issueAsset } from '../assets';
-import { logger } from '../../utils/logger';
+import { StellarService } from '../src/contracts/stellar';
+import { distributeAsset, issueAsset } from '../src/contracts/assets';
+import { establishTrustline } from '../src/contracts/trustlines';
+import { logger } from '../src/utils/logger';
 
 const ASSET_CODE = 'TCOOP';
 const INITIAL_SUPPLY = '10000.0000000';

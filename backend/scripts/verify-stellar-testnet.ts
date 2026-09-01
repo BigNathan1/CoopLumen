@@ -12,7 +12,11 @@
  */
 
 import { Keypair } from '@stellar/stellar-sdk';
-import { StellarService, UnfundedAccountError, StellarNetworkError } from '../src/contracts/stellar';
+import {
+  StellarService,
+  UnfundedAccountError,
+  StellarNetworkError,
+} from '../src/contracts/stellar';
 
 interface TestResult {
   name: string;
