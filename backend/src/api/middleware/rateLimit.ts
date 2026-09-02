@@ -24,18 +24,3 @@ export const writeLimiter = createWriteLimiter();
  * throttled by this protection.
  */
 export const communityWriteLimiter = createWriteLimiter();
-
-/**
- * Limits token issue requests to 3 per minute per authenticated user (or IP if
- * unauthenticated), to slow abuse of asset issuance. Disabled in tests.
- */
-export const tokenIssueLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 3,
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: () => isTest,
-  validate: { default: false },
-  keyGenerator: (req) => req.headers.authorization ?? req.ip ?? 'unknown',
-  message: { data: null, error: 'Too many requests, please try again later' },
-});

@@ -25,7 +25,7 @@ This document summarizes the PostgreSQL infrastructure hardening updates impleme
 - Previously defaulted to `RESTRICT`, preventing community deletion with loans
 - Migration is idempotent and safe for existing databases
 
-**Validation Script**: `scripts/validate-fk.sh` / `scripts/validate-fk.bat`
+**Validation Script**: `scripts/db/validate-fk.sh` / `scripts/db/validate-fk.bat`
 
 - Validates all foreign key constraints have explicit ON DELETE behaviors
 - Reports warnings for constraints using default NO ACTION/RESTRICT
@@ -52,7 +52,7 @@ This document summarizes the PostgreSQL infrastructure hardening updates impleme
 
 ### 5. Backup Script Enhancement
 
-**File**: `scripts/backup-db.sh`
+**File**: `scripts/db/backup-db.sh`
 
 - Already implemented with production-ready features:
   - PostgreSQL custom format (`-Fc`) for efficient compression
@@ -135,18 +135,18 @@ PGPOOL_CONNECTION_TIMEOUT: ${PGPOOL_CONNECTION_TIMEOUT:-2000}
 
 ```bash
 # Using bash (Linux/macOS/WSL)
-./scripts/validate-fk.sh
+./scripts/db/validate-fk.sh
 
 # Using batch (Windows)
-scripts\validate-fk.bat
+scripts\db\validate-fk.bat
 ```
 
 ### 2. Run Database Backups
 
 ```bash
-./scripts/backup-db.sh
+./scripts/db/backup-db.sh
 # Optional: specify output directory
-./scripts/backup-db.sh /path/to/backups
+./scripts/db/backup-db.sh /path/to/backups
 ```
 
 ### 3. Start Infrastructure with Docker Compose
@@ -187,7 +187,7 @@ Schedule regular backups in production:
 
 ```bash
 # Daily backup via cron
-0 2 * * * /path/to/cooplumen/scripts/backup-db.sh /backup/storage
+0 2 * * * /path/to/cooplumen/scripts/db/backup-db.sh /backup/storage
 ```
 
 ### Monitoring

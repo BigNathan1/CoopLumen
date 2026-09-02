@@ -605,39 +605,43 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/v1/tokens/airdrop:
+  /api/v1/tokens/build-airdrop:
     post:
-      tags: [Transactions]
-      summary: Airdrop a community token to all community members
+      tags: [Tokens]
+      summary: Build an unsigned airdrop transaction for client-side signing
+      description: >-
+        Returns one base64-encoded XDR envelope paying an equal amount of the
+        community's token to every current member, for the issuer's wallet to
+        sign. The batch is atomic: every member is paid or none is.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AirdropRequest'
+              type: object
+              required: [communityId, issuerPublicKey, amount]
+              properties:
+                communityId: { type: string, format: uuid }
+                issuerPublicKey: { $ref: '#/components/schemas/StellarKey' }
+                amount: { type: string }
+                memo: { type: string, maxLength: 28 }
       responses:
         '200':
-          description: Airdrop submitted successfully
+          description: Unsigned airdrop transaction built successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AirdropResponse'
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      xdr: { type: string }
+                      recipientCount: { type: integer }
+                      amount: { type: string }
         '400': { $ref: '#/components/responses/ValidationError' }
-        '402':
-          description: The issuer account does not have enough XLM for transaction fees
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InsufficientBalanceResponse'
-        '404': { $ref: '#/components/responses/NotFound' }
-        '422':
-          description: The Stellar network rejected the airdrop transaction
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '502':
-          description: Horizon is temporarily unavailable
+        '404':
+          description: Community does not exist
           content:
             application/json:
               schema:
@@ -694,51 +698,31 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/Token' }
 
-  /api/v1/tokens/burn:
+  /api/v1/tokens/build-burn:
     post:
       tags: [Tokens]
-      summary: Burn tokens
-      description: Reduces circulating supply by returning tokens to the issuing account.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/BurnToken' }
-      responses:
-        '200':
-          description: Tokens burned
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TokenTransferResponse'
-        '400': { $ref: '#/components/responses/ValidationError' }
-        '502':
-          description: Horizon is temporarily unavailable
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/v1/tokens/trustline:
-    post:
-      tags: [Tokens]
-      summary: Establish a trustline
-      description: Allows an account to hold a community token; must be called before it can receive the asset.
+      summary: Build an unsigned burn transaction for client-side signing
+      description: >-
+        Returns a base64-encoded XDR envelope returning tokens to their issuing
+        account, where they stop counting toward circulating supply. The
+        holder's wallet signs it locally and submits it through
+        POST /api/v1/tokens/submit with `refreshSupply` set, so no secret key
+        reaches the server.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [xdr]
+              required: [holderPublicKey, assetCode, assetIssuer, amount]
               properties:
-                xdr:
-                  type: string
-                  description: The signed transaction envelope XDR
-                  example: 'AAAAAgAAA...'
+                holderPublicKey: { $ref: '#/components/schemas/StellarKey' }
+                assetCode: { type: string, minLength: 1, maxLength: 12 }
+                assetIssuer: { $ref: '#/components/schemas/StellarKey' }
+                amount: { type: string }
       responses:
         '200':
-          description: Transaction successfully submitted
+          description: Unsigned burn transaction built successfully
           content:
             application/json:
               schema:
@@ -747,37 +731,14 @@ paths:
                   data:
                     type: object
                     properties:
-                      hash: { type: string }
-                      ledger: { type: integer }
-                      status: { type: string }
-                  meta:
-                    type: object
-                    properties:
-                      timestamp: { type: string }
-        '400':
-          description: Validation error or Horizon transaction rejection (e.g., bad sequence, insufficient funds)
+                      xdr: { type: string }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '502':
+          description: Horizon is temporarily unavailable
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      message: { type: string }
-                      rawCode: { type: string }
-                      details: { type: object }
-                      account: { $ref: '#/components/schemas/StellarKey' }
-                      balances:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            asset_type: { type: string }
-                            asset_code: { type: string }
-                            asset_issuer: { type: string }
-                            balance: { type: string }
-        '404': { $ref: '#/components/responses/NotFound' }
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/v1/tokens:
     get:
@@ -826,40 +787,6 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
-
-  /api/v1/tokens/issue:
-    post:
-      tags: [Tokens]
-      summary: Issue a community token
-      description: >
-        Issues a community token on the Stellar network. Accepts an optional
-        Idempotency-Key header; a retried request with the same key replays
-        the original response instead of issuing a second time.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/IssueToken' }
-      responses:
-        '201':
-          description: Token issued
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TokenTransferResponse'
-        '400': { $ref: '#/components/responses/ValidationError' }
-        '500':
-          description: The asset was issued but its metadata could not be persisted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '502':
-          description: Horizon is temporarily unavailable
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
 
   /api/v1/loans:
     get:

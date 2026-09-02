@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { db } from '../../db';
 import { verifySessionToken } from '../utils/sessionToken';
+import { logger } from '../../utils/logger';
 
 export interface AuthContext {
   /** The Stellar address that proved control of its key via /api/v1/auth/verify. */
@@ -73,17 +74,58 @@ export function requireCommunityRole(roles: string[]) {
 }
 
 /**
- * Placeholder admin authentication middleware.
- * TODO: Replace with proper authentication/authorization when implemented.
+ * Addresses allowed to call operator-only routes, read once at startup from
+ * ADMIN_ADDRESSES (comma-separated Stellar public keys).
  *
- * For now, this is a no-op that allows all requests through.
- * In a production system, this would:
- * 1. Validate JWT tokens or API keys
- * 2. Check user roles/permissions
- * 3. Return 401/403 for unauthorized access
+ * An unset or empty list means nobody qualifies. That is deliberate: an
+ * unconfigured deployment should refuse operator actions rather than allow
+ * them, which is what the previous no-op implementation did.
+ */
+function readAdminAddresses(): Set<string> {
+  return new Set(
+    (process.env.ADMIN_ADDRESSES ?? '')
+      .split(',')
+      .map((address) => address.trim())
+      .filter(Boolean)
+  );
+}
+
+let adminAddresses: Set<string> | null = null;
+
+/** Re-reads ADMIN_ADDRESSES. Exported for tests that set the variable per case. */
+export function resetAdminAddressCache(): void {
+  adminAddresses = null;
+}
+
+/**
+ * Requires the authenticated address to be an operator of this deployment.
+ *
+ * Server-wide admin is not a community role - the routes it guards are not
+ * scoped to a community - so membership is not consulted; the address must
+ * appear in ADMIN_ADDRESSES. Mount it after {@link requireAuth}, which
+ * populates `req.auth`.
  */
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  // TODO: Implement proper admin authentication
-  // For now, allow all requests through as a placeholder
+  if (!req.auth) {
+    res.status(401).json({ data: null, error: 'Authentication required' });
+    return;
+  }
+
+  if (adminAddresses === null) {
+    adminAddresses = readAdminAddresses();
+    if (adminAddresses.size === 0) {
+      logger.warn('ADMIN_ADDRESSES is unset; every operator route will reject with 403');
+    }
+  }
+
+  if (!adminAddresses.has(req.auth.address)) {
+    logger.warn('Rejected an operator request from a non-admin address', {
+      address: req.auth.address,
+      path: req.path,
+    });
+    res.status(403).json({ data: null, error: 'Requires operator privileges' });
+    return;
+  }
+
   next();
 }

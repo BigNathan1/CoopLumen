@@ -55,27 +55,40 @@ Why Stellar specifically?
 
 ```
 cooplumen/
-├── backend/                  # Node.js / Express API
+├── backend/                    # Node.js / Express API
+│   ├── scripts/                # Manual testnet verification scripts
 │   ├── src/
 │   │   ├── api/
-│   │   │   ├── middleware/   # errorHandler, notFound
-│   │   │   └── routes/       # communities, tokens, balances
-│   │   ├── contracts/        # Stellar SDK wrappers
-│   │   │   ├── assets.ts     # Asset issuance
-│   │   │   ├── trustlines.ts # Trustline management
-│   │   │   ├── transactions.ts # Payment building & submission
-│   │   │   └── stellar.ts    # Horizon server singleton
-│   │   ├── db/               # PostgreSQL pool & migrations
-│   │   └── utils/            # Logger
+│   │   │   ├── middleware/     # Auth, validation, rate limiting, errors
+│   │   │   ├── routes/         # communities, tokens, balances, loans, reputation
+│   │   │   └── schemas/        # Zod request schemas
+│   │   ├── cache/              # Redis and in-process caches
+│   │   ├── contracts/          # Stellar SDK wrappers
+│   │   │   ├── assets.ts       # Asset issuance and distribution
+│   │   │   ├── trustlines.ts   # Trustline management
+│   │   │   ├── transactions.ts # Payment building and submission
+│   │   │   └── stellar.ts      # Horizon server singleton
+│   │   ├── services/           # Non-Stellar integrations (market price feed)
+│   │   ├── db/                 # PostgreSQL pool and migrations
+│   │   └── utils/              # Logger
 │   ├── Dockerfile
 │   └── package.json
-├── frontend/                 # Next.js 14 (App Router)
+├── frontend/                   # Next.js (App Router)
 │   ├── src/
-│   │   ├── app/              # Routes, layout, global CSS
-│   │   ├── components/       # Dashboard, WalletConnect, CommunityCard, BalancePanel
-│   │   └── hooks/            # useWallet, useCommunities, useBalances
+│   │   ├── app/                # Routes, layout, global CSS
+│   │   ├── components/
+│   │   │   ├── ui/             # Design-system primitives
+│   │   │   ├── loans/          # Lending flow
+│   │   │   ├── reputation/     # Borrower reputation
+│   │   │   └── wallet/         # Wallet connection and balances
+│   │   ├── hooks/              # useWallet, useCommunities, useBalances
+│   │   └── lib/                # API client, schemas, design tokens
 │   ├── Dockerfile
 │   └── package.json
+├── docs/                       # Architecture, database, CI/CD, OpenAPI spec
+├── scripts/
+│   ├── db/                     # Backup and constraint-validation scripts
+│   └── issues/                 # Backlog tooling
 ├── docker-compose.yml
 ├── README.md
 ├── PRD.md
@@ -189,10 +202,14 @@ You will need a local PostgreSQL instance. Set `DATABASE_URL` in `backend/.env`.
 
 ### Tokens
 
-| Method | Path                    | Description                      |
-| ------ | ----------------------- | -------------------------------- |
-| `POST` | `/api/tokens/issue`     | Issue community token on Stellar |
-| `POST` | `/api/tokens/trustline` | Establish trustline for a member |
+| Method | Path                             | Description                                                             |
+| ------ | -------------------------------- | ----------------------------------------------------------------------- |
+| `POST` | `/api/v1/tokens/build-issue`     | Build an unsigned issuance transaction for the issuer's wallet to sign  |
+| `POST` | `/api/v1/tokens/build-trustline` | Build an unsigned trustline transaction for the holder's wallet to sign |
+| `POST` | `/api/v1/tokens/build-burn`      | Build an unsigned burn transaction for the holder's wallet to sign      |
+| `POST` | `/api/v1/tokens/build-airdrop`   | Build one unsigned transaction paying every community member            |
+| `POST` | `/api/v1/tokens/submit`          | Submit a signed transaction envelope                                    |
+| `GET`  | `/api/v1/tokens`                 | List every token (operators only)                                       |
 
 ### Balances
 

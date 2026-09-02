@@ -12,6 +12,15 @@ const COMPONENTS_DIR = path.resolve(__dirname, '..');
 
 const globals = readFileSync(path.join(APP_DIR, 'globals.css'), 'utf8');
 
+/** Every *.module.css beneath a directory, at any depth. */
+function cssModulesUnder(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return cssModulesUnder(full);
+    return entry.name.endsWith('.module.css') ? [full] : [];
+  });
+}
+
 /** Custom property declarations in a chunk of CSS, as `name -> value`. */
 function declaredTokens(css: string): Map<string, string> {
   const tokens = new Map<string, string>();
@@ -115,15 +124,18 @@ describe('design tokens', () => {
     });
 
     it('resolves every var() reference used by component modules', () => {
-      const modules = readdirSync(COMPONENTS_DIR).filter((file) => file.endsWith('.module.css'));
-      expect(modules.length).toBeGreaterThan(0);
+      // Components are grouped into ui/, loans/, reputation/ and wallet/, so
+      // the walk has to recurse or it silently checks a handful of files.
+      const modules = cssModulesUnder(COMPONENTS_DIR);
+      expect(modules.length).toBeGreaterThan(10);
 
       for (const file of modules) {
-        const css = readFileSync(path.join(COMPONENTS_DIR, file), 'utf8');
-        for (const name of requiredTokens(css)) {
-          expect({ file, name, declared: tokens.has(name) }).toEqual({
-            file,
-            name,
+        const css = readFileSync(file, 'utf8');
+        const name = path.relative(COMPONENTS_DIR, file);
+        for (const token of requiredTokens(css)) {
+          expect({ file: name, token, declared: tokens.has(token) }).toEqual({
+            file: name,
+            token,
             declared: true,
           });
         }

@@ -108,7 +108,7 @@ export function PaginationInner({
             aria-label="Go to previous page"
             onClick={() => handlePageChange(current - 1)}
           >
-            ← Prev
+            Prev
           </button>
         </li>
 
@@ -142,7 +142,7 @@ export function PaginationInner({
             aria-label="Go to next page"
             onClick={() => handlePageChange(current + 1)}
           >
-            Next →
+            Next
           </button>
         </li>
       </ul>
