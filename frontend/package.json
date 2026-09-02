@@ -20,7 +20,7 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
-    "@stellar/freighter-api": "^2.0.0",
+    "@stellar/freighter-api": "^6.0.1",
     "next": "^15.5.25",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",
