@@ -5,7 +5,10 @@ import { ToastProvider } from '@/hooks/useToast';
 import { ThemeProvider } from '@/hooks/useTheme';
 import { ToastDisplay } from '@/components/ToastDisplay';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
+import { validateFrontendEnv } from '@/lib/env';
 import './globals.css';
+
+validateFrontendEnv();
 
 const inter = Inter({ subsets: ['latin'] });
 

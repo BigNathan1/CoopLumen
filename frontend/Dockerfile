@@ -5,6 +5,10 @@ COPY package*.json ./
 RUN npm ci
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+ARG NEXT_PUBLIC_API_URL=http://localhost:4000
+ARG NEXT_PUBLIC_STELLAR_NETWORK=TESTNET
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_STELLAR_NETWORK=$NEXT_PUBLIC_STELLAR_NETWORK
 RUN npm run build
 
 # ── dev: hot-reload server (used by docker-compose in development) ─────────────
