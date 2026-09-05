@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Next.js API proxying for `/api/*` requests and startup validation for the required public frontend environment variables (#249, #250)
 - `refreshSupply` on `POST /api/v1/tokens/submit`. Supplying an asset code and issuer asks the server to re-read that asset's circulating supply from Horizon once the transaction lands, keeping the `tokens` table accurate after a client-signed burn. Only the asset is taken from the caller; the figure itself comes from the ledger.
 
 - `Badge` component (`frontend/src/components/ui/Badge.tsx`) — an inline status/category label with `success`, `warning`, `error`, `info` and `neutral` colour variants. Ships in `sm`/`md`/`lg` sizes with an optional `dot` indicator and leading `icon`, both hidden from assistive technology. An `srLabel` prop provides a verbose screen-reader-only accessible name without truncating the visible label. `data-variant` and `data-size` are mirrored onto the element for layout and test targeting. Styles use design tokens from `globals.css` and inherit dark-mode support automatically (#268).
