@@ -119,6 +119,29 @@ describe('balance routes', () => {
       );
     });
 
+    it('includes the native XLM balance alongside issued assets', async () => {
+      const balances = [
+        { asset_type: 'native', balance: '42.5000000' },
+        {
+          asset_type: 'credit_alphanum4',
+          asset_code: 'COOP',
+          asset_issuer: publicKey,
+          balance: '12.0000000',
+        },
+      ];
+      const loadAccount = jest.fn().mockResolvedValueOnce({ balances });
+      setMockServer({ loadAccount });
+
+      const response = await request(app).get(`/api/v1/balances/${publicKey}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ data: balances });
+      expect(response.body.data).toContainEqual({
+        asset_type: 'native',
+        balance: '42.5000000',
+      });
+    });
+
     it('retries Horizon 429 failures and eventually succeeds', async () => {
       const setTimeoutSpy = runTimeoutsImmediately();
       mockRedisClient.get.mockResolvedValue(null);
