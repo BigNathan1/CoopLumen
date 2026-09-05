@@ -9,11 +9,30 @@
   transition:
     border-color 0.15s,
     transform 0.15s;
+  /* Added to establish a positioning context for the link overlay */
+  position: relative; 
 }
 
 .card:hover {
   border-color: var(--color-primary);
   transform: translateY(-2px);
+}
+
+/* Invisible overlay to make the whole card clickable without invalid HTML */
+.linkOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+}
+
+/* Elevate content above the overlay so text remains selectable */
+.content {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .header {
@@ -23,6 +42,7 @@
 }
 
 .name {
+  margin: 0;
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--color-text);
@@ -39,6 +59,7 @@
 }
 
 .description {
+  margin: 0;
   font-size: 0.875rem;
   color: var(--color-text-muted);
   line-height: 1.5;
@@ -50,4 +71,67 @@
   font-size: 0.75rem;
   color: var(--color-text-muted);
   font-family: monospace;
+}
+
+/* --- New Metrics & Actions Styles --- */
+
+.metrics {
+  display: flex;
+  gap: 16px;
+  padding-top: 16px;
+  margin-top: 4px;
+  border-top: 1px solid var(--color-border);
+}
+
+.metric {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.metricValue {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.metricLabel {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* Elevate actions above the overlay so the button remains clickable */
+.actions {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto; /* Pushes the button to the bottom if the card stretches */
+}
+
+.buttonJoin, .buttonJoined {
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+
+.buttonJoin {
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  color: var(--color-surface); /* Assuming light text on primary background */
+  cursor: pointer;
+}
+
+.buttonJoin:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.buttonJoined {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
 }
