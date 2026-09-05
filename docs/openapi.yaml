@@ -1178,8 +1178,15 @@ components:
             p99: { type: string, description: 99th percentile fee charged, example: '706514' }
     BalanceLine:
       type: object
+      required: [asset_type, balance]
+      description: >
+        A Horizon balance line. The account's native XLM balance is represented
+        by asset_type `native`; issued assets include asset_code and asset_issuer.
       properties:
-        asset_type: { type: string }
+        asset_type:
+          type: string
+          enum: [native, credit_alphanum4, credit_alphanum12]
+          description: "'native' represents the account's XLM balance."
         asset_code: { type: string, nullable: true }
         asset_issuer: { type: string, nullable: true }
         balance: { type: string }
