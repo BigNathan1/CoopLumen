@@ -14,6 +14,9 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Community discovery page at `/communities` (`frontend/src/app/communities/page.tsx`) listing cooperatives on the network (#299, #221).
 - `CommunityList` component (`frontend/src/components/CommunityList.tsx`) with client-side search filtering over name and description, pagination, and an empty state (#298, #220).
 - `CommunityCard` now shows member and token counts alongside a join button, with an accessible overlay link to the community detail page (#296, #297, #218, #219).
+- Next.js API proxying for `/api/*` requests and startup validation for the required public frontend environment variables (#249, #250)
+- `GET /api/v1/balances/:publicKey` explicitly includes the account's native XLM
+  balance (`asset_type: native`) alongside issued-asset balances.
 
 - `refreshSupply` on `POST /api/v1/tokens/submit`. Supplying an asset code and issuer asks the server to re-read that asset's circulating supply from Horizon once the transaction lands, keeping the `tokens` table accurate after a client-signed burn. Only the asset is taken from the caller; the figure itself comes from the ledger.
 
