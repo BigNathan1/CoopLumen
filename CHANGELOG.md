@@ -12,7 +12,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - `GET /api/v1/balances/:publicKey` explicitly includes the account's native XLM
-	balance (`asset_type: native`) alongside issued-asset balances.
+  balance (`asset_type: native`) alongside issued-asset balances.
 
 - `refreshSupply` on `POST /api/v1/tokens/submit`. Supplying an asset code and issuer asks the server to re-read that asset's circulating supply from Horizon once the transaction lands, keeping the `tokens` table accurate after a client-signed burn. Only the asset is taken from the caller; the figure itself comes from the ledger.
 
