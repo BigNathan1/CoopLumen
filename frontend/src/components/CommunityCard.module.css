@@ -10,7 +10,7 @@
     border-color 0.15s,
     transform 0.15s;
   /* Added to establish a positioning context for the link overlay */
-  position: relative; 
+  position: relative;
 }
 
 .card:hover {
@@ -109,7 +109,8 @@
   margin-top: auto; /* Pushes the button to the bottom if the card stretches */
 }
 
-.buttonJoin, .buttonJoined {
+.buttonJoin,
+.buttonJoined {
   padding: 8px 16px;
   border-radius: var(--radius);
   font-size: 0.875rem;

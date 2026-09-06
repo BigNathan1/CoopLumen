@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Community discovery page at `/communities` (`frontend/src/app/communities/page.tsx`) listing cooperatives on the network (#299, #221).
+- `CommunityList` component (`frontend/src/components/CommunityList.tsx`) with client-side search filtering over name and description, pagination, and an empty state (#298, #220).
+- `CommunityCard` now shows member and token counts alongside a join button, with an accessible overlay link to the community detail page (#296, #297, #218, #219).
+
 - `refreshSupply` on `POST /api/v1/tokens/submit`. Supplying an asset code and issuer asks the server to re-read that asset's circulating supply from Horizon once the transaction lands, keeping the `tokens` table accurate after a client-signed burn. Only the asset is taken from the caller; the figure itself comes from the ledger.
 
 - `Badge` component (`frontend/src/components/ui/Badge.tsx`) — an inline status/category label with `success`, `warning`, `error`, `info` and `neutral` colour variants. Ships in `sm`/`md`/`lg` sizes with an optional `dot` indicator and leading `icon`, both hidden from assistive technology. An `srLabel` prop provides a verbose screen-reader-only accessible name without truncating the visible label. `data-variant` and `data-size` are mirrored onto the element for layout and test targeting. Styles use design tokens from `globals.css` and inherit dark-mode support automatically (#268).
@@ -230,10 +234,3 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - ESLint + TypeScript strict mode across both workspaces
 - Winston structured logging
 - `README.md`, `PRD.md`, `CONTRIBUTING.md`
-
-
-## [Unreleased]
-### Added
-- **Frontend**: Community discovery page (`/communities`) enabling members to browse the network (Resolves #299, #221).
-- **Frontend**: `CommunityList` component featuring client-side search filtering, pagination, and empty state handling (Resolves #298, #220).
-- **Frontend**: `CommunityCard` component displaying key metrics (member count, token volume) with dynamic join buttons and accessible overlay linking (Resolves #296, #297, #218, #219).

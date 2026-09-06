@@ -1,30 +1,31 @@
-// frontend/src/components/communities/CommunityCard.tsx
 'use client';
 
 import Link from 'next/link';
 import type { Community } from '@/hooks/useCommunities';
 import styles from './CommunityCard.module.css';
 
-// Extending the base Community type to include the new required fields 
-// (assuming they use snake_case based on your existing snippet)
+/**
+ * A community as rendered on the discovery page: the API shape plus the
+ * discovery-only metrics the list endpoint layers on top of it.
+ */
+export type DiscoverableCommunity = Community & {
+  member_count?: number;
+  token_count?: number;
+  is_joined?: boolean;
+};
+
 interface Props {
-  community: Community & {
-    id?: string;
-    member_count?: number;
-    token_count?: number;
-    is_joined?: boolean;
-  };
+  community: DiscoverableCommunity;
   onJoin?: (id: string) => void;
 }
 
-export function CommunityCard({ community, onJoin }: Props) {
-  // Fix: Renamed from 'joined' to 'createdDate' for semantic clarity
+export function CommunityCard({ community, onJoin }: Props): React.JSX.Element {
   const createdDate = new Date(community.created_at).toLocaleDateString();
-  
-  // Fallback to issuer_public_key if your backend doesn't supply a dedicated 'id' yet
+
+  // Fall back to the issuer key while the API is still filling in ids.
   const communityId = community.id || community.issuer_public_key;
 
-  const handleJoinClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleJoinClick = (e: React.MouseEvent<HTMLButtonElement>): void => {
     e.preventDefault(); // Prevents the card's Link wrapper from routing
     e.stopPropagation();
     if (onJoin) onJoin(communityId);
@@ -33,8 +34,8 @@ export function CommunityCard({ community, onJoin }: Props) {
   return (
     <article className={styles.card}>
       {/* AC: Navigate to community detail page on click (#297) */}
-      <Link 
-        href={`/communities/${communityId}`} 
+      <Link
+        href={`/communities/${communityId}`}
         className={styles.linkOverlay}
         aria-label={`View details for ${community.name}`}
       />
@@ -44,11 +45,9 @@ export function CommunityCard({ community, onJoin }: Props) {
           <h3 className={styles.name}>{community.name}</h3>
           <span className={styles.token}>{community.asset_code}</span>
         </div>
-        
-        {community.description && (
-          <p className={styles.description}>{community.description}</p>
-        )}
-        
+
+        {community.description && <p className={styles.description}>{community.description}</p>}
+
         <div className={styles.meta}>
           <span>Issuer: {community.issuer_public_key.slice(0, 8)}…</span>
           <span>Created {createdDate}</span>

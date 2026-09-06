@@ -1,28 +1,32 @@
-// frontend/src/app/communities/page.tsx
-import React from "react";
-import { CommunityList } from "@/components/communities/CommunityList";
-import type { Community } from "@/types/community";
+import React from 'react';
+import { CommunityList } from '@/components/CommunityList';
+import type { DiscoverableCommunity } from '@/components/CommunityCard';
 
-// Mock data generator for MVP phase
-const generateMockCommunities = (): Community[] => {
+// Mock data generator for MVP phase, until the discovery endpoint lands.
+const SECTORS = ['energy', 'farming', 'housing', 'software', 'logistics'];
+const PREFIXES = ['Solar', 'Green', 'Urban', 'Tech', 'Local'];
+
+function generateMockCommunities(): DiscoverableCommunity[] {
   return Array.from({ length: 15 }, (_, i) => ({
     id: `comm-${i + 1}`,
-    name: `${['Solar', 'Green', 'Urban', 'Tech', 'Local'][i % 5]} Co-op ${i + 1}`,
-    description: `A forward-thinking cooperative focused on decentralized resources and community ownership in the ${
-      ['energy', 'farming', 'housing', 'software', 'logistics'][i % 5]
-    } sector.`,
-    memberCount: Math.floor(Math.random() * 5000) + 50,
-    tokenCount: Math.floor(Math.random() * 100000) + 1000,
-    isJoined: i % 4 === 0,
+    name: `${PREFIXES[i % PREFIXES.length]} Co-op ${i + 1}`,
+    description: `A forward-thinking cooperative focused on decentralized resources and community ownership in the ${SECTORS[i % SECTORS.length]} sector.`,
+    asset_code: `CO${i + 1}`,
+    asset_issuer: `G${'A'.repeat(54)}${i % 10}`,
+    issuer_public_key: `G${'A'.repeat(54)}${i % 10}`,
+    created_at: new Date(Date.UTC(2025, i % 12, 1)).toISOString(),
+    member_count: (i + 1) * 137,
+    token_count: (i + 1) * 2500,
+    is_joined: i % 4 === 0,
   }));
-};
+}
 
 export const metadata = {
-  title: "Discover Communities | CoopLumen",
-  description: "Find and join decentralized cooperatives powered by CoopLumen.",
+  title: 'Discover Communities | CoopLumen',
+  description: 'Find and join decentralized cooperatives powered by CoopLumen.',
 };
 
-export default async function CommunitiesDiscoveryPage() {
+export default function CommunitiesDiscoveryPage(): React.JSX.Element {
   const communities = generateMockCommunities();
 
   return (

@@ -1,22 +1,41 @@
-// frontend/src/components/communities/CommunityList.tsx
-"use client";
+'use client';
 
-import React, { useState, useMemo } from "react";
-import { Search } from "lucide-react";
-import { CommunityCard } from "./CommunityCard";
-import type { Community } from "@/types/community";
+import React, { useMemo, useState } from 'react';
+import { CommunityCard, type DiscoverableCommunity } from './CommunityCard';
 
 interface CommunityListProps {
-  initialCommunities: Community[];
+  initialCommunities: DiscoverableCommunity[];
   itemsPerPage?: number;
+  onJoin?: (id: string) => void;
 }
 
-export function CommunityList({ initialCommunities, itemsPerPage = 6 }: CommunityListProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+function SearchIcon(): React.JSX.Element {
+  return (
+    <svg
+      className="h-5 w-5 text-gray-400"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <circle cx="9" cy="9" r="6" />
+      <path d="m14 14 4 4" />
+    </svg>
+  );
+}
+
+export function CommunityList({
+  initialCommunities,
+  itemsPerPage = 6,
+  onJoin,
+}: CommunityListProps): React.JSX.Element {
+  const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
   // Reset to page 1 when search changes
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     setSearchQuery(e.target.value);
     setCurrentPage(1);
   };
@@ -27,7 +46,7 @@ export function CommunityList({ initialCommunities, itemsPerPage = 6 }: Communit
     return initialCommunities.filter(
       (c) =>
         c.name.toLowerCase().includes(lowerQuery) ||
-        c.description.toLowerCase().includes(lowerQuery)
+        (c.description?.toLowerCase().includes(lowerQuery) ?? false)
     );
   }, [initialCommunities, searchQuery]);
 
@@ -45,7 +64,7 @@ export function CommunityList({ initialCommunities, itemsPerPage = 6 }: Communit
           Search communities
         </label>
         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-          <Search className="h-5 w-5 text-gray-400" aria-hidden="true" />
+          <SearchIcon />
         </div>
         <input
           id="community-search"
@@ -64,7 +83,7 @@ export function CommunityList({ initialCommunities, itemsPerPage = 6 }: Communit
             No communities found
           </p>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            We couldn't find any communities matching "{searchQuery}".
+            We couldn&apos;t find any communities matching &quot;{searchQuery}&quot;.
           </p>
         </div>
       ) : (
@@ -72,11 +91,7 @@ export function CommunityList({ initialCommunities, itemsPerPage = 6 }: Communit
           {/* Community Grid */}
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {paginatedCommunities.map((community) => (
-              <CommunityCard
-                key={community.id}
-                community={community}
-                onJoin={(id) => console.log(`Requested to join ${id}`)}
-              />
+              <CommunityCard key={community.id} community={community} onJoin={onJoin} />
             ))}
           </div>
 
