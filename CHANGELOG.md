@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Next.js API proxying for `/api/*` requests and startup validation for the required public frontend environment variables (#249, #250)
 - `GET /api/v1/balances/:publicKey` explicitly includes the account's native XLM
   balance (`asset_type: native`) alongside issued-asset balances.
 
