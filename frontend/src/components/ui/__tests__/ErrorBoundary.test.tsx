@@ -123,8 +123,13 @@ describe('ErrorBoundary', () => {
       const button = screen.getByRole('button', { name: /try again/i });
       expect(button).toBeInTheDocument();
 
-      // Button should be focusable
-      await user.tab();
+      // Tab until the button takes focus rather than assuming it is the first
+      // stop: the fallback also renders a <details> whose <summary> is
+      // focusable, and where that lands in the tab order has changed between
+      // user-event releases. What matters is that the button is reachable.
+      for (let i = 0; i < 5 && document.activeElement !== button; i += 1) {
+        await user.tab();
+      }
       expect(button).toHaveFocus();
     });
 
