@@ -1,0 +1,170 @@
+/*
+ * The roadmap is a timeline: a single rule runs along it, and each phase hangs
+ * from a node on that rule. Horizontal from the large breakpoint up, vertical
+ * below it, with the same node-and-thread construction either way.
+ */
+.track {
+  display: grid;
+  gap: var(--space-8);
+  list-style: none;
+}
+
+.phase {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-left: var(--space-6);
+}
+
+/* The thread. */
+.phase::before {
+  content: '';
+  position: absolute;
+  top: 0.45rem;
+  bottom: calc(var(--space-8) * -1);
+  left: 0.3rem;
+  width: 1px;
+  background: var(--landing-hairline-strong);
+}
+
+.phase:last-child::before {
+  display: none;
+}
+
+/* The node. Lit for work that is real, hollow for work that is not yet. */
+.phase::after {
+  content: '';
+  position: absolute;
+  top: 0.35rem;
+  left: 0;
+  width: 0.65rem;
+  height: 0.65rem;
+  border: 1.5px solid var(--landing-hairline-strong);
+  border-radius: var(--radius-circle);
+  background: var(--color-bg);
+}
+
+.phase[data-status='shipping']::after {
+  border-color: var(--color-secondary);
+  background: var(--color-secondary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-secondary) 18%, transparent);
+}
+
+.phase[data-status='next']::after {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.phaseHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.phaseNumber {
+  color: var(--color-text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.status {
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--landing-hairline-strong);
+  border-radius: var(--radius-pill);
+  color: var(--color-text-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.phase[data-status='shipping'] .status {
+  border-color: color-mix(in srgb, var(--color-secondary) 45%, transparent);
+  background: var(--color-secondary-subtle);
+  color: var(--color-secondary);
+}
+
+.phase[data-status='next'] .status {
+  border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
+  background: var(--color-primary-subtle);
+  color: var(--color-primary);
+}
+
+.phaseTitle {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.target {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  list-style: none;
+}
+
+.item {
+  position: relative;
+  padding-left: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.item::before {
+  content: '';
+  position: absolute;
+  top: 0.6rem;
+  left: 0;
+  width: 0.35rem;
+  height: 1px;
+  background: var(--landing-hairline-strong);
+}
+
+@media (min-width: 640px) {
+  .track {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .track {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-6);
+  }
+
+  /* Horizontal timeline: the thread runs along the top of the row instead of
+   * down the side, and each phase hangs beneath its own node. */
+  .phase {
+    padding-top: var(--space-6);
+    padding-left: 0;
+  }
+
+  .phase::before {
+    top: 0.3rem;
+    right: calc(var(--space-6) * -1);
+    bottom: auto;
+    left: 0.65rem;
+    width: auto;
+    height: 1px;
+  }
+
+  .phase::after {
+    top: 0;
+    left: 0;
+  }
+}

@@ -1,0 +1,237 @@
+/*
+ * The hero illustration.
+ *
+ * The component sets `data-phase` on `.figure` and `--settlement-duration` on
+ * `.stage`; every animation below is keyed off those two, so the timing lives
+ * in one constant in TypeScript rather than being duplicated here.
+ */
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  width: 100%;
+  max-width: 26rem;
+  margin: 0 auto;
+}
+
+.stage {
+  position: relative;
+  aspect-ratio: 1;
+  width: 100%;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* ---------------------------------------------------------------------------
+ * The community
+ * ------------------------------------------------------------------------ */
+
+.orbit,
+.orbitInner {
+  fill: none;
+  stroke: var(--landing-hairline-strong);
+  stroke-width: 1;
+}
+
+/* A dashed inner ring reads as a ledger's ruling rather than decoration. */
+.orbitInner {
+  stroke: var(--landing-hairline);
+  stroke-dasharray: 2 8;
+}
+
+.core {
+  fill: color-mix(in srgb, var(--color-surface-raised) 90%, var(--color-primary));
+  stroke: color-mix(in srgb, var(--color-primary) 55%, transparent);
+  stroke-width: 1.5;
+}
+
+.coreLabel {
+  fill: var(--color-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.member {
+  fill: var(--color-surface-raised);
+  stroke: var(--landing-hairline-strong);
+  stroke-width: 1.5;
+}
+
+.member[data-role='sender'] {
+  fill: var(--color-primary);
+  stroke: var(--color-primary);
+}
+
+/*
+ * The recipient is inert until the payment lands, then lights up and stays lit.
+ * `forwards` matters: this is the state the illustration rests in.
+ */
+.member[data-role='recipient'] {
+  transition:
+    fill 400ms ease,
+    stroke 400ms ease;
+}
+
+.figure[data-phase='settled'] .member[data-role='recipient'] {
+  fill: var(--color-secondary);
+  stroke: var(--color-secondary);
+  filter: drop-shadow(0 0 10px var(--landing-glow-secondary));
+}
+
+/* ---------------------------------------------------------------------------
+ * The payment
+ * ------------------------------------------------------------------------ */
+
+/*
+ * `pathLength="1"` on the element normalises the geometry, so the dash offset
+ * is a plain 1 → 0 progress value and needs no knowledge of the curve's length.
+ */
+.arc {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+
+.figure[data-phase='settling'] .arc {
+  animation: draw var(--settlement-duration) linear forwards;
+}
+
+.figure[data-phase='settled'] .arc {
+  stroke: var(--color-secondary);
+  stroke-dashoffset: 0;
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/*
+ * The value in flight. `offset-path` is set inline from the component, from the
+ * same string as the arc, so the two can never disagree; `offset-rotate: 0deg`
+ * keeps the label upright instead of tumbling along the tangent.
+ */
+.parcel {
+  offset-distance: 0%;
+  offset-rotate: 0deg;
+  opacity: 0;
+}
+
+.parcelBody {
+  fill: var(--color-primary);
+  filter: drop-shadow(0 0 10px var(--landing-glow-primary));
+}
+
+.parcelLabel {
+  fill: var(--color-text-on-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/*
+ * Guarded: without `offset-path` the parcel has no curve to ride and would sit
+ * in the corner of the viewBox for four seconds. The arc drawing already
+ * carries the whole idea, so the fallback is to leave the parcel hidden.
+ */
+@supports (offset-path: path('M 0 0 L 1 1')) {
+  .figure[data-phase='settling'] .parcel {
+    animation: carry var(--settlement-duration) linear forwards;
+  }
+}
+
+@keyframes carry {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+
+  8% {
+    opacity: 1;
+  }
+
+  92% {
+    opacity: 1;
+  }
+
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Readout
+ * ------------------------------------------------------------------------ */
+
+.readout {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--landing-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--landing-panel);
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.metric dt {
+  color: var(--color-text-muted);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metricValue {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--color-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  /* The elapsed counter changes every tenth of a second; tabular figures stop
+   * the row from twitching as the digits change width. */
+  font-variant-numeric: tabular-nums;
+}
+
+.statusDot {
+  width: 0.4rem;
+  height: 0.4rem;
+  flex: 0 0 auto;
+  border-radius: var(--radius-circle);
+  background: var(--color-warning);
+}
+
+.metricValue[data-settled] {
+  color: var(--color-secondary);
+}
+
+.metricValue[data-settled] .statusDot {
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 22%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .member[data-role='recipient'] {
+    transition: none;
+  }
+}
