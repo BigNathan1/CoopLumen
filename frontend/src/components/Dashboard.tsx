@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCommunities } from '@/hooks/useCommunities';
 import { useWallet } from '@/hooks/useWallet';
 import { WalletConnect } from '@/components/wallet/WalletConnect';
@@ -26,11 +27,14 @@ export function Dashboard() {
   return (
     <div className={styles.layout}>
       <header className={styles.header}>
-        <div className={styles.brand}>
-          <span className={styles.logo}>◆</span>
+        {/* The brand doubles as the way back to the landing page at `/`. */}
+        <Link href="/" className={styles.brand}>
+          <span aria-hidden="true" className={styles.logo}>
+            ◆
+          </span>
           <h1 className={styles.title}>CoopLumen</h1>
           <span className={styles.tagline}>Decentralized Community Finance</span>
-        </div>
+        </Link>
 
         <div className={styles.actions}>
           <ThemeToggle />

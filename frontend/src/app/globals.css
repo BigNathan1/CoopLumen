@@ -169,6 +169,36 @@
   --grid-min-column: 280px;
   --grid-columns-base: 1;
 
+  /* ---------------------------------------------------------------------
+   * Landing page
+   *
+   * Presentation choices that belong to the marketing page at `/` rather than
+   * to the product: a wider measure, a taller vertical rhythm, and the two
+   * light sources the page is lit by. They live here with every other token so
+   * a component module never has to declare its own.
+   *
+   * The hairlines lean on `--color-text` rather than `--color-border`, which is
+   * close to invisible against the landing page's tinted bands.
+   * ------------------------------------------------------------------ */
+  --landing-max: 1120px;
+  --landing-gutter: var(--space-5);
+  --landing-section-y: clamp(4rem, 9vw, 7.5rem);
+  --landing-radius: 20px;
+  --landing-hairline: color-mix(in srgb, var(--color-text) 12%, transparent);
+  --landing-hairline-strong: color-mix(in srgb, var(--color-text) 22%, transparent);
+  --landing-glow-primary: color-mix(in srgb, var(--color-primary) 28%, transparent);
+  --landing-glow-secondary: color-mix(in srgb, var(--color-secondary) 22%, transparent);
+  --landing-panel: color-mix(in srgb, var(--color-surface-raised) 72%, transparent);
+
+  /*
+   * How long the hero's settlement demonstration runs. `SettlementRing` sets
+   * this inline from its own `SETTLEMENT_SECONDS`, which is the real value —
+   * this declaration only gives the animations something to resolve against if
+   * it ever does not. Zero degrades to the finished state instantly, which is
+   * also what reduced-motion visitors are shown.
+   */
+  --settlement-duration: 0s;
+
   --skeleton-shimmer-duration: 1.4s;
   --theme-transition-duration: 160ms;
   --z-index-overlay: 100;
@@ -346,6 +376,7 @@ button {
   :root {
     --container-max: var(--container-max-md);
     --container-gutter: var(--space-6);
+    --landing-gutter: var(--space-8);
   }
 
   .grid {

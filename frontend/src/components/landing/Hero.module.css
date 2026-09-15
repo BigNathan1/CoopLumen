@@ -1,0 +1,237 @@
+.hero {
+  position: relative;
+  /* Pulls the section up under the transparent sticky nav so the glow starts at
+   * the very top of the viewport. */
+  margin-top: calc(var(--space-16) * -1);
+  padding-block: calc(var(--space-16) + var(--landing-section-y)) var(--landing-section-y);
+  isolation: isolate;
+  overflow: clip;
+}
+
+/*
+ * The product is named for a unit of light, so the hero is lit rather than
+ * coloured: two soft sources, violet and teal, bleeding off the top of the page.
+ */
+.glow {
+  position: absolute;
+  z-index: -2;
+  inset: -30% -10% auto;
+  height: 90vh;
+  background:
+    radial-gradient(48% 55% at 68% 30%, var(--landing-glow-primary), transparent 70%),
+    radial-gradient(38% 45% at 22% 12%, var(--landing-glow-secondary), transparent 70%);
+  filter: blur(10px);
+  pointer-events: none;
+}
+
+/*
+ * A ledger rule under the glow — the faintest nod to the thing being replaced.
+ * Masked towards the edges so it dissolves into the next section rather than
+ * stopping at a visible line.
+ */
+.rule {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, var(--landing-hairline) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--landing-hairline) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(70% 60% at 50% 20%, black, transparent 75%);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.inner {
+  display: grid;
+  gap: var(--space-12);
+  align-items: center;
+  width: 100%;
+  max-width: var(--landing-max);
+  margin-inline: auto;
+  padding-inline: var(--landing-gutter);
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-6);
+  max-width: 36rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.35rem 0.85rem;
+  border: 1px solid var(--landing-hairline-strong);
+  border-radius: var(--radius-pill);
+  background: var(--landing-panel);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badgeDot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: var(--radius-circle);
+  background: var(--color-secondary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-secondary) 20%, transparent);
+}
+
+.title {
+  font-size: clamp(2.35rem, 6vw, 4rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.04;
+  text-wrap: balance;
+}
+
+/*
+ * The one gradient on the page, on the one phrase carrying the argument. The
+ * `-webkit-` prefixes are not optional: without them the fallback is an
+ * invisible headline rather than a plain one.
+ */
+.titleAccent {
+  background: linear-gradient(
+    100deg,
+    var(--color-primary) 0%,
+    var(--color-secondary) 55%,
+    var(--color-primary) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.lede {
+  color: var(--color-text-muted);
+  font-size: clamp(1rem, 1.9vw, 1.2rem);
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.primaryAction,
+.secondaryAction {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.8rem 1.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    transform 150ms ease;
+}
+
+.primaryAction {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  box-shadow: 0 10px 30px -12px var(--landing-glow-primary);
+}
+
+.primaryAction:hover {
+  background: var(--color-primary-hover);
+  text-decoration: none;
+}
+
+.secondaryAction {
+  border-color: var(--landing-hairline-strong);
+  background: var(--landing-panel);
+  color: var(--color-text);
+}
+
+.secondaryAction:hover {
+  border-color: var(--color-primary);
+  text-decoration: none;
+}
+
+.primaryAction:active,
+.secondaryAction:active {
+  transform: translateY(1px);
+}
+
+.arrow {
+  transition: transform 150ms ease;
+}
+
+.primaryAction:hover .arrow {
+  transform: translateX(3px);
+}
+
+/* ---------------------------------------------------------------------------
+ * Proof points
+ * ------------------------------------------------------------------------ */
+
+.proof {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5) var(--space-6);
+  width: 100%;
+  margin-top: var(--space-2);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--landing-hairline);
+}
+
+.proofItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.proofValue {
+  color: var(--color-text);
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.proofLabel {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.visual {
+  display: flex;
+  justify-content: center;
+}
+
+@media (min-width: 640px) {
+  .proof {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .inner {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: var(--space-16);
+  }
+
+  .proof {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primaryAction,
+  .secondaryAction,
+  .arrow {
+    transition: none;
+  }
+}

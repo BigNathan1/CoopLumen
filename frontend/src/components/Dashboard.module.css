@@ -147,3 +147,12 @@
   flex-direction: column;
   gap: 12px;
 }
+
+/* The brand is a link back to the landing page; it should not read as one. */
+.brand:hover {
+  text-decoration: none;
+}
+
+.brand:hover .title {
+  color: var(--color-primary);
+}
