@@ -34,6 +34,8 @@ tags:
     description: Stellar network fee estimation
   - name: Webhooks
     description: Inbound webhook endpoints for Stellar account/transaction event notifications
+  - name: BatchPayments
+    description: Batch payment disbursement, preview, and CSV parsing endpoints
 
 paths:
   /api/v1/communities:
@@ -646,6 +648,121 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/batch/disburse:
+    post:
+      tags: [BatchPayments]
+      summary: Execute atomic batch payment to multiple recipients
+      description: Submits a single transaction carrying up to 100 payment operations.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [senderSecret, payments]
+              properties:
+                senderSecret: { type: string }
+                payments:
+                  type: array
+                  items:
+                    type: object
+                    required: [destinationPublicKey, amount, assetCode]
+                    properties:
+                      destinationPublicKey: { $ref: '#/components/schemas/StellarKey' }
+                      amount: { type: string }
+                      assetCode: { type: string }
+                      assetIssuer: { $ref: '#/components/schemas/StellarKey' }
+                memo: { type: string, maxLength: 28 }
+      responses:
+        '200':
+          description: Batch transaction submitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      hash: { type: string }
+                      paymentsCount: { type: integer }
+                      totalAmount: { type: string }
+                      memo: { type: string, nullable: true }
+        '400': { $ref: '#/components/responses/ValidationError' }
+
+  /api/v1/batch/preview:
+    post:
+      tags: [BatchPayments]
+      summary: Preview batch payment fees, totals, and unsigned XDR
+      description: Calculates estimated fees, sums per asset, and builds unsigned XDR before signing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [senderPublicKey, payments]
+              properties:
+                senderPublicKey: { $ref: '#/components/schemas/StellarKey' }
+                payments:
+                  type: array
+                  items:
+                    type: object
+                    required: [destinationPublicKey, amount, assetCode]
+                    properties:
+                      destinationPublicKey: { $ref: '#/components/schemas/StellarKey' }
+                      amount: { type: string }
+                      assetCode: { type: string }
+                      assetIssuer: { $ref: '#/components/schemas/StellarKey' }
+                memo: { type: string, maxLength: 28 }
+      responses:
+        '200':
+          description: Batch preview calculated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      recipientCount: { type: integer }
+                      totalAmounts: { type: object }
+                      estimatedFeeStroops: { type: integer }
+                      xdr: { type: string }
+        '400': { $ref: '#/components/responses/ValidationError' }
+
+  /api/v1/batch/parse-csv:
+    post:
+      tags: [BatchPayments]
+      summary: Parse CSV content for batch payment disbursement
+      description: Parses address,amount CSV lines and validates recipient addresses and amounts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [csv]
+              properties:
+                csv: { type: string }
+                defaultAssetCode: { type: string, default: XLM }
+                defaultAssetIssuer: { $ref: '#/components/schemas/StellarKey' }
+      responses:
+        '200':
+          description: CSV parsed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      entries: { type: array }
+                      validCount: { type: integer }
+        '400': { $ref: '#/components/responses/ValidationError' }
 
   /api/v1/tokens/{assetCode}/{issuer}:
     get:
