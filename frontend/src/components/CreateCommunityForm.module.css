@@ -1,0 +1,23 @@
+.wrapper {
+  width: 100%;
+}
+
+.form {
+  gap: var(--space-5);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.success {
+  background: var(--color-success-subtle);
+  border: 1px solid color-mix(in srgb, var(--color-success) 40%, transparent);
+  border-radius: var(--radius-md);
+  color: var(--color-success);
+  font-size: 0.875rem;
+  padding: var(--space-3) var(--space-4);
+}
