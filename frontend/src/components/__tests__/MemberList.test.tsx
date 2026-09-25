@@ -60,6 +60,13 @@ describe('MemberList', () => {
     raw.mockRestore();
   });
 
+  it('clamps an invalid controlled page to the available range', () => {
+    render(<MemberList members={members} pageSize={2} page={99} />);
+
+    expect(screen.getByText(members[4].stellar_address)).toBeInTheDocument();
+    expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
+  });
+
   it('shows an empty state when there are no members', () => {
     render(<MemberList members={[]} />);
     expect(screen.getByText('No members found')).toBeInTheDocument();

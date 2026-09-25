@@ -36,6 +36,40 @@ describe('CreateCommunityForm', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Community created successfully.');
   });
 
+  it('keeps a connected wallet issuer locked to the authenticated address', async () => {
+    const user = userEvent.setup();
+    const onSubmit = jest.fn().mockResolvedValue({ id: 'community-wallet' });
+
+    render(
+      <CreateCommunityForm
+        walletAddress={VALID_KEY}
+        defaultValues={{ issuerPublicKey: SECOND_KEY }}
+        onSubmit={onSubmit}
+      />
+    );
+
+    const issuer = screen.getByLabelText(/issuer public key/i);
+    expect(issuer).toHaveValue(VALID_KEY);
+    expect(issuer).toHaveAttribute('readonly');
+    await user.type(screen.getByLabelText(/community name/i), 'EcoDAO');
+    await user.type(screen.getByLabelText(/asset code/i), 'ECO');
+    await user.type(screen.getByLabelText(/asset issuer/i), SECOND_KEY);
+    await user.click(screen.getByRole('button', { name: 'Create community' }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0].issuerPublicKey).toBe(VALID_KEY);
+  });
+
+  it('clears the issuer field when the connected wallet is removed', () => {
+    const { rerender } = render(
+      <CreateCommunityForm walletAddress={VALID_KEY} onSubmit={jest.fn()} />
+    );
+    expect(screen.getByLabelText(/issuer public key/i)).toHaveValue(VALID_KEY);
+
+    rerender(<CreateCommunityForm walletAddress={null} onSubmit={jest.fn()} />);
+    expect(screen.getByLabelText(/issuer public key/i)).toHaveValue('');
+  });
+
   it('rejects a malformed Stellar public key before calling the submit handler', async () => {
     const user = userEvent.setup();
     const onSubmit = jest.fn();

@@ -101,16 +101,22 @@ function normalizeMember(value: unknown): CommunityMember {
   };
 }
 
-/** Formats a backend timestamp for display while retaining an ISO `datetime`. */
-export function formatMemberJoinDate(value: string): string {
-  if (!value) return 'Unknown';
+function normalizedMemberDate(value: string): Date | undefined {
+  if (!value) return undefined;
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Unknown';
-  return date.toLocaleDateString(undefined, {
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+/** Formats a backend timestamp deterministically in UTC for the member table. */
+export function formatMemberJoinDate(value: string): string {
+  const date = normalizedMemberDate(value);
+  if (!date) return 'Unknown';
+  return new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-  });
+    timeZone: 'UTC',
+  }).format(date);
 }
 
 function memberRoleLabel(role: string): string {
@@ -159,14 +165,17 @@ export function MemberList({
   const [loading, setLoading] = useState(!hasLocalData && Boolean(communityId));
   const [error, setError] = useState<unknown>(null);
   const [retry, setRetry] = useState(0);
-  const previousRole = useRef(role);
+  const previousQuery = useRef({ communityId, pageSize: resolvedPageSize, role, hasLocalData });
+  const queryChanged =
+    previousQuery.current.communityId !== communityId ||
+    previousQuery.current.pageSize !== resolvedPageSize ||
+    previousQuery.current.role !== role ||
+    previousQuery.current.hasLocalData !== hasLocalData;
 
-  const activePage = page ?? currentPage ?? uncontrolledPage;
   const localMembers = useMemo(
     () => (suppliedMembers ? [...suppliedMembers].map(normalizeMember) : []),
     [suppliedMembers]
   );
-  const sourceMembers = hasLocalData ? localMembers : remoteMembers;
   const knownTotal = total ?? (hasLocalData ? localMembers.length : (remoteMeta?.total ?? 0));
   const calculatedTotalPages = Math.ceil(knownTotal / resolvedPageSize);
   const totalPages = Math.max(
@@ -174,13 +183,20 @@ export function MemberList({
     providedTotalPages ??
       (hasLocalData ? calculatedTotalPages : (remoteMeta?.pages ?? calculatedTotalPages))
   );
+  const requestedPage = page ?? currentPage ?? uncontrolledPage;
+  const normalizedRequestedPage =
+    Number.isFinite(requestedPage) && requestedPage > 0 ? Math.floor(requestedPage) : 1;
+  const activePage = Math.min(
+    queryChanged && page === undefined && currentPage === undefined ? 1 : normalizedRequestedPage,
+    totalPages
+  );
 
   useEffect(() => {
-    if (previousRole.current !== role && page === undefined && currentPage === undefined) {
+    if (queryChanged && page === undefined && currentPage === undefined) {
       setUncontrolledPage(1);
     }
-    previousRole.current = role;
-  }, [currentPage, page, role]);
+    previousQuery.current = { communityId, pageSize: resolvedPageSize, role, hasLocalData };
+  }, [communityId, currentPage, hasLocalData, page, queryChanged, resolvedPageSize, role]);
 
   useEffect(() => {
     if (page === undefined && currentPage === undefined && uncontrolledPage > totalPages) {
@@ -191,6 +207,8 @@ export function MemberList({
   useEffect(() => {
     if (hasLocalData || !communityId) {
       setLoading(false);
+      setError(null);
+      setRemoteMeta(undefined);
       return;
     }
 
@@ -270,12 +288,7 @@ export function MemberList({
         key: 'role',
         label: 'Role',
         render: (_value, member) => (
-          <Badge
-            variant={memberRoleVariant(member.role)}
-            size="sm"
-            data-role={member.role}
-            srLabel={`Role: ${memberRoleLabel(member.role)}`}
-          >
+          <Badge variant={memberRoleVariant(member.role)} size="sm" data-role={member.role}>
             {memberRoleLabel(member.role)}
           </Badge>
         ),
@@ -283,11 +296,10 @@ export function MemberList({
       {
         key: 'joined_at',
         label: 'Join date',
-        render: (_value, member) => (
-          <time dateTime={member.joined_at || undefined}>
-            {formatMemberJoinDate(member.joined_at)}
-          </time>
-        ),
+        render: (_value, member) => {
+          const dateTime = normalizedMemberDate(member.joined_at)?.toISOString();
+          return <time dateTime={dateTime}>{formatMemberJoinDate(member.joined_at)}</time>;
+        },
       },
     ],
     []

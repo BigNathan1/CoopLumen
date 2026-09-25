@@ -56,6 +56,8 @@ export interface EditCommunityFormProps {
   className?: string;
 }
 
+const EDIT_FORM_FIELDS: readonly (keyof EditCommunityFormValues)[] = ['name', 'description'];
+
 function valuesFromCommunity(community?: EditableCommunity): EditCommunityFormValues {
   return {
     name: community?.name ?? '',
@@ -65,6 +67,22 @@ function valuesFromCommunity(community?: EditableCommunity): EditCommunityFormVa
 
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function valuesFromResult(
+  result: unknown,
+  fallback: EditCommunityFormValues
+): EditCommunityFormValues {
+  if (typeof result !== 'object' || result === null) return fallback;
+  const response = result as Record<string, unknown>;
+  const name = typeof response.name === 'string' ? response.name : fallback.name;
+  const description =
+    typeof response.description === 'string'
+      ? response.description
+      : response.description === null
+        ? ''
+        : fallback.description;
+  return { name, description };
 }
 
 /**
@@ -123,30 +141,43 @@ export function EditCommunityForm({
       description: values.description.trim() || null,
     });
     if (!parsed.success) {
-      const firstField = setSchemaFieldErrors(form.setError, parsed.errors);
+      const firstField = setSchemaFieldErrors(form.setError, parsed.errors, EDIT_FORM_FIELDS);
       if (firstField) form.setFocus(firstField as Path<EditCommunityFormValues>);
       return;
     }
 
     try {
       const submit = onSubmit ?? onSave;
+      const targetId = communityId ?? record?.id;
+      if (!submit && !targetId) {
+        throw new Error('A community ID is required before saving changes.');
+      }
+
       const result = submit
         ? await submit(parsed.data)
         : await api.put<unknown>(
-            `/api/v1/communities/${encodeURIComponent(record?.id ?? communityId ?? '')}`,
+            `/api/v1/communities/${encodeURIComponent(targetId ?? '')}`,
             parsed.data
           );
 
       onSuccess?.(result);
       onUpdated?.(result);
+      form.reset(
+        valuesFromResult(result, {
+          name: parsed.data.name ?? values.name,
+          description: typeof parsed.data.description === 'string' ? parsed.data.description : '',
+        })
+      );
       setSuccessMessage('Community changes saved.');
     } catch (error) {
       if (isApiError(error) && error.details.length > 0) {
         const firstField = setSchemaFieldErrors(
           form.setError,
-          Object.fromEntries(error.details.map(({ path, message }) => [path, message]))
+          Object.fromEntries(error.details.map(({ path, message }) => [path, message])),
+          EDIT_FORM_FIELDS
         );
         if (firstField) form.setFocus(firstField as Path<EditCommunityFormValues>);
+        return;
       }
       throw new Error(errorMessage(error, 'Unable to save community changes. Please try again.'));
     }

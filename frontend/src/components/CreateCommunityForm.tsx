@@ -58,6 +58,14 @@ const EMPTY_VALUES: CreateCommunityFormValues = {
   assetIssuer: '',
 };
 
+const CREATE_FORM_FIELDS: readonly (keyof CreateCommunityFormValues)[] = [
+  'name',
+  'description',
+  'issuerPublicKey',
+  'assetCode',
+  'assetIssuer',
+];
+
 function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
 }
@@ -81,7 +89,9 @@ export function CreateCommunityForm({
   className,
 }: CreateCommunityFormProps): React.JSX.Element {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const walletIssuer = walletAddress ?? issuerPublicKey;
+  const hasIssuerOverride = walletAddress !== undefined || issuerPublicKey !== undefined;
+  const walletIssuer = hasIssuerOverride ? (walletAddress ?? issuerPublicKey ?? '') : undefined;
+  const issuerLocked = Boolean(walletIssuer);
   const form = useForm<CreateCommunityFormValues>({
     defaultValues: {
       ...EMPTY_VALUES,
@@ -92,10 +102,13 @@ export function CreateCommunityForm({
   });
 
   useEffect(() => {
-    if (walletIssuer) {
-      form.setValue('issuerPublicKey', walletIssuer);
-    }
-  }, [form, walletIssuer]);
+    if (!hasIssuerOverride) return;
+    form.setValue('issuerPublicKey', walletIssuer ?? '', {
+      shouldDirty: true,
+      shouldValidate: Boolean(walletIssuer),
+    });
+    form.clearErrors('issuerPublicKey');
+  }, [form, hasIssuerOverride, walletIssuer]);
 
   const handleSubmit = async (values: CreateCommunityFormValues): Promise<void> => {
     setSuccessMessage(null);
@@ -103,7 +116,17 @@ export function CreateCommunityForm({
 
     const parsed = parseWithFieldErrors(createCommunitySchema, values);
     if (!parsed.success) {
-      const firstField = setSchemaFieldErrors(form.setError, parsed.errors);
+      const firstField = setSchemaFieldErrors(form.setError, parsed.errors, CREATE_FORM_FIELDS);
+      if (firstField) form.setFocus(firstField as Path<CreateCommunityFormValues>);
+      return;
+    }
+
+    if (walletAddress && parsed.data.issuerPublicKey !== walletAddress) {
+      const firstField = setSchemaFieldErrors(
+        form.setError,
+        { issuerPublicKey: 'Issuer public key must match the connected wallet' },
+        CREATE_FORM_FIELDS
+      );
       if (firstField) form.setFocus(firstField as Path<CreateCommunityFormValues>);
       return;
     }
@@ -125,9 +148,11 @@ export function CreateCommunityForm({
       if (isApiError(error) && error.details.length > 0) {
         const firstField = setSchemaFieldErrors(
           form.setError,
-          Object.fromEntries(error.details.map(({ path, message }) => [path, message]))
+          Object.fromEntries(error.details.map(({ path, message }) => [path, message])),
+          CREATE_FORM_FIELDS
         );
         if (firstField) form.setFocus(firstField as Path<CreateCommunityFormValues>);
+        return;
       }
       throw new Error(errorMessage(error, 'Unable to create community. Please try again.'));
     }
@@ -176,7 +201,7 @@ export function CreateCommunityForm({
         <FormField<CreateCommunityFormValues>
           name="issuerPublicKey"
           label="Issuer public key"
-          description="The Stellar account that will issue the community asset."
+          description="The 56-character Stellar account key (G…); the backend verifies its checksum."
           required
         >
           {(field) => (
@@ -187,6 +212,8 @@ export function CreateCommunityForm({
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
+              readOnly={issuerLocked}
+              aria-readonly={issuerLocked || undefined}
               placeholder="G…"
             />
           )}
@@ -213,7 +240,7 @@ export function CreateCommunityForm({
         <FormField<CreateCommunityFormValues>
           name="assetIssuer"
           label="Asset issuer"
-          description="The Stellar account recorded as the asset issuer."
+          description="The 56-character Stellar account key (G…); the backend verifies its checksum."
           required
         >
           {(field) => (

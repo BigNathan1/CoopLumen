@@ -100,7 +100,7 @@ export function EditCommunityPageClient({
         </div>
 
         {loading && (
-          <div className={styles.loading} role="status" aria-label="Loading community">
+          <div className={styles.loading}>
             <LoadingSkeleton variant="text" count={5} label="Loading community" />
           </div>
         )}

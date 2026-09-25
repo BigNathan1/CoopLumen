@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { api } from '@/lib/api';
 import { EditCommunityForm } from '../EditCommunityForm';
 
 const community = {
@@ -63,6 +64,18 @@ describe('EditCommunityForm', () => {
 
     expect(await screen.findByText('Name must be at least 2 characters')).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('does not issue a collection PUT when the default target id is missing', async () => {
+    const user = userEvent.setup();
+    const put = jest.spyOn(api, 'put');
+
+    render(<EditCommunityForm community={{ name: 'EcoDAO', description: null }} />);
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('A community ID is required');
+    expect(put).not.toHaveBeenCalled();
+    put.mockRestore();
   });
 
   it('renders an actionable unavailable state when no community is supplied', () => {

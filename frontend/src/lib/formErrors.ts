@@ -7,12 +7,13 @@ import type { FieldValues, Path, UseFormSetError } from 'react-hook-form';
  */
 export function setSchemaFieldErrors<TValues extends FieldValues>(
   setError: UseFormSetError<TValues>,
-  errors: Record<string, string>
+  errors: Record<string, string>,
+  knownFields?: readonly string[]
 ): string | undefined {
   let firstField: string | undefined;
 
   for (const [path, message] of Object.entries(errors)) {
-    if (!path || path === 'requestBody') {
+    if (!path || path === 'requestBody' || (knownFields && !knownFields.includes(path))) {
       setError('root' as Path<TValues>, { type: 'validation', message });
       continue;
     }
