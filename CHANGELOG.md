@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Community profile forms and member directory: `CreateCommunityForm` validates community and Stellar issuer fields with the shared Zod schemas, `EditCommunityForm` pre-populates mutable profile fields, the `/communities/[id]/edit` route loads and saves a community, and `MemberList` renders address, role, and join date with API/local pagination (#302, #308, #309, #310).
 - Community discovery page at `/communities` (`frontend/src/app/communities/page.tsx`) listing cooperatives on the network (#299, #221).
 - `CommunityList` component (`frontend/src/components/CommunityList.tsx`) with client-side search filtering over name and description, pagination, and an empty state (#298, #220).
 - `CommunityCard` now shows member and token counts alongside a join button, with an accessible overlay link to the community detail page (#296, #297, #218, #219).
