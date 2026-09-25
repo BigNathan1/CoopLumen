@@ -8,6 +8,8 @@ dist/
 .next/
 out/
 build/
+target/
+**/test_snapshots/
 *.tsbuildinfo
 
 # Next.js generated files
