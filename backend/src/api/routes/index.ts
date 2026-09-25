@@ -11,6 +11,7 @@ import { webhookRouter } from './webhooks';
 import { pricesRouter } from './prices';
 import { trustlineRouter } from './trustlines';
 import { accountsRouter } from './accounts';
+import { multisigRouter } from './multisig';
 import { batchRouter } from './batch';
 
 /**
@@ -32,4 +33,5 @@ apiRouter.use('/webhooks', webhookRouter);
 apiRouter.use('/prices', pricesRouter);
 apiRouter.use('/trustlines', trustlineRouter);
 apiRouter.use('/accounts', accountsRouter);
+apiRouter.use('/multisig', multisigRouter);
 apiRouter.use('/batch', batchRouter);
