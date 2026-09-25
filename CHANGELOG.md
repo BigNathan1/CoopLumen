@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Soroban Governance smart contract (`contracts/governance`) with `Proposal`, `Vote`, and `Config` data types, `create_proposal`, and token-weighted `cast_vote` tallying (#500, #501, #502, #503).
+
 - Community discovery page at `/communities` (`frontend/src/app/communities/page.tsx`) listing cooperatives on the network (#299, #221).
 - `CommunityList` component (`frontend/src/components/CommunityList.tsx`) with client-side search filtering over name and description, pagination, and an empty state (#298, #220).
 - `CommunityCard` now shows member and token counts alongside a join button, with an accessible overlay link to the community detail page (#296, #297, #218, #219).
