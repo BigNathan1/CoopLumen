@@ -30,7 +30,8 @@
   color: var(--color-text-primary, #111827);
 }
 
-.input, .textarea {
+.input,
+.textarea {
   padding: var(--spacing-3, 0.75rem);
   border: 1px solid var(--color-border-subtle, #d1d5db);
   border-radius: var(--radius-md, 0.375rem);
@@ -39,7 +40,8 @@
   background-color: var(--color-bg-surface, #ffffff);
 }
 
-.input:focus, .textarea:focus {
+.input:focus,
+.textarea:focus {
   outline: 2px solid var(--color-brand-primary, #2563eb);
   outline-offset: 1px;
 }
