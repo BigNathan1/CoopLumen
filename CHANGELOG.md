@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Treasury overview page at `/communities/[id]/treasury` (`frontend/src/app/communities/[id]/treasury/page.tsx`) showing a community's treasury account (with copy and Stellar Expert actions) and its live on-chain balances, native XLM first. New `useTreasury` hook reads `GET /api/v1/communities/:id/treasury` and refreshes every 30 seconds. Includes loading, empty and error states and uses `globals.css` design tokens for light and dark mode (#228, #306).
+
 - Soroban Governance smart contract (`contracts/governance`) with `Proposal`, `Vote`, and `Config` data types, `create_proposal`, and token-weighted `cast_vote` tallying (#500, #501, #502, #503).
 
 - Community discovery page at `/communities` (`frontend/src/app/communities/page.tsx`) listing cooperatives on the network (#299, #221).
