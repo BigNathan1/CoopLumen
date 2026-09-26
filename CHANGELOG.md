@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Transaction history page at `/communities/[id]/transactions` (`frontend/src/app/communities/[id]/transactions/page.tsx`) showing a community's audit-log entries in the `TransactionHistory` table, with URL-synced pagination (`?page=2`), the community name, and loading, empty, error and out-of-range states. New `useCommunityTransactions` hook fetches `GET /api/v1/transactions/history/:communityId` and maps each row to the table's view model: a row with a Stellar hash is `confirmed`, one without is `recorded` (#227, #305).
+
 - `TransactionHistory` component (`frontend/src/components/TransactionHistory.tsx`) — a table of a community's transactions with hash, type, amount, date and status columns. Hashes link to Stellar Expert and can be copied; status is always spelled out in text alongside its `Badge`. Includes loading skeleton, empty and error states, and styles from the `globals.css` design tokens (#236, #314).
 
 - Soroban Governance smart contract (`contracts/governance`) with `Proposal`, `Vote`, and `Config` data types, `create_proposal`, and token-weighted `cast_vote` tallying (#500, #501, #502, #503).
