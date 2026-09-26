@@ -35,6 +35,7 @@
   font: inherit;
   font-size: 0.75rem;
   padding: 2px var(--space-2);
+  white-space: nowrap;
 }
 
 .copyButton:hover {
