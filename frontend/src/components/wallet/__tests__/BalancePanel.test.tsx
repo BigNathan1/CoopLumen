@@ -1,14 +1,56 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { BalancePanel } from '../BalancePanel';
 import { useBalances } from '@/hooks/useBalances';
+import * as xlmPriceHook from '@/hooks/useXlmPrice';
 
 jest.mock('@/hooks/useBalances');
+jest.mock('@/hooks/useXlmPrice', () => ({
+  ...jest.requireActual('@/hooks/useXlmPrice'),
+  useXlmPrice: jest.fn(),
+}));
 
 const mockUseBalances = useBalances as jest.MockedFunction<typeof useBalances>;
+const mockUseXlmPrice = xlmPriceHook.useXlmPrice as jest.MockedFunction<
+  typeof xlmPriceHook.useXlmPrice
+>;
+
+/** Default: price not yet available (loading / failed). */
+function mockPriceUnavailable() {
+  mockUseXlmPrice.mockReturnValue({
+    data: undefined,
+    error: undefined,
+    isLoading: true,
+    isValidating: false,
+    mutate: jest.fn(),
+  } as unknown as ReturnType<typeof xlmPriceHook.useXlmPrice>);
+}
+
+/** Default: price loaded at $0.14/XLM. */
+function mockPriceAt(price: string) {
+  mockUseXlmPrice.mockReturnValue({
+    data: {
+      asset: 'XLM',
+      currency: 'USD',
+      pair: 'XLM/USD',
+      price,
+      source: 'coingecko',
+      timestamp: new Date().toISOString(),
+    },
+    error: undefined,
+    isLoading: false,
+    isValidating: false,
+    mutate: jest.fn(),
+  } as unknown as ReturnType<typeof xlmPriceHook.useXlmPrice>);
+}
 
 const PUBLIC_KEY = 'G' + 'A'.repeat(55);
 
 describe('BalancePanel', () => {
+  beforeEach(() => {
+    // Most tests don't care about price; default to unavailable.
+    mockPriceUnavailable();
+  });
+
   afterEach(() => {
     jest.resetAllMocks();
   });
@@ -180,5 +222,86 @@ describe('BalancePanel', () => {
     render(<BalancePanel publicKey={PUBLIC_KEY} />);
     expect(screen.getByText('No balances found')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Refresh balances' })).toBeInTheDocument();
+  });
+
+  describe('USD equivalent', () => {
+    it('shows a USD equivalent next to the XLM balance when price is available', () => {
+      mockPriceAt('0.1400000');
+      mockUseBalances.mockReturnValue({
+        data: [{ asset_type: 'native', balance: '100.0000000' }],
+        error: undefined,
+        isLoading: false,
+        isValidating: false,
+        mutate: jest.fn(),
+      } as unknown as ReturnType<typeof useBalances>);
+
+      render(<BalancePanel publicKey={PUBLIC_KEY} />);
+
+      // 100 XLM × $0.14 = $14.00
+      const usdEl = screen.getByLabelText(/USD equivalent/i);
+      expect(usdEl).toBeInTheDocument();
+      expect(usdEl.textContent).toMatch(/\$14/);
+    });
+
+    it('does not show a USD equivalent when the price is not yet loaded', () => {
+      mockPriceUnavailable();
+      mockUseBalances.mockReturnValue({
+        data: [{ asset_type: 'native', balance: '100.0000000' }],
+        error: undefined,
+        isLoading: false,
+        isValidating: false,
+        mutate: jest.fn(),
+      } as unknown as ReturnType<typeof useBalances>);
+
+      render(<BalancePanel publicKey={PUBLIC_KEY} />);
+
+      expect(screen.queryByLabelText(/USD equivalent/i)).not.toBeInTheDocument();
+    });
+
+    it('does not show a USD equivalent for non-XLM assets', () => {
+      mockPriceAt('0.1400000');
+      mockUseBalances.mockReturnValue({
+        data: [
+          {
+            asset_type: 'credit_alphanum4',
+            asset_code: 'ECO',
+            asset_issuer: 'GISSUER',
+            balance: '50.0000000',
+          },
+        ],
+        error: undefined,
+        isLoading: false,
+        isValidating: false,
+        mutate: jest.fn(),
+      } as unknown as ReturnType<typeof useBalances>);
+
+      render(<BalancePanel publicKey={PUBLIC_KEY} />);
+
+      expect(screen.getByText('ECO')).toBeInTheDocument();
+      expect(screen.queryByLabelText(/USD equivalent/i)).not.toBeInTheDocument();
+    });
+
+    it('still renders balances correctly when price fetch fails', () => {
+      mockUseXlmPrice.mockReturnValue({
+        data: undefined,
+        error: new Error('price fetch failed'),
+        isLoading: false,
+        isValidating: false,
+        mutate: jest.fn(),
+      } as unknown as ReturnType<typeof xlmPriceHook.useXlmPrice>);
+
+      mockUseBalances.mockReturnValue({
+        data: [{ asset_type: 'native', balance: '100.0000000' }],
+        error: undefined,
+        isLoading: false,
+        isValidating: false,
+        mutate: jest.fn(),
+      } as unknown as ReturnType<typeof useBalances>);
+
+      render(<BalancePanel publicKey={PUBLIC_KEY} />);
+
+      expect(screen.getByText('XLM')).toBeInTheDocument();
+      expect(screen.queryByLabelText(/USD equivalent/i)).not.toBeInTheDocument();
+    });
   });
 });
