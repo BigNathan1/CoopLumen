@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `TransactionHistory` component (`frontend/src/components/TransactionHistory.tsx`) — a table of a community's transactions with hash, type, amount, date and status columns. Hashes link to Stellar Expert and can be copied; status is always spelled out in text alongside its `Badge`. Includes loading skeleton, empty and error states, and styles from the `globals.css` design tokens (#236, #314).
+
 - Soroban Governance smart contract (`contracts/governance`) with `Proposal`, `Vote`, and `Config` data types, `create_proposal`, and token-weighted `cast_vote` tallying (#500, #501, #502, #503).
 
 - Community discovery page at `/communities` (`frontend/src/app/communities/page.tsx`) listing cooperatives on the network (#299, #221).
