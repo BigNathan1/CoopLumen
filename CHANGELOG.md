@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `AddMemberForm` (`frontend/src/components/AddMemberForm.tsx`), a form that adds a community member by Stellar address and role. It validates with the shared `addMemberSchema`, warns when the address already belongs to the community, and confirms or reports the outcome through `Alert` (#311).
+- `TokenIssuanceForm` (`frontend/src/components/TokenIssuanceForm.tsx`), a form that issues a community token from an asset code, amount and optional description, validating against the shared asset/amount schemas and showing the connected issuing account for confirmation (#312).
+- `TransferTokenForm` (`frontend/src/components/TransferTokenForm.tsx`), a form that sends tokens by selecting a recipient, asset and amount: it builds the unsigned payment, has Freighter sign the envelope, submits the signed transaction and links the returned hash to Stellar Expert. Each stage of the sequence is announced through a polite live region (#313).
+- Profile page at `/profile` (`frontend/src/app/profile/page.tsx`) backed by `ProfileOverview` (`frontend/src/components/ProfileOverview.tsx`), showing the connected member's wallet address and network, its asset balances, and the communities it belongs to with each role. A new `useMemberships` hook (`frontend/src/hooks/useMemberships.ts`) resolves those memberships per community. Loading, error-with-retry and empty states are announced to assistive technology (#307).
+
 - Soroban Governance smart contract (`contracts/governance`) with `Proposal`, `Vote`, and `Config` data types, `create_proposal`, and token-weighted `cast_vote` tallying (#500, #501, #502, #503).
 
 - Community discovery page at `/communities` (`frontend/src/app/communities/page.tsx`) listing cooperatives on the network (#299, #221).
