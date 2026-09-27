@@ -11,6 +11,14 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `Footer` component (`frontend/src/components/Footer.tsx`) rendered app-wide from the root layout, with links to the documentation, GitHub repository, and community discussions. Hides itself on the landing page, which already ships its own `LandingFooter` (#320, #242).
+- `useCommunityTokens(communityId)` hook (`frontend/src/hooks/useTokens.ts`) — an SWR-backed hook that lists the tokens issued for a community via `GET /api/v1/tokens/:communityId`, following the same fetch/error conventions as `useCommunities` and `useLoans` (#334, #256).
+- `isCorrectNetwork` boolean on `useWallet()` (`frontend/src/hooks/useWallet.ts`), exposing network validation explicitly alongside the existing `networkMismatch` flag. `isCorrectNetwork` is `true` while disconnected or before Freighter has reported a network, and reflects an exact match against `EXPECTED_NETWORK` once connected (#330, #252).
+
+### Tests
+
+- Extended the `BalancePanel.tsx` unit test suite (`frontend/src/components/wallet/__tests__/BalancePanel.test.tsx`) with coverage for the "Unknown asset" fallback shown for a non-native balance that has no asset code, closing the last untested render branch (#325, #247).
+
 - Soroban Governance smart contract (`contracts/governance`) with `Proposal`, `Vote`, and `Config` data types, `create_proposal`, and token-weighted `cast_vote` tallying (#500, #501, #502, #503).
 
 - Community discovery page at `/communities` (`frontend/src/app/communities/page.tsx`) listing cooperatives on the network (#299, #221).
