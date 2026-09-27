@@ -18,6 +18,7 @@ pub enum GovernanceError {
     AlreadyVoted = 7,
     NoVotingPower = 8,
     Overflow = 9,
+    VotingStillActive = 10,
 }
 
 /// Lifecycle status of an on-chain proposal.
@@ -46,6 +47,10 @@ pub struct Config {
     pub governance_token: Address,
     pub voting_period: u64,
     pub quorum_bps: u32,
+    /// Total supply of the governance token, used as the quorum denominator.
+    /// The standard token interface has no `total_supply` accessor, so this
+    /// is supplied at initialization time and trusted from there.
+    pub total_supply: i128,
 }
 
 /// On-chain proposal record.
@@ -95,11 +100,12 @@ impl GovernanceContract {
         governance_token: Address,
         voting_period: u64,
         quorum_bps: u32,
+        total_supply: i128,
     ) -> Result<(), GovernanceError> {
         if env.storage().instance().has(&DataKey::Config) {
             return Err(GovernanceError::AlreadyInitialized);
         }
-        if voting_period == 0 || quorum_bps > 10_000 {
+        if voting_period == 0 || quorum_bps > 10_000 || total_supply <= 0 {
             return Err(GovernanceError::InvalidInput);
         }
 
@@ -108,6 +114,7 @@ impl GovernanceContract {
             governance_token,
             voting_period,
             quorum_bps,
+            total_supply,
         };
         env.storage().instance().set(&DataKey::Config, &config);
         Ok(())
@@ -242,6 +249,63 @@ impl GovernanceContract {
         Ok(())
     }
 
+    /// Finalize a proposal once its voting period has ended.
+    ///
+    /// Quorum is met when `votes_cast / total_supply >= quorum_bps / 10_000`.
+    /// If quorum is met and `votes_for > votes_against`, the proposal passes;
+    /// otherwise it is rejected. Returns the proposal's final status.
+    pub fn finalize_proposal(
+        env: Env,
+        proposal_id: u64,
+    ) -> Result<ProposalStatus, GovernanceError> {
+        let config: Config = env
+            .storage()
+            .instance()
+            .get(&DataKey::Config)
+            .ok_or(GovernanceError::NotInitialized)?;
+
+        let mut proposal: Proposal = env
+            .storage()
+            .instance()
+            .get(&DataKey::Proposal(proposal_id))
+            .ok_or(GovernanceError::ProposalNotFound)?;
+
+        if proposal.status != ProposalStatus::Active {
+            return Err(GovernanceError::ProposalNotActive);
+        }
+
+        if env.ledger().timestamp() <= proposal.voting_ends_at {
+            return Err(GovernanceError::VotingStillActive);
+        }
+
+        let votes_cast = proposal
+            .votes_for
+            .checked_add(proposal.votes_against)
+            .ok_or(GovernanceError::Overflow)?;
+
+        // votes_cast / total_supply >= quorum_bps / 10_000, rearranged to avoid
+        // fractional division: votes_cast * 10_000 >= total_supply * quorum_bps.
+        let quorum_reached = votes_cast
+            .checked_mul(10_000)
+            .ok_or(GovernanceError::Overflow)?
+            >= config
+                .total_supply
+                .checked_mul(config.quorum_bps as i128)
+                .ok_or(GovernanceError::Overflow)?;
+
+        proposal.status = if quorum_reached && proposal.votes_for > proposal.votes_against {
+            ProposalStatus::Passed
+        } else {
+            ProposalStatus::Rejected
+        };
+
+        env.storage()
+            .instance()
+            .set(&DataKey::Proposal(proposal_id), &proposal);
+
+        Ok(proposal.status)
+    }
+
     /// Get current governance configuration.
     pub fn get_config(env: Env) -> Result<Config, GovernanceError> {
         env.storage()
@@ -293,7 +357,7 @@ mod test {
         let contract_id = env.register(GovernanceContract, ());
         let client = GovernanceContractClient::new(&env, &contract_id);
 
-        client.initialize(&admin, &token, &86400, &5000);
+        client.initialize(&admin, &token, &86400, &5000, &10_000);
 
         (env, admin, token_admin, token, client)
     }
@@ -306,6 +370,7 @@ mod test {
         assert_eq!(config.governance_token, token);
         assert_eq!(config.voting_period, 86400);
         assert_eq!(config.quorum_bps, 5000);
+        assert_eq!(config.total_supply, 10_000);
     }
 
     #[test]
@@ -431,5 +496,116 @@ mod test {
             .unwrap_err()
             .unwrap();
         assert_eq!(err, GovernanceError::VotingPeriodEnded);
+    }
+
+    #[test]
+    fn test_finalize_proposal_passes_when_quorum_and_majority_met() {
+        let (env, _admin, _token_admin, token, client) = setup_test();
+        let proposer = Address::generate(&env);
+        let voter = Address::generate(&env);
+
+        // total_supply is 10_000 and quorum_bps is 5000 (50%), so 6000 votes clears quorum.
+        StellarAssetClient::new(&env, &token).mint(&voter, &6000);
+
+        let title = String::from_str(&env, "Proposal 1");
+        let desc = String::from_str(&env, "Desc 1");
+        let actions = vec![&env];
+
+        let id = client.create_proposal(&proposer, &title, &desc, &actions);
+        client.cast_vote(&id, &VoteChoice::For, &voter);
+
+        env.ledger().set_timestamp(1_000_000 + 86401);
+
+        let status = client.finalize_proposal(&id);
+        assert_eq!(status, ProposalStatus::Passed);
+        assert_eq!(client.get_proposal(&id).status, ProposalStatus::Passed);
+    }
+
+    #[test]
+    fn test_finalize_proposal_rejects_when_quorum_not_met() {
+        let (env, _admin, _token_admin, token, client) = setup_test();
+        let proposer = Address::generate(&env);
+        let voter = Address::generate(&env);
+
+        // Only 1000 of 10_000 total supply votes — below the 50% quorum.
+        StellarAssetClient::new(&env, &token).mint(&voter, &1000);
+
+        let title = String::from_str(&env, "Proposal 1");
+        let desc = String::from_str(&env, "Desc 1");
+        let actions = vec![&env];
+
+        let id = client.create_proposal(&proposer, &title, &desc, &actions);
+        client.cast_vote(&id, &VoteChoice::For, &voter);
+
+        env.ledger().set_timestamp(1_000_000 + 86401);
+
+        let status = client.finalize_proposal(&id);
+        assert_eq!(status, ProposalStatus::Rejected);
+    }
+
+    #[test]
+    fn test_finalize_proposal_rejects_when_quorum_met_but_against_majority() {
+        let (env, _admin, _token_admin, token, client) = setup_test();
+        let proposer = Address::generate(&env);
+        let voter_for = Address::generate(&env);
+        let voter_against = Address::generate(&env);
+
+        let sac = StellarAssetClient::new(&env, &token);
+        sac.mint(&voter_for, &2000);
+        sac.mint(&voter_against, &4000);
+
+        let title = String::from_str(&env, "Proposal 1");
+        let desc = String::from_str(&env, "Desc 1");
+        let actions = vec![&env];
+
+        let id = client.create_proposal(&proposer, &title, &desc, &actions);
+        client.cast_vote(&id, &VoteChoice::For, &voter_for);
+        client.cast_vote(&id, &VoteChoice::Against, &voter_against);
+
+        env.ledger().set_timestamp(1_000_000 + 86401);
+
+        let status = client.finalize_proposal(&id);
+        assert_eq!(status, ProposalStatus::Rejected);
+    }
+
+    #[test]
+    fn test_finalize_proposal_fails_while_voting_still_active() {
+        let (env, _admin, _token_admin, token, client) = setup_test();
+        let proposer = Address::generate(&env);
+        let voter = Address::generate(&env);
+
+        StellarAssetClient::new(&env, &token).mint(&voter, &6000);
+
+        let title = String::from_str(&env, "Proposal 1");
+        let desc = String::from_str(&env, "Desc 1");
+        let actions = vec![&env];
+
+        let id = client.create_proposal(&proposer, &title, &desc, &actions);
+        client.cast_vote(&id, &VoteChoice::For, &voter);
+
+        let err = client.try_finalize_proposal(&id).unwrap_err().unwrap();
+        assert_eq!(err, GovernanceError::VotingStillActive);
+    }
+
+    #[test]
+    fn test_finalize_proposal_fails_when_already_finalized() {
+        let (env, _admin, _token_admin, token, client) = setup_test();
+        let proposer = Address::generate(&env);
+        let voter = Address::generate(&env);
+
+        StellarAssetClient::new(&env, &token).mint(&voter, &6000);
+
+        let title = String::from_str(&env, "Proposal 1");
+        let desc = String::from_str(&env, "Desc 1");
+        let actions = vec![&env];
+
+        let id = client.create_proposal(&proposer, &title, &desc, &actions);
+        client.cast_vote(&id, &VoteChoice::For, &voter);
+
+        env.ledger().set_timestamp(1_000_000 + 86401);
+        client.finalize_proposal(&id);
+
+        let err = client.try_finalize_proposal(&id).unwrap_err().unwrap();
+        assert_eq!(err, GovernanceError::ProposalNotActive);
     }
 }
