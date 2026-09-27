@@ -19,6 +19,9 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Extended the `BalancePanel.tsx` unit test suite (`frontend/src/components/wallet/__tests__/BalancePanel.test.tsx`) with coverage for the "Unknown asset" fallback shown for a non-native balance that has no asset code, closing the last untested render branch (#325, #247).
 
+- `useCommunities` (`frontend/src/hooks/useCommunities.ts`) now accepts an optional `{ page, limit, search }` filters object, forwarded as query parameters to `GET /api/v1/communities`; calling it with no arguments is unchanged (#253, #331).
+- `useCommunity(id)` (`frontend/src/hooks/useCommunities.ts`) documented and test-covered — fetches a single community from `GET /api/v1/communities/:id` and defers the request (`null` SWR key) when `id` is empty (#254, #332).
+- `useCommunityMembers(communityId, filters?)` hook (`frontend/src/hooks/useCommunityMembers.ts`) for the paginated member list at `GET /api/v1/communities/:id/members`, with optional `page`, `limit`, and `role` filters and the same deferred-fetch behavior for an empty `communityId` (#255, #333).
 - Soroban Governance smart contract (`contracts/governance`) with `Proposal`, `Vote`, and `Config` data types, `create_proposal`, and token-weighted `cast_vote` tallying (#500, #501, #502, #503).
 
 - Community discovery page at `/communities` (`frontend/src/app/communities/page.tsx`) listing cooperatives on the network (#299, #221).
