@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `execute_proposal(proposal_id, executor)` on the Soroban Governance contract (`contracts/governance/src/lib.rs`). Dispatches the encoded action strings stored on a `Passed` proposal and transitions it to `Executed`. Requires the proposal to have passed quorum (`votes_for + votes_against ≥ total_supply × quorum_bps / 10_000`); returns `InsufficientQuorum` if not met. Returns `ProposalExecutionFailed` if the proposal is not in `Passed` status (guards against double-execution and execution of rejected/active proposals). Each action is published as a `prop_exec` event; empty-string actions emit an `exec_fail` event and are skipped without reverting the status transition. The `executor` address must authorise the call (#428).
+- `finalize_proposal(proposal_id)` on the Soroban Governance contract — permissionless transition of an `Active` proposal to `Passed` or `Rejected` once its voting window has elapsed. Required as a prerequisite step before `execute_proposal` (#428).
+- Two new `GovernanceError` variants: `InsufficientQuorum = 10` and `ProposalExecutionFailed = 11` (#428).
+
 - Soroban Governance smart contract (`contracts/governance`) with `Proposal`, `Vote`, and `Config` data types, `create_proposal`, and token-weighted `cast_vote` tallying (#500, #501, #502, #503).
 
 - Community discovery page at `/communities` (`frontend/src/app/communities/page.tsx`) listing cooperatives on the network (#299, #221).
