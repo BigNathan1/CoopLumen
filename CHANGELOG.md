@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Member management page at `/communities/[id]/members` (`frontend/src/app/communities/[id]/members/page.tsx` + `MembersPage.tsx`) with a two-column layout: a live member roster (avatar, truncated Stellar address, role badge, joined date, per-member remove with a confirmation dialog) and an add-member form with client-side Stellar address validation, role selection, inline error/success feedback, and full keyboard/screen-reader accessibility. Hooks `useAddMember` and `useRemoveMember` in `useCommunities.ts` drive the mutations and revalidate the SWR cache on success. Design uses CSS Modules and `globals.css` design tokens with automatic dark-mode support (#225).
+
 - Soroban Governance smart contract (`contracts/governance`) with `Proposal`, `Vote`, and `Config` data types, `create_proposal`, and token-weighted `cast_vote` tallying (#500, #501, #502, #503).
 
 - Community discovery page at `/communities` (`frontend/src/app/communities/page.tsx`) listing cooperatives on the network (#299, #221).
