@@ -78,6 +78,19 @@ describe('BalancePanel', () => {
     expect(screen.getByText('50.50')).toBeInTheDocument();
   });
 
+  it('falls back to "Unknown asset" for a non-native balance without an asset code', () => {
+    mockUseBalances.mockReturnValue({
+      data: [{ asset_type: 'credit_alphanum4', asset_issuer: 'GISSUER', balance: '10' }],
+      error: undefined,
+      isLoading: false,
+      isValidating: false,
+      mutate: jest.fn(),
+    } as unknown as ReturnType<typeof useBalances>);
+    render(<BalancePanel publicKey={PUBLIC_KEY} />);
+
+    expect(screen.getByText('Unknown asset')).toBeInTheDocument();
+  });
+
   it('renders a heading identifying the panel', () => {
     mockUseBalances.mockReturnValue({
       data: [{ asset_type: 'native', balance: '1' }],
