@@ -1,0 +1,160 @@
+.page {
+  min-height: 100vh;
+  background: var(--color-bg);
+  padding: var(--space-6) var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .page {
+    padding: var(--space-8) var(--space-6);
+  }
+}
+
+@media (min-width: 1024px) {
+  .page {
+    padding: var(--space-10) var(--space-8);
+  }
+}
+
+.inner {
+  max-width: var(--container-max-lg);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+/* ─── Back navigation ────────────────────────────────────────────────────── */
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+
+.backLink:hover {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.backArrow {
+  display: inline-block;
+  /* A simple left-pointing chevron using border tricks */
+  width: 0.5rem;
+  height: 0.5rem;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}
+
+/* ─── Hero / header card ─────────────────────────────────────────────────── */
+
+.heroCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.heroHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.communityName {
+  flex: 1;
+  min-width: 0;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 800;
+  color: var(--color-text);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.assetBadge {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  color: var(--color-primary);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.description {
+  font-size: 0.9375rem;
+  color: var(--color-text-muted);
+  line-height: 1.65;
+  margin: 0;
+}
+
+/* ─── Stats row ──────────────────────────────────────────────────────────── */
+
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-4);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.statLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.statValue {
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  word-break: break-all;
+}
+
+.statValueMono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8125rem;
+}
+
+/* ─── Layout grid (hero + members) ──────────────────────────────────────── */
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+@media (min-width: 768px) {
+  .grid {
+    grid-template-columns: 3fr 2fr;
+  }
+}
+
+/* ─── Loading / error full-page states ───────────────────────────────────── */
+
+.centred {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-16);
+}
+
+.errorWrap {
+  max-width: 480px;
+  margin-inline: auto;
+  margin-top: var(--space-12);
+}
