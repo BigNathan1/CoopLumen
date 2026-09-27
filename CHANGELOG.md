@@ -11,6 +11,9 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Create-community form page at `/communities/new` (`frontend/src/app/communities/new/page.tsx`). A Next.js App Router server shell delegates to the `CreateCommunityForm` client component, which collects community name, description, asset code, asset issuer address, and governance issuer key. On success the form navigates to the new community's detail page. Validation is inline per-field (required, length, Stellar key format, asset code format) with messages announced via `role="alert"`. The form-level API error is surfaced through `FormError`. All styles use CSS custom property tokens; dark-mode is automatic (#223).
+- `useCreateCommunity` hook (`frontend/src/hooks/useCreateCommunity.ts`) — `POST /api/communities` with `submitting`/`error` state, revalidates the SWR communities list cache on success (#223).
+
 - Soroban Governance smart contract (`contracts/governance`) with `Proposal`, `Vote`, and `Config` data types, `create_proposal`, and token-weighted `cast_vote` tallying (#500, #501, #502, #503).
 
 - Community discovery page at `/communities` (`frontend/src/app/communities/page.tsx`) listing cooperatives on the network (#299, #221).
