@@ -216,6 +216,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Frontend ESLint extended `next/typescript`, a config not shipped by `eslint-config-next@14`, which broke `npm run lint`; dropped it (TypeScript linting is already covered by `next/core-web-vitals`)
 - `docs/database.md`: synced the `loans` table reference to the current schema, and removed a duplicated `multisig_requests` ERD block/table section, a duplicated `members` row in the foreign-key summary, and a broken `communities` indexes table caused by unescaped `|` characters
 - Development seed data used malformed Stellar public keys (55 characters, one containing literal filler text); replaced with well-formed 56-character StrKey addresses
+- `get_proposal(proposal_id)` on the Governance contract (`contracts/governance/src/lib.rs`) is now a dependable view function. An uninitialized contract reports `NotInitialized`, matching `get_config`, `create_proposal` and `cast_vote`, instead of `ProposalNotFound`, so a caller can tell "not deployed yet" apart from "no such proposal". The read path documents what it returns and when it fails, and `contracts/governance/README.md` records the contract's data model, interface and error codes for reviewers and integrators. Covered by tests for the uninitialized, unknown-id, multi-proposal and post-vote-tally reads (#504).
 
 ---
 
