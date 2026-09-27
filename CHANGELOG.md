@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `Header` component (`frontend/src/components/Header.tsx`) — site-wide navigation with the CoopLumen brand, primary links, theme toggle and `WalletConnect`. Below the `md` breakpoint the links and wallet control collapse behind an accessible hamburger toggle (`aria-expanded`, `aria-controls`) instead of rendering inline, so the bar stays a single row on narrow viewports (#315, #316, #317, #318).
+- `Sidebar` component (`frontend/src/components/Sidebar.tsx`) — community-scoped sub-navigation linking to a community's overview, membership, tokens, transactions and treasury sections, with the active section derived from the current route (#315, #316, #317, #318).
+- `TreasuryPanel` component (`frontend/src/components/TreasuryPanel.tsx`) — shows a community treasury's on-chain balances and signers, backed by a new `useAccountDetails` hook (`frontend/src/hooks/useAccountDetails.ts`) over the existing `GET /api/v1/accounts/:publicKey` endpoint (#315, #316, #317, #318).
+- Site navigation on the `/communities` discovery page via the new `Header` component (#315, #316, #317, #318).
+
 - Soroban Governance smart contract (`contracts/governance`) with `Proposal`, `Vote`, and `Config` data types, `create_proposal`, and token-weighted `cast_vote` tallying (#500, #501, #502, #503).
 
 - Community discovery page at `/communities` (`frontend/src/app/communities/page.tsx`) listing cooperatives on the network (#299, #221).
