@@ -9,6 +9,16 @@ export interface Balance {
   limit?: string;
 }
 
-export function useBalances(publicKey: string | null) {
-  return useSWR<Balance[]>(publicKey ? `/api/v1/balances/${publicKey}` : null, fetcher);
+export interface BalancesFilters {
+  communityId?: string;
+}
+
+export function useBalances(publicKey: string | null, filters: BalancesFilters = {}) {
+  const params = new URLSearchParams();
+  if (filters.communityId) params.set('communityId', filters.communityId);
+
+  const query = params.toString();
+  const path = publicKey ? `/api/v1/balances/${publicKey}${query ? `?${query}` : ''}` : null;
+
+  return useSWR<Balance[]>(path, fetcher);
 }
