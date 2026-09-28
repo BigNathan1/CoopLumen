@@ -1,6 +1,5 @@
 import useSWR from 'swr';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+import { fetcher } from './SWRProvider';
 
 export interface Community {
   id: string;
@@ -10,15 +9,6 @@ export interface Community {
   asset_issuer: string;
   issuer_public_key: string;
   created_at: string;
-}
-
-async function fetcher<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const body = (await res.json()) as { error?: string };
-    throw new Error(body.error ?? 'Request failed');
-  }
-  return (res.json() as Promise<{ data: T }>).then((r) => r.data);
 }
 
 export interface CommunitiesFilters {
@@ -38,11 +28,9 @@ export function useCommunities(filters: CommunitiesFilters = {}) {
   if (filters.search) params.set('search', filters.search);
 
   const query = params.toString();
-  const url = query ? `${API_URL}/api/v1/communities?${query}` : `${API_URL}/api/v1/communities`;
+  const path = query ? `/api/v1/communities?${query}` : '/api/v1/communities';
 
-  return useSWR<Community[]>(url, fetcher, {
-    refreshInterval: 30_000,
-  });
+  return useSWR<Community[]>(path, fetcher);
 }
 
 /**
@@ -51,5 +39,5 @@ export function useCommunities(filters: CommunitiesFilters = {}) {
  * fetch".
  */
 export function useCommunity(id: string) {
-  return useSWR<Community>(id ? `${API_URL}/api/v1/communities/${id}` : null, fetcher);
+  return useSWR<Community>(id ? `/api/v1/communities/${id}` : null, fetcher);
 }
