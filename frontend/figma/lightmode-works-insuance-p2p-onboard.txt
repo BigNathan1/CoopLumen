@@ -1,0 +1,9 @@
+//Figma Design Done
+
+Link is here 
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&p=f&t=BaPuWA1vLQkipUUu-0
+
+#737 — How CoopLumen Works
+#741 — Community Token Issuance
+#742 — Trustline Onboarding
+#745 — P2P Micro-Lending Pools

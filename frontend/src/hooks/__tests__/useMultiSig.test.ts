@@ -131,7 +131,9 @@ describe('useMultiSig', () => {
 
     const [url, options] = fetchMock.mock.calls[0];
     expect(String(url)).toContain('/api/v1/multisig/requests/req-1/reject');
-    expect(JSON.parse((options as RequestInit).body as string)).toEqual({ reason: 'Invalid terms' });
+    expect(JSON.parse((options as RequestInit).body as string)).toEqual({
+      reason: 'Invalid terms',
+    });
     expect(mockMutate).toHaveBeenCalledTimes(1);
   });
 
@@ -147,7 +149,9 @@ describe('useMultiSig', () => {
 
     const [url, options] = fetchMock.mock.calls[0];
     expect(String(url)).toContain('/api/v1/multisig/requests/req-1/execute');
-    expect(JSON.parse((options as RequestInit).body as string)).toEqual({ stellar_tx_hash: 'tx_hash_123' });
+    expect(JSON.parse((options as RequestInit).body as string)).toEqual({
+      stellar_tx_hash: 'tx_hash_123',
+    });
     expect(mockMutate).toHaveBeenCalledTimes(1);
   });
 });

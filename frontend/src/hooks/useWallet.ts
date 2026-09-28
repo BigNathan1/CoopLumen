@@ -140,8 +140,19 @@ export function useWallet() {
     };
   }, [state.connected]);
 
-  const networkMismatch =
-    state.connected && state.network !== null && state.network !== EXPECTED_NETWORK;
+  // Undecidable until Freighter has actually reported a network, so a
+  // disconnected or not-yet-resolved wallet is treated as valid rather than
+  // flagged as wrong.
+  const isCorrectNetwork =
+    !state.connected || state.network === null || state.network === EXPECTED_NETWORK;
+  const networkMismatch = state.connected && !isCorrectNetwork;
 
-  return { ...state, expectedNetwork: EXPECTED_NETWORK, networkMismatch, connect, disconnect };
+  return {
+    ...state,
+    expectedNetwork: EXPECTED_NETWORK,
+    isCorrectNetwork,
+    networkMismatch,
+    connect,
+    disconnect,
+  };
 }
