@@ -65,9 +65,7 @@ describe('MultiSig Endpoint Handlers (Issue #417 / #495)', () => {
       const res = await request(app).get(`/api/v1/multisig/community/${validUUID}`);
       expect(res.status).toBe(200);
       expect(res.body.data).toEqual(mockRequests);
-      expect(res.body.meta).toEqual(
-        expect.objectContaining({ total: 1, page: 1, limit: 20 })
-      );
+      expect(res.body.meta).toEqual(expect.objectContaining({ total: 1, page: 1, limit: 20 }));
     });
   });
 
@@ -82,13 +80,11 @@ describe('MultiSig Endpoint Handlers (Issue #417 / #495)', () => {
 
     it('returns 404 when community does not exist', async () => {
       mockDb.query.mockResolvedValueOnce([]);
-      const res = await request(app)
-        .post(`/api/v1/multisig/community/${validUUID}`)
-        .send({
-          action: 'payment',
-          title: 'Batch Disburse',
-          proposer_address: validStellarAddress,
-        });
+      const res = await request(app).post(`/api/v1/multisig/community/${validUUID}`).send({
+        action: 'payment',
+        title: 'Batch Disburse',
+        proposer_address: validStellarAddress,
+      });
       expect(res.status).toBe(404);
       expect(res.body.error).toBe('Community not found');
     });
@@ -118,13 +114,11 @@ describe('MultiSig Endpoint Handlers (Issue #417 / #495)', () => {
         .mockResolvedValueOnce([{ id: validUUID }]) // community check
         .mockResolvedValueOnce([newRequest]); // insert
 
-      const res = await request(app)
-        .post(`/api/v1/multisig/community/${validUUID}`)
-        .send({
-          action: 'payment',
-          title: 'Batch Disburse',
-          proposer_address: validStellarAddress,
-        });
+      const res = await request(app).post(`/api/v1/multisig/community/${validUUID}`).send({
+        action: 'payment',
+        title: 'Batch Disburse',
+        proposer_address: validStellarAddress,
+      });
 
       expect(res.status).toBe(201);
       expect(res.body.data).toEqual(newRequest);
@@ -156,21 +150,43 @@ describe('MultiSig Endpoint Handlers (Issue #417 / #495)', () => {
   describe('POST /api/v1/multisig/requests/:id/approve', () => {
     it('returns 404 when request does not exist', async () => {
       mockDb.query.mockResolvedValueOnce([]);
-      const res = await request(app).post(`/api/v1/multisig/requests/${validRequestID}/approve`).send({});
+      const res = await request(app)
+        .post(`/api/v1/multisig/requests/${validRequestID}/approve`)
+        .send({});
       expect(res.status).toBe(404);
     });
 
     it('returns 400 when request is not pending', async () => {
-      mockDb.query.mockResolvedValueOnce([{ id: validRequestID, status: 'executed', current_signatures: 2, required_signatures: 2 }]);
-      const res = await request(app).post(`/api/v1/multisig/requests/${validRequestID}/approve`).send({});
+      mockDb.query.mockResolvedValueOnce([
+        { id: validRequestID, status: 'executed', current_signatures: 2, required_signatures: 2 },
+      ]);
+      const res = await request(app)
+        .post(`/api/v1/multisig/requests/${validRequestID}/approve`)
+        .send({});
       expect(res.status).toBe(400);
       expect(res.body.error).toContain("Cannot approve request with status 'executed'");
     });
 
     it('approves request and increments signature count', async () => {
       mockDb.query
-        .mockResolvedValueOnce([{ id: validRequestID, status: 'pending', current_signatures: 1, required_signatures: 2, transaction_xdr: 'XDR1' }])
-        .mockResolvedValueOnce([{ id: validRequestID, status: 'approved', current_signatures: 2, required_signatures: 2, transaction_xdr: 'XDR_SIGNED' }]);
+        .mockResolvedValueOnce([
+          {
+            id: validRequestID,
+            status: 'pending',
+            current_signatures: 1,
+            required_signatures: 2,
+            transaction_xdr: 'XDR1',
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: validRequestID,
+            status: 'approved',
+            current_signatures: 2,
+            required_signatures: 2,
+            transaction_xdr: 'XDR_SIGNED',
+          },
+        ]);
 
       const res = await request(app)
         .post(`/api/v1/multisig/requests/${validRequestID}/approve`)
@@ -186,7 +202,9 @@ describe('MultiSig Endpoint Handlers (Issue #417 / #495)', () => {
     it('rejects pending request and records reason', async () => {
       mockDb.query
         .mockResolvedValueOnce([{ id: validRequestID, status: 'pending' }])
-        .mockResolvedValueOnce([{ id: validRequestID, status: 'rejected', rejection_reason: 'Invalid payload' }]);
+        .mockResolvedValueOnce([
+          { id: validRequestID, status: 'rejected', rejection_reason: 'Invalid payload' },
+        ]);
 
       const res = await request(app)
         .post(`/api/v1/multisig/requests/${validRequestID}/reject`)
@@ -203,7 +221,9 @@ describe('MultiSig Endpoint Handlers (Issue #417 / #495)', () => {
       const mockTxHash = '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
       mockDb.query
         .mockResolvedValueOnce([{ id: validRequestID, status: 'approved' }])
-        .mockResolvedValueOnce([{ id: validRequestID, status: 'executed', stellar_tx_hash: mockTxHash }]);
+        .mockResolvedValueOnce([
+          { id: validRequestID, status: 'executed', stellar_tx_hash: mockTxHash },
+        ]);
 
       const res = await request(app)
         .post(`/api/v1/multisig/requests/${validRequestID}/execute`)
