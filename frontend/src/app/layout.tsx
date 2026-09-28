@@ -5,6 +5,7 @@ import { ToastProvider } from '@/hooks/useToast';
 import { ThemeProvider } from '@/hooks/useTheme';
 import { ToastDisplay } from '@/components/ToastDisplay';
 import { Footer } from '@/components/Footer';
+import { PageTransition } from '@/components/PageTransition';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
 import { validateFrontendEnv } from '@/lib/env';
 import './globals.css';
@@ -30,7 +31,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <ThemeProvider>
           <ToastProvider>
-            <ErrorBoundary>{children}</ErrorBoundary>
+            <ErrorBoundary>
+              <PageTransition>{children}</PageTransition>
+            </ErrorBoundary>
             <Footer />
             <ToastDisplay />
           </ToastProvider>

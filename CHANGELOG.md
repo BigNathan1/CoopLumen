@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `PageTransition` component (`frontend/src/components/PageTransition.tsx`) — a `'use client'` wrapper that plays a CSS `@keyframes page-enter` fade-and-rise animation on every route change. The animation runs on the compositor (`opacity` + `transform` only), uses three new design-token custom properties declared in `globals.css` (`--page-transition-duration: 220ms`, `--page-transition-easing`, `--page-transition-offset: 6px`), and is suppressed entirely under `prefers-reduced-motion: reduce`. Integrated into the root layout (`frontend/src/app/layout.tsx`) around the `ErrorBoundary` slot so every app page transitions automatically. Adds test coverage in `frontend/src/components/__tests__/PageTransition.test.tsx` (#245).
+
 - Community profile forms and member directory: `CreateCommunityForm` validates community and Stellar issuer fields with the shared Zod schemas, `EditCommunityForm` pre-populates mutable profile fields, the `/communities/[id]/edit` route loads and saves a community, and `MemberList` renders address, role, and join date with API/local pagination (#302, #308, #309, #310).
 - Multi-Sig backend integration tests (`backend/src/api/routes/__tests__/multisig.integration.test.ts`) covering full proposal lifecycle, co-signing, approval threshold transitions, execution, rejection flows, and validation error handling (#496).
 - Multi-Sig frontend E2E workflow tests (`frontend/src/components/multisig/__tests__/MultiSigFlow.e2e.test.tsx`) simulating multi-signature proposal review, signature threshold achievement, on-chain execution with tx hash, and co-signer rejection with reason (#497).
