@@ -1,0 +1,6 @@
+//The Figma Issues Designed
+
+Architecture Transparency, Shared Multi-Signature Treasury, Batch Disbursement & Airdrop, Hero Section
+
+View the Design here
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&p=f&t=BaPuWA1vLQkipUUu-0
