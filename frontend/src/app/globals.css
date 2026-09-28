@@ -415,6 +415,48 @@ button {
 }
 
 /*
+ * Direction.
+ *
+ * Writing direction is carried by the `dir` attribute on <html>, which the
+ * LocaleProvider (and the pre-paint locale script) set from the active locale.
+ * Layouts should prefer logical properties (`margin-inline-start`,
+ * `padding-inline`, `text-align: start`) so they mirror automatically; the
+ * helpers below cover the cases that need an explicit opt-in.
+ */
+:root {
+  --direction: ltr;
+}
+
+html[dir='rtl'] {
+  --direction: rtl;
+}
+
+.text-start {
+  text-align: start;
+}
+
+.text-end {
+  text-align: end;
+}
+
+.ms-auto {
+  margin-inline-start: auto;
+}
+
+.me-auto {
+  margin-inline-end: auto;
+}
+
+/*
+ * Directional glyphs (back links, chevrons, arrows) point "forward" in LTR and
+ * need mirroring under RTL. Opted into per element rather than applied to every
+ * icon, which would also flip logos and media controls.
+ */
+[dir='rtl'] .icon-directional {
+  transform: scaleX(-1);
+}
+
+/*
  * Ease the palette swap so toggling the theme does not read as a flash. Scoped
  * to the properties that actually change, and dropped entirely for anyone who
  * has asked for reduced motion.
