@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- CI/CD architecture documentation (`docs/ci-cd.md`) — covers the full `ci.yml` pipeline (all 8 jobs, concurrency cancellation, Postgres + Redis service containers in `test-backend`, `--runInBand` serial test execution, dummy build-time env vars for Next.js, `fetch-depth: 0` in `commitlint`, why `security-audit` is non-blocking and excluded from `quality-gate`, `claude-review.yml`, Dependabot, and branch-protection setup) (#427).
+
 - Multi-Sig backend integration tests (`backend/src/api/routes/__tests__/multisig.integration.test.ts`) covering full proposal lifecycle, co-signing, approval threshold transitions, execution, rejection flows, and validation error handling (#496).
 - Multi-Sig frontend E2E workflow tests (`frontend/src/components/multisig/__tests__/MultiSigFlow.e2e.test.tsx`) simulating multi-signature proposal review, signature threshold achievement, on-chain execution with tx hash, and co-signer rejection with reason (#497).
 - Multi-Sig and batch operations documentation (`docs/multisig.md`) covering Stellar multi-signature architectures, threshold weights, batch disbursement workflows, fee optimizations, CSV batch imports, API specifications, and troubleshooting guides (#498).
