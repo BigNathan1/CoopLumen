@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { ToastProvider } from '@/hooks/useToast';
 import { ThemeProvider } from '@/hooks/useTheme';
+import { SWRProvider } from '@/hooks/SWRProvider';
 import { ToastDisplay } from '@/components/ToastDisplay';
 import { Footer } from '@/components/Footer';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
@@ -28,13 +29,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className={inter.className}>
-        <ThemeProvider>
-          <ToastProvider>
-            <ErrorBoundary>{children}</ErrorBoundary>
-            <Footer />
-            <ToastDisplay />
-          </ToastProvider>
-        </ThemeProvider>
+        <SWRProvider>
+          <ThemeProvider>
+            <ToastProvider>
+              <ErrorBoundary>{children}</ErrorBoundary>
+              <Footer />
+              <ToastDisplay />
+            </ToastProvider>
+          </ThemeProvider>
+        </SWRProvider>
       </body>
     </html>
   );
