@@ -4,6 +4,7 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { ToastProvider } from '@/hooks/useToast';
 import { ThemeProvider } from '@/hooks/useTheme';
 import { ToastDisplay } from '@/components/ToastDisplay';
+import { Footer } from '@/components/Footer';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
 import { validateFrontendEnv } from '@/lib/env';
 import './globals.css';
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <ToastProvider>
             <ErrorBoundary>{children}</ErrorBoundary>
+            <Footer />
             <ToastDisplay />
           </ToastProvider>
         </ThemeProvider>

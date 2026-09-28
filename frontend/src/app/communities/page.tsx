@@ -1,4 +1,5 @@
 import React from 'react';
+import { Header } from '@/components/Header';
 import { CommunityList } from '@/components/CommunityList';
 import type { DiscoverableCommunity } from '@/components/CommunityCard';
 
@@ -30,18 +31,21 @@ export default function CommunitiesDiscoveryPage(): React.JSX.Element {
   const communities = generateMockCommunities();
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-8 dark:bg-[#0a0a0a] sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Discover Communities
-          </h1>
-          <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">
-            Browse active cooperatives, view their metrics, and join the network.
-          </p>
-        </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a]">
+      <Header />
+      <div className="px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+              Discover Communities
+            </h1>
+            <p className="mt-2 text-lg text-gray-600 dark:text-gray-400">
+              Browse active cooperatives, view their metrics, and join the network.
+            </p>
+          </div>
 
-        <CommunityList initialCommunities={communities} itemsPerPage={6} />
+          <CommunityList initialCommunities={communities} itemsPerPage={6} />
+        </div>
       </div>
     </div>
   );

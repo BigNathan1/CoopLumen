@@ -12,6 +12,27 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - Community profile forms and member directory: `CreateCommunityForm` validates community and Stellar issuer fields with the shared Zod schemas, `EditCommunityForm` pre-populates mutable profile fields, the `/communities/[id]/edit` route loads and saves a community, and `MemberList` renders address, role, and join date with API/local pagination (#302, #308, #309, #310).
+- Multi-Sig backend integration tests (`backend/src/api/routes/__tests__/multisig.integration.test.ts`) covering full proposal lifecycle, co-signing, approval threshold transitions, execution, rejection flows, and validation error handling (#496).
+- Multi-Sig frontend E2E workflow tests (`frontend/src/components/multisig/__tests__/MultiSigFlow.e2e.test.tsx`) simulating multi-signature proposal review, signature threshold achievement, on-chain execution with tx hash, and co-signer rejection with reason (#497).
+- Multi-Sig and batch operations documentation (`docs/multisig.md`) covering Stellar multi-signature architectures, threshold weights, batch disbursement workflows, fee optimizations, CSV batch imports, API specifications, and troubleshooting guides (#498).
+- Cargo workspace configuration and Soroban governance contract crate setup (`Cargo.toml`, `contracts/governance/Cargo.toml`) enabling standalone Soroban contract development and testing (#499).
+- `Header` component (`frontend/src/components/Header.tsx`) — site-wide navigation with the CoopLumen brand, primary links, theme toggle and `WalletConnect`. Below the `md` breakpoint the links and wallet control collapse behind an accessible hamburger toggle (`aria-expanded`, `aria-controls`) instead of rendering inline, so the bar stays a single row on narrow viewports (#315, #316, #317, #318).
+- `Sidebar` component (`frontend/src/components/Sidebar.tsx`) — community-scoped sub-navigation linking to a community's overview, membership, tokens, transactions and treasury sections, with the active section derived from the current route (#315, #316, #317, #318).
+- `TreasuryPanel` component (`frontend/src/components/TreasuryPanel.tsx`) — shows a community treasury's on-chain balances and signers, backed by a new `useAccountDetails` hook (`frontend/src/hooks/useAccountDetails.ts`) over the existing `GET /api/v1/accounts/:publicKey` endpoint (#315, #316, #317, #318).
+- Site navigation on the `/communities` discovery page via the new `Header` component (#315, #316, #317, #318).
+- `Footer` component (`frontend/src/components/Footer.tsx`) rendered app-wide from the root layout, with links to the documentation, GitHub repository, and community discussions. Hides itself on the landing page, which already ships its own `LandingFooter` (#320, #242).
+- `useCommunityTokens(communityId)` hook (`frontend/src/hooks/useTokens.ts`) — an SWR-backed hook that lists the tokens issued for a community via `GET /api/v1/tokens/:communityId`, following the same fetch/error conventions as `useCommunities` and `useLoans` (#334, #256).
+- `isCorrectNetwork` boolean on `useWallet()` (`frontend/src/hooks/useWallet.ts`), exposing network validation explicitly alongside the existing `networkMismatch` flag. `isCorrectNetwork` is `true` while disconnected or before Freighter has reported a network, and reflects an exact match against `EXPECTED_NETWORK` once connected (#330, #252).
+
+### Tests
+
+- Extended the `BalancePanel.tsx` unit test suite (`frontend/src/components/wallet/__tests__/BalancePanel.test.tsx`) with coverage for the "Unknown asset" fallback shown for a non-native balance that has no asset code, closing the last untested render branch (#325, #247).
+
+- `useCommunities` (`frontend/src/hooks/useCommunities.ts`) now accepts an optional `{ page, limit, search }` filters object, forwarded as query parameters to `GET /api/v1/communities`; calling it with no arguments is unchanged (#253, #331).
+- `useCommunity(id)` (`frontend/src/hooks/useCommunities.ts`) documented and test-covered — fetches a single community from `GET /api/v1/communities/:id` and defers the request (`null` SWR key) when `id` is empty (#254, #332).
+- `useCommunityMembers(communityId, filters?)` hook (`frontend/src/hooks/useCommunityMembers.ts`) for the paginated member list at `GET /api/v1/communities/:id/members`, with optional `page`, `limit`, and `role` filters and the same deferred-fetch behavior for an empty `communityId` (#255, #333).
+- Soroban Governance smart contract (`contracts/governance`) with `Proposal`, `Vote`, and `Config` data types, `create_proposal`, and token-weighted `cast_vote` tallying (#500, #501, #502, #503).
+
 - Community discovery page at `/communities` (`frontend/src/app/communities/page.tsx`) listing cooperatives on the network (#299, #221).
 - `CommunityList` component (`frontend/src/components/CommunityList.tsx`) with client-side search filtering over name and description, pagination, and an empty state (#298, #220).
 - `CommunityCard` now shows member and token counts alongside a join button, with an accessible overlay link to the community detail page (#296, #297, #218, #219).

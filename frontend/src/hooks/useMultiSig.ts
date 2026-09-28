@@ -94,33 +94,49 @@ export function useMultiSig(communityId?: string | null, filters: MultiSigFilter
 
   const createRequest = async (input: CreateMultiSigInput): Promise<MultiSigRequest> => {
     if (!communityId) throw new Error('Community ID is required to create a multisig request');
-    const res = await requestRaw<MultiSigRequest>('POST', `/api/v1/multisig/community/${communityId}`, {
-      body: input,
-    });
+    const res = await requestRaw<MultiSigRequest>(
+      'POST',
+      `/api/v1/multisig/community/${communityId}`,
+      {
+        body: input,
+      }
+    );
     await mutate();
     return res.data;
   };
 
   const approveRequest = async (id: string, signedXdr?: string): Promise<MultiSigRequest> => {
-    const res = await requestRaw<MultiSigRequest>('POST', `/api/v1/multisig/requests/${id}/approve`, {
-      body: { signed_xdr: signedXdr },
-    });
+    const res = await requestRaw<MultiSigRequest>(
+      'POST',
+      `/api/v1/multisig/requests/${id}/approve`,
+      {
+        body: { signed_xdr: signedXdr },
+      }
+    );
     await mutate();
     return res.data;
   };
 
   const rejectRequest = async (id: string, reason?: string): Promise<MultiSigRequest> => {
-    const res = await requestRaw<MultiSigRequest>('POST', `/api/v1/multisig/requests/${id}/reject`, {
-      body: { reason },
-    });
+    const res = await requestRaw<MultiSigRequest>(
+      'POST',
+      `/api/v1/multisig/requests/${id}/reject`,
+      {
+        body: { reason },
+      }
+    );
     await mutate();
     return res.data;
   };
 
   const executeRequest = async (id: string, stellarTxHash: string): Promise<MultiSigRequest> => {
-    const res = await requestRaw<MultiSigRequest>('POST', `/api/v1/multisig/requests/${id}/execute`, {
-      body: { stellar_tx_hash: stellarTxHash },
-    });
+    const res = await requestRaw<MultiSigRequest>(
+      'POST',
+      `/api/v1/multisig/requests/${id}/execute`,
+      {
+        body: { stellar_tx_hash: stellarTxHash },
+      }
+    );
     await mutate();
     return res.data;
   };

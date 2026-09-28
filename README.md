@@ -260,6 +260,7 @@ cd frontend && npm test
 
 - [Product Requirements Document](PRD.md) — goals, roadmap, user stories
 - [Contributing Guide](CONTRIBUTING.md) — branch model, conventions, code review
+- [Multi-Signature & Batch Operations Guide](docs/multisig.md) — multi-sig treasury governance, signing lifecycle, batch payments
 
 ## Community
 
