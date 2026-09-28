@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- App Router error page with an accessible retry action and theme-aware design tokens (#322).
 - Multi-Sig backend integration tests (`backend/src/api/routes/__tests__/multisig.integration.test.ts`) covering full proposal lifecycle, co-signing, approval threshold transitions, execution, rejection flows, and validation error handling (#496).
 - Multi-Sig frontend E2E workflow tests (`frontend/src/components/multisig/__tests__/MultiSigFlow.e2e.test.tsx`) simulating multi-signature proposal review, signature threshold achievement, on-chain execution with tx hash, and co-signer rejection with reason (#497).
 - Multi-Sig and batch operations documentation (`docs/multisig.md`) covering Stellar multi-signature architectures, threshold weights, batch disbursement workflows, fee optimizations, CSV batch imports, API specifications, and troubleshooting guides (#498).
