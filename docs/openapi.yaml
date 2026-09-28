@@ -36,6 +36,8 @@ tags:
     description: Inbound webhook endpoints for Stellar account/transaction event notifications
   - name: BatchPayments
     description: Batch payment disbursement, preview, and CSV parsing endpoints
+  - name: Stream
+    description: Server-Sent Events feeds of live account activity
 
 paths:
   /api/v1/communities:
@@ -360,6 +362,60 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/stream/payments:
+    get:
+      tags: [Stream]
+      summary: Stream payment operations for an account
+      description: >
+        Opens a Server-Sent Events (`text/event-stream`) feed of payment
+        operations for a Stellar account, backed by Horizon's payment stream.
+        Frames are JSON in the same `{ data, meta?, error? }` envelope the rest
+        of the API uses, so a client parses one response shape whether a frame
+        carries a payment or a failure: `event: ready` echoes the account and
+        cursor once the subscription is live, `event: payment` carries
+        `{ data: <Horizon payment operation record> }`, and `event: error`
+        carries `{ data: null, error: <message> }` without closing the stream.
+        A comment-only keep-alive frame is written every 15 seconds so proxies
+        do not drop an idle connection, and a `retry: 3000` field tells the
+        browser how long to wait before reconnecting. Validation runs before
+        any header is flushed, so an invalid `publicKey` still receives the
+        standard `400` JSON envelope; once streaming has begun the status is
+        already `200` and failures arrive as `error` frames instead.
+      parameters:
+        - name: publicKey
+          in: query
+          required: true
+          description: Stellar account whose payments should be streamed.
+          schema: { $ref: '#/components/schemas/StellarKey' }
+        - name: cursor
+          in: query
+          required: false
+          description: >
+            Horizon paging token to resume from. `now` streams only events from
+            this moment on, which is the default for a live feed.
+          schema: { type: string, default: now, minLength: 1, maxLength: 128 }
+      responses:
+        '200':
+          description: >
+            A Server-Sent Events stream. Frames are separated by a blank line
+            and each carries an `event:` name, a `data:` JSON envelope and a
+            trailing `meta` where applicable. Comment-only `: keep-alive`
+            frames are interleaved to hold the connection open.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: |
+                  retry: 3000
+
+                  event: ready
+                  data: {"data":{"publicKey":"G...","cursor":"now"}}
+
+                  event: payment
+                  data: {"data":{"id":"1234","type":"payment","amount":"10.0000000"}}
+
+        '400': { $ref: '#/components/responses/ValidationError' }
 
   /api/v1/tokens/transfer:
     post:
