@@ -117,17 +117,15 @@ describe('useCreateCommunity', () => {
     expect(options).toEqual({ revalidate: true });
   });
 
-  it('sets error and returns null when the API responds with an error', async () => {
+  it('sets error and rethrows when the API responds with an error', async () => {
     mockFetchError('Name already taken');
 
     const { result } = renderHook(() => useCreateCommunity());
 
-    let community: unknown;
     await act(async () => {
-      community = await result.current.submit(COMMUNITY_INPUT);
+      await expect(result.current.submit(COMMUNITY_INPUT)).rejects.toThrow('Name already taken');
     });
 
-    expect(community).toBeNull();
     expect(result.current.error).toBe('Name already taken');
     expect(result.current.loading).toBe(false);
   });
@@ -138,7 +136,9 @@ describe('useCreateCommunity', () => {
     const { result } = renderHook(() => useCreateCommunity());
 
     await act(async () => {
-      await result.current.submit(COMMUNITY_INPUT);
+      await expect(result.current.submit(COMMUNITY_INPUT)).rejects.toThrow(
+        'Failed to create community'
+      );
     });
 
     expect(result.current.error).toMatch(/failed to create community/i);
@@ -149,12 +149,10 @@ describe('useCreateCommunity', () => {
 
     const { result } = renderHook(() => useCreateCommunity());
 
-    let community: unknown;
     await act(async () => {
-      community = await result.current.submit(COMMUNITY_INPUT);
+      await expect(result.current.submit(COMMUNITY_INPUT)).rejects.toThrow('Network error');
     });
 
-    expect(community).toBeNull();
     expect(result.current.error).toBe('Network error');
   });
 
@@ -164,7 +162,7 @@ describe('useCreateCommunity', () => {
     const { result } = renderHook(() => useCreateCommunity());
 
     await act(async () => {
-      await result.current.submit(COMMUNITY_INPUT);
+      await expect(result.current.submit(COMMUNITY_INPUT)).rejects.toThrow('Name taken');
     });
 
     expect(result.current.error).toBe('Name taken');

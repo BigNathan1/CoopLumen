@@ -1,6 +1,12 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CreateCommunityForm } from '../CreateCommunityForm';
+import { api } from '@/lib/api';
+
+jest.mock('swr', () => ({
+  ...jest.requireActual<object>('swr'),
+  mutate: jest.fn().mockResolvedValue(undefined),
+}));
 
 const VALID_KEY = `G${'A'.repeat(55)}`;
 const SECOND_KEY = `G${'B'.repeat(55)}`;
@@ -16,6 +22,25 @@ function fillValidForm(user: ReturnType<typeof userEvent.setup>): Promise<void> 
 }
 
 describe('CreateCommunityForm', () => {
+  it('uses the create-community mutation when no custom handler is provided', async () => {
+    const user = userEvent.setup();
+    const community = { id: 'community-default' };
+    const post = jest.spyOn(api, 'post').mockResolvedValue(community);
+    const onSuccess = jest.fn();
+
+    render(<CreateCommunityForm onSuccess={onSuccess} />);
+    await fillValidForm(user);
+    await user.click(screen.getByRole('button', { name: 'Create community' }));
+
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(community));
+    expect(post).toHaveBeenCalledWith(
+      '/api/v1/communities',
+      expect.objectContaining({ name: 'EcoDAO', assetCode: 'ECO' })
+    );
+    expect(await screen.findByRole('status')).toHaveTextContent('Community created successfully.');
+    post.mockRestore();
+  });
+
   it('renders accessible fields and submits parsed values', async () => {
     const user = userEvent.setup();
     const onSubmit = jest.fn().mockResolvedValue({ id: 'community-1' });

@@ -15,16 +15,15 @@ export interface CreateCommunityInput {
  * Creates a community via POST /api/v1/communities and revalidates the SWR
  * communities list cache so the new community appears immediately.
  *
- * Returns the created {@link Community} on success, or `null` when the request
- * fails. The `loading` flag and `error` string are intended for the calling
- * form to wire up button disabled state and an error message.
+ * Returns the created {@link Community} on success. Failures update `error`
+ * and are rethrown so the calling form can preserve field-level API errors.
  */
 export function useCreateCommunity() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const submit = useCallback(
-    async (input: CreateCommunityInput): Promise<Community | null> => {
+    async (input: CreateCommunityInput): Promise<Community> => {
       setLoading(true);
       setError(null);
       try {
@@ -37,8 +36,9 @@ export function useCreateCommunity() {
         );
         return community;
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to create community');
-        return null;
+        const message = err instanceof Error ? err.message : 'Failed to create community';
+        setError(message);
+        throw err instanceof Error ? err : new Error(message);
       } finally {
         setLoading(false);
       }
