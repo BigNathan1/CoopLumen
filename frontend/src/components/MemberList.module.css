@@ -75,7 +75,8 @@
   flex-shrink: 0;
 }
 
-/* Skeleton states */
+/* ─── Skeleton states ─────────────────────────────────────────────────────── */
+
 .skeletonRow {
   display: flex;
   align-items: center;
@@ -93,32 +94,14 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-.wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  width: 100%;
 }
 
-.loading {
-  min-height: 8rem;
-  padding: var(--space-4) 0;
-}
-
-.address {
-  display: block;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.8125rem;
-  max-width: 28rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* ─── Pagination ──────────────────────────────────────────────────────────── */
 
 .pagination {
-  align-items: center;
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-3);
   justify-content: space-between;
 }

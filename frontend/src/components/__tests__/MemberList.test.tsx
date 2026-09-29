@@ -1,6 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { api } from '@/lib/api';
 import { MemberList } from '../MemberList';
 import type { CommunityMember } from '@/hooks/useCommunities';
+
+// ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 function makeMember(overrides: Partial<CommunityMember> = {}): CommunityMember {
   return {
@@ -9,27 +13,29 @@ function makeMember(overrides: Partial<CommunityMember> = {}): CommunityMember {
     stellar_address: 'GABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEF',
     role: 'member',
     joined_at: '2025-06-01T00:00:00.000Z',
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { api } from '@/lib/api';
-import { MemberList, type CommunityMember } from '../MemberList';
-
-function member(index: number, overrides: Partial<CommunityMember> = {}): CommunityMember {
-  const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
-  return {
-    stellar_address: `G${letters[index % letters.length].repeat(55)}`,
-    role: index % 2 === 0 ? 'member' : 'admin',
-    joined_at: `2025-01-${String(index + 1).padStart(2, '0')}T12:00:00.000Z`,
     ...overrides,
   };
 }
 
 const MEMBERS: CommunityMember[] = [
-  makeMember({ id: 'member-1', stellar_address: 'GAAAA' + 'A'.repeat(51), role: 'admin' }),
-  makeMember({ id: 'member-2', stellar_address: 'GBBBB' + 'B'.repeat(51), role: 'treasurer' }),
-  makeMember({ id: 'member-3', stellar_address: 'GCCCC' + 'C'.repeat(51), role: 'member' }),
-  makeMember({ id: 'member-4', stellar_address: 'GDDDD' + 'D'.repeat(51), role: 'observer' }),
+  makeMember({ id: 'member-1', stellar_address: 'G' + 'A'.repeat(55), role: 'admin' }),
+  makeMember({ id: 'member-2', stellar_address: 'G' + 'B'.repeat(55), role: 'treasurer' }),
+  makeMember({ id: 'member-3', stellar_address: 'G' + 'C'.repeat(55), role: 'member' }),
+  makeMember({ id: 'member-4', stellar_address: 'G' + 'D'.repeat(55), role: 'observer' }),
 ];
+
+function remoteMember(index: number): CommunityMember {
+  const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+  return {
+    id: `remote-${index}`,
+    community_id: 'community-1',
+    stellar_address: `G${letters[index % letters.length].repeat(55)}`,
+    role: index % 2 === 0 ? 'member' : 'admin',
+    joined_at: `2025-01-${String(index + 1).padStart(2, '0')}T12:00:00.000Z`,
+  };
+}
+
+// ─── Loading state ─────────────────────────────────────────────────────────────
 
 describe('MemberList', () => {
   describe('loading state', () => {
@@ -46,6 +52,8 @@ describe('MemberList', () => {
     });
   });
 
+  // ─── Error state ───────────────────────────────────────────────────────────
+
   describe('error state', () => {
     it('renders an error alert with the error message', () => {
       const error = new Error('Network failure');
@@ -61,6 +69,8 @@ describe('MemberList', () => {
     });
   });
 
+  // ─── Empty state ───────────────────────────────────────────────────────────
+
   describe('empty state', () => {
     it('shows an empty state when the members array is empty', () => {
       render(<MemberList members={[]} isLoading={false} error={undefined} />);
@@ -68,6 +78,8 @@ describe('MemberList', () => {
       expect(screen.getByText('No members yet')).toBeInTheDocument();
     });
   });
+
+  // ─── Populated state ───────────────────────────────────────────────────────
 
   describe('populated state', () => {
     it('renders all members', () => {
@@ -87,7 +99,7 @@ describe('MemberList', () => {
     it('renders role badges with screen-reader prefixed labels', () => {
       render(<MemberList members={MEMBERS} isLoading={false} error={undefined} />);
 
-      // srLabel="Role: " prepends to the visible text, so screen readers hear "Role: Admin"
+      // srLabel="Role: " prepends to the visible text
       expect(screen.getByText('Admin')).toBeInTheDocument();
       expect(screen.getByText('Treasurer')).toBeInTheDocument();
       expect(screen.getByText('Member')).toBeInTheDocument();
@@ -120,11 +132,13 @@ describe('MemberList', () => {
         />
       );
 
-      // Full address is 56 chars; displayed version should be truncated (< 56 chars)
+      // Full address is 56 chars; displayed version should be truncated
       const code = screen.getByTitle(longAddress).closest('span');
       expect(code?.textContent?.length).toBeLessThan(longAddress.length);
     });
   });
+
+  // ─── Accessibility ─────────────────────────────────────────────────────────
 
   describe('accessibility', () => {
     it('wraps members in a <ul> list', () => {
@@ -138,62 +152,59 @@ describe('MemberList', () => {
 
       expect(screen.getByRole('region', { name: 'Community members' })).toBeInTheDocument();
     });
-const members = Array.from({ length: 5 }, (_, index) => member(index));
-
-describe('MemberList', () => {
-  it('shows address, role, and join date', () => {
-    render(<MemberList members={[member(0)]} />);
-
-    expect(screen.getByRole('table', { name: 'Community members' })).toBeInTheDocument();
-    expect(screen.getByText(members[0].stellar_address)).toBeInTheDocument();
-    expect(screen.getByText('Member')).toBeInTheDocument();
-    expect(screen.getByText(/2025/)).toBeInTheDocument();
   });
 
-  it('paginates local member data', async () => {
-    const user = userEvent.setup();
-    render(<MemberList members={members} pageSize={2} />);
+  // ─── Pagination (local) ────────────────────────────────────────────────────
 
-    expect(screen.getByText(members[0].stellar_address)).toBeInTheDocument();
-    expect(screen.getByText(members[1].stellar_address)).toBeInTheDocument();
-    expect(screen.queryByText(members[2].stellar_address)).not.toBeInTheDocument();
+  describe('pagination with local data', () => {
+    const paginationMembers = Array.from({ length: 5 }, (_, i) => remoteMember(i));
 
-    await user.click(screen.getByRole('button', { name: 'Go to next page' }));
+    it('paginates local member data', async () => {
+      const user = userEvent.setup();
+      render(<MemberList members={paginationMembers} pageSize={2} />);
 
-    expect(screen.getByText(members[2].stellar_address)).toBeInTheDocument();
-    expect(screen.getByText(members[3].stellar_address)).toBeInTheDocument();
-    expect(screen.queryByText(members[0].stellar_address)).not.toBeInTheDocument();
-    expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
-  });
+      expect(screen.getByTitle(paginationMembers[0].stellar_address)).toBeInTheDocument();
+      expect(screen.getByTitle(paginationMembers[1].stellar_address)).toBeInTheDocument();
+      expect(screen.queryByTitle(paginationMembers[2].stellar_address)).not.toBeInTheDocument();
 
-  it('fetches a server page and renders its pagination metadata', async () => {
-    const raw = jest.spyOn(api, 'raw').mockResolvedValue({
-      data: [member(4)],
-      meta: { total: 12, page: 1, limit: 1, pages: 12, offset: 0 },
+      await user.click(screen.getByRole('button', { name: 'Go to next page' }));
+
+      expect(screen.getByTitle(paginationMembers[2].stellar_address)).toBeInTheDocument();
+      expect(screen.getByTitle(paginationMembers[3].stellar_address)).toBeInTheDocument();
+      expect(screen.queryByTitle(paginationMembers[0].stellar_address)).not.toBeInTheDocument();
+      expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
     });
 
-    render(<MemberList communityId="community-1" pageSize={1} />);
+    it('clamps an invalid controlled page to the available range', () => {
+      render(<MemberList members={paginationMembers} pageSize={2} page={99} />);
 
-    await waitFor(() => expect(screen.getByText(member(4).stellar_address)).toBeInTheDocument());
-    expect(raw).toHaveBeenCalledWith(
-      'GET',
-      '/api/v1/communities/community-1/members',
-      expect.objectContaining({ query: { page: 1, limit: 1 } })
-    );
-    expect(screen.getByText('Page 1 of 12')).toBeInTheDocument();
-
-    raw.mockRestore();
+      expect(screen.getByTitle(paginationMembers[4].stellar_address)).toBeInTheDocument();
+      expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
+    });
   });
 
-  it('clamps an invalid controlled page to the available range', () => {
-    render(<MemberList members={members} pageSize={2} page={99} />);
+  // ─── Pagination (remote / communityId) ────────────────────────────────────
 
-    expect(screen.getByText(members[4].stellar_address)).toBeInTheDocument();
-    expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
-  });
+  describe('pagination with remote data', () => {
+    it('fetches a server page and renders its pagination metadata', async () => {
+      const raw = jest.spyOn(api, 'raw').mockResolvedValue({
+        data: [remoteMember(4)],
+        meta: { total: 12, page: 1, limit: 1, pages: 12, offset: 0 },
+      });
 
-  it('shows an empty state when there are no members', () => {
-    render(<MemberList members={[]} />);
-    expect(screen.getByText('No members found')).toBeInTheDocument();
+      render(<MemberList communityId="community-1" pageSize={1} />);
+
+      await waitFor(() =>
+        expect(screen.getByTitle(remoteMember(4).stellar_address)).toBeInTheDocument()
+      );
+      expect(raw).toHaveBeenCalledWith(
+        'GET',
+        '/api/v1/communities/community-1/members',
+        expect.objectContaining({ query: { page: 1, limit: 1 } })
+      );
+      expect(screen.getByText('Page 1 of 12')).toBeInTheDocument();
+
+      raw.mockRestore();
+    });
   });
 });
