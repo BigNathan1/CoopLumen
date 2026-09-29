@@ -1,0 +1,155 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin: 0 auto;
+  max-width: var(--container-max-lg);
+  padding: var(--space-8) var(--container-gutter);
+  width: 100%;
+}
+
+.header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.pageTitle {
+  color: var(--color-text);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+
+.sectionTitle {
+  color: var(--color-text);
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.subsectionTitle {
+  color: var(--color-text);
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Name/value pairs, so the wallet panel reads as data rather than as prose. */
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.detail {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.detailLabel {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  min-width: 6rem;
+}
+
+.detailValue {
+  color: var(--color-text);
+  margin: 0;
+  min-width: 0;
+}
+
+.warning {
+  background: var(--color-warning-subtle);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  margin: 0;
+  padding: var(--space-3);
+}
+
+.error {
+  align-items: center;
+  color: var(--color-error);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+  gap: var(--space-2);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.empty {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.balanceList,
+.membershipList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.balanceItem,
+.membershipItem {
+  align-items: center;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: space-between;
+  padding: var(--space-3);
+}
+
+.balanceAsset {
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.balanceAmount {
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.membershipBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.membershipName {
+  color: var(--color-text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.membershipMeta {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+}

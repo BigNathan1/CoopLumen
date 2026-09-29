@@ -1,9 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { db } from '../../db';
-import { logger } from '../../utils/logger';
 import { parsePagination, pageMeta } from '../utils/http';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate';
-import { requireAuth } from '../middleware/auth';
 import {
   createMultiSigRequestSchema,
   approveMultiSigRequestSchema,
@@ -51,13 +49,14 @@ export interface MultiSigRow {
 async function getCommunityMultiSigRequests(req: Request, res: Response): Promise<void> {
   const { communityId } = req.params;
   const pagination = parsePagination(req);
-  const { page, limit, offset } = pagination;
+  const { limit, offset } = pagination;
   const status = req.query.status as string | undefined;
 
   // Verify community exists
-  const communityRows = await db.query<{ id: string }>('SELECT id FROM communities WHERE id = $1 AND deleted_at IS NULL', [
-    communityId,
-  ]);
+  const communityRows = await db.query<{ id: string }>(
+    'SELECT id FROM communities WHERE id = $1 AND deleted_at IS NULL',
+    [communityId]
+  );
   if (communityRows.length === 0) {
     res.status(404).json({ data: null, error: 'Community not found' });
     return;
@@ -95,6 +94,16 @@ async function getCommunityMultiSigRequests(req: Request, res: Response): Promis
  */
 async function createMultiSigRequest(req: Request, res: Response): Promise<void> {
   const { communityId } = req.params;
+  const body = req.body as {
+    action: string;
+    title: string;
+    description?: string;
+    payload?: Record<string, unknown>;
+    transaction_xdr?: string;
+    required_signatures?: number;
+    proposer_address: string;
+    expires_at?: string;
+  };
   const {
     action,
     title,
@@ -104,11 +113,12 @@ async function createMultiSigRequest(req: Request, res: Response): Promise<void>
     required_signatures,
     proposer_address,
     expires_at,
-  } = req.body;
+  } = body;
 
-  const communityRows = await db.query<{ id: string }>('SELECT id FROM communities WHERE id = $1 AND deleted_at IS NULL', [
-    communityId,
-  ]);
+  const communityRows = await db.query<{ id: string }>(
+    'SELECT id FROM communities WHERE id = $1 AND deleted_at IS NULL',
+    [communityId]
+  );
   if (communityRows.length === 0) {
     res.status(404).json({ data: null, error: 'Community not found' });
     return;
@@ -162,7 +172,8 @@ async function getMultiSigRequest(req: Request, res: Response): Promise<void> {
  */
 async function approveMultiSigRequest(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
-  const { signed_xdr } = req.body ?? {};
+  const body = (req.body ?? {}) as { signed_xdr?: string };
+  const { signed_xdr } = body;
 
   const rows = await db.query<MultiSigRow>('SELECT * FROM multisig_requests WHERE id = $1', [id]);
   if (rows.length === 0) {
@@ -172,7 +183,9 @@ async function approveMultiSigRequest(req: Request, res: Response): Promise<void
 
   const request = rows[0];
   if (request.status !== 'pending') {
-    res.status(400).json({ data: null, error: `Cannot approve request with status '${request.status}'` });
+    res
+      .status(400)
+      .json({ data: null, error: `Cannot approve request with status '${request.status}'` });
     return;
   }
 
@@ -199,7 +212,8 @@ async function approveMultiSigRequest(req: Request, res: Response): Promise<void
  */
 async function rejectMultiSigRequest(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
-  const { reason } = req.body ?? {};
+  const body = (req.body ?? {}) as { reason?: string };
+  const { reason } = body;
 
   const rows = await db.query<MultiSigRow>('SELECT * FROM multisig_requests WHERE id = $1', [id]);
   if (rows.length === 0) {
@@ -209,7 +223,9 @@ async function rejectMultiSigRequest(req: Request, res: Response): Promise<void>
 
   const request = rows[0];
   if (request.status !== 'pending') {
-    res.status(400).json({ data: null, error: `Cannot reject request with status '${request.status}'` });
+    res
+      .status(400)
+      .json({ data: null, error: `Cannot reject request with status '${request.status}'` });
     return;
   }
 
@@ -232,7 +248,8 @@ async function rejectMultiSigRequest(req: Request, res: Response): Promise<void>
  */
 async function executeMultiSigRequest(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
-  const { stellar_tx_hash } = req.body;
+  const body = req.body as { stellar_tx_hash: string };
+  const { stellar_tx_hash } = body;
 
   const rows = await db.query<MultiSigRow>('SELECT * FROM multisig_requests WHERE id = $1', [id]);
   if (rows.length === 0) {
@@ -242,7 +259,9 @@ async function executeMultiSigRequest(req: Request, res: Response): Promise<void
 
   const request = rows[0];
   if (request.status !== 'approved' && request.status !== 'pending') {
-    res.status(400).json({ data: null, error: `Cannot execute request with status '${request.status}'` });
+    res
+      .status(400)
+      .json({ data: null, error: `Cannot execute request with status '${request.status}'` });
     return;
   }
 
