@@ -1,0 +1,45 @@
+{
+  "common": {
+    "retry": "Jaribu tena",
+    "loading": "Inapakia…",
+    "cancel": "Ghairi",
+    "save": "Hifadhi",
+    "close": "Funga",
+    "language": "Lugha",
+    "connectWallet": "Unganisha pochi",
+    "disconnectWallet": "Tenganisha pochi",
+    "walletNotConnected": "Hakuna pochi iliyounganishwa"
+  },
+  "nav": {
+    "dashboard": "Dashibodi",
+    "communities": "Jumuiya",
+    "profile": "Wasifu"
+  },
+  "dashboard": {
+    "title": "Dashibodi",
+    "subtitle": "Jumuiya zako, salio, mikopo na sifa.",
+    "recentTransactions": "Miamala ya hivi karibuni",
+    "noTransactions": "Hakuna miamala bado"
+  },
+  "transactions": {
+    "live": "Moja kwa moja",
+    "connecting": "Inaunganisha…",
+    "reconnecting": "Inaunganisha tena…",
+    "offline": "Nje ya mtandao",
+    "newPayment": "Malipo mapya ya {amount} {asset}",
+    "received": "Imepokelewa",
+    "sent": "Imetumwa"
+  },
+  "profile": {
+    "title": "Wasifu wako",
+    "balances": "Salio",
+    "communities": "Jumuiya zako",
+    "loadingBalances": "Inapakia salio",
+    "loadingCommunities": "Inapakia jumuiya zako",
+    "emptyCommunities": "Hakuna jumuiya bado"
+  },
+  "errors": {
+    "generic": "Kuna kitu kimeenda kombo. Tafadhali jaribu tena.",
+    "network": "Imeshindwa kufikia API ya CoopLumen. Angalia muunganisho wako na ujaribu tena."
+  }
+}
