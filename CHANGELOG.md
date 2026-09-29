@@ -10,6 +10,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+
+- `useAddMember()` now uses the authenticated, versioned community API and revalidates the member list cache after success (#340).
 - `useIssueToken()` mutation hook builds an unsigned issuance payment, opens Freighter for signing, submits the signed XDR, and refreshes affected balances and the community token list (#341).
 
 - `useCreateCommunity()` mutation hook now drives the default create-community form submission and revalidates cached community lists after success. Errors remain available through the hook and the form preserves field-level API validation and focus handling (#339).

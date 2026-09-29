@@ -160,7 +160,7 @@ describe('useCommunityMembers', () => {
 
   it('fires a request to the members endpoint when communityId is provided', () => {
     renderHook(() => useCommunityMembers('uuid-1'));
-    expect(lastCall?.key).toMatch(/\/api\/communities\/uuid-1\/members/);
+    expect(lastCall?.key).toMatch(/\/api\/v1\/communities\/uuid-1\/members/);
   });
 
   it('resolves the unwrapped members list on a successful response', async () => {
