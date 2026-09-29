@@ -10,6 +10,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `useIssueToken()` mutation hook builds an unsigned issuance payment, opens Freighter for signing, submits the signed XDR, and refreshes affected balances and the community token list (#341).
 
 - `useCreateCommunity()` mutation hook now drives the default create-community form submission and revalidates cached community lists after success. Errors remain available through the hook and the form preserves field-level API validation and focus handling (#339).
 - Community detail page at `/communities/[id]` (`frontend/src/app/communities/[id]/page.tsx`). Shows the community name, asset code badge, description, creation date, asset-issuer and issuer key via `StellarAddress`, and community ID. A responsive two-column layout places the hero card alongside the member roster. Loading, error, and empty states are handled at both the community and members level (#222).
