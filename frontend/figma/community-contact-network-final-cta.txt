@@ -1,0 +1,10 @@
+-- Light mode designs done
+
+What are done include these issues
+#756 — Community Stories & Case Studies
+#766 — Contact Us
+#754 — Network Health & XLM/USD Ticker
+#765 — Final CTA Band
+
+Link to view design
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&p=f&t=Xqi7KgS7hWhvCZkp-0
