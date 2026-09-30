@@ -2,6 +2,8 @@ import request from 'supertest';
 import { Keypair } from '@stellar/stellar-sdk';
 import app from '../../../app';
 import { verifySessionToken } from '../../utils/sessionToken';
+import { REFRESH_COOKIE_NAME, resetRefreshTokens } from '../../utils/refreshToken';
+import { AUTH_COOKIE_NAME } from '../../utils/authCookie';
 
 jest.mock('../../../db', () => ({
   db: {
@@ -101,5 +103,77 @@ describe('POST /api/v1/auth/verify', () => {
       .post('/api/v1/auth/verify')
       .send({ address, challenge, signature });
     expect(second.status).toBe(401);
+  });
+});
+
+describe('POST /api/v1/auth/refresh', () => {
+  beforeEach(() => resetRefreshTokens());
+
+  async function signIn(): Promise<{ address: string; refreshCookie: string }> {
+    const keypair = Keypair.random();
+    const address = keypair.publicKey();
+    const challengeRes = await request(app).post('/api/v1/auth/challenge').send({ address });
+    const { challenge } = challengeRes.body.data as { challenge: string };
+    const signature = keypair.sign(Buffer.from(challenge, 'utf8')).toString('base64');
+    const res = await request(app)
+      .post('/api/v1/auth/verify')
+      .send({ address, challenge, signature });
+    return { address, refreshCookie: pickCookie(res, REFRESH_COOKIE_NAME) };
+  }
+
+  function pickCookie(res: request.Response, name: string): string {
+    const cookies = res.headers['set-cookie'] as unknown as string[];
+    const found = cookies.find((c) => c.startsWith(`${name}=`));
+    if (!found) throw new Error(`no ${name} cookie set`);
+    return found;
+  }
+
+  it('sets an httpOnly refresh cookie scoped to the auth routes on verify', async () => {
+    const { refreshCookie } = await signIn();
+    expect(refreshCookie).toEqual(expect.stringContaining('HttpOnly'));
+    expect(refreshCookie).toEqual(expect.stringContaining('SameSite=Strict'));
+    expect(refreshCookie).toEqual(expect.stringContaining('Path=/api/v1/auth'));
+  });
+
+  it('rejects a request without a refresh cookie', async () => {
+    const res = await request(app).post('/api/v1/auth/refresh');
+    expect(res.status).toBe(401);
+    expect(res.body.data).toBeNull();
+  });
+
+  it('rejects an unknown refresh token', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', `${REFRESH_COOKIE_NAME}=forged`);
+    expect(res.status).toBe(401);
+  });
+
+  it('issues a new session token and rotates the refresh token', async () => {
+    const { address, refreshCookie } = await signIn();
+    const cookieHeader = refreshCookie.split(';')[0];
+
+    const res = await request(app).post('/api/v1/auth/refresh').set('Cookie', cookieHeader);
+    expect(res.status).toBe(200);
+    expect(res.body.data.address).toBe(address);
+    expect(verifySessionToken(res.body.data.token as string)?.address).toBe(address);
+
+    const sessionCookie = pickCookie(res, AUTH_COOKIE_NAME);
+    expect(sessionCookie).toEqual(expect.stringContaining('HttpOnly'));
+    const rotated = pickCookie(res, REFRESH_COOKIE_NAME);
+    expect(rotated.split(';')[0]).not.toBe(cookieHeader);
+  });
+
+  it('rejects reuse of a refresh token that was already rotated', async () => {
+    const { refreshCookie } = await signIn();
+    const cookieHeader = refreshCookie.split(';')[0];
+
+    const first = await request(app).post('/api/v1/auth/refresh').set('Cookie', cookieHeader);
+    expect(first.status).toBe(200);
+
+    const replay = await request(app).post('/api/v1/auth/refresh').set('Cookie', cookieHeader);
+    expect(replay.status).toBe(401);
+    expect(replay.headers['set-cookie']).toEqual(
+      expect.arrayContaining([expect.stringContaining(`${REFRESH_COOKIE_NAME}=;`)])
+    );
   });
 });

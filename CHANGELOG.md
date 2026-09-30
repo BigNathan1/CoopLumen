@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `POST /api/v1/auth/refresh`: exchanges the httpOnly, single-use `cooplumen_refresh` cookie (now set by `POST /api/v1/auth/verify`) for a new session token, rotating the refresh token on every call so a replayed token is rejected with 401. Documented in `docs/openapi.yaml` (#352).
 - Community detail page at `/communities/[id]` (`frontend/src/app/communities/[id]/page.tsx`). Shows the community name, asset code badge, description, creation date, asset-issuer and issuer key via `StellarAddress`, and community ID. A responsive two-column layout places the hero card alongside the member roster. Loading, error, and empty states are handled at both the community and members level (#222).
 - `CommunityDetailPage` client component (`frontend/src/app/communities/[id]/CommunityDetailPage.tsx`) with full keyboard and screen-reader accessibility: single `<h1>`, `<main>` landmark with an accessible name, `<dl>` for key–value stats, `<time dateTime>` for dates, and a back-navigation link to `/communities`.
 - `MemberList` component (`frontend/src/components/MemberList.tsx`) renders the member roster with identicon avatars, truncated Stellar addresses, join dates, and role badges (`admin`/`treasurer`/`member`/`observer`). Loading state uses `LoadingSkeleton`; error and empty states delegate to `Alert` and `EmptyState`. Each row is a semantic `<li>` inside a labelled `<section>` landmark.
