@@ -32,7 +32,10 @@ export interface BatchDisbursementFormProps {
 const STELLAR_ADDRESS_REGEX = /^G[A-Z0-9]{55}$/;
 
 export function parseCSVContent(content: string): DisbursementItem[] {
-  const lines = content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const lines = content
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
   if (lines.length === 0) return [];
 
   let startIdx = 0;
@@ -115,10 +118,7 @@ export function BatchDisbursementForm({
   const validItems = items.filter((item) => item.isValid);
   const invalidItems = items.filter((item) => !item.isValid);
 
-  const totalAmount = validItems.reduce(
-    (sum, item) => sum + (Number(item.amount) || 0),
-    0
-  );
+  const totalAmount = validItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

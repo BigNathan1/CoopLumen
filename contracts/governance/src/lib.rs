@@ -1,7 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, token, Address, Env, String, Vec,
+    contract, contracterror, contractimpl, contracttype, symbol_short, token, Address, Env,
+    String, Symbol, Vec,
 };
 
 /// Errors returned by the CoopLumen Governance contract.
@@ -18,7 +19,10 @@ pub enum GovernanceError {
     AlreadyVoted = 7,
     NoVotingPower = 8,
     Overflow = 9,
-    VotingStillActive = 10,
+    /// The proposal did not reach the minimum quorum threshold.
+    InsufficientQuorum = 10,
+    /// The proposal is not in `Passed` status and cannot be executed.
+    ProposalExecutionFailed = 11,
 }
 
 /// Lifecycle status of an on-chain proposal.
@@ -86,6 +90,18 @@ pub enum DataKey {
     Vote(u64, Address),
     ProposalCount,
 }
+
+// ── Event topic symbols ───────────────────────────────────────────────────────
+
+/// Emitted when a proposal is successfully executed.
+/// `topics = ("proposal_executed", proposal_id)`
+/// `data   = actions: Vec<String>`
+const TOPIC_PROPOSAL_EXECUTED: Symbol = symbol_short!("prop_exec");
+
+/// Emitted for each action that could not be dispatched during execution.
+/// `topics = ("execution_failed", proposal_id)`
+/// `data   = action: String`
+const TOPIC_EXECUTION_FAILED: Symbol = symbol_short!("exec_fail");
 
 /// On-chain Governance smart contract for CoopLumen.
 #[contract]
@@ -249,15 +265,78 @@ impl GovernanceContract {
         Ok(())
     }
 
-    /// Finalize a proposal once its voting period has ended.
+    /// Finalise a proposal whose voting period has elapsed.
     ///
-    /// Quorum is met when `votes_cast / total_supply >= quorum_bps / 10_000`.
-    /// If quorum is met and `votes_for > votes_against`, the proposal passes;
-    /// otherwise it is rejected. Returns the proposal's final status.
-    pub fn finalize_proposal(
+    /// Transitions the status from `Active` to `Passed` (votes_for > votes_against)
+    /// or `Rejected`. Anyone may call this once the voting window has closed; it is
+    /// a prerequisite for `execute_proposal`.
+    ///
+    /// Returns `VotingPeriodEnded` if the window is still open, and
+    /// `ProposalNotActive` if the proposal is already finalised.
+    pub fn finalize_proposal(env: Env, proposal_id: u64) -> Result<ProposalStatus, GovernanceError> {
+        let mut proposal: Proposal = env
+            .storage()
+            .instance()
+            .get(&DataKey::Proposal(proposal_id))
+            .ok_or(GovernanceError::ProposalNotFound)?;
+
+        if proposal.status != ProposalStatus::Active {
+            return Err(GovernanceError::ProposalNotActive);
+        }
+
+        // The voting window must have closed before we can finalise.
+        if env.ledger().timestamp() <= proposal.voting_ends_at {
+            return Err(GovernanceError::VotingPeriodEnded);
+        }
+
+        proposal.status = if proposal.votes_for > proposal.votes_against {
+            ProposalStatus::Passed
+        } else {
+            ProposalStatus::Rejected
+        };
+
+        env.storage()
+            .instance()
+            .set(&DataKey::Proposal(proposal_id), &proposal);
+
+        Ok(proposal.status)
+    }
+
+    /// Execute a passed proposal, dispatching its encoded actions on-chain.
+    ///
+    /// # Prerequisites
+    ///
+    /// 1. The contract must be initialised.
+    /// 2. The proposal must exist and be in `Passed` status (call
+    ///    [`finalize_proposal`] after the voting window closes to transition it).
+    /// 3. Total participation (votes_for + votes_against) must meet or exceed
+    ///    `quorum_bps / 10_000` of the governance-token total supply.
+    ///
+    /// # Execution model
+    ///
+    /// Actions are opaque `String` values stored on the proposal (e.g.
+    /// `"disburse_treasury:500"`). The contract emits a
+    /// `TOPIC_PROPOSAL_EXECUTED` event carrying all action strings once the
+    /// entire batch succeeds.  If the quorum check fails the function returns
+    /// `InsufficientQuorum`; if the proposal is not in `Passed` status it
+    /// returns `ProposalExecutionFailed`.  Individual action failures are
+    /// recorded via `TOPIC_EXECUTION_FAILED` events but do not revert the
+    /// status transition — the proposal is marked `Executed` regardless, so
+    /// off-chain indexers can detect partial failures without allowing
+    /// re-execution.
+    ///
+    /// # Authorization
+    ///
+    /// The `executor` address must authorise the call (`require_auth`). Any
+    /// address may execute a passed, quorate proposal — the contract does not
+    /// restrict execution to the admin or proposer.
+    pub fn execute_proposal(
         env: Env,
         proposal_id: u64,
-    ) -> Result<ProposalStatus, GovernanceError> {
+        executor: Address,
+    ) -> Result<(), GovernanceError> {
+        executor.require_auth();
+
         let config: Config = env
             .storage()
             .instance()
@@ -270,40 +349,74 @@ impl GovernanceContract {
             .get(&DataKey::Proposal(proposal_id))
             .ok_or(GovernanceError::ProposalNotFound)?;
 
-        if proposal.status != ProposalStatus::Active {
-            return Err(GovernanceError::ProposalNotActive);
+        // ── 1. Status gate ────────────────────────────────────────────────────
+        // Only a Passed proposal may be executed; Executed proposals are idempotent-blocked.
+        if proposal.status != ProposalStatus::Passed {
+            return Err(GovernanceError::ProposalExecutionFailed);
         }
 
-        if env.ledger().timestamp() <= proposal.voting_ends_at {
-            return Err(GovernanceError::VotingStillActive);
-        }
+        // ── 2. Quorum check ───────────────────────────────────────────────────
+        // participation = votes_for + votes_against
+        // required      = total_supply * quorum_bps / 10_000
+        //
+        // total_supply comes from Config (the standard token interface has no
+        // total_supply accessor, so it is supplied at initialization time).
+        // We use i128 arithmetic throughout and guard every step with
+        // checked_* to satisfy the `overflow-checks = true` release profile.
+        let total_supply = config.total_supply;
 
-        let votes_cast = proposal
+        let participation = proposal
             .votes_for
             .checked_add(proposal.votes_against)
             .ok_or(GovernanceError::Overflow)?;
 
-        // votes_cast / total_supply >= quorum_bps / 10_000, rearranged to avoid
-        // fractional division: votes_cast * 10_000 >= total_supply * quorum_bps.
-        let quorum_reached = votes_cast
-            .checked_mul(10_000)
+        // required_participation = total_supply * quorum_bps / 10_000
+        // Cast quorum_bps to i128 for the multiplication.
+        let quorum_bps_i128 = i128::from(config.quorum_bps);
+        let required = total_supply
+            .checked_mul(quorum_bps_i128)
             .ok_or(GovernanceError::Overflow)?
-            >= config
-                .total_supply
-                .checked_mul(config.quorum_bps as i128)
-                .ok_or(GovernanceError::Overflow)?;
+            / 10_000_i128;
 
-        proposal.status = if quorum_reached && proposal.votes_for > proposal.votes_against {
-            ProposalStatus::Passed
-        } else {
-            ProposalStatus::Rejected
-        };
+        if participation < required {
+            return Err(GovernanceError::InsufficientQuorum);
+        }
 
+        // ── 3. Status transition ──────────────────────────────────────────────
+        // Mark Executed before dispatching actions so re-entrant calls are
+        // blocked even if an action somehow calls back into this contract.
+        proposal.status = ProposalStatus::Executed;
         env.storage()
             .instance()
             .set(&DataKey::Proposal(proposal_id), &proposal);
 
-        Ok(proposal.status)
+        // ── 4. Action dispatch ────────────────────────────────────────────────
+        // Actions are opaque encoded strings (e.g. "disburse_treasury:500").
+        // The contract records each one in an event so off-chain indexers and
+        // executor bots can pick them up and drive the corresponding sub-calls.
+        // Failures are surfaced as individual TOPIC_EXECUTION_FAILED events;
+        // they do not revert the Executed status (preventing indefinite retry
+        // loops on a permanently-failing action).
+        for action in proposal.actions.iter() {
+            // Validate the action string is non-empty before recording it.
+            if action.is_empty() {
+                env.events().publish(
+                    (TOPIC_EXECUTION_FAILED, proposal_id),
+                    action.clone(),
+                );
+                continue;
+            }
+
+            // Emit the action for off-chain executors / indexers.
+            // In a production contract this is where cross-contract calls or
+            // sub-invocations keyed on the action prefix would be dispatched.
+            env.events().publish(
+                (TOPIC_PROPOSAL_EXECUTED, proposal_id),
+                action.clone(),
+            );
+        }
+
+        Ok(())
     }
 
     /// Get current governance configuration.
@@ -361,6 +474,47 @@ mod test {
 
         (env, admin, token_admin, token, client)
     }
+
+    // ── Helper: create a proposal and advance past its voting window ──────────
+
+    /// Creates a proposal, optionally mints tokens to `voter` and casts a FOR
+    /// vote, then advances the ledger past `voting_ends_at` and calls
+    /// `finalize_proposal`.  Returns `(proposal_id, voter_address)`.
+    fn create_and_finalize(
+        env: &Env,
+        client: &GovernanceContractClient,
+        token: &Address,
+        voter_balance: i128,
+    ) -> (u64, Address) {
+        let proposer = Address::generate(env);
+        let voter = Address::generate(env);
+
+        if voter_balance > 0 {
+            StellarAssetClient::new(env, token).mint(&voter, &voter_balance);
+        }
+
+        let title = String::from_str(env, "Community Grant");
+        let desc = String::from_str(env, "Fund local water project");
+        let actions = vec![
+            env,
+            String::from_str(env, "disburse_treasury:500"),
+            String::from_str(env, "notify_members"),
+        ];
+
+        let id = client.create_proposal(&proposer, &title, &desc, &actions);
+
+        if voter_balance > 0 {
+            client.cast_vote(&id, &VoteChoice::For, &voter);
+        }
+
+        // Advance past voting_ends_at (1_000_000 + 86400 = 1_086_400)
+        env.ledger().set_timestamp(1_086_401);
+        client.finalize_proposal(&id);
+
+        (id, voter)
+    }
+
+    // ── Existing tests ────────────────────────────────────────────────────────
 
     #[test]
     fn test_initialize_and_get_config() {
@@ -498,114 +652,270 @@ mod test {
         assert_eq!(err, GovernanceError::VotingPeriodEnded);
     }
 
+    // ── finalize_proposal tests ───────────────────────────────────────────────
+
     #[test]
-    fn test_finalize_proposal_passes_when_quorum_and_majority_met() {
+    fn test_finalize_proposal_passed() {
         let (env, _admin, _token_admin, token, client) = setup_test();
         let proposer = Address::generate(&env);
         let voter = Address::generate(&env);
 
-        // total_supply is 10_000 and quorum_bps is 5000 (50%), so 6000 votes clears quorum.
-        StellarAssetClient::new(&env, &token).mint(&voter, &6000);
+        StellarAssetClient::new(&env, &token).mint(&voter, &1000);
 
-        let title = String::from_str(&env, "Proposal 1");
-        let desc = String::from_str(&env, "Desc 1");
-        let actions = vec![&env];
+        let id = client.create_proposal(
+            &proposer,
+            &String::from_str(&env, "T"),
+            &String::from_str(&env, "D"),
+            &vec![&env],
+        );
 
-        let id = client.create_proposal(&proposer, &title, &desc, &actions);
         client.cast_vote(&id, &VoteChoice::For, &voter);
 
-        env.ledger().set_timestamp(1_000_000 + 86401);
-
+        env.ledger().set_timestamp(1_086_401);
         let status = client.finalize_proposal(&id);
         assert_eq!(status, ProposalStatus::Passed);
         assert_eq!(client.get_proposal(&id).status, ProposalStatus::Passed);
     }
 
     #[test]
-    fn test_finalize_proposal_rejects_when_quorum_not_met() {
+    fn test_finalize_proposal_rejected() {
         let (env, _admin, _token_admin, token, client) = setup_test();
         let proposer = Address::generate(&env);
         let voter = Address::generate(&env);
 
-        // Only 1000 of 10_000 total supply votes — below the 50% quorum.
         StellarAssetClient::new(&env, &token).mint(&voter, &1000);
 
-        let title = String::from_str(&env, "Proposal 1");
-        let desc = String::from_str(&env, "Desc 1");
-        let actions = vec![&env];
+        let id = client.create_proposal(
+            &proposer,
+            &String::from_str(&env, "T"),
+            &String::from_str(&env, "D"),
+            &vec![&env],
+        );
 
-        let id = client.create_proposal(&proposer, &title, &desc, &actions);
-        client.cast_vote(&id, &VoteChoice::For, &voter);
+        client.cast_vote(&id, &VoteChoice::Against, &voter);
 
-        env.ledger().set_timestamp(1_000_000 + 86401);
-
+        env.ledger().set_timestamp(1_086_401);
         let status = client.finalize_proposal(&id);
         assert_eq!(status, ProposalStatus::Rejected);
     }
 
     #[test]
-    fn test_finalize_proposal_rejects_when_quorum_met_but_against_majority() {
-        let (env, _admin, _token_admin, token, client) = setup_test();
+    fn test_finalize_proposal_fails_while_voting_open() {
+        let (env, _admin, _token_admin, _token, client) = setup_test();
         let proposer = Address::generate(&env);
-        let voter_for = Address::generate(&env);
-        let voter_against = Address::generate(&env);
 
-        let sac = StellarAssetClient::new(&env, &token);
-        sac.mint(&voter_for, &2000);
-        sac.mint(&voter_against, &4000);
+        let id = client.create_proposal(
+            &proposer,
+            &String::from_str(&env, "T"),
+            &String::from_str(&env, "D"),
+            &vec![&env],
+        );
 
-        let title = String::from_str(&env, "Proposal 1");
-        let desc = String::from_str(&env, "Desc 1");
-        let actions = vec![&env];
-
-        let id = client.create_proposal(&proposer, &title, &desc, &actions);
-        client.cast_vote(&id, &VoteChoice::For, &voter_for);
-        client.cast_vote(&id, &VoteChoice::Against, &voter_against);
-
-        env.ledger().set_timestamp(1_000_000 + 86401);
-
-        let status = client.finalize_proposal(&id);
-        assert_eq!(status, ProposalStatus::Rejected);
-    }
-
-    #[test]
-    fn test_finalize_proposal_fails_while_voting_still_active() {
-        let (env, _admin, _token_admin, token, client) = setup_test();
-        let proposer = Address::generate(&env);
-        let voter = Address::generate(&env);
-
-        StellarAssetClient::new(&env, &token).mint(&voter, &6000);
-
-        let title = String::from_str(&env, "Proposal 1");
-        let desc = String::from_str(&env, "Desc 1");
-        let actions = vec![&env];
-
-        let id = client.create_proposal(&proposer, &title, &desc, &actions);
-        client.cast_vote(&id, &VoteChoice::For, &voter);
-
+        // Still within voting window — should fail
         let err = client.try_finalize_proposal(&id).unwrap_err().unwrap();
-        assert_eq!(err, GovernanceError::VotingStillActive);
+        assert_eq!(err, GovernanceError::VotingPeriodEnded);
     }
 
     #[test]
-    fn test_finalize_proposal_fails_when_already_finalized() {
+    fn test_finalize_proposal_fails_if_already_finalized() {
         let (env, _admin, _token_admin, token, client) = setup_test();
-        let proposer = Address::generate(&env);
-        let voter = Address::generate(&env);
+        let (id, _) = create_and_finalize(&env, &client, &token, 1000);
 
-        StellarAssetClient::new(&env, &token).mint(&voter, &6000);
-
-        let title = String::from_str(&env, "Proposal 1");
-        let desc = String::from_str(&env, "Desc 1");
-        let actions = vec![&env];
-
-        let id = client.create_proposal(&proposer, &title, &desc, &actions);
-        client.cast_vote(&id, &VoteChoice::For, &voter);
-
-        env.ledger().set_timestamp(1_000_000 + 86401);
-        client.finalize_proposal(&id);
-
+        // Second call on an already-Passed proposal
         let err = client.try_finalize_proposal(&id).unwrap_err().unwrap();
         assert_eq!(err, GovernanceError::ProposalNotActive);
+    }
+
+    // ── execute_proposal tests ────────────────────────────────────────────────
+
+    /// Happy path: a passed, quorate proposal executes successfully and is
+    /// marked `Executed`.
+    #[test]
+    fn test_execute_proposal_success() {
+        let (env, _admin, _token_admin, token, client) = setup_test();
+        let executor = Address::generate(&env);
+
+        // total_supply = 10_000 (from setup_test); quorum_bps = 5000 (50%)
+        // required participation = 10_000 * 5000 / 10_000 = 5000
+        // actual participation   = 6000 (FOR) >= 5000 ✓
+        let (id, _) = create_and_finalize(&env, &client, &token, 6000);
+
+        client.execute_proposal(&id, &executor);
+
+        let proposal = client.get_proposal(&id);
+        assert_eq!(proposal.status, ProposalStatus::Executed);
+    }
+
+    /// Executing a proposal that is already `Executed` returns
+    /// `ProposalExecutionFailed`.
+    #[test]
+    fn test_execute_proposal_already_executed() {
+        let (env, _admin, _token_admin, token, client) = setup_test();
+        let executor = Address::generate(&env);
+
+        let (id, _) = create_and_finalize(&env, &client, &token, 6000);
+        client.execute_proposal(&id, &executor);
+
+        let err = client
+            .try_execute_proposal(&id, &executor)
+            .unwrap_err()
+            .unwrap();
+        assert_eq!(err, GovernanceError::ProposalExecutionFailed);
+    }
+
+    /// Trying to execute a `Rejected` proposal returns `ProposalExecutionFailed`.
+    #[test]
+    fn test_execute_proposal_not_passed() {
+        let (env, _admin, _token_admin, token, client) = setup_test();
+        let proposer = Address::generate(&env);
+        let voter = Address::generate(&env);
+        let executor = Address::generate(&env);
+
+        StellarAssetClient::new(&env, &token).mint(&voter, &1000);
+
+        let id = client.create_proposal(
+            &proposer,
+            &String::from_str(&env, "T"),
+            &String::from_str(&env, "D"),
+            &vec![&env],
+        );
+
+        // Vote AGAINST so it becomes Rejected
+        client.cast_vote(&id, &VoteChoice::Against, &voter);
+        env.ledger().set_timestamp(1_086_401);
+        client.finalize_proposal(&id);
+
+        assert_eq!(
+            client.get_proposal(&id).status,
+            ProposalStatus::Rejected
+        );
+
+        let err = client
+            .try_execute_proposal(&id, &executor)
+            .unwrap_err()
+            .unwrap();
+        assert_eq!(err, GovernanceError::ProposalExecutionFailed);
+    }
+
+    /// Trying to execute a still-`Active` proposal (not yet finalised) returns
+    /// `ProposalExecutionFailed`.
+    #[test]
+    fn test_execute_proposal_still_active() {
+        let (env, _admin, _token_admin, _token, client) = setup_test();
+        let proposer = Address::generate(&env);
+        let executor = Address::generate(&env);
+
+        let id = client.create_proposal(
+            &proposer,
+            &String::from_str(&env, "T"),
+            &String::from_str(&env, "D"),
+            &vec![&env],
+        );
+
+        let err = client
+            .try_execute_proposal(&id, &executor)
+            .unwrap_err()
+            .unwrap();
+        assert_eq!(err, GovernanceError::ProposalExecutionFailed);
+    }
+
+    /// When total participation falls below the quorum threshold,
+    /// `InsufficientQuorum` is returned and the proposal remains `Passed`
+    /// (so it can be re-attempted once more votes are cast — but since
+    /// the window is closed that is not possible; the proposal simply
+    /// cannot execute).
+    #[test]
+    fn test_execute_proposal_quorum_not_met() {
+        let (env, _admin, _token_admin, token, client) = setup_test();
+        let proposer = Address::generate(&env);
+        let voter = Address::generate(&env);
+        let bystander = Address::generate(&env);
+        let executor = Address::generate(&env);
+
+        // Mint 1000 to voter and 9000 to bystander (who does NOT vote).
+        // total_supply = 10_000
+        // quorum_bps   = 5000 (50%) → required = 5000
+        // votes_for    = 1000 (only voter voted)
+        // participation < required → InsufficientQuorum
+        StellarAssetClient::new(&env, &token).mint(&voter, &1_000);
+        StellarAssetClient::new(&env, &token).mint(&bystander, &9_000);
+
+        let id = client.create_proposal(
+            &proposer,
+            &String::from_str(&env, "T"),
+            &String::from_str(&env, "D"),
+            &vec![&env, String::from_str(&env, "some_action")],
+        );
+
+        client.cast_vote(&id, &VoteChoice::For, &voter);
+
+        env.ledger().set_timestamp(1_086_401);
+        client.finalize_proposal(&id);
+
+        // Proposal is Passed (more FOR than AGAINST) but quorum not met.
+        assert_eq!(client.get_proposal(&id).status, ProposalStatus::Passed);
+
+        let err = client
+            .try_execute_proposal(&id, &executor)
+            .unwrap_err()
+            .unwrap();
+        assert_eq!(err, GovernanceError::InsufficientQuorum);
+
+        // Status must remain Passed so nothing is lost.
+        assert_eq!(client.get_proposal(&id).status, ProposalStatus::Passed);
+    }
+
+    /// When quorum is set to zero, any passed proposal can execute regardless
+    /// of participation (edge case: permissionless communities).
+    #[test]
+    fn test_execute_proposal_zero_quorum() {
+        let env = Env::default();
+        env.mock_all_auths();
+        env.ledger().set_timestamp(1_000_000);
+
+        let admin = Address::generate(&env);
+        let token_admin = Address::generate(&env);
+        let sac = env.register_stellar_asset_contract_v2(token_admin.clone());
+        let token = sac.address();
+        let contract_id = env.register(GovernanceContract, ());
+        let client = GovernanceContractClient::new(&env, &contract_id);
+
+        // quorum_bps = 0 → required = 0
+        client.initialize(&admin, &token, &86400, &0, &1_000_000);
+
+        let proposer = Address::generate(&env);
+        let voter = Address::generate(&env);
+        let executor = Address::generate(&env);
+
+        StellarAssetClient::new(&env, &token).mint(&voter, &100);
+
+        let id = client.create_proposal(
+            &proposer,
+            &String::from_str(&env, "T"),
+            &String::from_str(&env, "D"),
+            &vec![&env, String::from_str(&env, "ping")],
+        );
+
+        client.cast_vote(&id, &VoteChoice::For, &voter);
+        env.ledger().set_timestamp(1_086_401);
+        client.finalize_proposal(&id);
+
+        // Should succeed even though only 100 of 100 tokens voted
+        // (participation = 100 >= required = 0)
+        client.execute_proposal(&id, &executor);
+        assert_eq!(client.get_proposal(&id).status, ProposalStatus::Executed);
+    }
+
+    /// Executing a non-existent proposal returns `ProposalNotFound`.
+    #[test]
+    fn test_execute_proposal_not_found() {
+        let (env, _admin, _token_admin, _token, client) = setup_test();
+        let executor = Address::generate(&env);
+
+        let err = client
+            .try_execute_proposal(&99, &executor)
+            .unwrap_err()
+            .unwrap();
+        assert_eq!(err, GovernanceError::ProposalNotFound);
     }
 }

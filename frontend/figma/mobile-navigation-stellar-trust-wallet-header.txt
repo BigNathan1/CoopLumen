@@ -1,0 +1,8 @@
+Here are the Frontend Figma Design Issues and link
+
+#728 — Mobile Navigation Drawer
+#734 — Built-on-Stellar Trust Bar
+#733 — Wallet Connect Hero Panel
+#727 — Header Navigation Bar
+
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&p=f&t=BaPuWA1vLQkipUUu-0

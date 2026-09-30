@@ -26,11 +26,9 @@ async function fetcher<T>(url: string): Promise<T> {
   return (res.json() as Promise<{ data: T }>).then((r) => r.data);
 }
 
-/** Tokens issued for a community, oldest first. */
-export function useCommunityTokens(communityId: string | null) {
-  return useSWR<Token[]>(
-    communityId ? `${API_URL}/api/v1/tokens/${communityId}` : null,
-    fetcher,
-    { refreshInterval: 30_000 }
-  );
+/** All tokens issued for a community, newest last (as returned by the API). */
+export function useCommunityTokens(communityId: string | null | undefined) {
+  return useSWR<Token[]>(communityId ? `${API_URL}/api/v1/tokens/${communityId}` : null, fetcher, {
+    refreshInterval: 30_000,
+  });
 }
