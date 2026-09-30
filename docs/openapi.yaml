@@ -63,6 +63,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthLogoutResponse'
+  /api/v1/auth/verify:
+    post:
+      tags: [Auth]
+      summary: Verify a signed challenge and start a session
+      description: >
+        Verifies the Ed25519 signature over a challenge issued by
+        `POST /api/v1/auth/challenge`. On success the session token is set in an
+        httpOnly, SameSite=Strict cookie (`Secure` in production) and also returned
+        in the body for non-browser clients. Challenges are single-use: they are
+        consumed whether or not the signature is valid.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthVerifyRequest'
+      responses:
+        '200':
+          description: Signature verified; session cookie set
+          headers:
+            Set-Cookie:
+              description: The `cooplumen_session` cookie (HttpOnly; SameSite=Strict; Path=/)
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthVerifyResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: No matching challenge, or the signature is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/communities:
     get:
       tags: [Communities]
@@ -1342,6 +1376,24 @@ components:
           type: object
           properties:
             loggedOut: { type: boolean }
+    AuthVerifyRequest:
+      type: object
+      required: [address, challenge, signature]
+      properties:
+        address: { type: string, description: Stellar public key that signed the challenge }
+        challenge:
+          { type: string, description: The exact challenge string returned by /auth/challenge }
+        signature:
+          { type: string, description: Base64-encoded Ed25519 signature over the challenge }
+    AuthVerifyResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            token: { type: string }
+            address: { type: string }
+            expiresAt: { type: string, format: date-time }
     StellarKey:
       type: string
       description: A 56-character Stellar StrKey public key.
