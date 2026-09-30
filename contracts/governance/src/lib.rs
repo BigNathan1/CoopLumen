@@ -423,7 +423,29 @@ impl GovernanceContract {
     }
 
     /// Read a proposal by ID.
+    ///
+    /// This is the read side of the governance contract. It returns the stored
+    /// [`Proposal`] for `proposal_id` — the proposer and metadata, the encoded
+    /// `actions` the proposal would execute, the running `votes_for` /
+    /// `votes_against` tallies, the lifecycle `status`, and the voting window
+    /// (`created_at` / `voting_ends_at`) — without mutating any state, so it is
+    /// safe to call from a read-only / simulation invocation.
+    ///
+    /// Because every proposal is keyed by its own `proposal_id`, a call for one
+    /// id can never observe or disturb another proposal's record.
+    ///
+    /// # Errors
+    ///
+    /// - [`GovernanceError::NotInitialized`] if the contract has not been
+    ///   initialized yet, matching `get_config`, `create_proposal` and
+    ///   `cast_vote`.
+    /// - [`GovernanceError::ProposalNotFound`] if the contract is initialized
+    ///   but no proposal is stored under `proposal_id`.
     pub fn get_proposal(env: Env, proposal_id: u64) -> Result<Proposal, GovernanceError> {
+        if !env.storage().instance().has(&DataKey::Config) {
+            return Err(GovernanceError::NotInitialized);
+        }
+
         env.storage()
             .instance()
             .get(&DataKey::Proposal(proposal_id))
@@ -911,5 +933,114 @@ mod test {
             .unwrap_err()
             .unwrap();
         assert_eq!(err, GovernanceError::ProposalNotFound);
+    }
+
+    #[test]
+    fn test_get_proposal_before_initialize_returns_not_initialized() {
+        // A contract that has been deployed but never initialized has no config,
+        // so the read path reports NotInitialized rather than pretending the
+        // proposal simply does not exist.
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register(GovernanceContract, ());
+        let client = GovernanceContractClient::new(&env, &contract_id);
+
+        let err = client.try_get_proposal(&1).unwrap_err().unwrap();
+        assert_eq!(err, GovernanceError::NotInitialized);
+    }
+
+    #[test]
+    fn test_get_proposal_unknown_id_returns_proposal_not_found() {
+        let (_env, _admin, _token_admin, _token, client) = setup_test();
+
+        let err = client.try_get_proposal(&42).unwrap_err().unwrap();
+        assert_eq!(err, GovernanceError::ProposalNotFound);
+    }
+
+    #[test]
+    fn test_get_proposal_returns_independent_records_per_id() {
+        let (env, _admin, _token_admin, _token, client) = setup_test();
+        let proposer = Address::generate(&env);
+
+        let first_id = client.create_proposal(
+            &proposer,
+            &String::from_str(&env, "First"),
+            &String::from_str(&env, "First description"),
+            &vec![&env, String::from_str(&env, "action:a")],
+        );
+        let second_id = client.create_proposal(
+            &proposer,
+            &String::from_str(&env, "Second"),
+            &String::from_str(&env, "Second description"),
+            &vec![
+                &env,
+                String::from_str(&env, "action:b"),
+                String::from_str(&env, "action:c"),
+            ],
+        );
+
+        assert_eq!(first_id, 1);
+        assert_eq!(second_id, 2);
+
+        let first = client.get_proposal(&first_id);
+        let second = client.get_proposal(&second_id);
+
+        assert_eq!(first.proposal_id, 1);
+        assert_eq!(second.proposal_id, 2);
+        assert_eq!(first.title, String::from_str(&env, "First"));
+        assert_eq!(second.title, String::from_str(&env, "Second"));
+        assert_eq!(
+            first.description,
+            String::from_str(&env, "First description")
+        );
+        assert_eq!(
+            second.description,
+            String::from_str(&env, "Second description")
+        );
+        assert_eq!(first.actions.len(), 1);
+        assert_eq!(second.actions.len(), 2);
+        assert_eq!(first.proposer, proposer);
+        assert_eq!(second.proposer, proposer);
+
+        // Reading one proposal must not disturb the other.
+        let first_again = client.get_proposal(&first_id);
+        assert_eq!(first_again.title, first.title);
+        assert_eq!(first_again.actions, first.actions);
+        assert_eq!(first_again.votes_for, 0);
+    }
+
+    #[test]
+    fn test_get_proposal_tally_matches_votes_after_each_cast() {
+        let (env, _admin, _token_admin, token, client) = setup_test();
+        let proposer = Address::generate(&env);
+        let voter_for = Address::generate(&env);
+        let voter_against = Address::generate(&env);
+
+        let sac = StellarAssetClient::new(&env, &token);
+        sac.mint(&voter_for, &750);
+        sac.mint(&voter_against, &250);
+
+        let id = client.create_proposal(
+            &proposer,
+            &String::from_str(&env, "Tally"),
+            &String::from_str(&env, "Tally description"),
+            &vec![&env],
+        );
+
+        let fresh = client.get_proposal(&id);
+        assert_eq!(fresh.votes_for, 0);
+        assert_eq!(fresh.votes_against, 0);
+        assert_eq!(fresh.status, ProposalStatus::Active);
+
+        client.cast_vote(&id, &VoteChoice::Against, &voter_against);
+        let after_against = client.get_proposal(&id);
+        assert_eq!(after_against.votes_for, 0);
+        assert_eq!(after_against.votes_against, 250);
+
+        client.cast_vote(&id, &VoteChoice::For, &voter_for);
+        let after_for = client.get_proposal(&id);
+        assert_eq!(after_for.votes_for, 750);
+        assert_eq!(after_for.votes_against, 250);
+        assert_eq!(after_for.status, ProposalStatus::Active);
     }
 }
