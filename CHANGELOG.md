@@ -12,6 +12,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - App Router error page with an accessible retry action and theme-aware design tokens (#322).
+- `useWallet()` (`frontend/src/hooks/useWallet.ts`) auto-reconnects on page load/reload when the site was previously granted Freighter access (`isAllowed()`), without a fresh permission prompt, and now also detects the user switching accounts inside Freighter itself while connected (re-authenticating under the new address), extending the existing network-change poll rather than adding a second one (#329, #251).
+- Community profile forms and member directory: `CreateCommunityForm` validates community and Stellar issuer fields with the shared Zod schemas, `EditCommunityForm` pre-populates mutable profile fields, the `/communities/[id]/edit` route loads and saves a community, and `MemberList` renders address, role, and join date with API/local pagination (#302, #308, #309, #310).
 - Multi-Sig backend integration tests (`backend/src/api/routes/__tests__/multisig.integration.test.ts`) covering full proposal lifecycle, co-signing, approval threshold transitions, execution, rejection flows, and validation error handling (#496).
 - Multi-Sig frontend E2E workflow tests (`frontend/src/components/multisig/__tests__/MultiSigFlow.e2e.test.tsx`) simulating multi-signature proposal review, signature threshold achievement, on-chain execution with tx hash, and co-signer rejection with reason (#497).
 - Multi-Sig and batch operations documentation (`docs/multisig.md`) covering Stellar multi-signature architectures, threshold weights, batch disbursement workflows, fee optimizations, CSV batch imports, API specifications, and troubleshooting guides (#498).
