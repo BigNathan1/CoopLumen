@@ -37,13 +37,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={inter.className}>
         <ThemeProvider>
-          <ToastProvider>
-            <ErrorBoundary>
-              <PageTransition>{children}</PageTransition>
-            </ErrorBoundary>
-            <Footer />
-            <ToastDisplay />
-          </ToastProvider>
+          <LocaleProvider defaultLocale={defaultLocale}>
+            <ToastProvider>
+              <ErrorBoundary>
+                <PageTransition>{children}</PageTransition>
+              </ErrorBoundary>
+              <Footer />
+              <ToastDisplay />
+            </ToastProvider>
+          </LocaleProvider>
         </ThemeProvider>
       </body>
     </html>
