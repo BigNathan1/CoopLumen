@@ -114,7 +114,7 @@ describe('GET /api/v1/stream/payments', () => {
   });
 
   it('opens an SSE response with the right headers and a ready frame', () => {
-    const stream = mockStream();
+    mockStream();
     const res = fakeResponse();
     const req = fakeRequest({ publicKey: PUBLIC_KEY, cursor: 'now' });
 
