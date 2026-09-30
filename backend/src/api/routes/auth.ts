@@ -5,6 +5,13 @@ import { validateBody, validateParams } from '../middleware/validate';
 import { authChallengeParamsSchema, authChallengeSchema, authVerifySchema } from '../schemas/auth';
 import { createSessionToken } from '../utils/sessionToken';
 import { clearAuthCookie, setAuthCookie } from '../utils/authCookie';
+import {
+  issueRefreshToken,
+  consumeRefreshToken,
+  setRefreshCookie,
+  clearRefreshCookie,
+  readRefreshCookie,
+} from '../utils/refreshToken';
 
 export const authRouter: Router = Router();
 
@@ -132,6 +139,35 @@ authRouter.post('/verify', validateBody(authVerifySchema), (req: Request, res: R
 
   const { token, expiresAt } = createSessionToken(address);
   setAuthCookie(res, token, expiresAt);
+  const refresh = issueRefreshToken(address);
+  setRefreshCookie(res, refresh.token, refresh.expiresAt);
+  res.json({ data: { token, address, expiresAt } });
+});
+
+/**
+ * @route POST /api/v1/auth/refresh
+ * @access Public (requires the httpOnly refresh cookie set by /verify or a previous refresh)
+ * @description Exchanges a refresh token for a new session token without a new
+ * wallet signature. Refresh tokens rotate: the presented one is invalidated and
+ * a replacement is set, so a stolen token that was already used is useless.
+ * The new session token is set in the session cookie and returned in the body.
+ * @returns {200} `{ data: { token, address, expiresAt } }` plus `Set-Cookie` for the session and refresh cookies.
+ * @returns {401} Refresh token missing, unknown, already used, or expired.
+ */
+authRouter.post('/refresh', (req: Request, res: Response): void => {
+  const presented = readRefreshCookie(req);
+  const address = presented ? consumeRefreshToken(presented) : null;
+
+  if (!address) {
+    clearRefreshCookie(res);
+    res.status(401).json({ data: null, error: 'Invalid or expired refresh token' });
+    return;
+  }
+
+  const { token, expiresAt } = createSessionToken(address);
+  const next = issueRefreshToken(address);
+  setAuthCookie(res, token, expiresAt);
+  setRefreshCookie(res, next.token, next.expiresAt);
   res.json({ data: { token, address, expiresAt } });
 });
 

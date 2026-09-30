@@ -97,6 +97,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh the session using a rotating refresh token
+      description: >
+        Exchanges the httpOnly `cooplumen_refresh` cookie (set by `POST /api/v1/auth/verify`)
+        for a new session token, set in the `cooplumen_session` cookie and returned in the body.
+        Refresh tokens are single-use: the presented token is invalidated and a new one is set,
+        so replaying a used token returns 401.
+      security:
+        - RefreshCookie: []
+      responses:
+        '200':
+          description: New session issued; session and refresh cookies set
+          headers:
+            Set-Cookie:
+              description: The rotated `cooplumen_refresh` cookie and a new `cooplumen_session` cookie
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthRefreshResponse'
+        '401':
+          description: Refresh token missing, unknown, already used, or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/communities:
     get:
       tags: [Communities]
@@ -1394,6 +1422,15 @@ components:
             token: { type: string }
             address: { type: string }
             expiresAt: { type: string, format: date-time }
+    AuthRefreshResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            token: { type: string }
+            address: { type: string }
+            expiresAt: { type: string, format: date-time }
     StellarKey:
       type: string
       description: A 56-character Stellar StrKey public key.
@@ -2050,6 +2087,11 @@ components:
       in: cookie
       name: cooplumen_session
       description: httpOnly session cookie set by `POST /api/v1/auth/verify`.
+    RefreshCookie:
+      type: apiKey
+      in: cookie
+      name: cooplumen_refresh
+      description: httpOnly, single-use refresh token cookie (Path=/api/v1/auth).
     AdminAuth:
       type: http
       scheme: bearer
