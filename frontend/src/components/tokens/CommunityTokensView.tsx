@@ -19,9 +19,7 @@ export function CommunityTokensView({ communityId }: Props) {
       </Link>
 
       <div className={styles.header}>
-        <h1 className={styles.title}>
-          {isLoading ? 'Loading…' : (community?.name ?? 'Tokens')}
-        </h1>
+        <h1 className={styles.title}>{isLoading ? 'Loading…' : (community?.name ?? 'Tokens')}</h1>
         <p className={styles.subtitle}>Tokens issued for this community.</p>
       </div>
 

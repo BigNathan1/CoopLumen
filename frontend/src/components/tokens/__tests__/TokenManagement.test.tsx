@@ -5,9 +5,7 @@ import type { Token } from '@/hooks/useTokens';
 
 jest.mock('@/hooks/useTokens');
 
-const mockUseCommunityTokens = useCommunityTokens as jest.MockedFunction<
-  typeof useCommunityTokens
->;
+const mockUseCommunityTokens = useCommunityTokens as jest.MockedFunction<typeof useCommunityTokens>;
 
 const TOKEN: Token = {
   id: 'tok-1',

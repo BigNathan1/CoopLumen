@@ -75,11 +75,9 @@ export function useTransactionHistory(
     ? `${API_URL}/api/v1/transactions/history/${communityId}?${params.toString()}`
     : null;
 
-  const { data, error, isLoading, mutate } = useSWR<Envelope<TransactionLogEntry[]>>(
-    key,
-    fetcher,
-    { refreshInterval: 30_000 }
-  );
+  const { data, error, isLoading, mutate } = useSWR<Envelope<TransactionLogEntry[]>>(key, fetcher, {
+    refreshInterval: 30_000,
+  });
 
   return {
     data: data?.data,

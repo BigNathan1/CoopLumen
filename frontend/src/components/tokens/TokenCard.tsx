@@ -32,7 +32,9 @@ export function TokenCard({ token }: Props) {
       {token.description && <p className={styles.description}>{token.description}</p>}
 
       <div className={styles.supply}>
-        <span className={styles.supplyValue}>{formatSupply(token.total_supply, token.decimals)}</span>
+        <span className={styles.supplyValue}>
+          {formatSupply(token.total_supply, token.decimals)}
+        </span>
         <span className={styles.supplyLabel}>total supply</span>
       </div>
 
