@@ -1,4 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
+import { api } from '@/lib/api';
 import { useCreateCommunity } from '@/hooks/useCreateCommunity';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
@@ -9,6 +10,7 @@ jest.mock('swr', () => ({
   ...jest.requireActual<object>('swr'),
   mutate: jest.fn().mockResolvedValue(undefined),
 }));
+jest.mock('@/lib/api', () => ({ api: { post: jest.fn() } }));
 
 const VALID_KEY_A = 'G' + 'A'.repeat(55);
 const VALID_KEY_B = 'G' + 'B'.repeat(55);
@@ -31,47 +33,38 @@ const COMMUNITY_RESPONSE = {
   created_at: '2025-01-01T00:00:00.000Z',
 };
 
-const fetchMock = jest.fn();
-
-beforeAll(() => {
-  (global as { fetch?: unknown }).fetch = fetchMock;
-});
+const postMock = api.post as jest.Mock;
+const mutateMock = jest.requireMock('swr').mutate as jest.Mock;
 
 afterEach(() => {
-  fetchMock.mockReset();
+  postMock.mockReset();
+  mutateMock.mockClear();
 });
 
 function mockFetchOk(data: unknown) {
-  fetchMock.mockResolvedValueOnce({
-    ok: true,
-    json: () => Promise.resolve({ data }),
-  });
+  postMock.mockResolvedValueOnce(data);
 }
 
-function mockFetchError(status: number, errorMessage: string) {
-  fetchMock.mockResolvedValueOnce({
-    ok: false,
-    status,
-    json: () => Promise.resolve({ error: errorMessage }),
-  });
+function mockFetchError(errorMessage: string) {
+  postMock.mockRejectedValueOnce(new Error(errorMessage));
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('useCreateCommunity', () => {
-  it('returns initial state with submitting=false and error=null', () => {
+  it('returns initial state with loading=false and error=null', () => {
     const { result } = renderHook(() => useCreateCommunity());
-    expect(result.current.submitting).toBe(false);
+    expect(result.current.loading).toBe(false);
     expect(result.current.error).toBeNull();
-    expect(typeof result.current.createCommunity).toBe('function');
+    expect(typeof result.current.submit).toBe('function');
   });
 
-  it('sets submitting to true while the request is in flight', async () => {
+  it('sets loading to true while the request is in flight', async () => {
     // Use a promise we control to keep the request "in flight"
-    let resolveFetch!: (value: unknown) => void;
-    fetchMock.mockReturnValueOnce(
+    let resolvePost!: (value: unknown) => void;
+    postMock.mockReturnValueOnce(
       new Promise((resolve) => {
-        resolveFetch = resolve;
+        resolvePost = resolve;
       })
     );
 
@@ -79,17 +72,14 @@ describe('useCreateCommunity', () => {
 
     // Start the call without awaiting
     act(() => {
-      void result.current.createCommunity(COMMUNITY_INPUT);
+      void result.current.submit(COMMUNITY_INPUT);
     });
 
-    expect(result.current.submitting).toBe(true);
+    expect(result.current.loading).toBe(true);
 
-    // Resolve the fetch so hooks clean up
+    // Resolve the request so hooks clean up
     await act(async () => {
-      resolveFetch({
-        ok: true,
-        json: () => Promise.resolve({ data: COMMUNITY_RESPONSE }),
-      });
+      resolvePost(COMMUNITY_RESPONSE);
     });
   });
 
@@ -100,80 +90,79 @@ describe('useCreateCommunity', () => {
 
     let community: unknown;
     await act(async () => {
-      community = await result.current.createCommunity(COMMUNITY_INPUT);
+      community = await result.current.submit(COMMUNITY_INPUT);
     });
 
     expect(community).toMatchObject({ id: 'uuid-1', name: 'EcoDAO Lagos' });
   });
 
-  it('POSTs to /api/communities with the correct body', async () => {
+  it('POSTs to the authenticated v1 endpoint and revalidates community lists', async () => {
     mockFetchOk(COMMUNITY_RESPONSE);
 
     const { result } = renderHook(() => useCreateCommunity());
 
     await act(async () => {
-      await result.current.createCommunity(COMMUNITY_INPUT);
+      await result.current.submit(COMMUNITY_INPUT);
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toMatch(/\/api\/communities$/);
-    expect(init.method).toBe('POST');
-    expect(JSON.parse(init.body as string)).toMatchObject(COMMUNITY_INPUT);
+    expect(postMock).toHaveBeenCalledWith('/api/v1/communities', COMMUNITY_INPUT);
+    expect(mutateMock).toHaveBeenCalledTimes(1);
+    const [filter, , options] = mutateMock.mock.calls[0] as [
+      (key: unknown) => boolean,
+      undefined,
+      { revalidate: boolean },
+    ];
+    expect(filter('http://localhost:4000/api/v1/communities')).toBe(true);
+    expect(filter('http://localhost:4000/api/v1/loans')).toBe(false);
+    expect(options).toEqual({ revalidate: true });
   });
 
-  it('sets error and returns null when the API responds with an error', async () => {
-    mockFetchError(422, 'Name already taken');
+  it('sets error and rethrows when the API responds with an error', async () => {
+    mockFetchError('Name already taken');
 
     const { result } = renderHook(() => useCreateCommunity());
 
-    let community: unknown;
     await act(async () => {
-      community = await result.current.createCommunity(COMMUNITY_INPUT);
+      await expect(result.current.submit(COMMUNITY_INPUT)).rejects.toThrow('Name already taken');
     });
 
-    expect(community).toBeNull();
     expect(result.current.error).toBe('Name already taken');
-    expect(result.current.submitting).toBe(false);
+    expect(result.current.loading).toBe(false);
   });
 
-  it('sets a fallback error message when the API returns no error string', async () => {
-    fetchMock.mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-      json: () => Promise.resolve({}),
-    });
+  it('sets a fallback error message for an unrecognized failure', async () => {
+    postMock.mockRejectedValueOnce('unexpected failure');
 
     const { result } = renderHook(() => useCreateCommunity());
 
     await act(async () => {
-      await result.current.createCommunity(COMMUNITY_INPUT);
+      await expect(result.current.submit(COMMUNITY_INPUT)).rejects.toThrow(
+        'Failed to create community'
+      );
     });
 
     expect(result.current.error).toMatch(/failed to create community/i);
   });
 
-  it('sets a fallback error when fetch throws (network failure)', async () => {
-    fetchMock.mockRejectedValueOnce(new Error('Network error'));
+  it('sets a fallback error when the request fails (network failure)', async () => {
+    postMock.mockRejectedValueOnce(new Error('Network error'));
 
     const { result } = renderHook(() => useCreateCommunity());
 
-    let community: unknown;
     await act(async () => {
-      community = await result.current.createCommunity(COMMUNITY_INPUT);
+      await expect(result.current.submit(COMMUNITY_INPUT)).rejects.toThrow('Network error');
     });
 
-    expect(community).toBeNull();
     expect(result.current.error).toBe('Network error');
   });
 
   it('resets error to null on a subsequent successful call', async () => {
-    mockFetchError(422, 'Name taken');
+    mockFetchError('Name taken');
 
     const { result } = renderHook(() => useCreateCommunity());
 
     await act(async () => {
-      await result.current.createCommunity(COMMUNITY_INPUT);
+      await expect(result.current.submit(COMMUNITY_INPUT)).rejects.toThrow('Name taken');
     });
 
     expect(result.current.error).toBe('Name taken');
@@ -181,21 +170,21 @@ describe('useCreateCommunity', () => {
     mockFetchOk(COMMUNITY_RESPONSE);
 
     await act(async () => {
-      await result.current.createCommunity(COMMUNITY_INPUT);
+      await result.current.submit(COMMUNITY_INPUT);
     });
 
     expect(result.current.error).toBeNull();
   });
 
-  it('resets submitting to false after the request completes', async () => {
+  it('resets loading to false after the request completes', async () => {
     mockFetchOk(COMMUNITY_RESPONSE);
 
     const { result } = renderHook(() => useCreateCommunity());
 
     await act(async () => {
-      await result.current.createCommunity(COMMUNITY_INPUT);
+      await result.current.submit(COMMUNITY_INPUT);
     });
 
-    expect(result.current.submitting).toBe(false);
+    expect(result.current.loading).toBe(false);
   });
 });
