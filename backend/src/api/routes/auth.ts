@@ -1,8 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { randomBytes } from 'crypto';
 import { Keypair } from '@stellar/stellar-sdk';
-import { validateBody } from '../middleware/validate';
-import { authChallengeSchema, authVerifySchema } from '../schemas/auth';
+import { validateBody, validateParams } from '../middleware/validate';
+import {
+  authChallengeParamsSchema,
+  authChallengeSchema,
+  authVerifySchema,
+} from '../schemas/auth';
 import { createSessionToken } from '../utils/sessionToken';
 
 export const authRouter: Router = Router();
@@ -31,6 +35,34 @@ function pruneExpiredChallenges(): void {
   }
 }
 
+function issueChallenge(address: string): string {
+  pruneExpiredChallenges();
+
+  const nonce = randomBytes(24).toString('hex');
+  const challenge = `CoopLumen authentication request\naddress: ${address}\nnonce: ${nonce}`;
+
+  pendingChallenges.set(address, { challenge, expiresAt: Date.now() + CHALLENGE_TTL_MS });
+  return challenge;
+}
+
+/**
+ * @route GET /api/v1/auth/challenge/:publicKey
+ * @access Public
+ * @description First step of wallet sign-in: issues a one-time message for the
+ * caller to sign with the Freighter wallet that controls `publicKey`, proving
+ * they hold its private key without ever transmitting it.
+ * @param {string} params.publicKey - Stellar StrKey the caller claims to control.
+ * @returns {200} `{ data: { challenge } }`
+ */
+authRouter.get(
+  '/challenge/:publicKey',
+  validateParams(authChallengeParamsSchema),
+  (req: Request, res: Response): void => {
+    const { publicKey } = req.params as { publicKey: string };
+    res.json({ data: { challenge: issueChallenge(publicKey) } });
+  }
+);
+
 /**
  * @route POST /api/v1/auth/challenge
  * @access Public
@@ -44,15 +76,8 @@ authRouter.post(
   '/challenge',
   validateBody(authChallengeSchema),
   (req: Request, res: Response): void => {
-    pruneExpiredChallenges();
-
     const { address } = req.body as { address: string };
-    const nonce = randomBytes(24).toString('hex');
-    const challenge = `CoopLumen authentication request\naddress: ${address}\nnonce: ${nonce}`;
-
-    pendingChallenges.set(address, { challenge, expiresAt: Date.now() + CHALLENGE_TTL_MS });
-
-    res.json({ data: { challenge } });
+    res.json({ data: { challenge: issueChallenge(address) } });
   }
 );
 
