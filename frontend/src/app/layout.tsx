@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/hooks/useTheme';
 import { LocaleProvider } from '@/hooks/useLocale';
 import { ToastDisplay } from '@/components/ToastDisplay';
 import { Footer } from '@/components/Footer';
+import { PageTransition } from '@/components/PageTransition';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
 import { LOCALE_INIT_SCRIPT, getDefaultLocale, getDirection } from '@/lib/i18n';
 import { validateFrontendEnv } from '@/lib/env';
@@ -36,13 +37,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={inter.className}>
         <ThemeProvider>
-          <LocaleProvider defaultLocale={defaultLocale}>
-            <ToastProvider>
-              <ErrorBoundary>{children}</ErrorBoundary>
-              <Footer />
-              <ToastDisplay />
-            </ToastProvider>
-          </LocaleProvider>
+          <ToastProvider>
+            <ErrorBoundary>
+              <PageTransition>{children}</PageTransition>
+            </ErrorBoundary>
+            <Footer />
+            <ToastDisplay />
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>
