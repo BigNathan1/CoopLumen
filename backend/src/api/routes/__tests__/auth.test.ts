@@ -2,6 +2,7 @@ import request from 'supertest';
 import { Keypair } from '@stellar/stellar-sdk';
 import app from '../../../app';
 import { verifySessionToken } from '../../utils/sessionToken';
+import { AUTH_COOKIE_NAME } from '../../utils/authCookie';
 
 jest.mock('../../../db', () => ({
   db: {
@@ -82,6 +83,46 @@ describe('POST /api/v1/auth/verify', () => {
 
     const payload = verifySessionToken(res.body.data.token as string);
     expect(payload?.address).toBe(address);
+  });
+
+  it('sets the session token in an httpOnly, SameSite=Strict cookie', async () => {
+    const keypair = Keypair.random();
+    const address = keypair.publicKey();
+
+    const challengeRes = await request(app).post('/api/v1/auth/challenge').send({ address });
+    const { challenge } = challengeRes.body.data as { challenge: string };
+    const signature = keypair.sign(Buffer.from(challenge, 'utf8')).toString('base64');
+
+    const res = await request(app)
+      .post('/api/v1/auth/verify')
+      .send({ address, challenge, signature });
+
+    const cookies = res.headers['set-cookie'] as unknown as string[];
+    const session = cookies.find((c) => c.startsWith(`${AUTH_COOKIE_NAME}=`));
+    expect(session).toBeDefined();
+    expect(session).toEqual(expect.stringContaining('HttpOnly'));
+    expect(session).toEqual(expect.stringContaining('SameSite=Strict'));
+    expect(session).toEqual(expect.stringContaining('Path=/'));
+    expect(session).toEqual(expect.stringContaining('Expires='));
+
+    const cookieToken = decodeURIComponent(session!.split(';')[0].split('=')[1]);
+    expect(cookieToken).toBe(res.body.data.token);
+    expect(verifySessionToken(cookieToken)?.address).toBe(address);
+  });
+
+  it('does not set a cookie when verification fails', async () => {
+    const keypair = Keypair.random();
+    const address = keypair.publicKey();
+
+    const challengeRes = await request(app).post('/api/v1/auth/challenge').send({ address });
+    const { challenge } = challengeRes.body.data as { challenge: string };
+
+    const res = await request(app)
+      .post('/api/v1/auth/verify')
+      .send({ address, challenge, signature: Buffer.from('nope').toString('base64') });
+
+    expect(res.status).toBe(401);
+    expect(res.headers['set-cookie']).toBeUndefined();
   });
 
   it('rejects reusing the same challenge twice (single use)', async () => {

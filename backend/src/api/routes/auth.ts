@@ -4,6 +4,7 @@ import { Keypair } from '@stellar/stellar-sdk';
 import { validateBody } from '../middleware/validate';
 import { authChallengeSchema, authVerifySchema } from '../schemas/auth';
 import { createSessionToken } from '../utils/sessionToken';
+import { setAuthCookie } from '../utils/authCookie';
 
 export const authRouter: Router = Router();
 
@@ -62,11 +63,13 @@ authRouter.post(
  * @description Second step of wallet sign-in: verifies the Ed25519 signature
  * over a challenge previously issued for `address` and, on success, mints a
  * short-lived HMAC-signed session token to authenticate later requests as
- * that address.
+ * that address. The token is set in an httpOnly, SameSite=Strict cookie (Secure
+ * in production) so browser scripts cannot read it, and is also returned in the
+ * body for non-browser clients that send it as a Bearer token.
  * @param {string} body.address - Stellar StrKey that signed the challenge.
  * @param {string} body.challenge - The exact challenge string returned by /challenge.
  * @param {string} body.signature - Base64-encoded Ed25519 signature over the challenge.
- * @returns {200} `{ data: { token, address, expiresAt } }`
+ * @returns {200} `{ data: { token, address, expiresAt } }` plus a `Set-Cookie` session cookie.
  * @returns {401} Challenge missing/expired/mismatched, or signature verification failed.
  */
 authRouter.post('/verify', validateBody(authVerifySchema), (req: Request, res: Response): void => {
@@ -107,5 +110,6 @@ authRouter.post('/verify', validateBody(authVerifySchema), (req: Request, res: R
   }
 
   const { token, expiresAt } = createSessionToken(address);
+  setAuthCookie(res, token, expiresAt);
   res.json({ data: { token, address, expiresAt } });
 });
