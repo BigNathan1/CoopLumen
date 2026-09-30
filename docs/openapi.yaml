@@ -12,6 +12,8 @@ servers:
   - url: http://localhost:4000
 
 tags:
+  - name: Auth
+    description: Wallet authentication challenge and session issuance
   - name: Tokens
     description: Community token metadata and operations
   - name: Balances
@@ -124,6 +126,30 @@ paths:
                   meta: { $ref: '#/components/schemas/PageMeta' }
         '400':
           description: Missing or blank `q` query parameter
+
+  /api/v1/auth/challenge/{publicKey}:
+    parameters:
+      - name: publicKey
+        in: path
+        required: true
+        description: Stellar public key that will sign the challenge.
+        schema:
+          $ref: '#/components/schemas/StellarKey'
+    get:
+      tags: [Auth]
+      summary: Issue a wallet challenge
+      description: >
+        Returns a one-time authentication challenge for the given public key.
+        The client signs the challenge with Freighter and sends the result to
+        POST /api/v1/auth/verify to receive a short-lived session token.
+      responses:
+        '200':
+          description: Challenge issued successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthChallengeResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
 
   /api/v1/prices/xlm:
     get:
@@ -1745,6 +1771,17 @@ components:
             - type: string
             - type: object
               additionalProperties: true
+    AuthChallengeResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [challenge]
+          properties:
+            challenge:
+              type: string
+              description: One-time wallet challenge string to sign with Freighter.
     Loan:
       type: object
       properties:

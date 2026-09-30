@@ -11,6 +11,27 @@ jest.mock('../../../db', () => ({
   },
 }));
 
+describe('GET /api/v1/auth/challenge/:publicKey', () => {
+  it('rejects an invalid Stellar public key', async () => {
+    const res = await request(app).get('/api/v1/auth/challenge/not-a-key');
+    expect(res.status).toBe(400);
+  });
+
+  it('issues a challenge referencing the public key', async () => {
+    const publicKey = Keypair.random().publicKey();
+    const res = await request(app).get(`/api/v1/auth/challenge/${publicKey}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.challenge).toEqual(expect.stringContaining(publicKey));
+  });
+
+  it('issues a fresh, distinct challenge on each call', async () => {
+    const publicKey = Keypair.random().publicKey();
+    const first = await request(app).get(`/api/v1/auth/challenge/${publicKey}`);
+    const second = await request(app).get(`/api/v1/auth/challenge/${publicKey}`);
+    expect(first.body.data.challenge).not.toBe(second.body.data.challenge);
+  });
+});
+
 describe('POST /api/v1/auth/challenge', () => {
   it('rejects an invalid Stellar address', async () => {
     const res = await request(app).post('/api/v1/auth/challenge').send({ address: 'not-a-key' });
