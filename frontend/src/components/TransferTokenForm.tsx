@@ -8,8 +8,8 @@ import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { Input } from './ui/Input';
 import { Select, type SelectOption } from './ui/Select';
-import { api } from '@/lib/api';
 import { paymentSchema, toFieldErrors } from '@/lib/schemas';
+import { useTransferToken } from '@/hooks/useTransferToken';
 import styles from './TransferTokenForm.module.css';
 
 /** Message shown when a submission is rejected without a usable one. */
@@ -129,6 +129,7 @@ export function TransferTokenForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [stage, setStage] = useState<string | null>(null);
+  const { submit, loading } = useTransferToken();
 
   const options: SelectOption[] = assets.map((asset) => ({
     value: assetKey(asset),
@@ -186,24 +187,13 @@ export function TransferTokenForm({
     setErrors({});
 
     try {
-      setStage('Building the transfer…');
-      const { xdr } = await api.post<{ xdr: string }>('/api/v1/transactions/unsigned', {
+      const submittedHash = await submit({
         senderPublicKey: parsed.data.senderPublicKey,
         destinationPublicKey: parsed.data.destinationPublicKey,
         assetCode: parsed.data.assetCode,
-        assetIssuer: parsed.data.assetIssuer ?? '',
+        assetIssuer: parsed.data.assetIssuer,
         amount: parsed.data.amount,
-      });
-
-      announceStage('Approve the transfer in your wallet…');
-      const { signTransaction } = await import('@stellar/freighter-api');
-      const signedXdr = await signTransaction(xdr);
-
-      announceStage('Submitting the signed transfer…');
-      const { txHash: submittedHash } = await api.post<{ txHash: string }>(
-        '/api/v1/tokens/transfer',
-        { signedXdr }
-      );
+      }, announceStage);
 
       setStage(null);
       setTxHash(submittedHash);
@@ -306,7 +296,7 @@ export function TransferTokenForm({
             type="submit"
             variant="primary"
             size="lg"
-            isLoading={stage !== null}
+            isLoading={loading}
             loadingLabel="Transfer in progress"
             disabled={!hasAssets}
           >
