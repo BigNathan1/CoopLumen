@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
-import { requireAuth, requireRole, requireCommunityRole } from '../auth';
+import { requireAuth, requireRole, requireCommunityRole, authenticateJWT } from '../auth';
+import { AUTH_COOKIE_NAME } from '../../utils/authCookie';
 import { createSessionToken } from '../../utils/sessionToken';
 import { db } from '../../../db';
 
@@ -22,6 +23,101 @@ function mockRes() {
 
 beforeEach(() => {
   jest.resetAllMocks();
+});
+
+describe('authenticateJWT', () => {
+  const address = 'GABC';
+
+  it('rejects a request with neither cookie nor Authorization header', () => {
+    const req = { headers: {} } as Request;
+    const res = mockRes();
+    const next = jest.fn();
+
+    authenticateJWT(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ data: null, error: 'Authentication required' });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('accepts a valid session cookie and sets req.auth', () => {
+    const { token } = createSessionToken(address);
+    const req = { headers: { cookie: `other=1; ${AUTH_COOKIE_NAME}=${token}` } } as Request;
+    const res = mockRes();
+    const next = jest.fn();
+
+    authenticateJWT(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(req.auth).toEqual({ address });
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('rejects a tampered cookie token', () => {
+    const { token } = createSessionToken(address);
+    const req = { headers: { cookie: `${AUTH_COOKIE_NAME}=${token}x` } } as Request;
+    const res = mockRes();
+    const next = jest.fn();
+
+    authenticateJWT(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({
+      data: null,
+      error: 'Invalid or expired session token',
+    });
+    expect(next).not.toHaveBeenCalled();
+    expect(req.auth).toBeUndefined();
+  });
+
+  it('rejects an expired cookie token', () => {
+    const { token } = createSessionToken(address, -10);
+    const req = { headers: { cookie: `${AUTH_COOKIE_NAME}=${token}` } } as Request;
+    const res = mockRes();
+    const next = jest.fn();
+
+    authenticateJWT(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('ignores unrelated cookies', () => {
+    const req = { headers: { cookie: 'session=abc; theme=dark' } } as Request;
+    const res = mockRes();
+    const next = jest.fn();
+
+    authenticateJWT(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('falls back to a Bearer token when there is no cookie', () => {
+    const { token } = createSessionToken(address);
+    const req = { headers: { authorization: `Bearer ${token}` } } as Request;
+    const res = mockRes();
+    const next = jest.fn();
+
+    authenticateJWT(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(req.auth).toEqual({ address });
+  });
+
+  it('does not let a valid Bearer token rescue an invalid cookie', () => {
+    const { token } = createSessionToken(address);
+    const req = {
+      headers: { cookie: `${AUTH_COOKIE_NAME}=garbage`, authorization: `Bearer ${token}` },
+    } as Request;
+    const res = mockRes();
+    const next = jest.fn();
+
+    authenticateJWT(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
 });
 
 describe('requireAuth', () => {

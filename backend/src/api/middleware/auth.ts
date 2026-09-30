@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { db } from '../../db';
 import { verifySessionToken } from '../utils/sessionToken';
+import { readAuthCookie } from '../utils/authCookie';
 import { logger } from '../../utils/logger';
 
 export interface AuthContext {
@@ -41,6 +42,34 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 
 /** Roles a member can hold in a community (the `members_role_check` values). */
 export type MemberRole = 'admin' | 'treasurer' | 'member' | 'observer';
+
+/**
+ * Cookie-based counterpart of {@link requireAuth} for browser sessions. Validates
+ * the httpOnly `cooplumen_session` cookie set by POST /api/v1/auth/verify
+ * (signature and expiry) and sets `req.auth.address`. When no cookie is present
+ * it falls back to an `Authorization: Bearer` token so API clients keep working;
+ * a cookie, when present, takes precedence and is never combined with the header.
+ * Rejects with the standard 401 envelope and never echoes the token.
+ */
+export function authenticateJWT(req: Request, res: Response, next: NextFunction): void {
+  const cookieToken = readAuthCookie(req);
+  const header = req.headers.authorization;
+  const token = cookieToken ?? (header?.startsWith('Bearer ') ? header.slice(7) : null);
+
+  if (!token) {
+    res.status(401).json({ data: null, error: 'Authentication required' });
+    return;
+  }
+
+  const payload = verifySessionToken(token);
+  if (!payload) {
+    res.status(401).json({ data: null, error: 'Invalid or expired session token' });
+    return;
+  }
+
+  req.auth = { address: payload.address };
+  next();
+}
 
 /**
  * RBAC guard. Requires the authenticated address (set by {@link requireAuth},

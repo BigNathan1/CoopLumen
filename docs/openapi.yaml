@@ -1993,6 +1993,11 @@ components:
         defaults: { type: integer }
         offset: { type: integer }
   securitySchemes:
+    SessionCookie:
+      type: apiKey
+      in: cookie
+      name: cooplumen_session
+      description: httpOnly session cookie set by `POST /api/v1/auth/verify`.
     AdminAuth:
       type: http
       scheme: bearer
