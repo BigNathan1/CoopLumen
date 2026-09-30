@@ -17,30 +17,36 @@ afterEach(() => {
 });
 
 function wrapper({ children }: { children: React.ReactNode }) {
-  return <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>{children}</SWRConfig>;
+  return (
+    <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>{children}</SWRConfig>
+  );
 }
 
 const ADDRESS = 'G' + 'A'.repeat(55);
 
 describe('useReputation', () => {
   it('fetches the reputation leaderboard for a community', async () => {
-    const payload = [{
-      id: 'score-1',
-      stellar_address: ADDRESS,
-      community_id: 'community-1',
-      score: '95.00',
-      total_loans: 3,
-      on_time_repayments: 3,
-      defaults: 0,
-      last_calculated_at: '2026-01-01T00:00:00.000Z',
-      updated_at: '2026-01-01T00:00:00.000Z',
-    }];
+    const payload = [
+      {
+        id: 'score-1',
+        stellar_address: ADDRESS,
+        community_id: 'community-1',
+        score: '95.00',
+        total_loans: 3,
+        on_time_repayments: 3,
+        defaults: 0,
+        last_calculated_at: '2026-01-01T00:00:00.000Z',
+        updated_at: '2026-01-01T00:00:00.000Z',
+      },
+    ];
     fetchMock.mockResolvedValue(jsonResponse(200, { data: payload }));
 
     const { result } = renderHook(() => useReputation('community-1', 5), { wrapper });
 
     await waitFor(() => expect(result.current.data).toEqual(payload));
-    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/v1/reputation?limit=5&communityId=community-1');
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      '/api/v1/reputation?limit=5&communityId=community-1'
+    );
   });
 
   it('does not fetch a detail lookup when no address is provided', () => {

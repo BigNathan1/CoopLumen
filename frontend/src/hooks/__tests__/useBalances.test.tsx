@@ -17,7 +17,9 @@ afterEach(() => {
 });
 
 function wrapper({ children }: { children: React.ReactNode }) {
-  return <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>{children}</SWRConfig>;
+  return (
+    <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>{children}</SWRConfig>
+  );
 }
 
 const PUBLIC_KEY = 'G' + 'A'.repeat(55);

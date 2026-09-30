@@ -11,7 +11,9 @@ jest.mock('@/lib/api', () => ({
 }));
 
 function wrapper({ children }: { children: React.ReactNode }) {
-  return <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>{children}</SWRConfig>;
+  return (
+    <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>{children}</SWRConfig>
+  );
 }
 
 const PUBLIC_KEY = 'G' + 'A'.repeat(55);
@@ -46,7 +48,11 @@ describe('useMemberships', () => {
     apiGetMock.mockImplementation(async (path: string) => {
       if (path === '/api/v1/communities') return [communityOne, communityTwo];
       if (path === `/api/v1/communities/${communityOne.id}/members/${PUBLIC_KEY}`) {
-        return { stellar_address: PUBLIC_KEY, role: 'treasurer', joined_at: '2026-02-01T00:00:00.000Z' };
+        return {
+          stellar_address: PUBLIC_KEY,
+          role: 'treasurer',
+          joined_at: '2026-02-01T00:00:00.000Z',
+        };
       }
       if (path === `/api/v1/communities/${communityTwo.id}/members/${PUBLIC_KEY}`) {
         const error = new Error('Not found') as Error & { status: number };
@@ -58,15 +64,17 @@ describe('useMemberships', () => {
 
     const { result } = renderHook(() => useMemberships(PUBLIC_KEY), { wrapper });
 
-    await waitFor(() => expect(result.current.data).toEqual([
-      {
-        communityId: communityOne.id,
-        communityName: communityOne.name,
-        assetCode: communityOne.asset_code,
-        role: 'treasurer',
-        joinedAt: '2026-02-01T00:00:00.000Z',
-      },
-    ]));
+    await waitFor(() =>
+      expect(result.current.data).toEqual([
+        {
+          communityId: communityOne.id,
+          communityName: communityOne.name,
+          assetCode: communityOne.asset_code,
+          role: 'treasurer',
+          joinedAt: '2026-02-01T00:00:00.000Z',
+        },
+      ])
+    );
   });
 
   it('does not fetch when the public key is missing', () => {
