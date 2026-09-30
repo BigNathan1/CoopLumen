@@ -40,7 +40,10 @@ export function useXlmPrice(currency = 'USD') {
  *
  * Returns `null` when either argument is missing or not a finite number.
  */
-export function toUsdEquivalent(balance: string, xlmPriceUsd: string | null | undefined): string | null {
+export function toUsdEquivalent(
+  balance: string,
+  xlmPriceUsd: string | null | undefined
+): string | null {
   if (!xlmPriceUsd) return null;
   const amount = parseFloat(balance);
   const price = parseFloat(xlmPriceUsd);
