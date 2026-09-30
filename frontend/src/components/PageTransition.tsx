@@ -51,8 +51,11 @@ export function PageTransition({ children, className }: PageTransitionProps) {
     // Force a style recalculation so removing + re-adding the class actually
     // restarts the animation rather than being batched away.
     el.classList.remove(styles.wrapper);
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- intentional reflow
-    el.offsetHeight; // read a layout property to flush the style update
+    // Reading a layout property flushes the pending style update. `void` makes
+    // the deliberate discard explicit, so this is not an unused expression and
+    // needs no eslint-disable — the frontend config does not load the
+    // @typescript-eslint rule set, so disabling a rule from it is an error.
+    void el.offsetHeight;
     el.classList.add(styles.wrapper);
 
     function handleAnimationEnd() {
