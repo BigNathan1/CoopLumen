@@ -1,39 +1,79 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CommunityMember } from '@/hooks/useCommunities';
 import { api, type ApiEnvelope } from '@/lib/api';
 import type { UsePaginationReturn } from '@/hooks/usePagination';
-import { Alert } from './ui/Alert';
-import { Badge, type BadgeVariant } from './ui/Badge';
-import { Button } from './ui/Button';
-import { LoadingSkeleton } from './ui/LoadingSkeleton';
-import { PaginationInner } from './ui/Pagination';
-import { Table, type TableColumn } from './ui/Table';
+import { Avatar } from '@/components/ui/Avatar';
+import { Badge, type BadgeVariant } from '@/components/ui/Badge';
+import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
+import { Alert } from '@/components/ui/Alert';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { PaginationInner } from '@/components/ui/Pagination';
 import styles from './MemberList.module.css';
 
-/** A member row returned by `GET /api/v1/communities/:id/members`. */
-export interface CommunityMember {
-  stellar_address: string;
-  role: string;
-  joined_at: string;
-}
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+// Re-export CommunityMember so the paginated tests that import it from here
+// continue to work, even though the canonical definition lives in useCommunities.
+export type { CommunityMember };
 
 /** Short alias for consumers that refer to a row simply as a member. */
 export type Member = CommunityMember;
 
-type MemberRow = CommunityMember & Record<string, unknown>;
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const DEFAULT_PAGE_SIZE = 20;
+const MAX_PAGE_SIZE = 100;
+
+const ROLE_VARIANT: Record<string, BadgeVariant> = {
+  admin: 'error',
+  treasurer: 'warning',
+  member: 'success',
+  observer: 'neutral',
+};
+
+const ROLE_LABEL: Record<string, string> = {
+  admin: 'Admin',
+  treasurer: 'Treasurer',
+  member: 'Member',
+  observer: 'Observer',
+};
+
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface MemberListProps {
-  /** Community UUID used to fetch members when no local data is supplied. */
+  /**
+   * Pre-fetched members to display.
+   *
+   * When provided the component renders the list directly (with optional
+   * client-side pagination).  When omitted alongside a `communityId`, the
+   * component fetches from the API itself.
+   */
+  members?: CommunityMember[] | readonly CommunityMember[];
+
+  /**
+   * Pass `isLoading` to show the loading skeleton while the parent hook is
+   * still fetching members.
+   */
+  isLoading?: boolean;
+
+  /**
+   * Pass `error` to show an error alert when the parent hook has failed.
+   */
+  error?: Error | undefined;
+
+  // ── Remote-fetch mode ───────────────────────────────────────────────────
+  /** Community UUID used to fetch members from the API when no local data is supplied. */
   communityId?: string;
-  /** Server-provided members. Supplying this makes the component data-driven. */
-  members?: readonly CommunityMember[];
-  /** Initial local data, equivalent to `members` for a route/component boundary. */
+  /** Initial local data supplied by server-rendered boundaries. */
   initialMembers?: readonly CommunityMember[];
   /** Alias for `members` for table-oriented consumers. */
   data?: readonly CommunityMember[];
   /** Alias for `initialMembers` for server-rendered route boundaries. */
   initialData?: readonly CommunityMember[];
+
+  // ── Pagination ──────────────────────────────────────────────────────────
   /** Page size. Defaults to 20 and is capped at the backend's limit of 100. */
   pageSize?: number;
   /** Alias for `pageSize`, matching the API's `limit` terminology. */
@@ -54,7 +94,7 @@ export interface MemberListProps {
   role?: string;
   /** Called whenever the user requests another page. */
   onPageChange?: (page: number) => void;
-  /** Accessible name for the member table. */
+  /** Accessible name for the member section. */
   ariaLabel?: string;
 }
 
@@ -66,22 +106,12 @@ interface PageMeta {
   offset?: number;
 }
 
-const DEFAULT_PAGE_SIZE = 20;
-const MAX_PAGE_SIZE = 100;
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'Admin',
-  treasurer: 'Treasurer',
-  member: 'Member',
-  observer: 'Observer',
-};
-
-const ROLE_VARIANTS: Record<string, BadgeVariant> = {
-  admin: 'info',
-  treasurer: 'success',
-  member: 'neutral',
-  observer: 'warning',
-};
+function truncateAddress(address: string): string {
+  if (address.length <= 13) return address;
+  return `${address.slice(0, 6)}…${address.slice(-4)}`;
+}
 
 function normalizePageSize(value: number | undefined): number {
   if (!Number.isFinite(value) || value === undefined) return DEFAULT_PAGE_SIZE;
@@ -90,54 +120,44 @@ function normalizePageSize(value: number | undefined): number {
 
 function normalizeMember(value: unknown): CommunityMember {
   if (typeof value !== 'object' || value === null) {
-    return { stellar_address: '', role: 'member', joined_at: '' };
+    return { id: '', community_id: '', stellar_address: '', role: 'member', joined_at: '' };
   }
-
   const row = value as Record<string, unknown>;
   return {
+    id: String(row.id ?? ''),
+    community_id: String(row.community_id ?? ''),
     stellar_address: String(row.stellar_address ?? row.address ?? ''),
-    role: String(row.role ?? 'member'),
+    role: String(row.role ?? 'member') as CommunityMember['role'],
     joined_at: String(row.joined_at ?? row.joinedAt ?? ''),
   };
 }
 
-function normalizedMemberDate(value: string): Date | undefined {
-  if (!value) return undefined;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? undefined : date;
-}
-
-/** Formats a backend timestamp deterministically in UTC for the member table. */
-export function formatMemberJoinDate(value: string): string {
-  const date = normalizedMemberDate(value);
-  if (!date) return 'Unknown';
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC',
-  }).format(date);
-}
-
-function memberRoleLabel(role: string): string {
-  return ROLE_LABELS[role] ?? role;
-}
-
-function memberRoleVariant(role: string): BadgeVariant {
-  return ROLE_VARIANTS[role] ?? 'neutral';
-}
+// ─── Component ────────────────────────────────────────────────────────────────
 
 /**
- * Paginated community member directory.
+ * Renders the member roster for a community.
  *
- * The component supports both modes used by the app: a route can provide
- * `communityId` and let it fetch the current page from the API, while a
- * server-rendered detail page can pass `members` and paginate them locally.
- * The same address, role, and joined-date presentation is used in either mode.
+ * Supports two usage modes:
+ *
+ * 1. **Controlled** — pass `members`, `isLoading`, and `error` from the parent
+ *    hook (`useCommunityMembers`) and the component renders the list as-is.
+ *    Optional `pageSize` enables client-side pagination of the local data.
+ *
+ * 2. **Self-fetching** — pass `communityId` (and no `members`) to let the
+ *    component fetch pages directly from the API.
+ *
+ * Accessibility:
+ * - The section has a heading (`<h2>`) and an `aria-label` for landmark navigation.
+ * - Each row uses `<li>` inside `<ul>` so screen readers announce item count.
+ * - Role badges carry `srLabel="Role: "` so "Admin" reads as "Role: Admin".
+ * - Loading skeletons carry a `label` on the first item so the live region fires once.
+ * - Error states use `role="alert"` via the `<Alert>` primitive.
  */
 export function MemberList({
-  communityId,
   members,
+  isLoading = false,
+  error,
+  communityId,
   initialMembers,
   data,
   initialData,
@@ -152,19 +172,23 @@ export function MemberList({
   role,
   onPageChange,
   ariaLabel = 'Community members',
-}: MemberListProps): React.JSX.Element {
+}: MemberListProps) {
+  // Resolve the source of truth for member data
   const suppliedMembers = members ?? data ?? initialMembers ?? initialData;
   const hasLocalData = suppliedMembers !== undefined;
+
   const resolvedPageSize = normalizePageSize(pageSize ?? itemsPerPage ?? limit);
+
   const initialPageValue = page ?? currentPage ?? initialPage;
   const [uncontrolledPage, setUncontrolledPage] = useState(
     Number.isFinite(initialPageValue) && initialPageValue > 0 ? Math.floor(initialPageValue) : 1
   );
   const [remoteMembers, setRemoteMembers] = useState<CommunityMember[]>([]);
   const [remoteMeta, setRemoteMeta] = useState<PageMeta | undefined>();
-  const [loading, setLoading] = useState(!hasLocalData && Boolean(communityId));
-  const [error, setError] = useState<unknown>(null);
+  const [remoteLoading, setRemoteLoading] = useState(!hasLocalData && Boolean(communityId));
+  const [remoteError, setRemoteError] = useState<unknown>(null);
   const [retry, setRetry] = useState(0);
+
   const previousQuery = useRef({ communityId, pageSize: resolvedPageSize, role, hasLocalData });
   const queryChanged =
     previousQuery.current.communityId !== communityId ||
@@ -176,6 +200,7 @@ export function MemberList({
     () => (suppliedMembers ? [...suppliedMembers].map(normalizeMember) : []),
     [suppliedMembers]
   );
+
   const knownTotal = total ?? (hasLocalData ? localMembers.length : (remoteMeta?.total ?? 0));
   const calculatedTotalPages = Math.ceil(knownTotal / resolvedPageSize);
   const totalPages = Math.max(
@@ -183,6 +208,7 @@ export function MemberList({
     providedTotalPages ??
       (hasLocalData ? calculatedTotalPages : (remoteMeta?.pages ?? calculatedTotalPages))
   );
+
   const requestedPage = page ?? currentPage ?? uncontrolledPage;
   const normalizedRequestedPage =
     Number.isFinite(requestedPage) && requestedPage > 0 ? Math.floor(requestedPage) : 1;
@@ -206,15 +232,15 @@ export function MemberList({
 
   useEffect(() => {
     if (hasLocalData || !communityId) {
-      setLoading(false);
-      setError(null);
+      setRemoteLoading(false);
+      setRemoteError(null);
       setRemoteMeta(undefined);
       return;
     }
 
     let cancelled = false;
-    setLoading(true);
-    setError(null);
+    setRemoteLoading(true);
+    setRemoteError(null);
     setRemoteMeta(undefined);
 
     const query = {
@@ -229,16 +255,16 @@ export function MemberList({
       })
       .then((envelope: ApiEnvelope<unknown[]>) => {
         if (cancelled) return;
-        const data = Array.isArray(envelope.data) ? envelope.data.map(normalizeMember) : [];
-        setRemoteMembers(data);
+        const fetched = Array.isArray(envelope.data) ? envelope.data.map(normalizeMember) : [];
+        setRemoteMembers(fetched);
         setRemoteMeta(envelope.meta as PageMeta | undefined);
-        setError(null);
+        setRemoteError(null);
       })
       .catch((requestError: unknown) => {
-        if (!cancelled) setError(requestError);
+        if (!cancelled) setRemoteError(requestError);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setRemoteLoading(false);
       });
 
     return () => {
@@ -268,75 +294,120 @@ export function MemberList({
     [activePage, handlePageChange, totalPages]
   );
 
+  // ── Resolve the active loading / error state ───────────────────────────────
+  // The parent-prop `isLoading` / `error` take precedence when they are
+  // supplied; otherwise we fall through to the remote-fetch state.
+  const effectiveLoading = isLoading || remoteLoading;
+  const effectiveError = error ?? (remoteError instanceof Error ? remoteError : undefined);
+
+  // ── Visible rows for the current page ─────────────────────────────────────
   const visibleMembers = hasLocalData
     ? localMembers.slice((activePage - 1) * resolvedPageSize, activePage * resolvedPageSize)
     : remoteMembers;
-  const rows: MemberRow[] = visibleMembers.map((member) => ({ ...member }));
 
-  const columns = useMemo<TableColumn<MemberRow>[]>(
-    () => [
-      {
-        key: 'stellar_address',
-        label: 'Address',
-        render: (_value, member) => (
-          <code className={styles.address} title={member.stellar_address}>
-            {member.stellar_address || 'Unknown address'}
-          </code>
-        ),
-      },
-      {
-        key: 'role',
-        label: 'Role',
-        render: (_value, member) => (
-          <Badge variant={memberRoleVariant(member.role)} size="sm" data-role={member.role}>
-            {memberRoleLabel(member.role)}
-          </Badge>
-        ),
-      },
-      {
-        key: 'joined_at',
-        label: 'Join date',
-        render: (_value, member) => {
-          const dateTime = normalizedMemberDate(member.joined_at)?.toISOString();
-          return <time dateTime={dateTime}>{formatMemberJoinDate(member.joined_at)}</time>;
-        },
-      },
-    ],
-    []
-  );
-
-  let content: React.ReactNode;
-  if (loading) {
-    content = (
-      <div className={styles.loading}>
-        <LoadingSkeleton variant="text" count={4} label="Loading community members" />
-      </div>
-    );
-  } else if (error) {
-    content = (
-      <Alert variant="error" title="Unable to load members">
-        <p>{error instanceof Error ? error.message : 'Please try again.'}</p>
-        <Button type="button" variant="secondary" size="sm" onClick={() => setRetry((n) => n + 1)}>
-          Retry
-        </Button>
-      </Alert>
-    );
-  } else {
-    content = (
-      <Table
-        columns={columns}
-        data={rows}
-        ariaLabel={ariaLabel}
-        emptyMessage="No members found"
-        compact
-      />
+  // ── Loading skeleton ───────────────────────────────────────────────────────
+  if (effectiveLoading) {
+    return (
+      <section className={styles.section} aria-label={ariaLabel}>
+        <h2 className={styles.heading}>Members</h2>
+        <ul className={styles.list} aria-label="Members loading">
+          {Array.from({ length: 3 }, (_, i) => (
+            <li key={i} className={styles.skeletonRow}>
+              <LoadingSkeleton
+                variant="circle"
+                size={40}
+                decorative={i !== 0}
+                label={i === 0 ? 'Loading members' : undefined}
+              />
+              <div className={styles.skeletonText}>
+                <LoadingSkeleton variant="text" width="60%" decorative />
+                <LoadingSkeleton variant="text" width="30%" decorative />
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
     );
   }
 
+  // ── Error state ────────────────────────────────────────────────────────────
+  if (effectiveError) {
+    return (
+      <section className={styles.section} aria-label={ariaLabel}>
+        <h2 className={styles.heading}>Members</h2>
+        <Alert variant="error" title="Could not load members">
+          {effectiveError.message}
+        </Alert>
+      </section>
+    );
+  }
+
+  // ── Empty state ────────────────────────────────────────────────────────────
+  if (visibleMembers.length === 0 && !hasLocalData && !communityId) {
+    return (
+      <section className={styles.section} aria-label={ariaLabel}>
+        <h2 className={styles.heading}>Members</h2>
+        <EmptyState title="No members yet" message="This community has no members to display." />
+      </section>
+    );
+  }
+
+  if (hasLocalData && localMembers.length === 0) {
+    return (
+      <section className={styles.section} aria-label={ariaLabel}>
+        <h2 className={styles.heading}>Members</h2>
+        <EmptyState title="No members yet" message="This community has no members to display." />
+      </section>
+    );
+  }
+
+  if (!hasLocalData && remoteMembers.length === 0) {
+    return (
+      <section className={styles.section} aria-label={ariaLabel}>
+        <h2 className={styles.heading}>Members</h2>
+        <EmptyState title="No members yet" message="This community has no members to display." />
+      </section>
+    );
+  }
+
+  // ── Populated list ─────────────────────────────────────────────────────────
   return (
-    <section className={styles.wrapper} aria-label="Member directory">
-      {content}
-      {!loading && !error && totalPages > 1 && (
+    <section className={styles.section} aria-label={ariaLabel}>
+      <h2 className={styles.heading}>
+        Members{' '}
+        <span className={styles.count} aria-label={`${visibleMembers.length} members`}>
+          {visibleMembers.length}
+        </span>
+      </h2>
+      <ul className={styles.list}>
+        {visibleMembers.map((member) => (
+          <li key={member.id || member.stellar_address} className={styles.row}>
+            <Avatar address={member.stellar_address} size={40} />
+            <div className={styles.info}>
+              <span className={styles.address} title={member.stellar_address}>
+                <code>{truncateAddress(member.stellar_address)}</code>
+              </span>
+              <time
+                className={styles.joinedAt}
+                dateTime={member.joined_at}
+                aria-label={`Joined ${new Date(member.joined_at).toLocaleDateString()}`}
+              >
+                Joined {new Date(member.joined_at).toLocaleDateString()}
+              </time>
+            </div>
+            <Badge
+              variant={ROLE_VARIANT[member.role] ?? 'neutral'}
+              size="sm"
+              srLabel="Role: "
+              className={styles.role}
+            >
+              {ROLE_LABEL[member.role] ?? member.role}
+            </Badge>
+          </li>
+        ))}
+      </ul>
+
+      {totalPages > 1 && (
         <div className={styles.pagination}>
           <PaginationInner totalPages={totalPages} pagination={pagination} />
           <p className={styles.pageStatus} aria-live="polite">
