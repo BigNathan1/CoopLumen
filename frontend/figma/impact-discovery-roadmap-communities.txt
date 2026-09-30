@@ -1,0 +1,22 @@
+Frontend Figma Design is done for these Issues
+
+#758 — Impact Metrics & Success Targets
+
+Presents community, wallet, transaction, contributor, issue, and testing metrics.
+Establishes clear target-oriented visual hierarchy for impact reporting.
+
+#751 — Community Discovery Explorer
+
+Defines the community browsing experience.
+Includes profiles, asset codes, member/token counts, filtering, and pagination patterns.
+
+#757 — Public Roadmap Timeline
+
+Visualizes the four development phases.
+Distinguishes completed, planned, and upcoming capabilities.
+
+#755 — Built for These Communities
+
+Introduces key CoopLumen community audiences, including treasurers, members, NGOs, developers, governance participants, and auditors.
+
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&p=f&t=Xqi7KgS7hWhvCZkp-0
