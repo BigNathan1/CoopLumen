@@ -3,6 +3,12 @@ import userEvent from '@testing-library/user-event';
 import { CreateCommunityForm } from '../CreateCommunityForm';
 import { api, ApiError } from '@/lib/api';
 
+// Every case here drives the form through userEvent, which types each field a
+// keystroke at a time and costs 2-3s per test on a dev machine. That leaves no
+// headroom under Jest's default 5s budget on a slower CI runner, where the
+// failure shows up as a timeout rather than a failed assertion.
+jest.setTimeout(20000);
+
 jest.mock('swr', () => ({
   ...jest.requireActual<object>('swr'),
   mutate: jest.fn().mockResolvedValue(undefined),
