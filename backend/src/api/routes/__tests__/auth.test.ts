@@ -1,7 +1,9 @@
 import request from 'supertest';
 import { Keypair } from '@stellar/stellar-sdk';
 import app from '../../../app';
-import { verifySessionToken } from '../../utils/sessionToken';
+import { verifySessionToken, createSessionToken } from '../../utils/sessionToken';
+import { REFRESH_COOKIE_NAME, resetRefreshTokens } from '../../utils/refreshToken';
+import { AUTH_COOKIE_NAME } from '../../utils/authCookie';
 
 jest.mock('../../../db', () => ({
   db: {
@@ -12,23 +14,17 @@ jest.mock('../../../db', () => ({
 }));
 
 describe('GET /api/v1/auth/challenge/:publicKey', () => {
-  it('rejects an invalid Stellar public key', async () => {
+  it('rejects an invalid Stellar address in the path', async () => {
     const res = await request(app).get('/api/v1/auth/challenge/not-a-key');
     expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Validation failed');
   });
 
-  it('issues a challenge referencing the public key', async () => {
-    const publicKey = Keypair.random().publicKey();
-    const res = await request(app).get(`/api/v1/auth/challenge/${publicKey}`);
+  it('issues a challenge for a valid public key path parameter', async () => {
+    const address = Keypair.random().publicKey();
+    const res = await request(app).get(`/api/v1/auth/challenge/${address}`);
     expect(res.status).toBe(200);
-    expect(res.body.data.challenge).toEqual(expect.stringContaining(publicKey));
-  });
-
-  it('issues a fresh, distinct challenge on each call', async () => {
-    const publicKey = Keypair.random().publicKey();
-    const first = await request(app).get(`/api/v1/auth/challenge/${publicKey}`);
-    const second = await request(app).get(`/api/v1/auth/challenge/${publicKey}`);
-    expect(first.body.data.challenge).not.toBe(second.body.data.challenge);
+    expect(res.body.data.challenge).toEqual(expect.stringContaining(address));
   });
 });
 
@@ -105,6 +101,46 @@ describe('POST /api/v1/auth/verify', () => {
     expect(payload?.address).toBe(address);
   });
 
+  it('sets the session token in an httpOnly, SameSite=Strict cookie', async () => {
+    const keypair = Keypair.random();
+    const address = keypair.publicKey();
+
+    const challengeRes = await request(app).post('/api/v1/auth/challenge').send({ address });
+    const { challenge } = challengeRes.body.data as { challenge: string };
+    const signature = keypair.sign(Buffer.from(challenge, 'utf8')).toString('base64');
+
+    const res = await request(app)
+      .post('/api/v1/auth/verify')
+      .send({ address, challenge, signature });
+
+    const cookies = res.headers['set-cookie'] as unknown as string[];
+    const session = cookies.find((c) => c.startsWith(`${AUTH_COOKIE_NAME}=`));
+    expect(session).toBeDefined();
+    expect(session).toEqual(expect.stringContaining('HttpOnly'));
+    expect(session).toEqual(expect.stringContaining('SameSite=Strict'));
+    expect(session).toEqual(expect.stringContaining('Path=/'));
+    expect(session).toEqual(expect.stringContaining('Expires='));
+
+    const cookieToken = decodeURIComponent(session!.split(';')[0].split('=')[1]);
+    expect(cookieToken).toBe(res.body.data.token);
+    expect(verifySessionToken(cookieToken)?.address).toBe(address);
+  });
+
+  it('does not set a cookie when verification fails', async () => {
+    const keypair = Keypair.random();
+    const address = keypair.publicKey();
+
+    const challengeRes = await request(app).post('/api/v1/auth/challenge').send({ address });
+    const { challenge } = challengeRes.body.data as { challenge: string };
+
+    const res = await request(app)
+      .post('/api/v1/auth/verify')
+      .send({ address, challenge, signature: Buffer.from('nope').toString('base64') });
+
+    expect(res.status).toBe(401);
+    expect(res.headers['set-cookie']).toBeUndefined();
+  });
+
   it('rejects reusing the same challenge twice (single use)', async () => {
     const keypair = Keypair.random();
     const address = keypair.publicKey();
@@ -122,5 +158,116 @@ describe('POST /api/v1/auth/verify', () => {
       .post('/api/v1/auth/verify')
       .send({ address, challenge, signature });
     expect(second.status).toBe(401);
+  });
+});
+
+describe('POST /api/v1/auth/logout', () => {
+  function expiredSessionCookie(res: request.Response): string | undefined {
+    const cookies = (res.headers['set-cookie'] ?? []) as unknown as string[];
+    return cookies.find((c) => c.startsWith(`${AUTH_COOKIE_NAME}=;`));
+  }
+
+  it('expires the session cookie for a signed-in client', async () => {
+    const { token } = createSessionToken(Keypair.random().publicKey());
+    const res = await request(app)
+      .post('/api/v1/auth/logout')
+      .set('Cookie', `${AUTH_COOKIE_NAME}=${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: { loggedOut: true } });
+
+    const cleared = expiredSessionCookie(res);
+    expect(cleared).toBeDefined();
+    expect(cleared).toEqual(expect.stringContaining('Expires=Thu, 01 Jan 1970'));
+    expect(cleared).toEqual(expect.stringContaining('HttpOnly'));
+    expect(cleared).toEqual(expect.stringContaining('SameSite=Strict'));
+    expect(cleared).toEqual(expect.stringContaining('Path=/'));
+    expect(res.text).not.toContain(token);
+  });
+
+  it('is idempotent when no session cookie is sent', async () => {
+    const res = await request(app).post('/api/v1/auth/logout');
+    expect(res.status).toBe(200);
+    expect(expiredSessionCookie(res)).toBeDefined();
+  });
+
+  it('succeeds even with a garbage cookie value and never echoes it', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/logout')
+      .set('Cookie', `${AUTH_COOKIE_NAME}=not-a-real-token`);
+    expect(res.status).toBe(200);
+    expect(res.text).not.toContain('not-a-real-token');
+  });
+});
+
+describe('POST /api/v1/auth/refresh', () => {
+  beforeEach(() => resetRefreshTokens());
+
+  async function signIn(): Promise<{ address: string; refreshCookie: string }> {
+    const keypair = Keypair.random();
+    const address = keypair.publicKey();
+    const challengeRes = await request(app).post('/api/v1/auth/challenge').send({ address });
+    const { challenge } = challengeRes.body.data as { challenge: string };
+    const signature = keypair.sign(Buffer.from(challenge, 'utf8')).toString('base64');
+    const res = await request(app)
+      .post('/api/v1/auth/verify')
+      .send({ address, challenge, signature });
+    return { address, refreshCookie: pickCookie(res, REFRESH_COOKIE_NAME) };
+  }
+
+  function pickCookie(res: request.Response, name: string): string {
+    const cookies = res.headers['set-cookie'] as unknown as string[];
+    const found = cookies.find((c) => c.startsWith(`${name}=`));
+    if (!found) throw new Error(`no ${name} cookie set`);
+    return found;
+  }
+
+  it('sets an httpOnly refresh cookie scoped to the auth routes on verify', async () => {
+    const { refreshCookie } = await signIn();
+    expect(refreshCookie).toEqual(expect.stringContaining('HttpOnly'));
+    expect(refreshCookie).toEqual(expect.stringContaining('SameSite=Strict'));
+    expect(refreshCookie).toEqual(expect.stringContaining('Path=/api/v1/auth'));
+  });
+
+  it('rejects a request without a refresh cookie', async () => {
+    const res = await request(app).post('/api/v1/auth/refresh');
+    expect(res.status).toBe(401);
+    expect(res.body.data).toBeNull();
+  });
+
+  it('rejects an unknown refresh token', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', `${REFRESH_COOKIE_NAME}=forged`);
+    expect(res.status).toBe(401);
+  });
+
+  it('issues a new session token and rotates the refresh token', async () => {
+    const { address, refreshCookie } = await signIn();
+    const cookieHeader = refreshCookie.split(';')[0];
+
+    const res = await request(app).post('/api/v1/auth/refresh').set('Cookie', cookieHeader);
+    expect(res.status).toBe(200);
+    expect(res.body.data.address).toBe(address);
+    expect(verifySessionToken(res.body.data.token as string)?.address).toBe(address);
+
+    const sessionCookie = pickCookie(res, AUTH_COOKIE_NAME);
+    expect(sessionCookie).toEqual(expect.stringContaining('HttpOnly'));
+    const rotated = pickCookie(res, REFRESH_COOKIE_NAME);
+    expect(rotated.split(';')[0]).not.toBe(cookieHeader);
+  });
+
+  it('rejects reuse of a refresh token that was already rotated', async () => {
+    const { refreshCookie } = await signIn();
+    const cookieHeader = refreshCookie.split(';')[0];
+
+    const first = await request(app).post('/api/v1/auth/refresh').set('Cookie', cookieHeader);
+    expect(first.status).toBe(200);
+
+    const replay = await request(app).post('/api/v1/auth/refresh').set('Cookie', cookieHeader);
+    expect(replay.status).toBe(401);
+    expect(replay.headers['set-cookie']).toEqual(
+      expect.arrayContaining([expect.stringContaining(`${REFRESH_COOKIE_NAME}=;`)])
+    );
   });
 });

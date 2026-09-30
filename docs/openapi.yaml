@@ -13,7 +13,7 @@ servers:
 
 tags:
   - name: Auth
-    description: Wallet authentication challenge and session issuance
+    description: Wallet challenge, verification, and session-auth endpoints
   - name: Tokens
     description: Community token metadata and operations
   - name: Balances
@@ -40,8 +40,91 @@ tags:
     description: Batch payment disbursement, preview, and CSV parsing endpoints
   - name: Stream
     description: Server-Sent Events feeds of live account activity
+  - name: Auth
+    description: Wallet sign-in (challenge, signature, session cookie)
 
 paths:
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Log out by clearing the session cookie
+      description: >
+        Expires the httpOnly `cooplumen_session` cookie. Idempotent and public: it returns 200
+        whether or not a cookie was sent. Session tokens are stateless, so a token copied elsewhere
+        remains valid until its own expiry; logout only removes it from the browser.
+      responses:
+        '200':
+          description: Session cookie cleared
+          headers:
+            Set-Cookie:
+              description: The `cooplumen_session` cookie with an expiry in the past
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthLogoutResponse'
+  /api/v1/auth/verify:
+    post:
+      tags: [Auth]
+      summary: Verify a signed challenge and start a session
+      description: >
+        Verifies the Ed25519 signature over a challenge issued by
+        `POST /api/v1/auth/challenge`. On success the session token is set in an
+        httpOnly, SameSite=Strict cookie (`Secure` in production) and also returned
+        in the body for non-browser clients. Challenges are single-use: they are
+        consumed whether or not the signature is valid.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthVerifyRequest'
+      responses:
+        '200':
+          description: Signature verified; session cookie set
+          headers:
+            Set-Cookie:
+              description: The `cooplumen_session` cookie (HttpOnly; SameSite=Strict; Path=/)
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthVerifyResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: No matching challenge, or the signature is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh the session using a rotating refresh token
+      description: >
+        Exchanges the httpOnly `cooplumen_refresh` cookie (set by `POST /api/v1/auth/verify`)
+        for a new session token, set in the `cooplumen_session` cookie and returned in the body.
+        Refresh tokens are single-use: the presented token is invalidated and a new one is set,
+        so replaying a used token returns 401.
+      security:
+        - RefreshCookie: []
+      responses:
+        '200':
+          description: New session issued; session and refresh cookies set
+          headers:
+            Set-Cookie:
+              description: The rotated `cooplumen_refresh` cookie and a new `cooplumen_session` cookie
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthRefreshResponse'
+        '401':
+          description: Refresh token missing, unknown, already used, or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/communities:
     get:
       tags: [Communities]
@@ -137,18 +220,24 @@ paths:
           $ref: '#/components/schemas/StellarKey'
     get:
       tags: [Auth]
-      summary: Issue a wallet challenge
+      summary: Create a wallet challenge for a public key
       description: >
-        Returns a one-time authentication challenge for the given public key.
-        The client signs the challenge with Freighter and sends the result to
-        POST /api/v1/auth/verify to receive a short-lived session token.
+        Returns a one-time authentication challenge string to be signed by the wallet
+        that controls `publicKey`. The challenge is single-use and expires after five minutes.
       responses:
         '200':
-          description: Challenge issued successfully
+          description: Authentication challenge issued successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthChallengeResponse'
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      challenge:
+                        type: string
+                        description: One-time challenge text signed by the wallet.
         '400': { $ref: '#/components/responses/ValidationError' }
 
   /api/v1/prices/xlm:
@@ -1308,6 +1397,40 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
   schemas:
+    AuthLogoutResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            loggedOut: { type: boolean }
+    AuthVerifyRequest:
+      type: object
+      required: [address, challenge, signature]
+      properties:
+        address: { type: string, description: Stellar public key that signed the challenge }
+        challenge:
+          { type: string, description: The exact challenge string returned by /auth/challenge }
+        signature:
+          { type: string, description: Base64-encoded Ed25519 signature over the challenge }
+    AuthVerifyResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            token: { type: string }
+            address: { type: string }
+            expiresAt: { type: string, format: date-time }
+    AuthRefreshResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            token: { type: string }
+            address: { type: string }
+            expiresAt: { type: string, format: date-time }
     StellarKey:
       type: string
       description: A 56-character Stellar StrKey public key.
@@ -1970,6 +2093,16 @@ components:
         defaults: { type: integer }
         offset: { type: integer }
   securitySchemes:
+    SessionCookie:
+      type: apiKey
+      in: cookie
+      name: cooplumen_session
+      description: httpOnly session cookie set by `POST /api/v1/auth/verify`.
+    RefreshCookie:
+      type: apiKey
+      in: cookie
+      name: cooplumen_refresh
+      description: httpOnly, single-use refresh token cookie (Path=/api/v1/auth).
     AdminAuth:
       type: http
       scheme: bearer

@@ -149,9 +149,15 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      # Serial, like the backend job. The frontend suite is now 94 suites, and
+      # several of the heavier ones (userEvent-driven forms, the multi-sig E2E
+      # flow) are load-sensitive: they pass alone but intermittently blow
+      # Jest's default 5s budget when workers compete, failing on timing
+      # rather than on any assertion. Running in band makes the gate
+      # deterministic — and stricter about shared state, not looser.
       - name: Run tests
         working-directory: frontend
-        run: npm test
+        run: npm test -- --runInBand
 
   build:
     name: Build

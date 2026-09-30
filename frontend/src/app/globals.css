@@ -201,6 +201,17 @@
 
   --skeleton-shimmer-duration: 1.4s;
   --theme-transition-duration: 160ms;
+
+  /*
+   * Page transition. The enter animation fades each new page in while lifting
+   * it a few pixels, running on the compositor (opacity + transform only).
+   * The offset is intentionally small so the motion reads as a settle rather
+   * than a dramatic sweep.
+   */
+  --page-transition-duration: 220ms;
+  --page-transition-easing: cubic-bezier(0.22, 1, 0.36, 1);
+  --page-transition-offset: 6px;
+
   --z-index-overlay: 100;
   --z-index-modal: 101;
   --z-index-toast: 102;

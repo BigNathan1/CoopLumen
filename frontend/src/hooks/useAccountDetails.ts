@@ -40,3 +40,11 @@ export function useAccountDetails(publicKey: string | null) {
     { refreshInterval: 30_000 }
   );
 }
+
+/**
+ * Canonical hook name used by the frontend API contract: fetch the full
+ * on-chain Stellar account record for a public key.
+ */
+export function useStellarAccount(publicKey: string | null) {
+  return useAccountDetails(publicKey);
+}
