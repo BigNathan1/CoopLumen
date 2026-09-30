@@ -187,13 +187,16 @@ export function TransferTokenForm({
     setErrors({});
 
     try {
-      const submittedHash = await submit({
-        senderPublicKey: parsed.data.senderPublicKey,
-        destinationPublicKey: parsed.data.destinationPublicKey,
-        assetCode: parsed.data.assetCode,
-        assetIssuer: parsed.data.assetIssuer,
-        amount: parsed.data.amount,
-      }, announceStage);
+      const submittedHash = await submit(
+        {
+          senderPublicKey: parsed.data.senderPublicKey,
+          destinationPublicKey: parsed.data.destinationPublicKey,
+          assetCode: parsed.data.assetCode,
+          assetIssuer: parsed.data.assetIssuer,
+          amount: parsed.data.amount,
+        },
+        announceStage
+      );
 
       setStage(null);
       setTxHash(submittedHash);

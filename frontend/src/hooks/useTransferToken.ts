@@ -18,10 +18,7 @@ export function useTransferToken() {
   const [error, setError] = useState<string | null>(null);
 
   const submit = useCallback(
-    async (
-      input: TransferTokenInput,
-      onProgress?: TransferProgressHandler
-    ): Promise<string> => {
+    async (input: TransferTokenInput, onProgress?: TransferProgressHandler): Promise<string> => {
       setLoading(true);
       setError(null);
 

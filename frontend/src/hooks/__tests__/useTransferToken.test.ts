@@ -53,10 +53,12 @@ describe('useTransferToken', () => {
     const [filter, , options] = mutate.mock.calls[0] as [
       (key: unknown) => boolean,
       undefined,
-      { revalidate: boolean }
+      { revalidate: boolean },
     ];
     expect(filter(`http://localhost:4000/api/v1/balances/${input.senderPublicKey}`)).toBe(true);
-    expect(filter(`http://localhost:4000/api/v1/balances/${input.destinationPublicKey}`)).toBe(true);
+    expect(filter(`http://localhost:4000/api/v1/balances/${input.destinationPublicKey}`)).toBe(
+      true
+    );
     expect(filter('http://localhost:4000/api/v1/balances/other')).toBe(false);
     expect(options).toEqual({ revalidate: true });
     expect(onProgress).toHaveBeenNthCalledWith(1, 'Building the transfer…');
