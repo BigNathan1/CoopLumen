@@ -20,17 +20,17 @@ the runtime is a one-line change.
 
 ### Jobs
 
-| Job              | What it checks                                                                                                                                                                     | Timeout |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| Job              | What it checks                                                                                                                                                                    | Timeout |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
 | `lint`           | ESLint + Prettier `--check` for `backend/`, `frontend/`, and the repo root (root covers `scripts/`, `docs/`, and config files that per-workspace runs left unexamined)            | 20 min  |
-| `typecheck`      | `tsc --noEmit` for both packages                                                                                                                                                   | 20 min  |
+| `typecheck`      | `tsc --noEmit` for both packages                                                                                                                                                  | 20 min  |
 | `test-backend`   | Jest against real Postgres 16 and Redis 7 service containers; migrations run first; tests run serially (`--runInBand`) to avoid race conditions on a shared DB                    | 20 min  |
-| `test-frontend`  | Jest (jsdom) for components and hooks                                                                                                                                              | 20 min  |
+| `test-frontend`  | Jest (jsdom) for components and hooks                                                                                                                                             | 20 min  |
 | `build`          | `npm run build` for both packages — catches build-only breakage that `tsc --noEmit` alone misses (e.g. Next.js server/client boundary errors)                                     | —       |
 | `docker-build`   | `docker build` for both `Dockerfile`s — catches breakage in the production image path specifically                                                                                | —       |
 | `security-audit` | `npm audit --audit-level=high` for both packages. **Non-blocking** (`continue-on-error: true`) — reports loudly but never fails a PR. See the workflow comment for when to harden | —       |
 | `commitlint`     | Every commit in the PR against `commitlint.config.js` (Conventional Commits). PR-only (skipped on direct pushes). Requires `fetch-depth: 0` so the full commit range is available | —       |
-| `quality-gate`   | Aggregates `lint`, `typecheck`, `test-backend`, `test-frontend`, `build`, `docker-build`, and `commitlint` into one pass/fail. Point branch protection at this single job          | —       |
+| `quality-gate`   | Aggregates `lint`, `typecheck`, `test-backend`, `test-frontend`, `build`, `docker-build`, and `commitlint` into one pass/fail. Point branch protection at this single job         | —       |
 
 > **Why `security-audit` is not in `quality-gate`:** A new upstream CVE would
 > immediately break every open PR without giving the team time to triage or
@@ -42,10 +42,10 @@ the runtime is a one-line change.
 
 The backend test job spins up two Docker services before running tests:
 
-| Service    | Image              | Port  | Health check                               |
-| ---------- | ------------------ | ----- | ------------------------------------------ |
-| `postgres` | `postgres:16-alpine` | 5432 | `pg_isready -U cooplumen` (5 s interval)   |
-| `redis`    | `redis:7-alpine`   | 6379  | `redis-cli ping` (5 s interval)            |
+| Service    | Image                | Port | Health check                             |
+| ---------- | -------------------- | ---- | ---------------------------------------- |
+| `postgres` | `postgres:16-alpine` | 5432 | `pg_isready -U cooplumen` (5 s interval) |
+| `redis`    | `redis:7-alpine`     | 6379 | `redis-cli ping` (5 s interval)          |
 
 Both services must be healthy before the job's steps begin. The job injects
 `DATABASE_URL`, `REDIS_URL`, `STELLAR_NETWORK`, and `STELLAR_HORIZON_URL` as
