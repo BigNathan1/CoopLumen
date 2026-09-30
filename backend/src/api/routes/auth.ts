@@ -2,11 +2,7 @@ import { Router, Request, Response } from 'express';
 import { randomBytes } from 'crypto';
 import { Keypair } from '@stellar/stellar-sdk';
 import { validateBody, validateParams } from '../middleware/validate';
-import {
-  authChallengeParamsSchema,
-  authChallengeSchema,
-  authVerifySchema,
-} from '../schemas/auth';
+import { authChallengeParamsSchema, authChallengeSchema, authVerifySchema } from '../schemas/auth';
 import { createSessionToken } from '../utils/sessionToken';
 
 export const authRouter: Router = Router();
