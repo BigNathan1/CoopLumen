@@ -1,7 +1,8 @@
 import request from 'supertest';
 import { Keypair } from '@stellar/stellar-sdk';
 import app from '../../../app';
-import { verifySessionToken } from '../../utils/sessionToken';
+import { verifySessionToken, createSessionToken } from '../../utils/sessionToken';
+import { AUTH_COOKIE_NAME } from '../../utils/authCookie';
 
 jest.mock('../../../db', () => ({
   db: {
@@ -101,5 +102,44 @@ describe('POST /api/v1/auth/verify', () => {
       .post('/api/v1/auth/verify')
       .send({ address, challenge, signature });
     expect(second.status).toBe(401);
+  });
+});
+
+describe('POST /api/v1/auth/logout', () => {
+  function expiredSessionCookie(res: request.Response): string | undefined {
+    const cookies = (res.headers['set-cookie'] ?? []) as unknown as string[];
+    return cookies.find((c) => c.startsWith(`${AUTH_COOKIE_NAME}=;`));
+  }
+
+  it('expires the session cookie for a signed-in client', async () => {
+    const { token } = createSessionToken(Keypair.random().publicKey());
+    const res = await request(app)
+      .post('/api/v1/auth/logout')
+      .set('Cookie', `${AUTH_COOKIE_NAME}=${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: { loggedOut: true } });
+
+    const cleared = expiredSessionCookie(res);
+    expect(cleared).toBeDefined();
+    expect(cleared).toEqual(expect.stringContaining('Expires=Thu, 01 Jan 1970'));
+    expect(cleared).toEqual(expect.stringContaining('HttpOnly'));
+    expect(cleared).toEqual(expect.stringContaining('SameSite=Strict'));
+    expect(cleared).toEqual(expect.stringContaining('Path=/'));
+    expect(res.text).not.toContain(token);
+  });
+
+  it('is idempotent when no session cookie is sent', async () => {
+    const res = await request(app).post('/api/v1/auth/logout');
+    expect(res.status).toBe(200);
+    expect(expiredSessionCookie(res)).toBeDefined();
+  });
+
+  it('succeeds even with a garbage cookie value and never echoes it', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/logout')
+      .set('Cookie', `${AUTH_COOKIE_NAME}=not-a-real-token`);
+    expect(res.status).toBe(200);
+    expect(res.text).not.toContain('not-a-real-token');
   });
 });
