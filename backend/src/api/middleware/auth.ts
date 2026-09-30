@@ -39,12 +39,18 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   next();
 }
 
+/** Roles a member can hold in a community (the `members_role_check` values). */
+export type MemberRole = 'admin' | 'treasurer' | 'member' | 'observer';
+
 /**
- * Requires the authenticated address (set by {@link requireAuth}, which must
- * run first) to hold one of `roles` as an active member of the community
- * identified by `:id` in the route params.
+ * RBAC guard. Requires the authenticated address (set by {@link requireAuth},
+ * which must run first) to hold one of `roles` as an active member of the
+ * community identified by `:id` in the route params.
+ *
+ * Responses use the `{ data, error }` envelope: 401 when unauthenticated and
+ * 403 when the caller is not an active member or holds a role outside `roles`. An empty `roles` list matches nobody, so it fails closed.
  */
-export function requireCommunityRole(roles: string[]) {
+export function requireRole(roles: readonly MemberRole[]) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     if (!req.auth) {
       res.status(401).json({ data: null, error: 'Authentication required' });
@@ -58,7 +64,7 @@ export function requireCommunityRole(roles: string[]) {
         [req.params.id, req.auth.address]
       );
 
-      if (!member || !roles.includes(member.role)) {
+      if (!member || !(roles as readonly string[]).includes(member.role)) {
         res.status(403).json({
           data: null,
           error: `Requires community role: ${roles.join(' or ')}`,
@@ -72,6 +78,9 @@ export function requireCommunityRole(roles: string[]) {
     }
   };
 }
+
+/** Former name of {@link requireRole}, kept so existing imports keep working. */
+export const requireCommunityRole = requireRole;
 
 /**
  * Addresses allowed to call operator-only routes, read once at startup from
