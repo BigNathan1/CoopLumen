@@ -40,8 +40,29 @@ tags:
     description: Batch payment disbursement, preview, and CSV parsing endpoints
   - name: Stream
     description: Server-Sent Events feeds of live account activity
+  - name: Auth
+    description: Wallet sign-in (challenge, signature, session cookie)
 
 paths:
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Log out by clearing the session cookie
+      description: >
+        Expires the httpOnly `cooplumen_session` cookie. Idempotent and public: it returns 200
+        whether or not a cookie was sent. Session tokens are stateless, so a token copied elsewhere
+        remains valid until its own expiry; logout only removes it from the browser.
+      responses:
+        '200':
+          description: Session cookie cleared
+          headers:
+            Set-Cookie:
+              description: The `cooplumen_session` cookie with an expiry in the past
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthLogoutResponse'
   /api/v1/communities:
     get:
       tags: [Communities]
@@ -1314,6 +1335,13 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
   schemas:
+    AuthLogoutResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            loggedOut: { type: boolean }
     StellarKey:
       type: string
       description: A 56-character Stellar StrKey public key.

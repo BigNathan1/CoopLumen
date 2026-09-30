@@ -4,6 +4,7 @@ import { Keypair } from '@stellar/stellar-sdk';
 import { validateBody, validateParams } from '../middleware/validate';
 import { authChallengeParamsSchema, authChallengeSchema, authVerifySchema } from '../schemas/auth';
 import { createSessionToken } from '../utils/sessionToken';
+import { clearAuthCookie } from '../utils/authCookie';
 
 export const authRouter: Router = Router();
 
@@ -129,4 +130,19 @@ authRouter.post('/verify', validateBody(authVerifySchema), (req: Request, res: R
 
   const { token, expiresAt } = createSessionToken(address);
   res.json({ data: { token, address, expiresAt } });
+});
+
+/**
+ * @route POST /api/v1/auth/logout
+ * @access Public
+ * @description Ends the browser session by expiring the httpOnly session
+ * cookie. Idempotent: it succeeds whether or not a cookie was sent, so a client
+ * with an already-expired session can still log out cleanly. Session tokens are
+ * stateless HMAC tokens, so a copy of the token held elsewhere stays valid until
+ * its own expiry (1 hour); this endpoint only removes it from the browser.
+ * @returns {200} `{ data: { loggedOut: true } }` plus a `Set-Cookie` that expires the cookie.
+ */
+authRouter.post('/logout', (_req: Request, res: Response): void => {
+  clearAuthCookie(res);
+  res.json({ data: { loggedOut: true } });
 });
