@@ -11,6 +11,21 @@ jest.mock('../../../db', () => ({
   },
 }));
 
+describe('GET /api/v1/auth/challenge/:publicKey', () => {
+  it('rejects an invalid Stellar address in the path', async () => {
+    const res = await request(app).get('/api/v1/auth/challenge/not-a-key');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Validation failed');
+  });
+
+  it('issues a challenge for a valid public key path parameter', async () => {
+    const address = Keypair.random().publicKey();
+    const res = await request(app).get(`/api/v1/auth/challenge/${address}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.challenge).toEqual(expect.stringContaining(address));
+  });
+});
+
 describe('POST /api/v1/auth/challenge', () => {
   it('rejects an invalid Stellar address', async () => {
     const res = await request(app).post('/api/v1/auth/challenge').send({ address: 'not-a-key' });
