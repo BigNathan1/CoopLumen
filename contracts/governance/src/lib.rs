@@ -51,6 +51,10 @@ pub struct Config {
     pub governance_token: Address,
     pub voting_period: u64,
     pub quorum_bps: u32,
+    /// Total supply of the governance token, used as the quorum denominator.
+    /// The standard token interface has no `total_supply` accessor, so this
+    /// is supplied at initialization time and trusted from there.
+    pub total_supply: i128,
 }
 
 /// On-chain proposal record.
@@ -112,11 +116,12 @@ impl GovernanceContract {
         governance_token: Address,
         voting_period: u64,
         quorum_bps: u32,
+        total_supply: i128,
     ) -> Result<(), GovernanceError> {
         if env.storage().instance().has(&DataKey::Config) {
             return Err(GovernanceError::AlreadyInitialized);
         }
-        if voting_period == 0 || quorum_bps > 10_000 {
+        if voting_period == 0 || quorum_bps > 10_000 || total_supply <= 0 {
             return Err(GovernanceError::InvalidInput);
         }
 
@@ -125,6 +130,7 @@ impl GovernanceContract {
             governance_token,
             voting_period,
             quorum_bps,
+            total_supply,
         };
         env.storage().instance().set(&DataKey::Config, &config);
         Ok(())
@@ -353,12 +359,11 @@ impl GovernanceContract {
         // participation = votes_for + votes_against
         // required      = total_supply * quorum_bps / 10_000
         //
-        // Both sides are i128; total_supply comes from the token client and is
-        // always non-negative. We use i128 arithmetic throughout to stay
-        // consistent with the token SDK surface and guard every step with
+        // total_supply comes from Config (the standard token interface has no
+        // total_supply accessor, so it is supplied at initialization time).
+        // We use i128 arithmetic throughout and guard every step with
         // checked_* to satisfy the `overflow-checks = true` release profile.
-        let token_client = token::Client::new(&env, &config.governance_token);
-        let total_supply = token_client.total_supply();
+        let total_supply = config.total_supply;
 
         let participation = proposal
             .votes_for
@@ -487,7 +492,7 @@ mod test {
         let contract_id = env.register(GovernanceContract, ());
         let client = GovernanceContractClient::new(&env, &contract_id);
 
-        client.initialize(&admin, &token, &86400, &5000);
+        client.initialize(&admin, &token, &86400, &5000, &10_000);
 
         (env, admin, token_admin, token, client)
     }
@@ -541,6 +546,7 @@ mod test {
         assert_eq!(config.governance_token, token);
         assert_eq!(config.voting_period, 86400);
         assert_eq!(config.quorum_bps, 5000);
+        assert_eq!(config.total_supply, 10_000);
     }
 
     #[test]
@@ -751,10 +757,10 @@ mod test {
         let (env, _admin, _token_admin, token, client) = setup_test();
         let executor = Address::generate(&env);
 
-        // voter_balance = 1000; total_supply = 1000; quorum_bps = 5000 (50%)
-        // required participation = 1000 * 5000 / 10_000 = 500
-        // actual participation   = 1000 (FOR) >= 500 ✓
-        let (id, _) = create_and_finalize(&env, &client, &token, 1000);
+        // total_supply = 10_000 (from setup_test); quorum_bps = 5000 (50%)
+        // required participation = 10_000 * 5000 / 10_000 = 5000
+        // actual participation   = 6000 (FOR) >= 5000 ✓
+        let (id, _) = create_and_finalize(&env, &client, &token, 6000);
 
         client.execute_proposal(&id, &executor);
 
@@ -769,7 +775,7 @@ mod test {
         let (env, _admin, _token_admin, token, client) = setup_test();
         let executor = Address::generate(&env);
 
-        let (id, _) = create_and_finalize(&env, &client, &token, 1000);
+        let (id, _) = create_and_finalize(&env, &client, &token, 6000);
         client.execute_proposal(&id, &executor);
 
         let err = client
@@ -897,7 +903,7 @@ mod test {
         let client = GovernanceContractClient::new(&env, &contract_id);
 
         // quorum_bps = 0 → required = 0
-        client.initialize(&admin, &token, &86400, &0);
+        client.initialize(&admin, &token, &86400, &0, &1_000_000);
 
         let proposer = Address::generate(&env);
         let voter = Address::generate(&env);
