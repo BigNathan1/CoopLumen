@@ -20,8 +20,8 @@ export interface BreadcrumbItem {
  * Segment-to-label mapping.
  *
  * Used to turn a raw URL segment like `treasury` or `communities` into a
- * human-readable label. Dynamic segments (community IDs, etc.) are not
- * listed here; they fall through to the capitalisation fallback.
+ * human-readable label. Dynamic segments (community IDs, etc.) are not listed
+ * here; they are rendered as-is by {@link toLabel}.
  */
 const SEGMENT_LABELS: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -41,11 +41,16 @@ const SEGMENT_LABELS: Record<string, string> = {
 const EXCLUDED_PATHS = new Set(['/', '/dashboard']);
 
 /**
- * Capitalises the first letter of a string as a last-resort label for unknown
- * segments (e.g. a community ID that happens to be a readable slug).
+ * Maps a known route segment to its display label.
+ *
+ * An unknown segment is returned verbatim. In this app an unknown segment is a
+ * dynamic one — a community ID such as `comm-1` — and capitalising it would
+ * misrepresent an identifier the reader may need to match exactly against an
+ * address or asset code. Callers that can resolve a friendlier name pass the
+ * `crumbs` prop instead, which is what it exists for.
  */
 function toLabel(segment: string): string {
-  return SEGMENT_LABELS[segment] ?? segment.charAt(0).toUpperCase() + segment.slice(1);
+  return SEGMENT_LABELS[segment] ?? segment;
 }
 
 /**
@@ -116,7 +121,10 @@ export interface BreadcrumbProps {
  *   { label: community.name },
  * ]} />
  */
-export function Breadcrumb({ crumbs: crumbsProp, 'aria-label': ariaLabel = 'Breadcrumb' }: BreadcrumbProps) {
+export function Breadcrumb({
+  crumbs: crumbsProp,
+  'aria-label': ariaLabel = 'Breadcrumb',
+}: BreadcrumbProps) {
   const pathname = usePathname();
 
   if (EXCLUDED_PATHS.has(pathname) && !crumbsProp) return null;

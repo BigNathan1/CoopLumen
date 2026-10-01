@@ -23,7 +23,7 @@ describe('buildCrumbs', () => {
     const crumbs = buildCrumbs('/dashboard');
     expect(crumbs).toEqual<BreadcrumbItem[]>([
       { label: 'Home', href: '/' },
-      { label: 'Dashboard' },           // last crumb has no href
+      { label: 'Dashboard' }, // last crumb has no href
     ]);
   });
 
@@ -59,9 +59,9 @@ describe('buildCrumbs', () => {
     }
   });
 
-  it('capitalises the first letter of an unknown segment', () => {
+  it('leaves an unknown segment exactly as it appears in the path', () => {
     const crumbs = buildCrumbs('/communities/my-custom-segment');
-    expect(crumbs[2].label).toBe('My-custom-segment');
+    expect(crumbs[2].label).toBe('my-custom-segment');
   });
 });
 
