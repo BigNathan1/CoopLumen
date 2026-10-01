@@ -12,7 +12,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: '20'
+  # Kept in step with the node:<major>-alpine tag in backend/Dockerfile and
+  # frontend/Dockerfile, and with @types/node. If CI tests on one major while
+  # the image ships another, the suite stops saying anything about the runtime
+  # that actually runs in production.
+  NODE_VERSION: '26'
 
 jobs:
   lint:
