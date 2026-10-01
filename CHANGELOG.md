@@ -62,6 +62,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `CommunityList` component (`frontend/src/components/CommunityList.tsx`) with client-side search filtering over name and description, pagination, and an empty state (#298, #220).
 - `CommunityCard` now shows member and token counts alongside a join button, with an accessible overlay link to the community detail page (#296, #297, #218, #219).
 - Next.js API proxying for `/api/*` requests and startup validation for the required public frontend environment variables (#249, #250)
+- `GET /api/v1/auth/challenge/:publicKey` issues a one-time wallet challenge for a Stellar public key so a caller can sign it with Freighter and exchange the signature for a session token.
 - `GET /api/v1/balances/:publicKey` explicitly includes the account's native XLM
   balance (`asset_type: native`) alongside issued-asset balances.
 

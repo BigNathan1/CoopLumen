@@ -1894,6 +1894,17 @@ components:
             - type: string
             - type: object
               additionalProperties: true
+    AuthChallengeResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [challenge]
+          properties:
+            challenge:
+              type: string
+              description: One-time wallet challenge string to sign with Freighter.
     Loan:
       type: object
       properties:
