@@ -6,10 +6,6 @@ const stellarAddress = z
   .trim()
   .refine(isValidStellarPublicKey, { message: 'Invalid Stellar public key' });
 
-export const authChallengeParamsSchema = z.object({
-  publicKey: stellarAddress,
-});
-
 export const authChallengeSchema = z.object({
   address: stellarAddress,
 });
