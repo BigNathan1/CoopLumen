@@ -27,7 +27,11 @@ export interface SignTransactionOptions {
 /** The distributor account the server is configured to sign for, if any. */
 export function getDistributorPublicKey(): string | undefined {
   const configured = process.env[DISTRIBUTOR_PUBLIC_KEY_ENV]?.trim();
-  return configured ? configured : undefined;
+  // An empty or whitespace-only value counts as "not configured", same as the
+  // variable being absent. Written as an explicit emptiness check rather than
+  // `configured ?? undefined`, which would return the empty string, since `??`
+  // only treats null and undefined as absent.
+  return configured === undefined || configured === '' ? undefined : configured;
 }
 
 function reject(detail: string, status = 400): never {
