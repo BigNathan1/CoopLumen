@@ -10,6 +10,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- `useXLMPrice` hook to fetch and poll the global XLM price every 60 seconds (#338).
 
 - `useEstimateFee` hook to calculate and display estimated transaction fees dynamically before signing, preventing surprise rejections on busy networks (#348).
 - App Router error page with an accessible retry action and theme-aware design tokens (#322).
