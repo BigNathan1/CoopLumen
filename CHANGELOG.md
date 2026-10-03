@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `useEstimateFee` hook to calculate and display estimated transaction fees dynamically before signing, preventing surprise rejections on busy networks (#348).
 - App Router error page with an accessible retry action and theme-aware design tokens (#322).
 - `useWallet()` (`frontend/src/hooks/useWallet.ts`) auto-reconnects on page load/reload when the site was previously granted Freighter access (`isAllowed()`), without a fresh permission prompt, and now also detects the user switching accounts inside Freighter itself while connected (re-authenticating under the new address), extending the existing network-change poll rather than adding a second one (#329, #251).
 - Community profile forms and member directory: `CreateCommunityForm` validates community and Stellar issuer fields with the shared Zod schemas, `EditCommunityForm` pre-populates mutable profile fields, the `/communities/[id]/edit` route loads and saves a community, and `MemberList` renders address, role, and join date with API/local pagination (#302, #308, #309, #310).
