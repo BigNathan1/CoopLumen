@@ -1,0 +1,45 @@
+{
+  "common": {
+    "retry": "Retry",
+    "loading": "Loading…",
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close",
+    "language": "Language",
+    "connectWallet": "Connect wallet",
+    "disconnectWallet": "Disconnect wallet",
+    "walletNotConnected": "No wallet connected"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "communities": "Communities",
+    "profile": "Profile"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Your communities, balances, loans and reputation.",
+    "recentTransactions": "Recent transactions",
+    "noTransactions": "No transactions yet"
+  },
+  "transactions": {
+    "live": "Live",
+    "connecting": "Connecting…",
+    "reconnecting": "Reconnecting…",
+    "offline": "Offline",
+    "newPayment": "New payment of {amount} {asset}",
+    "received": "Received",
+    "sent": "Sent"
+  },
+  "profile": {
+    "title": "Your profile",
+    "balances": "Balances",
+    "communities": "Your communities",
+    "loadingBalances": "Loading balances",
+    "loadingCommunities": "Loading your communities",
+    "emptyCommunities": "No communities yet"
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "network": "Unable to reach the CoopLumen API. Check your connection and try again."
+  }
+}

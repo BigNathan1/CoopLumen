@@ -1,6 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { SWRConfig } from 'swr';
 import { useAccountDetails } from '../useAccountDetails';
+import { useStellarAccount } from '../useStellarAccount';
 
 function jsonResponse(status: number, body: unknown) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
@@ -35,6 +36,22 @@ describe('useAccountDetails', () => {
     fetchMock.mockResolvedValue(jsonResponse(200, { data: payload }));
 
     const { result } = renderHook(() => useAccountDetails(PUBLIC_KEY), { wrapper });
+
+    await waitFor(() => expect(result.current.data).toEqual(payload));
+    expect(String(fetchMock.mock.calls[0][0])).toContain(`/api/v1/accounts/${PUBLIC_KEY}`);
+  });
+
+  it('aliases the public-key-based Stellar account hook', async () => {
+    const payload = {
+      id: PUBLIC_KEY,
+      account_id: PUBLIC_KEY,
+      balances: [{ asset_type: 'native', balance: '100.0000000' }],
+      signers: [{ key: PUBLIC_KEY, weight: 1, type: 'ed25519_public_key' }],
+      thresholds: { low_threshold: 1, med_threshold: 1, high_threshold: 1 },
+    };
+    fetchMock.mockResolvedValue(jsonResponse(200, { data: payload }));
+
+    const { result } = renderHook(() => useStellarAccount(PUBLIC_KEY), { wrapper });
 
     await waitFor(() => expect(result.current.data).toEqual(payload));
     expect(String(fetchMock.mock.calls[0][0])).toContain(`/api/v1/accounts/${PUBLIC_KEY}`);
