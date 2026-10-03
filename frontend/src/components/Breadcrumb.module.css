@@ -1,0 +1,69 @@
+/*
+ * Breadcrumb navigation.
+ *
+ * All values come from the design-token custom properties declared in
+ * `globals.css`; no literals are used so both light and dark palettes resolve
+ * here for free.
+ */
+
+.nav {
+  padding: var(--space-2) 0;
+}
+
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.link {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.4;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.link:hover {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.link:focus-visible {
+  border-radius: var(--radius-sm);
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.separator {
+  color: var(--color-border-strong);
+  font-size: 0.875rem;
+  line-height: 1;
+  /* Widen the tap/click gap slightly without shifting adjacent text. */
+  padding-inline: var(--space-1);
+  user-select: none;
+}
+
+.current {
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .link {
+    transition: none;
+  }
+}

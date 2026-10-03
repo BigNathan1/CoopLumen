@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useForm, type Path } from 'react-hook-form';
-import { api, isApiError } from '@/lib/api';
+import { isApiError } from '@/lib/api';
+import { useCreateCommunity } from '@/hooks/useCreateCommunity';
 import { setSchemaFieldErrors } from '@/lib/formErrors';
 import {
   createCommunitySchema,
@@ -89,6 +90,7 @@ export function CreateCommunityForm({
   className,
 }: CreateCommunityFormProps): React.JSX.Element {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const { submit: createCommunity } = useCreateCommunity();
   const hasIssuerOverride = walletAddress !== undefined || issuerPublicKey !== undefined;
   const walletIssuer = hasIssuerOverride ? (walletAddress ?? issuerPublicKey ?? '') : undefined;
   const issuerLocked = Boolean(walletIssuer);
@@ -137,9 +139,7 @@ export function CreateCommunityForm({
       : valuesWithoutDescription;
 
     try {
-      const result = onSubmit
-        ? await onSubmit(input)
-        : await api.post<unknown>('/api/v1/communities', input);
+      const result = onSubmit ? await onSubmit(input) : await createCommunity(input);
 
       onSuccess?.(result);
       onCreated?.(result);

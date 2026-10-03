@@ -1,7 +1,22 @@
 import { createClient } from 'redis';
 import { logger } from '../utils/logger';
 
-type RedisClient = ReturnType<typeof createClient>;
+/**
+ * Single place the client is constructed, so the type below is derived from the
+ * exact call rather than from `createClient`'s signature.
+ *
+ * `ReturnType<typeof createClient>` resolves the *default* type arguments
+ * (RedisModules, RedisFunctions, RedisScripts, …), while calling it with no
+ * explicit type arguments infers `<{}, {}, {}, 3, {}>`. Those two are the same
+ * type in redis 4 but not in redis 6, so the alias and the call site stopped
+ * agreeing. Taking ReturnType of this factory keeps them identical without
+ * naming any of redis's generics, so it survives the next change to them too.
+ */
+function createRedisClient() {
+  return createClient({ url: process.env.REDIS_URL });
+}
+
+type RedisClient = ReturnType<typeof createRedisClient>;
 
 class RedisCacheClient {
   private client: RedisClient | null = null;
@@ -89,7 +104,7 @@ class RedisCacheClient {
       return this.connectPromise;
     }
 
-    const client = createClient({ url: process.env.REDIS_URL });
+    const client = createRedisClient();
     client.on('error', (error) => {
       logger.error('Redis client error', {
         error: error instanceof Error ? error.message : String(error),
