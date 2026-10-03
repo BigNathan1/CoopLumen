@@ -155,7 +155,7 @@ Then re-run this test.
       // Should return 0 because account has no trustline
       expect(balance).toBe(0);
       console.log(`Unfunded account correctly returns 0 balance`);
-    } catch (error) {
+    } catch {
       // This is expected - the unfunded account might not exist
       // which throws an error. That's also acceptable for this test.
       console.warn('Unfunded account test skipped (account creation not available)');

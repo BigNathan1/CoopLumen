@@ -1,0 +1,69 @@
+/*
+ * Page transition animations.
+ *
+ * A single `@keyframes page-enter` runs on every route change. The wrapper
+ * starts fully transparent and slightly shifted down so the incoming page
+ * slides gently into view. Duration, easing and offset are declared as tokens
+ * in globals.css (`--page-transition-*`) and consumed here so a theme or
+ * parent override touches one place.
+ *
+ * The animation is disabled entirely for users who have asked for reduced
+ * motion; the page still renders — it just appears immediately.
+ */
+/* ---------------------------------------------------------------------------
+ * Keyframe — enter
+ *
+ * Opacity fade-in combined with a vertical translate so the page appears to
+ * rise into position. Both properties are on the compositor and cannot trigger
+ * layout.
+ * ------------------------------------------------------------------------ */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--page-transition-offset));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Wrapper element
+ * ------------------------------------------------------------------------ */
+.wrapper {
+  /*
+   * `animation-fill-mode: both` keeps the from-state applied before the
+   * animation ticks and the to-state locked in after it completes, so there
+   * is no flash of the raw (opacity 1, no offset) element on either side.
+   */
+  animation: page-enter var(--page-transition-duration) var(--page-transition-easing) both;
+
+  /*
+   * The wrapper must not collapse its content. Inheriting display from the
+   * parent keeps it neutral; explicit block ensures it spans the full width
+   * of its containing column regardless of what comes before it in the flow.
+   */
+  display: block;
+  width: 100%;
+
+  /*
+   * `will-change` is a hint to the compositor that this element will be
+   * animated. Declared here rather than inline so it is present before the
+   * first paint and removed once the animation is done (managed in the
+   * component via `animationend`).
+   */
+  will-change: opacity, transform;
+}
+
+/*
+ * Honour the user's motion preference. The wrapper is still rendered; the
+ * animation is simply removed so the page appears immediately at full opacity.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .wrapper {
+    animation: none;
+    will-change: auto;
+  }
+}

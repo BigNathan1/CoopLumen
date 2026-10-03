@@ -10,6 +10,10 @@ export const authChallengeSchema = z.object({
   address: stellarAddress,
 });
 
+export const authChallengeParamsSchema = z.object({
+  publicKey: stellarAddress,
+});
+
 export const authVerifySchema = z.object({
   address: stellarAddress,
   challenge: z.string().trim().min(1).max(500),
