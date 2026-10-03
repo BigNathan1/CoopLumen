@@ -32,7 +32,7 @@ interface AppliedMigrationRow {
  */
 export const BOOTSTRAP_MIGRATION = '001_schema_migrations.sql';
 
-/** Migration name → checksum recorded when it was applied (null for legacy rows). */
+/** Migration name -> checksum recorded when it was applied (null for legacy rows). */
 export type AppliedMigrations = Map<string, string | null>;
 
 export interface CliOptions {

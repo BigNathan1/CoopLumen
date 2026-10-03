@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { getXlmPriceQuerySchema } from '../schemas/price';
-import { fetchXlmPrice } from '../../contracts/prices';
+import { fetchXlmPrice } from '../../services/prices';
 import { cachePrice, getCachedPrice } from '../../cache/prices';
 
 export const pricesRouter = Router();

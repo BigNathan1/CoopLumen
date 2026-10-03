@@ -761,7 +761,7 @@ Unique constraint: `(community_id, stellar_address)` — one KYC record per addr
 
 ### Backup Strategy
 
-**Automated Backups (`scripts/backup-db.sh`)**:
+**Automated Backups (`scripts/db/backup-db.sh`)**:
 
 - **Format**: PostgreSQL custom format (`-Fc`) for efficient compression and selective restore.
 - **Retention**: Keeps 10 most recent backups, automatically prunes older ones.

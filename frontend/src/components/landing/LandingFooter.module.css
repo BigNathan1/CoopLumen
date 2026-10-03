@@ -1,0 +1,189 @@
+.footer {
+  border-top: 1px solid var(--landing-hairline);
+  background: color-mix(in srgb, var(--color-surface) 55%, transparent);
+}
+
+.inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: 100%;
+  max-width: var(--landing-max);
+  margin-inline: auto;
+  padding: var(--landing-section-y) var(--landing-gutter) var(--space-10);
+}
+
+/* ---------------------------------------------------------------------------
+ * Closing call to action
+ * ------------------------------------------------------------------------ */
+
+.cta {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-12) var(--space-6);
+  border: 1px solid var(--landing-hairline-strong);
+  border-radius: var(--landing-radius);
+  background: var(--landing-panel);
+  text-align: center;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* The page opened with a light source; it closes with the same one. */
+.ctaGlow {
+  position: absolute;
+  z-index: -1;
+  inset: auto -20% -60%;
+  height: 20rem;
+  background: radial-gradient(50% 60% at 50% 100%, var(--landing-glow-primary), transparent 70%);
+  pointer-events: none;
+}
+
+.ctaTitle {
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.ctaBody {
+  max-width: 34rem;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.ctaActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.primaryAction,
+.secondaryAction {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+.primaryAction {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+}
+
+.primaryAction:hover {
+  background: var(--color-primary-hover);
+  text-decoration: none;
+}
+
+.secondaryAction {
+  border-color: var(--landing-hairline-strong);
+  color: var(--color-text);
+}
+
+.secondaryAction:hover {
+  border-color: var(--color-primary);
+  text-decoration: none;
+}
+
+/* ---------------------------------------------------------------------------
+ * Link columns
+ * ------------------------------------------------------------------------ */
+
+.links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
+  gap: var(--space-8);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.groupHeading {
+  color: var(--color-text);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.groupList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+}
+
+.link {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  transition: color 150ms ease;
+}
+
+.link:hover {
+  color: var(--color-text);
+}
+
+/* ---------------------------------------------------------------------------
+ * Baseline
+ * ------------------------------------------------------------------------ */
+
+.baseline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--landing-hairline);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.mark {
+  color: var(--color-primary);
+}
+
+.fineprint {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+
+@media (min-width: 768px) {
+  .cta {
+    padding-inline: var(--space-12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primaryAction,
+  .secondaryAction,
+  .link {
+    transition: none;
+  }
+}

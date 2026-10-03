@@ -1,0 +1,332 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-6);
+  border: 1px solid var(--landing-hairline);
+  border-radius: var(--landing-radius);
+  background: var(--landing-panel);
+}
+
+@media (min-width: 768px) {
+  .panel {
+    padding: var(--space-8);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Controls
+ * ------------------------------------------------------------------------ */
+
+.controls {
+  display: grid;
+  gap: var(--space-6);
+}
+
+@media (min-width: 720px) {
+  .controls {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-8);
+  }
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  border: 0;
+}
+
+.controlHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.controlLabel {
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.controlValue {
+  color: var(--color-text);
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The slider is restyled rather than left native because the native control
+ * ignores the palette entirely in most browsers. Track and thumb are declared
+ * once per engine; `appearance: none` is what makes the rest apply.
+ */
+.slider {
+  width: 100%;
+  height: 1.5rem;
+  margin: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-text) 14%, transparent);
+}
+
+.slider::-moz-range-track {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-text) 14%, transparent);
+}
+
+.slider::-webkit-slider-thumb {
+  width: 1.15rem;
+  height: 1.15rem;
+  /* Centres the thumb on a 6px track. */
+  margin-top: -0.3rem;
+  border: 2px solid var(--color-surface-raised);
+  border-radius: var(--radius-circle);
+  background: var(--color-primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 18%, transparent);
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.slider::-moz-range-thumb {
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 2px solid var(--color-surface-raised);
+  border-radius: var(--radius-circle);
+  background: var(--color-primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.sliderScale {
+  display: flex;
+  justify-content: space-between;
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Segmented radio group: real radios, visually joined. */
+.segmented {
+  display: flex;
+  padding: 0.25rem;
+  border: 1px solid var(--landing-hairline);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-bg) 60%, transparent);
+}
+
+.segment {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+/*
+ * The input stays in the layout and focusable — it is only visually replaced by
+ * its label, so keyboard and screen-reader behaviour is the native one.
+ */
+.segmentInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segmentLabel {
+  display: block;
+  padding: 0.45rem 0.5rem;
+  border-radius: var(--radius-pill);
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.segmentInput:checked + .segmentLabel {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+}
+
+.segmentInput:focus-visible + .segmentLabel {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* ---------------------------------------------------------------------------
+ * Comparison table
+ * ------------------------------------------------------------------------ */
+
+/*
+ * The table scrolls sideways on narrow screens instead of being restructured.
+ * `focus-visible` because the region is focusable for keyboard scrolling.
+ */
+.tableScroll {
+  position: relative;
+  overflow-x: auto;
+}
+
+.tableScroll:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.table {
+  width: 100%;
+  /* Below this the columns stop fitting and the container scrolls. */
+  min-width: 30rem;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.table th,
+.table td {
+  padding: var(--space-4) var(--space-3);
+  border-bottom: 1px solid var(--landing-hairline);
+  vertical-align: baseline;
+}
+
+.table thead th {
+  padding-block: 0 var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.table tbody tr:last-child th,
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.railName {
+  position: relative;
+  min-width: 9rem;
+  padding-bottom: var(--space-6);
+  color: var(--color-text);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* The cost, drawn. Sits on the row's bottom edge under the rail's name. */
+.bar {
+  position: absolute;
+  left: var(--space-3);
+  bottom: var(--space-3);
+  height: 4px;
+  max-width: calc(100% - var(--space-6));
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-text-muted) 45%, transparent);
+  transition: width 200ms ease;
+}
+
+.row[data-highlight] .bar {
+  background: var(--color-secondary);
+  box-shadow: 0 0 10px var(--landing-glow-secondary);
+}
+
+.row[data-highlight] .railName,
+.row[data-highlight] .cost {
+  color: var(--color-secondary);
+}
+
+.settlement {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cost {
+  display: block;
+  color: var(--color-text);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.percent {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+td.numeric {
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * Result
+ * ------------------------------------------------------------------------ */
+
+.result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+  padding: var(--space-5);
+  border: 1px solid color-mix(in srgb, var(--color-secondary) 35%, transparent);
+  border-radius: var(--radius-lg);
+  background: var(--color-secondary-subtle);
+}
+
+.resultLabel {
+  color: var(--color-text);
+  font-size: 0.95rem;
+}
+
+.resultValue {
+  color: var(--color-secondary);
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.note {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+/* Tighter cells, to put off the point where the container has to scroll. */
+@media (max-width: 599px) {
+  .table th,
+  .table td {
+    padding: var(--space-3) var(--space-2);
+  }
+
+  .settlement,
+  .cost,
+  td.numeric {
+    font-size: 0.8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar,
+  .segmentLabel {
+    transition: none;
+  }
+}

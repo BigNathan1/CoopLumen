@@ -1,17 +1,20 @@
 'use client';
 
+import Link from 'next/link';
 import { useCommunities } from '@/hooks/useCommunities';
 import { useWallet } from '@/hooks/useWallet';
-import { WalletConnect } from './WalletConnect';
+import { WalletConnect } from '@/components/wallet/WalletConnect';
 import { ThemeToggle } from './ThemeToggle';
+import { LocaleSwitcher } from './LocaleSwitcher';
+import { TransactionFeed } from './TransactionFeed';
 import { CommunityCard } from './CommunityCard';
-import { BalancePanel } from './BalancePanel';
-import { PortfolioPanel } from './PortfolioPanel';
-import { MyReputationPanel } from './MyReputationPanel';
-import { ReputationPanel } from './ReputationPanel';
-import { LoansSection } from './LoansSection';
-import { CreateLoanForm } from './CreateLoanForm';
-import { LoadingSkeleton } from './LoadingSkeleton';
+import { BalancePanel } from '@/components/wallet/BalancePanel';
+import { PortfolioPanel } from '@/components/loans/PortfolioPanel';
+import { MyReputationPanel } from '@/components/reputation/MyReputationPanel';
+import { ReputationPanel } from '@/components/reputation/ReputationPanel';
+import { LoansSection } from '@/components/loans/LoansSection';
+import { CreateLoanForm } from '@/components/loans/CreateLoanForm';
+import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 import { Button } from './ui/Button';
 import styles from './Dashboard.module.css';
 import { EmptyState } from './ui/EmptyState';
@@ -26,13 +29,17 @@ export function Dashboard() {
   return (
     <div className={styles.layout}>
       <header className={styles.header}>
-        <div className={styles.brand}>
-          <span className={styles.logo}>◆</span>
+        {/* The brand doubles as the way back to the landing page at `/`. */}
+        <Link href="/" className={styles.brand}>
+          <span aria-hidden="true" className={styles.logo}>
+            ◆
+          </span>
           <h1 className={styles.title}>CoopLumen</h1>
           <span className={styles.tagline}>Decentralized Community Finance</span>
-        </div>
+        </Link>
 
         <div className={styles.actions}>
+          <LocaleSwitcher />
           <ThemeToggle />
           <WalletConnect />
         </div>
@@ -41,6 +48,7 @@ export function Dashboard() {
       <div className={styles.content}>
         <aside className={styles.sidebar}>
           {connected && publicKey && <BalancePanel publicKey={publicKey} />}
+          <TransactionFeed publicKey={connected ? publicKey : null} />
           {connected && publicKey && <PortfolioPanel address={publicKey} />}
           {connected && publicKey && <MyReputationPanel address={publicKey} />}
           <ReputationPanel />

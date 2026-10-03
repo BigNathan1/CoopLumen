@@ -1,6 +1,6 @@
 import { redisCache } from './redis';
 import { logger } from '../utils/logger';
-import { XlmPriceResult } from '../contracts/prices';
+import { XlmPriceResult } from '../services/prices';
 
 export const PRICE_CACHE_TTL_SECONDS = 30;
 
@@ -12,10 +12,7 @@ export function getPriceCacheKey(asset: string, currency: string): string {
 /** Stable key for the default XLM/USD pair — exported so tests can reference it directly. */
 export const PRICE_CACHE_KEY = getPriceCacheKey('XLM', 'USD');
 
-// ---------------------------------------------------------------------------
-// In-memory cache tier
-// Each entry is a tuple of [value, expiresAtMs] so we can expire correctly.
-// ---------------------------------------------------------------------------
+/** First cache tier: a process-local map of key -> [value, expiresAtMs]. */
 const memoryCache = new Map<string, [XlmPriceResult, number]>();
 
 function memoryGet(key: string): XlmPriceResult | null {
@@ -35,61 +32,6 @@ function memorySet(key: string, value: XlmPriceResult, ttlSeconds: number): void
 
 function memoryDel(key: string): void {
   memoryCache.delete(key);
-}
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-/**
- * Reads the XLM price for the given currency from the two-tier cache.
- * Checks in-memory first (no I/O), then falls back to Redis.
- * Returns null on a full miss.
- */
-export async function getCachedXlmPrice(currency = 'USD'): Promise<XlmPriceResult | null> {
-  const key = getPriceCacheKey('XLM', currency);
-
-  // Tier 1 — in-memory
-  const mem = memoryGet(key);
-  if (mem) return mem;
-
-  // Tier 2 — Redis
-  const raw = await redisCache.get(key);
-  if (!raw) return null;
-
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (
-      typeof parsed !== 'object' ||
-      parsed === null ||
-      typeof (parsed as Record<string, unknown>).price !== 'string' ||
-      typeof (parsed as Record<string, unknown>).currency !== 'string'
-    ) {
-      logger.warn('Discarding malformed cached price payload', { key });
-      await redisCache.del(key);
-      return null;
-    }
-    const value = parsed as XlmPriceResult;
-    // Warm the memory tier from Redis so the next request is free.
-    memorySet(key, value, PRICE_CACHE_TTL_SECONDS);
-    return value;
-  } catch (error) {
-    logger.warn('Discarding unreadable cached price payload', {
-      key,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    await redisCache.del(key);
-    return null;
-  }
-}
-
-/**
- * Writes a price result to both the in-memory and Redis cache tiers.
- */
-export async function cacheXlmPrice(price: XlmPriceResult): Promise<void> {
-  const key = getPriceCacheKey(price.asset, price.currency);
-  memorySet(key, price, PRICE_CACHE_TTL_SECONDS);
-  await redisCache.setEx(key, PRICE_CACHE_TTL_SECONDS, JSON.stringify(price));
 }
 
 /**
@@ -113,11 +55,11 @@ export function clearPriceMemoryCache(): void {
   memoryCache.clear();
 }
 
-// ---------------------------------------------------------------------------
-// Legacy helpers kept for backward compatibility with existing callers that
-// use the generic getCachedPrice / cachePrice signatures.
-// ---------------------------------------------------------------------------
-
+/**
+ * Reads a cached price, memory tier first, then Redis. A payload that is not
+ * a well-formed price result is discarded rather than returned, so one bad
+ * write cannot keep serving nonsense until its TTL expires.
+ */
 export async function getCachedPrice(
   asset: string,
   currency: string
@@ -132,23 +74,32 @@ export async function getCachedPrice(
 
   try {
     const parsed = JSON.parse(raw) as unknown;
+    const record = parsed as Record<string, unknown>;
     if (
       typeof parsed !== 'object' ||
       parsed === null ||
-      typeof (parsed as Record<string, unknown>).price !== 'string'
+      typeof record.price !== 'string' ||
+      typeof record.currency !== 'string'
     ) {
+      logger.warn('Discarding malformed cached price payload', { key });
       await redisCache.del(key);
       return null;
     }
     const value = parsed as XlmPriceResult;
+    // Warm the memory tier from Redis so the next read costs nothing.
     memorySet(key, value, PRICE_CACHE_TTL_SECONDS);
     return value;
-  } catch {
+  } catch (error) {
+    logger.warn('Discarding unreadable cached price payload', {
+      key,
+      error: error instanceof Error ? error.message : String(error),
+    });
     await redisCache.del(key);
     return null;
   }
 }
 
+/** Writes a price result to both cache tiers under its asset/currency key. */
 export async function cachePrice(
   asset: string,
   currency: string,

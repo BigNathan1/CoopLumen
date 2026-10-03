@@ -1,3 +1,8 @@
+/* eslint-disable @typescript-eslint/prefer-promise-reject-errors --
+   These tests exist to prove we correctly handle what the Stellar SDK actually
+   rejects with, and that is a plain object carrying a `response` field, not an
+   Error instance. Rejecting with a real Error here would test a case that never
+   happens in production and stop testing the one that does. */
 import { StellarError, extractResultCodes, toStellarError, withStellarErrors } from '../errors';
 
 /** Builds the shape the Stellar SDK attaches to a `NetworkError`. */

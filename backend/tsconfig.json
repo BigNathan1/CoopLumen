@@ -2,7 +2,18 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "commonjs",
-    "lib": ["ES2020"],
+    // Emit targets ES2020, but the library surface is ES2022 because that is
+    // what the runtime actually provides: the backend runs on Node 20 (see
+    // NODE_VERSION in ci.yml and node:20-alpine in the Dockerfile), and
+    // ES2022 additions such as Array.prototype.at have been available since
+    // Node 16.6. These are runtime methods rather than syntax, so widening
+    // lib does not change what is emitted.
+    //
+    // ES2020 understated the platform and only went unnoticed because
+    // @types/node 20 declared some of these itself; @types/node 26 stopped,
+    // which surfaced as `Property 'at' does not exist on type 'string[]'`
+    // when compiling the tests.
+    "lib": ["ES2022"],
     "types": ["node"],
     "outDir": "./dist",
     "rootDir": "./src",

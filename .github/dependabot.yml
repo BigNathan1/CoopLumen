@@ -1,9 +1,14 @@
 version: 2
+
+# Dependabot runs quarterly. Weekly runs produced more pull requests than the
+# project reviews, and a stale dependency pull request is worse than a late
+# one: every merge to main ages it, and merging an aged one can revert work
+# that landed after it was opened.
 updates:
   - package-ecosystem: 'npm'
     directory: '/backend'
     schedule:
-      interval: 'weekly'
+      interval: 'quarterly'
     open-pull-requests-limit: 10
     groups:
       # Cut PR noise: patch/minor bumps land as one PR per ecosystem instead
@@ -15,7 +20,7 @@ updates:
   - package-ecosystem: 'npm'
     directory: '/frontend'
     schedule:
-      interval: 'weekly'
+      interval: 'quarterly'
     open-pull-requests-limit: 10
     groups:
       minor-and-patch:
@@ -24,14 +29,14 @@ updates:
   - package-ecosystem: 'docker'
     directory: '/backend'
     schedule:
-      interval: 'weekly'
+      interval: 'quarterly'
 
   - package-ecosystem: 'docker'
     directory: '/frontend'
     schedule:
-      interval: 'weekly'
+      interval: 'quarterly'
 
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
-      interval: 'weekly'
+      interval: 'quarterly'

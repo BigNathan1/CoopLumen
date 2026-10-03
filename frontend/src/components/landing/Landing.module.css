@@ -1,0 +1,108 @@
+/*
+ * The landing page shell and the section chrome every marketing section wears.
+ *
+ * The `--landing-*` tokens these rules read are declared in `globals.css` with
+ * the rest of the design system, so colour, spacing and rhythm all follow the
+ * same light/dark palette as the dashboard this page leads into.
+ */
+.page {
+  position: relative;
+  /* `clip` rather than `hidden`: it contains the hero's glow without turning
+   * the page into a scroll container, which would break the sticky nav. */
+  overflow-x: clip;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+/*
+ * Skip link. The nav is sticky and the hero is tall, so a keyboard user landing
+ * here needs a way past both.
+ */
+.skipLink {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: calc(var(--z-index-overlay) + 1);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transform: translateY(-200%);
+}
+
+.skipLink:focus-visible {
+  transform: translateY(0);
+}
+
+/* ---------------------------------------------------------------------------
+ * Section shell
+ * ------------------------------------------------------------------------ */
+
+.section {
+  position: relative;
+  padding-block: var(--landing-section-y);
+}
+
+/* Alternate sections sit on a tinted band so the page reads as chapters rather
+ * than one continuous scroll. */
+.sectionBanded {
+  background: color-mix(in srgb, var(--color-surface) 55%, transparent);
+  border-block: 1px solid var(--landing-hairline);
+}
+
+.sectionInner {
+  width: 100%;
+  max-width: var(--landing-max);
+  margin-inline: auto;
+  padding-inline: var(--landing-gutter);
+}
+
+.sectionHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 44rem;
+  margin-bottom: var(--space-12);
+}
+
+/*
+ * The eyebrow is a small caps label with a lit dot — the page's recurring
+ * "signal" motif, also used by the hero status and the roadmap markers.
+ */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.eyebrow::before {
+  content: '';
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: var(--radius-circle);
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 20%, transparent);
+}
+
+.sectionTitle {
+  font-size: clamp(1.75rem, 3.6vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+  text-wrap: balance;
+}
+
+.sectionLede {
+  color: var(--color-text-muted);
+  font-size: clamp(1rem, 1.6vw, 1.125rem);
+  line-height: 1.65;
+  text-wrap: pretty;
+}

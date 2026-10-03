@@ -1,0 +1,203 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-index-overlay);
+  border-bottom: 1px solid transparent;
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease;
+}
+
+/*
+ * Past the first fold the bar earns a surface. Before that it floats over the
+ * hero, which is the only place on the page with a background worth seeing.
+ */
+.header[data-scrolled] {
+  border-bottom-color: var(--landing-hairline);
+  background: color-mix(in srgb, var(--color-bg) 82%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--landing-max);
+  margin-inline: auto;
+  padding: var(--space-4) var(--landing-gutter);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-end: auto;
+  color: var(--color-text);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.brand:hover {
+  text-decoration: none;
+}
+
+.mark {
+  color: var(--color-primary);
+  font-size: 1.15rem;
+  line-height: 1;
+  /* The mark is the page's smallest light source. */
+  text-shadow: 0 0 14px var(--landing-glow-primary);
+}
+
+.wordmark {
+  font-size: 1.0625rem;
+}
+
+.links {
+  display: none;
+  align-items: center;
+  gap: var(--space-6);
+  list-style: none;
+}
+
+.link {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: color 150ms ease;
+}
+
+.link:hover {
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cta {
+  display: none;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color 150ms ease,
+    transform 150ms ease;
+}
+
+.cta:hover {
+  background: var(--color-primary-hover);
+  text-decoration: none;
+}
+
+.cta:active {
+  transform: translateY(1px);
+}
+
+/* ---------------------------------------------------------------------------
+ * Narrow-screen disclosure
+ * ------------------------------------------------------------------------ */
+
+.menuButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--landing-hairline);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text);
+}
+
+/*
+ * Two bars that cross into an X. Built from the element's own box and a
+ * pseudo-element so there is no markup to keep in sync with the state.
+ */
+.menuIcon,
+.menuIcon::before {
+  display: block;
+  width: 1rem;
+  height: 1.5px;
+  border-radius: var(--radius-pill);
+  background: currentColor;
+  transition: transform 180ms ease;
+}
+
+.menuIcon {
+  position: relative;
+  transform: translateY(-3px);
+}
+
+.menuIcon::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+}
+
+.menuIcon[data-open] {
+  transform: rotate(45deg);
+}
+
+.menuIcon[data-open]::before {
+  top: 0;
+  transform: rotate(-90deg);
+}
+
+.menu {
+  border-top: 1px solid var(--landing-hairline);
+  background: color-mix(in srgb, var(--color-bg) 96%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.menuList {
+  display: flex;
+  flex-direction: column;
+  max-width: var(--landing-max);
+  margin-inline: auto;
+  padding: var(--space-2) var(--landing-gutter) var(--space-4);
+  list-style: none;
+}
+
+.menuLink {
+  display: block;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--landing-hairline);
+  color: var(--color-text);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.menuLink:hover {
+  text-decoration: none;
+  color: var(--color-primary);
+}
+
+@media (min-width: 880px) {
+  .links,
+  .cta {
+    display: flex;
+  }
+
+  .menuButton,
+  .menu {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menuIcon,
+  .menuIcon::before,
+  .cta {
+    transition: none;
+  }
+}

@@ -5,7 +5,7 @@
  * an envelope reported valid is accepted by the network, and an envelope
  * reported expired is rejected with `tx_too_late`.
  *
- * Skipped unless STELLAR_TESTNET_INTEGRATION=1, so the default suite stays
+ * Skipped unless STELLAR_TESTNET_E2E=1, so the default suite stays
  * fast, deterministic and offline.
  */
 
@@ -20,7 +20,7 @@ import {
 } from '@stellar/stellar-sdk';
 import { validateXdr } from '../xdrValidation';
 
-const RUN = process.env.STELLAR_TESTNET_INTEGRATION === '1';
+const RUN = process.env.STELLAR_TESTNET_E2E === '1';
 const describeIf = RUN ? describe : describe.skip;
 
 const HORIZON_URL = process.env.STELLAR_HORIZON_URL ?? 'https://horizon-testnet.stellar.org';

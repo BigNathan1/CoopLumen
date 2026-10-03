@@ -24,7 +24,7 @@ const CATEGORY_CONTEXT = {
   'Backend API — Communities':
     "The communities router (`backend/src/api/routes/communities.ts`) — CRUD, membership, and treasury endpoints for the platform's core unit. Every other feature (tokens, loans, governance) is scoped to a community.",
   'Backend API — Tokens':
-    'The tokens router and the `contracts/assets.ts` wrappers it calls — issuing, transferring, and querying each community\'s Stellar custom asset. Off-chain metadata (Postgres) and on-chain state (Horizon) have to stay consistent here.',
+    "The tokens router and the `contracts/assets.ts` wrappers it calls — issuing, transferring, and querying each community's Stellar custom asset. Off-chain metadata (Postgres) and on-chain state (Horizon) have to stay consistent here.",
   'Backend API — Balances & Transactions':
     "Endpoints that read and write Stellar account state — balances, trustlines, payments, and the transaction-history audit trail. Handling Horizon's async, eventually-consistent behavior correctly (retries, sequence numbers, mapped error codes) matters more here than almost anywhere else in the backend.",
   'Stellar Contract Layer':
@@ -119,7 +119,7 @@ const LABEL_CRITERIA = {
   ],
   infra: [
     'The change has been exercised locally the way a contributor actually would (`docker-compose up`, the relevant `make` target, etc.).',
-    "If it changes the contributor workflow, `CONTRIBUTING.md` or `README.md` is updated to match.",
+    'If it changes the contributor workflow, `CONTRIBUTING.md` or `README.md` is updated to match.',
   ],
   'good-first-issue': [
     'The change is scoped small enough for a first-time contributor to complete in under a couple of hours with the linked context.',

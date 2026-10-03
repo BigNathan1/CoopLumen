@@ -11,13 +11,28 @@ jest.mock('../ThemeToggle', () => ({
   ThemeToggle: () => <button type="button">Toggle theme</button>,
 }));
 
-jest.mock('../WalletConnect', () => ({
+jest.mock('@/components/wallet/WalletConnect', () => ({
   WalletConnect: () => <div data-testid="wallet-connect" />,
 }));
 
-jest.mock('../BalancePanel', () => ({
+jest.mock('@/components/wallet/BalancePanel', () => ({
   BalancePanel: ({ publicKey }: { publicKey: string }) => (
     <div data-testid="balance-panel">{publicKey}</div>
+  ),
+}));
+
+/*
+ * The switcher and the feed both read the locale context, which `layout.tsx`
+ * provides in the app. Stubbing them keeps this suite about Dashboard's own
+ * wiring; each has its own suite for its behaviour.
+ */
+jest.mock('../LocaleSwitcher', () => ({
+  LocaleSwitcher: () => <div data-testid="locale-switcher" />,
+}));
+
+jest.mock('../TransactionFeed', () => ({
+  TransactionFeed: ({ publicKey }: { publicKey: string | null }) => (
+    <div data-testid="transaction-feed">{publicKey ?? 'no-account'}</div>
   ),
 }));
 
@@ -127,5 +142,32 @@ describe('Dashboard', () => {
     expect(screen.getByTestId('balance-panel')).toHaveTextContent(
       'GUSERPUBLICKEYGUSERPUBLICKEYGUSERPUBLICKEYGUSERPUBLI'
     );
+  });
+
+  it('renders the language switcher in the header', () => {
+    mockCommunities({ data: [] });
+    render(<Dashboard />);
+
+    expect(screen.getByTestId('locale-switcher')).toBeInTheDocument();
+  });
+
+  it('follows the connected account in the live transaction feed', () => {
+    mockCommunities({ data: [] });
+    mockWallet({
+      connected: true,
+      publicKey: 'GUSERPUBLICKEYGUSERPUBLICKEYGUSERPUBLICKEYGUSERPUBLI',
+    });
+    render(<Dashboard />);
+
+    expect(screen.getByTestId('transaction-feed')).toHaveTextContent(
+      'GUSERPUBLICKEYGUSERPUBLICKEYGUSERPUBLICKEYGUSERPUBLI'
+    );
+  });
+
+  it('leaves the transaction feed with no account while the wallet is disconnected', () => {
+    mockCommunities({ data: [] });
+    render(<Dashboard />);
+
+    expect(screen.getByTestId('transaction-feed')).toHaveTextContent('no-account');
   });
 });

@@ -12,7 +12,11 @@
  */
 
 import { Keypair } from '@stellar/stellar-sdk';
-import { StellarService, UnfundedAccountError, StellarNetworkError } from '../src/contracts/stellar';
+import {
+  StellarService,
+  UnfundedAccountError,
+  StellarNetworkError,
+} from '../src/contracts/stellar';
 
 interface TestResult {
   name: string;
@@ -39,7 +43,7 @@ async function testUnfundedAccount(): Promise<void> {
       });
     } catch (err) {
       if (err instanceof UnfundedAccountError) {
-        console.log(`✓ Correctly threw UnfundedAccountError: ${(err as Error).message}`);
+        console.log(`Correctly threw UnfundedAccountError: ${(err as Error).message}`);
         results.push({
           name: 'Unfunded Account Handling',
           passed: true,
@@ -81,7 +85,7 @@ async function testFundedAccount(): Promise<void> {
 
     try {
       const account = await StellarService.loadAccountSafe(fundedTestnetAccount);
-      console.log(`✓ Successfully loaded funded account`);
+      console.log(`Successfully loaded funded account`);
       console.log(`  - Sequence: ${account.sequence}`);
       console.log(`  - Balances: ${account.balances.length} asset(s)`);
       results.push({
@@ -133,7 +137,7 @@ async function testInvalidPublicKey(): Promise<void> {
     } catch (err) {
       // Invalid key might manifest as either InvalidPublicKeyError or StellarNetworkError
       // depending on how the Horizon SDK validates before sending the request
-      console.log(`✓ Correctly threw error for invalid key: ${(err as Error).name}`);
+      console.log(`Correctly threw error for invalid key: ${(err as Error).name}`);
       results.push({
         name: 'Invalid Public Key Handling',
         passed: true,
@@ -154,13 +158,13 @@ async function testNetworkConnectivity(): Promise<void> {
     const isConnected = await StellarService.ping();
 
     if (isConnected) {
-      console.log('✓ Horizon is reachable');
+      console.log('Horizon is reachable');
       results.push({
         name: 'Horizon Connectivity',
         passed: true,
       });
     } else {
-      console.log('✗ Horizon is not reachable');
+      console.log('Horizon is not reachable');
       results.push({
         name: 'Horizon Connectivity',
         passed: false,
@@ -177,7 +181,7 @@ async function testNetworkConnectivity(): Promise<void> {
 }
 
 async function runAllTests(): Promise<void> {
-  console.log('🧪 Starting Stellar testnet verification tests...\n');
+  console.log('Starting Stellar testnet verification tests...\n');
 
   const network = process.env.STELLAR_NETWORK || 'testnet';
   const horizonUrl = process.env.STELLAR_HORIZON_URL || 'https://horizon-testnet.stellar.org';
@@ -202,11 +206,11 @@ async function runAllTests(): Promise<void> {
   const passed = results.filter((r) => r.passed).length;
   const failed = results.filter((r) => !r.passed).length;
 
-  console.log('📊 Test Results:');
+  console.log('Test results:');
   console.log('─'.repeat(50));
 
   for (const result of results) {
-    const status = result.passed ? '✓ PASS' : '✗ FAIL';
+    const status = result.passed ? 'PASS' : 'FAIL';
     console.log(`${status} - ${result.name}`);
     if (result.error) {
       console.log(`     ${result.error}`);

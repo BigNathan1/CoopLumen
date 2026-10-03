@@ -28,9 +28,7 @@ function renderItem(issue) {
     .slice(1) // drop the "implemented as described above" restatement; the heading already states it
     .map((b) => `  - ${b}`)
     .join('\n');
-  const doneNote = issue.done
-    ? '\n  - ✅ Already completed in earlier project history.'
-    : '';
+  const doneNote = issue.done ? '\n  - ✅ Already completed in earlier project history.' : '';
 
   return `- [${box}] #${String(issue.number).padStart(3, '0')} ${labelLine} — ${issue.title}
   <details><summary>Acceptance criteria</summary>

@@ -169,8 +169,49 @@
   --grid-min-column: 280px;
   --grid-columns-base: 1;
 
+  /* ---------------------------------------------------------------------
+   * Landing page
+   *
+   * Presentation choices that belong to the marketing page at `/` rather than
+   * to the product: a wider measure, a taller vertical rhythm, and the two
+   * light sources the page is lit by. They live here with every other token so
+   * a component module never has to declare its own.
+   *
+   * The hairlines lean on `--color-text` rather than `--color-border`, which is
+   * close to invisible against the landing page's tinted bands.
+   * ------------------------------------------------------------------ */
+  --landing-max: 1120px;
+  --landing-gutter: var(--space-5);
+  --landing-section-y: clamp(4rem, 9vw, 7.5rem);
+  --landing-radius: 20px;
+  --landing-hairline: color-mix(in srgb, var(--color-text) 12%, transparent);
+  --landing-hairline-strong: color-mix(in srgb, var(--color-text) 22%, transparent);
+  --landing-glow-primary: color-mix(in srgb, var(--color-primary) 28%, transparent);
+  --landing-glow-secondary: color-mix(in srgb, var(--color-secondary) 22%, transparent);
+  --landing-panel: color-mix(in srgb, var(--color-surface-raised) 72%, transparent);
+
+  /*
+   * How long the hero's settlement demonstration runs. `SettlementRing` sets
+   * this inline from its own `SETTLEMENT_SECONDS`, which is the real value —
+   * this declaration only gives the animations something to resolve against if
+   * it ever does not. Zero degrades to the finished state instantly, which is
+   * also what reduced-motion visitors are shown.
+   */
+  --settlement-duration: 0s;
+
   --skeleton-shimmer-duration: 1.4s;
   --theme-transition-duration: 160ms;
+
+  /*
+   * Page transition. The enter animation fades each new page in while lifting
+   * it a few pixels, running on the compositor (opacity + transform only).
+   * The offset is intentionally small so the motion reads as a settle rather
+   * than a dramatic sweep.
+   */
+  --page-transition-duration: 220ms;
+  --page-transition-easing: cubic-bezier(0.22, 1, 0.36, 1);
+  --page-transition-offset: 6px;
+
   --z-index-overlay: 100;
   --z-index-modal: 101;
   --z-index-toast: 102;
@@ -346,6 +387,7 @@ button {
   :root {
     --container-max: var(--container-max-md);
     --container-gutter: var(--space-6);
+    --landing-gutter: var(--space-8);
   }
 
   .grid {
@@ -381,6 +423,48 @@ button {
       )
     );
   }
+}
+
+/*
+ * Direction.
+ *
+ * Writing direction is carried by the `dir` attribute on <html>, which the
+ * LocaleProvider (and the pre-paint locale script) set from the active locale.
+ * Layouts should prefer logical properties (`margin-inline-start`,
+ * `padding-inline`, `text-align: start`) so they mirror automatically; the
+ * helpers below cover the cases that need an explicit opt-in.
+ */
+:root {
+  --direction: ltr;
+}
+
+html[dir='rtl'] {
+  --direction: rtl;
+}
+
+.text-start {
+  text-align: start;
+}
+
+.text-end {
+  text-align: end;
+}
+
+.ms-auto {
+  margin-inline-start: auto;
+}
+
+.me-auto {
+  margin-inline-end: auto;
+}
+
+/*
+ * Directional glyphs (back links, chevrons, arrows) point "forward" in LTR and
+ * need mirroring under RTL. Opted into per element rather than applied to every
+ * icon, which would also flip logos and media controls.
+ */
+[dir='rtl'] .icon-directional {
+  transform: scaleX(-1);
 }
 
 /*

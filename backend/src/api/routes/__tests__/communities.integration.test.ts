@@ -9,7 +9,7 @@ import { Keypair } from '@stellar/stellar-sdk';
 import { Pool } from 'pg';
 import app from '../../../app';
 import { db } from '../../../db';
-import { makeTestPool, seedTestDatabase, truncateAll } from '../../../test/fixtures';
+import { makeTestPool, seedTestDatabase, truncateAll } from '../../../testing/fixtures';
 import { createSessionToken } from '../../utils/sessionToken';
 
 const RUN = Boolean(process.env.DATABASE_URL);

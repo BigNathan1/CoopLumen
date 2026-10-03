@@ -5,7 +5,7 @@
  * Horizon stored for it and asserts the decoded details match the fields
  * Horizon itself reports (hash, source, sequence, fee, memo, operations).
  *
- * Skipped unless STELLAR_TESTNET_INTEGRATION=1, so the default suite stays
+ * Skipped unless STELLAR_TESTNET_E2E=1, so the default suite stays
  * fast, deterministic and offline.
  */
 
@@ -21,7 +21,7 @@ import {
 } from '@stellar/stellar-sdk';
 import { XdrDecodeError, deserializeXdr } from '../xdrDetails';
 
-const RUN = process.env.STELLAR_TESTNET_INTEGRATION === '1';
+const RUN = process.env.STELLAR_TESTNET_E2E === '1';
 const describeIf = RUN ? describe : describe.skip;
 
 const HORIZON_URL = process.env.STELLAR_HORIZON_URL ?? 'https://horizon-testnet.stellar.org';
