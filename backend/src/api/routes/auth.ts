@@ -110,7 +110,7 @@ authRouter.post('/verify', validateBody(authVerifySchema), (req: Request, res: R
   };
 
   const pending = pendingChallenges.get(address);
-  if (!pending || pending.challenge !== challenge) {
+  if (pending?.challenge !== challenge) {
     res.status(401).json({
       data: null,
       error: 'No matching challenge for this address. Request a new one.',

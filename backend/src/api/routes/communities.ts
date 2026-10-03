@@ -727,7 +727,7 @@ communityRouter.delete(
            WHERE community_id = $1 AND stellar_address = $2 AND deleted_at IS NULL`,
           [req.params.id, req.auth!.address]
         );
-        if (!caller || caller.role !== 'admin') {
+        if (caller?.role !== 'admin') {
           res.status(403).json({
             data: null,
             error: 'Only an admin can remove another member',
