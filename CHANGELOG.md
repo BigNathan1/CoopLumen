@@ -9,7 +9,9 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+
 ### Added
+- `useTransactions` hook to fetch and paginate transaction history for a specific community, with support for filtering by date, action type, and pagination limits (#336).
 - `useXLMPrice` hook to fetch and poll the global XLM price every 60 seconds (#338).
 
 - `useEstimateFee` hook to calculate and display estimated transaction fees dynamically before signing, preventing surprise rejections on busy networks (#348).
