@@ -12,7 +12,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: '20'
+  # Kept in step with the node:<major>-alpine tag in backend/Dockerfile and
+  # frontend/Dockerfile, and with @types/node. If CI tests on one major while
+  # the image ships another, the suite stops saying anything about the runtime
+  # that actually runs in production.
+  NODE_VERSION: '26'
 
 jobs:
   lint:
@@ -20,9 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -56,9 +60,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -116,9 +120,9 @@ jobs:
       STELLAR_HORIZON_URL: https://horizon-testnet.stellar.org
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -139,9 +143,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -149,17 +153,23 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      # Serial, like the backend job. The frontend suite is now 94 suites, and
+      # several of the heavier ones (userEvent-driven forms, the multi-sig E2E
+      # flow) are load-sensitive: they pass alone but intermittently blow
+      # Jest's default 5s budget when workers compete, failing on timing
+      # rather than on any assertion. Running in band makes the gate
+      # deterministic — and stricter about shared state, not looser.
       - name: Run tests
         working-directory: frontend
-        run: npm test
+        run: npm test -- --runInBand
 
   build:
     name: Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -189,7 +199,7 @@ jobs:
     name: Docker image build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build backend image
         run: docker build -t cooplumen-backend:ci ./backend
@@ -206,9 +216,9 @@ jobs:
     # (if any) has been triaged and the project wants a hard gate.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -225,11 +235,11 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 

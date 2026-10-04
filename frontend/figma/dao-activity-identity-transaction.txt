@@ -1,0 +1,11 @@
+The Design of CoopLumen Frontend done
+
+Areas cover by me include:
+— DAO Governance & Soroban Proposals
+— Live On-Chain Activity Feed
+— Identity, KYC & Price Oracles
+— Transaction Lifecycle Visualizer
+
+Reference
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&p=f&t=Xqi7KgS7hWhvCZkp-0
+

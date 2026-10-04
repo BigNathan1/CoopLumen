@@ -4,6 +4,9 @@ import type { Community } from './useCommunities';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
+import { api } from '@/lib/api';
+import type { Community } from './useCommunities';
+
 export interface CreateCommunityInput {
   name: string;
   description?: string;
@@ -78,4 +81,37 @@ export function useCreateCommunity() {
   );
 
   return { createCommunity, submitting, error };
+}
+ * Creates a community via POST /api/v1/communities and revalidates the SWR
+ * communities list cache so the new community appears immediately.
+ *
+ * Returns the created {@link Community} on success. Failures update `error`
+ * and are rethrown so the calling form can preserve field-level API errors.
+ */
+export function useCreateCommunity() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = useCallback(async (input: CreateCommunityInput): Promise<Community> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const community = await api.post<Community>('/api/v1/communities', input);
+      // Revalidate all SWR keys that look like the communities list endpoint.
+      await mutate(
+        (key) => typeof key === 'string' && key.includes('/api/v1/communities'),
+        undefined,
+        { revalidate: true }
+      );
+      return community;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create community';
+      setError(message);
+      throw err instanceof Error ? err : new Error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return { submit, loading, error };
 }
