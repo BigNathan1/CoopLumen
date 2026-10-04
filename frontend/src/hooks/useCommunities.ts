@@ -1,3 +1,5 @@
+import useSWR from 'swr';
+import { fetcher } from './SWRProvider';
 import useSWR, { mutate } from 'swr';
 import { useState, useCallback } from 'react';
 import { api, getBaseUrl } from '@/lib/api';
@@ -49,11 +51,9 @@ export function useCommunities(filters: CommunitiesFilters = {}) {
   if (filters.search) params.set('search', filters.search);
 
   const query = params.toString();
-  const url = query ? `${API_URL}/api/v1/communities?${query}` : `${API_URL}/api/v1/communities`;
+  const path = query ? `/api/v1/communities?${query}` : '/api/v1/communities';
 
-  return useSWR<Community[]>(url, fetcher, {
-    refreshInterval: 30_000,
-  });
+  return useSWR<Community[]>(path, fetcher);
 }
 
 /**
@@ -62,6 +62,8 @@ export function useCommunities(filters: CommunitiesFilters = {}) {
  * fetch".
  */
 export function useCommunity(id: string) {
+  return useSWR<Community>(id ? `/api/v1/communities/${id}` : null, fetcher);
+}
   return useSWR<Community>(id ? `${API_URL}/api/v1/communities/${id}` : null, fetcher);
 }
 
