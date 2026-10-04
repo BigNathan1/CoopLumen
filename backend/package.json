@@ -27,7 +27,7 @@
     "verify:stellar-testnet": "ts-node scripts/verify-stellar-testnet.ts"
   },
   "dependencies": {
-    "@stellar/stellar-sdk": "^12.3.0",
+    "@stellar/stellar-sdk": "^17.2.1",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
