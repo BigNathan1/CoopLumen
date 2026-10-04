@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { ToastProvider } from '@/hooks/useToast';
 import { ThemeProvider } from '@/hooks/useTheme';
+import { SWRProvider } from '@/hooks/SWRProvider';
 import { LocaleProvider } from '@/hooks/useLocale';
 import { ToastDisplay } from '@/components/ToastDisplay';
 import { Footer } from '@/components/Footer';
@@ -36,6 +37,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: LOCALE_INIT_SCRIPT }} />
       </head>
       <body className={inter.className}>
+        <SWRProvider>
+          <ThemeProvider>
+            <ToastProvider>
+              <ErrorBoundary>{children}</ErrorBoundary>
+              <Footer />
+              <ToastDisplay />
+            </ToastProvider>
+          </ThemeProvider>
+        </SWRProvider>
         <ThemeProvider>
           <LocaleProvider defaultLocale={defaultLocale}>
             <ToastProvider>
