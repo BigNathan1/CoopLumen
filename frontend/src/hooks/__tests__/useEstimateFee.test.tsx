@@ -3,9 +3,7 @@ import { SWRConfig } from 'swr';
 import { useEstimateFee } from '../useEstimateFee';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-   new Map(), dedupingInterval: 0 }}>
-    {children}
-  
+  <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>{children}</SWRConfig>
 );
 
 describe('useEstimateFee', () => {
@@ -18,14 +16,14 @@ describe('useEstimateFee', () => {
 
   it('pauses fetching if operations are undefined', () => {
     const { result } = renderHook(() => useEstimateFee(), { wrapper });
-    
+
     expect(mockFetch).not.toHaveBeenCalled();
     expect(result.current.estimatedFee).toBeNull();
   });
 
   it('pauses fetching if operations array is empty', () => {
     const { result } = renderHook(() => useEstimateFee([]), { wrapper });
-    
+
     expect(mockFetch).not.toHaveBeenCalled();
     expect(result.current.estimatedFee).toBeNull();
   });

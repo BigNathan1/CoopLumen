@@ -11,7 +11,10 @@ export interface FeeEstimateResponse {
 /**
  * Custom fetcher that serializes the operations array into a POST request.
  */
-async function estimateFetcher([url, operations]: [string, Record[]]): Promise {
+async function estimateFetcher([url, operations]: [
+  string,
+  Record<string, unknown>[],
+]): Promise<FeeEstimateResponse> {
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -27,26 +30,26 @@ async function estimateFetcher([url, operations]: [string, Record[]]): Promise {
 
   // Assume the backend returns the estimate wrapped in `{ data: { fee: "100" } }` or similar standard wrapper
   const json = await res.json();
-  return json.data ?? json; 
+  return json.data ?? json;
 }
 
 /**
  * Hook to fetch the estimated transaction fee based on a given set of operations.
  * If the operations array is empty or undefined, the hook pauses and does not fetch.
- * 
+ *
  * @param operations Array of operations that will be included in the transaction
  * @returns { estimatedFee, isLoading, error }
- * 
+ *
  * @example
  * ```tsx
  * const operations = [{ type: 'payment', destination: 'GABC...', amount: '100' }];
  * const { estimatedFee, isLoading, error } = useEstimateFee(operations);
  * ```
  */
-export function useEstimateFee(operations?: Record[]) {
+export function useEstimateFee(operations?: Record<string, unknown>[]) {
   const shouldFetch = operations && operations.length > 0;
 
-  const { data, error, isLoading, isValidating } = useSWR(
+  const { data, error, isLoading, isValidating } = useSWR<FeeEstimateResponse, Error>(
     // Serialize operations into the key via tuple to trigger re-fetches when operations change
     shouldFetch ? [`${API_URL}/api/v1/fees/estimate`, operations] : null,
     estimateFetcher,
