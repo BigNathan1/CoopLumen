@@ -1,6 +1,5 @@
 import useSWR from 'swr';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+import { fetcher } from './SWRProvider';
 
 export type MemberRole = 'admin' | 'treasurer' | 'member' | 'observer';
 
@@ -8,15 +7,6 @@ export interface CommunityMember {
   stellar_address: string;
   role: MemberRole;
   joined_at: string;
-}
-
-async function fetcher<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? 'Failed to fetch community members');
-  }
-  return (res.json() as Promise<{ data: T }>).then((r) => r.data);
 }
 
 export interface CommunityMembersFilters {
@@ -40,11 +30,9 @@ export function useCommunityMembers(communityId: string, filters: CommunityMembe
   if (filters.role) params.set('role', filters.role);
 
   const query = params.toString();
-  const url = communityId
-    ? `${API_URL}/api/v1/communities/${communityId}/members${query ? `?${query}` : ''}`
+  const path = communityId
+    ? `/api/v1/communities/${communityId}/members${query ? `?${query}` : ''}`
     : null;
 
-  return useSWR<CommunityMember[]>(url, fetcher, {
-    refreshInterval: 30_000,
-  });
+  return useSWR<CommunityMember[]>(path, fetcher);
 }
