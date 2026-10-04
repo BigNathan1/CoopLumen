@@ -1,3 +1,8 @@
+/* eslint-disable @typescript-eslint/only-throw-error --
+   badSeqError() returns the plain `{ response: { data: { extras: ... } } }`
+   object Horizon reports a tx_bad_seq failure as, not an Error instance.
+   Throwing that shape is the whole point: it is what the retry logic has to
+   recognise in production, so substituting a real Error would test nothing. */
 import { Account, Keypair } from '@stellar/stellar-sdk';
 import { SequenceCache, isBadSequenceError, withSequenceRetry } from '../sequenceCache';
 import { StellarService } from '../stellar';

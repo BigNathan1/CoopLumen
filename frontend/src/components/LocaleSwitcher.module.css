@@ -1,0 +1,41 @@
+/* Mirrors ThemeToggle's footprint so the two controls sit level in the header. */
+.wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 40px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+.wrapper:focus-within {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.icon {
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.select {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 0.8rem;
+  padding: var(--space-1) 0;
+  cursor: pointer;
+}
+
+.select:focus {
+  outline: none;
+}
+
+.select option {
+  /* The dropdown itself is painted by the OS, so it needs an explicit palette. */
+  background: var(--color-surface);
+  color: var(--color-text);
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useBalances } from '@/hooks/useBalances';
+import { useXlmPrice, toUsdEquivalent } from '@/hooks/useXlmPrice';
 import styles from './BalancePanel.module.css';
 
 interface Props {
@@ -9,6 +10,10 @@ interface Props {
 
 export function BalancePanel({ publicKey }: Props) {
   const { data: balances, error, isLoading, isValidating, mutate } = useBalances(publicKey);
+  const { data: priceData } = useXlmPrice();
+
+  // XLM price in USD — null until loaded or if the fetch fails (non-blocking).
+  const xlmPriceUsd = priceData?.price ?? null;
 
   const handleRefresh = () => {
     void mutate();
@@ -74,14 +79,24 @@ export function BalancePanel({ publicKey }: Props) {
       <ul className={styles.list}>
         {balances.map((b) => {
           const asset = b.asset_type === 'native' ? 'XLM' : (b.asset_code ?? 'Unknown asset');
+          const isXlm = b.asset_type === 'native';
+          const usd = isXlm ? toUsdEquivalent(b.balance, xlmPriceUsd) : null;
+
           return (
             <li key={`${asset}:${b.asset_issuer ?? 'native'}`} className={styles.item}>
               <span className={styles.asset}>{asset}</span>
-              <span className={styles.amount}>
-                {parseFloat(b.balance).toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 7,
-                })}
+              <span className={styles.amountGroup}>
+                <span className={styles.amount}>
+                  {parseFloat(b.balance).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 7,
+                  })}
+                </span>
+                {usd !== null && (
+                  <span className={styles.usdEquivalent} aria-label={`${usd} USD equivalent`}>
+                    {usd}
+                  </span>
+                )}
               </span>
             </li>
           );

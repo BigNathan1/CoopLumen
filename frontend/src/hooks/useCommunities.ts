@@ -1,6 +1,11 @@
 import useSWR from 'swr';
+import { fetcher } from './SWRProvider';
+import useSWR, { mutate } from 'swr';
+import { useState, useCallback } from 'react';
+import { api, getBaseUrl } from '@/lib/api';
+import type { MemberRole } from '@/lib/schemas';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+const API_URL = getBaseUrl();
 
 export interface Community {
   id: string;
@@ -10,6 +15,14 @@ export interface Community {
   asset_issuer: string;
   issuer_public_key: string;
   created_at: string;
+}
+
+export interface CommunityMember {
+  id: string;
+  community_id: string;
+  stellar_address: string;
+  role: MemberRole;
+  joined_at: string;
 }
 
 async function fetcher<T>(url: string): Promise<T> {
@@ -38,11 +51,9 @@ export function useCommunities(filters: CommunitiesFilters = {}) {
   if (filters.search) params.set('search', filters.search);
 
   const query = params.toString();
-  const url = query ? `${API_URL}/api/v1/communities?${query}` : `${API_URL}/api/v1/communities`;
+  const path = query ? `/api/v1/communities?${query}` : '/api/v1/communities';
 
-  return useSWR<Community[]>(url, fetcher, {
-    refreshInterval: 30_000,
-  });
+  return useSWR<Community[]>(path, fetcher);
 }
 
 /**
@@ -51,5 +62,89 @@ export function useCommunities(filters: CommunitiesFilters = {}) {
  * fetch".
  */
 export function useCommunity(id: string) {
+  return useSWR<Community>(id ? `/api/v1/communities/${id}` : null, fetcher);
+}
   return useSWR<Community>(id ? `${API_URL}/api/v1/communities/${id}` : null, fetcher);
+}
+
+export function useCommunityMembers(communityId: string) {
+  return useSWR<CommunityMember[]>(
+    communityId ? `${API_URL}/api/v1/communities/${communityId}/members` : null,
+    fetcher,
+    { refreshInterval: 60_000 }
+  );
+}
+
+// ── Member mutation hooks ─────────────────────────────────────────────────────
+
+export interface AddMemberInput {
+  stellarAddress: string;
+  role?: MemberRole;
+}
+
+/**
+ * Adds a member to a community via POST /api/v1/communities/:id/members and
+ * revalidates the member list cache.
+ */
+export function useAddMember(communityId: string) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const addMember = useCallback(
+    async (input: AddMemberInput): Promise<CommunityMember | null> => {
+      setSubmitting(true);
+      setError(null);
+      try {
+        const member = await api.post<CommunityMember>(
+          `/api/v1/communities/${communityId}/members`,
+          input
+        );
+        await mutate(`${API_URL}/api/v1/communities/${communityId}/members`);
+        return member;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to add member');
+        return null;
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [communityId]
+  );
+
+  return { addMember, submitting, error };
+}
+
+/**
+ * Removes a member from a community via DELETE /api/communities/:id/members/:memberId
+ * and revalidates the member list cache.
+ */
+export function useRemoveMember(communityId: string) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const removeMember = useCallback(
+    async (memberId: string): Promise<boolean> => {
+      setSubmitting(true);
+      setError(null);
+      try {
+        const res = await fetch(`${API_URL}/api/communities/${communityId}/members/${memberId}`, {
+          method: 'DELETE',
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error ?? 'Failed to remove member');
+        }
+        await mutate(`${API_URL}/api/communities/${communityId}/members`);
+        return true;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to remove member');
+        return false;
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [communityId]
+  );
+
+  return { removeMember, submitting, error };
 }

@@ -1,0 +1,10 @@
+//Frontend Design for the Project
+
+Included here are the Design issues and link
+
+— Contribution & Bounty Spotlight
+— Fee & Remittance Savings Calculator
+— Asset & Trustline Explorer
+— Community & Support Hub
+
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&p=f&t=Xqi7KgS7hWhvCZkp-0

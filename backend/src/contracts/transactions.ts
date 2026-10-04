@@ -245,7 +245,7 @@ export async function buildMultiSigPayment(
     minimumSignatures += 1;
   }
 
-  const asset = isNative ? Asset.native() : new Asset(assetCode, assetIssuer as string);
+  const asset = isNative ? Asset.native() : new Asset(assetCode, assetIssuer);
   const txBuilder = new TransactionBuilder(account, {
     fee: BASE_FEE,
     networkPassphrase: StellarService.getNetwork(),

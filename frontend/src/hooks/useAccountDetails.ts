@@ -1,7 +1,6 @@
 import useSWR from 'swr';
 import type { Balance } from './useBalances';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+import { fetcher } from './SWRProvider';
 
 export interface AccountSigner {
   key: string;
@@ -23,20 +22,24 @@ export interface AccountDetails {
   thresholds: AccountThresholds;
 }
 
-async function fetcher<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('Failed to fetch account details');
-  return (res.json() as Promise<{ data: T }>).then((r) => r.data);
-}
-
 /**
  * Full on-chain account state — balances, signers and signing thresholds —
  * for a given Stellar public key, via `GET /api/v1/accounts/:publicKey`.
  */
 export function useAccountDetails(publicKey: string | null) {
+  return useSWR<AccountDetails>(publicKey ? `/api/v1/accounts/${publicKey}` : null, fetcher);
+}
   return useSWR<AccountDetails>(
     publicKey ? `${API_URL}/api/v1/accounts/${publicKey}` : null,
     fetcher,
     { refreshInterval: 30_000 }
   );
+}
+
+/**
+ * Canonical hook name used by the frontend API contract: fetch the full
+ * on-chain Stellar account record for a public key.
+ */
+export function useStellarAccount(publicKey: string | null) {
+  return useAccountDetails(publicKey);
 }

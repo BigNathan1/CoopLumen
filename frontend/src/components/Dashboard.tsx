@@ -5,6 +5,8 @@ import { useCommunities } from '@/hooks/useCommunities';
 import { useWallet } from '@/hooks/useWallet';
 import { WalletConnect } from '@/components/wallet/WalletConnect';
 import { ThemeToggle } from './ThemeToggle';
+import { LocaleSwitcher } from './LocaleSwitcher';
+import { TransactionFeed } from './TransactionFeed';
 import { CommunityCard } from './CommunityCard';
 import { BalancePanel } from '@/components/wallet/BalancePanel';
 import { PortfolioPanel } from '@/components/loans/PortfolioPanel';
@@ -37,6 +39,7 @@ export function Dashboard() {
         </Link>
 
         <div className={styles.actions}>
+          <LocaleSwitcher />
           <ThemeToggle />
           <WalletConnect />
         </div>
@@ -45,6 +48,7 @@ export function Dashboard() {
       <div className={styles.content}>
         <aside className={styles.sidebar}>
           {connected && publicKey && <BalancePanel publicKey={publicKey} />}
+          <TransactionFeed publicKey={connected ? publicKey : null} />
           {connected && publicKey && <PortfolioPanel address={publicKey} />}
           {connected && publicKey && <MyReputationPanel address={publicKey} />}
           <ReputationPanel />

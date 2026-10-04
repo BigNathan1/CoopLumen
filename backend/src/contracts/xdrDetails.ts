@@ -148,23 +148,34 @@ function formatAssetForSummary(asset: unknown): string {
   return issuer ? `${code} (${abbreviate(issuer)})` : code;
 }
 
+/**
+ * Renders a memo value, which the SDK types as `unknown` because its real shape
+ * depends on the memo type: a Buffer for `hash`/`return`, a string (or Buffer)
+ * for `text`, a numeric string for `id`.
+ *
+ * Narrowing explicitly rather than calling `String(value)` keeps an unexpected
+ * object from being rendered as the literal "[object Object]" and handed back to
+ * a caller as if it were the memo — an empty string is the honest answer for a
+ * value we cannot read.
+ */
+function stringifyMemoValue(value: unknown, bufferEncoding: 'utf8' | 'hex'): string {
+  if (Buffer.isBuffer(value)) return value.toString(bufferEncoding);
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'bigint') return String(value);
+  return '';
+}
+
 function decodeMemo(memo: Memo): XdrMemoDetails {
   const value: unknown = memo.value;
 
   switch (memo.type) {
     case 'text':
-      return {
-        type: 'text',
-        value: Buffer.isBuffer(value) ? value.toString('utf8') : String(value ?? ''),
-      };
+      return { type: 'text', value: stringifyMemoValue(value, 'utf8') };
     case 'id':
-      return { type: 'id', value: String(value ?? '') };
+      return { type: 'id', value: stringifyMemoValue(value, 'utf8') };
     case 'hash':
     case 'return':
-      return {
-        type: memo.type,
-        value: Buffer.isBuffer(value) ? value.toString('hex') : String(value ?? ''),
-      };
+      return { type: memo.type, value: stringifyMemoValue(value, 'hex') };
     default:
       return { type: 'none', value: null };
   }
