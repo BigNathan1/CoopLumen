@@ -23,9 +23,9 @@ function loadLogger(env: LoggerEnv): LoadedLogger {
   }
 
   jest.resetModules();
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const winston = require('winston') as typeof import('winston');
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { logger } = require('../logger') as typeof import('../logger');
 
   for (const key of ['NODE_ENV', 'LOG_LEVEL'] as const) {

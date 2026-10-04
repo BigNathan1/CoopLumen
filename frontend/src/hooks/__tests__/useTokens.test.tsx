@@ -69,6 +69,6 @@ describe('useCommunityTokens', () => {
     const { result } = renderHook(() => useCommunityTokens('community-1'), { wrapper });
 
     await waitFor(() => expect(result.current.error).toBeDefined());
-    expect((result.current.error as Error).message).toBe('Failed to fetch tokens');
+    expect((result.current.error as Error).message).toBe('Request failed');
   });
 });

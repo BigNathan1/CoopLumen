@@ -18,7 +18,9 @@ afterEach(() => {
 });
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <SWRConfig value={swrConfig}>{children}</SWRConfig>
+  <SWRConfig value={{ ...swrConfig, provider: () => new Map(), dedupingInterval: 0 }}>
+    {children}
+  </SWRConfig>
 );
 
 describe('useBalances with global SWR config', () => {
@@ -55,7 +57,12 @@ describe('useBalances with global SWR config', () => {
   it('resolves the unwrapped balance list on a successful response', async () => {
     const balances = [
       { asset_type: 'native', balance: '1000.0000000' },
-      { asset_type: 'credit_alphanum4', asset_code: 'ECO', asset_issuer: 'G' + 'B'.repeat(55), balance: '500.00' },
+      {
+        asset_type: 'credit_alphanum4',
+        asset_code: 'ECO',
+        asset_issuer: 'G' + 'B'.repeat(55),
+        balance: '500.00',
+      },
     ];
     fetchMock.mockResolvedValue(jsonResponse(200, { data: balances }));
 

@@ -42,7 +42,11 @@ describe('useFreighterSign', () => {
 
     const { result } = renderHook(() => useFreighterSign('some-xdr'));
 
-    await expect(result.current.sign()).rejects.toThrow('Freighter is not connected or installed.');
+    await act(async () => {
+      await expect(result.current.sign()).rejects.toThrow(
+        'Freighter is not connected or installed.'
+      );
+    });
     expect(result.current.error?.message).toBe('Freighter is not connected or installed.');
     expect(result.current.isSigning).toBe(false);
   });
@@ -52,14 +56,20 @@ describe('useFreighterSign', () => {
 
     const { result } = renderHook(() => useFreighterSign('some-xdr'));
 
-    await expect(result.current.sign()).rejects.toThrow('Freighter is not authorized for this application.');
+    await act(async () => {
+      await expect(result.current.sign()).rejects.toThrow(
+        'Freighter is not authorized for this application.'
+      );
+    });
     expect(result.current.error?.message).toBe('Freighter is not authorized for this application.');
   });
 
   it('throws an error if no XDR is provided', async () => {
     const { result } = renderHook(() => useFreighterSign());
 
-    await expect(result.current.sign()).rejects.toThrow('No XDR provided for signing.');
+    await act(async () => {
+      await expect(result.current.sign()).rejects.toThrow('No XDR provided for signing.');
+    });
   });
 
   it('handles user rejection or signing failure from Freighter', async () => {
@@ -67,7 +77,9 @@ describe('useFreighterSign', () => {
 
     const { result } = renderHook(() => useFreighterSign('some-xdr'));
 
-    await expect(result.current.sign()).rejects.toThrow('User declined the transaction');
+    await act(async () => {
+      await expect(result.current.sign()).rejects.toThrow('User declined the transaction');
+    });
     expect(result.current.error?.message).toBe('User declined the transaction');
     expect(result.current.isSigning).toBe(false);
   });

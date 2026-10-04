@@ -1,5 +1,5 @@
-import { renderHook, act } from '@testing-library/react';
-import { SWRConfig, mutate } from 'swr';
+import { renderHook, waitFor } from '@testing-library/react';
+import useSWR, { SWRConfig } from 'swr';
 import { fetcher, swrConfig, SWRProvider } from '../SWRProvider';
 
 const fetchMock = jest.fn();
@@ -17,7 +17,9 @@ afterEach(() => {
 });
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <SWRConfig value={swrConfig}>{children}</SWRConfig>
+  <SWRConfig value={{ ...swrConfig, provider: () => new Map(), dedupingInterval: 0 }}>
+    {children}
+  </SWRConfig>
 );
 
 describe('SWRProvider', () => {
@@ -50,10 +52,7 @@ describe('SWRProvider', () => {
   });
 
   it('SWRProvider renders children', () => {
-    const { result } = renderHook(
-      () => 'child content',
-      { wrapper }
-    );
+    const { result } = renderHook(() => 'child content', { wrapper });
     expect(result.current).toBe('child content');
   });
 });
@@ -62,10 +61,9 @@ describe('useSWR with global config', () => {
   it('uses global fetcher, revalidateOnFocus, and errorRetryCount', async () => {
     fetchMock.mockResolvedValue(jsonResponse(200, { data: [{ id: '1' }] }));
 
-    const { result, waitFor } = renderHook(
-      () => useSWR<{ id: string }[]>('/api/v1/test', fetcher),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useSWR<{ id: string }[]>('/api/v1/test', fetcher), {
+      wrapper,
+    });
 
     await waitFor(() => expect(result.current.data).toEqual([{ id: '1' }]));
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:4000/api/v1/test');

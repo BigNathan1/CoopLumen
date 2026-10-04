@@ -18,7 +18,9 @@ afterEach(() => {
 });
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <SWRConfig value={swrConfig}>{children}</SWRConfig>
+  <SWRConfig value={{ ...swrConfig, provider: () => new Map(), dedupingInterval: 0 }}>
+    {children}
+  </SWRConfig>
 );
 
 describe('useCommunityMembers with global SWR config', () => {
@@ -35,13 +37,18 @@ describe('useCommunityMembers with global SWR config', () => {
     const { result } = renderHook(() => useCommunityMembers('community-1'), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(fetchMock).toHaveBeenCalledWith('http://localhost:4000/api/v1/communities/community-1/members');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:4000/api/v1/communities/community-1/members'
+    );
   });
 
   it('encodes page, limit, and role as query parameters', async () => {
     fetchMock.mockResolvedValue(jsonResponse(200, { data: [] }));
 
-    renderHook(() => useCommunityMembers('community-1', { page: 3, limit: 25, role: 'treasurer' }), { wrapper });
+    renderHook(
+      () => useCommunityMembers('community-1', { page: 3, limit: 25, role: 'treasurer' }),
+      { wrapper }
+    );
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
 
     const url = new URL(fetchMock.mock.calls[0][0] as string);
@@ -64,14 +71,28 @@ describe('useCommunityMembers with global SWR config', () => {
   });
 
   it('resolves the unwrapped member list on a successful response', async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, { data: [
-      { stellar_address: 'G' + 'A'.repeat(55), role: 'member', joined_at: '2026-01-01T00:00:00Z' },
-    ] }));
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        data: [
+          {
+            stellar_address: 'G' + 'A'.repeat(55),
+            role: 'member',
+            joined_at: '2026-01-01T00:00:00Z',
+          },
+        ],
+      })
+    );
 
     const { result } = renderHook(() => useCommunityMembers('community-1'), { wrapper });
-    await waitFor(() => expect(result.current.data).toEqual([
-      { stellar_address: 'G' + 'A'.repeat(55), role: 'member', joined_at: '2026-01-01T00:00:00Z' },
-    ]));
+    await waitFor(() =>
+      expect(result.current.data).toEqual([
+        {
+          stellar_address: 'G' + 'A'.repeat(55),
+          role: 'member',
+          joined_at: '2026-01-01T00:00:00Z',
+        },
+      ])
+    );
   });
 
   it('rejects with the API error message on a failed response', async () => {
@@ -81,7 +102,9 @@ describe('useCommunityMembers with global SWR config', () => {
 
     const { result } = renderHook(() => useCommunityMembers('community-1'), { wrapper });
     await waitFor(() => expect(result.current.error).toBeDefined());
-    expect(result.current.error?.message).toBe('role must be one of: admin, treasurer, member, observer');
+    expect(result.current.error?.message).toBe(
+      'role must be one of: admin, treasurer, member, observer'
+    );
   });
 
   it('rejects with a fallback message when the error response is not valid JSON', async () => {

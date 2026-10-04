@@ -29,12 +29,6 @@ export interface AccountDetails {
 export function useAccountDetails(publicKey: string | null) {
   return useSWR<AccountDetails>(publicKey ? `/api/v1/accounts/${publicKey}` : null, fetcher);
 }
-  return useSWR<AccountDetails>(
-    publicKey ? `${API_URL}/api/v1/accounts/${publicKey}` : null,
-    fetcher,
-    { refreshInterval: 30_000 }
-  );
-}
 
 /**
  * Canonical hook name used by the frontend API contract: fetch the full

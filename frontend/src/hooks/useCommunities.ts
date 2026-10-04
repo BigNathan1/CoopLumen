@@ -1,6 +1,5 @@
-import useSWR from 'swr';
-import { fetcher } from './SWRProvider';
 import useSWR, { mutate } from 'swr';
+import { fetcher } from './SWRProvider';
 import { useState, useCallback } from 'react';
 import { api, getBaseUrl } from '@/lib/api';
 import type { MemberRole } from '@/lib/schemas';
@@ -23,15 +22,6 @@ export interface CommunityMember {
   stellar_address: string;
   role: MemberRole;
   joined_at: string;
-}
-
-async function fetcher<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const body = (await res.json()) as { error?: string };
-    throw new Error(body.error ?? 'Request failed');
-  }
-  return (res.json() as Promise<{ data: T }>).then((r) => r.data);
 }
 
 export interface CommunitiesFilters {
@@ -64,12 +54,10 @@ export function useCommunities(filters: CommunitiesFilters = {}) {
 export function useCommunity(id: string) {
   return useSWR<Community>(id ? `/api/v1/communities/${id}` : null, fetcher);
 }
-  return useSWR<Community>(id ? `${API_URL}/api/v1/communities/${id}` : null, fetcher);
-}
 
 export function useCommunityMembers(communityId: string) {
   return useSWR<CommunityMember[]>(
-    communityId ? `${API_URL}/api/v1/communities/${communityId}/members` : null,
+    communityId ? `/api/v1/communities/${communityId}/members` : null,
     fetcher,
     { refreshInterval: 60_000 }
   );
@@ -99,7 +87,7 @@ export function useAddMember(communityId: string) {
           `/api/v1/communities/${communityId}/members`,
           input
         );
-        await mutate(`${API_URL}/api/v1/communities/${communityId}/members`);
+        await mutate(`/api/v1/communities/${communityId}/members`);
         return member;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to add member');
@@ -134,7 +122,7 @@ export function useRemoveMember(communityId: string) {
           const body = (await res.json().catch(() => ({}))) as { error?: string };
           throw new Error(body.error ?? 'Failed to remove member');
         }
-        await mutate(`${API_URL}/api/communities/${communityId}/members`);
+        await mutate(`/api/v1/communities/${communityId}/members`);
         return true;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to remove member');

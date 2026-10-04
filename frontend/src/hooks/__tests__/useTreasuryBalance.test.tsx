@@ -18,7 +18,9 @@ afterEach(() => {
 });
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <SWRConfig value={swrConfig}>{children}</SWRConfig>
+  <SWRConfig value={{ ...swrConfig, provider: () => new Map(), dedupingInterval: 0 }}>
+    {children}
+  </SWRConfig>
 );
 
 describe('useTreasuryBalance with global SWR config', () => {
@@ -42,14 +44,21 @@ describe('useTreasuryBalance with global SWR config', () => {
   it('requests the treasury endpoint for a valid communityId', async () => {
     const balances = [
       { asset_type: 'native', balance: '100.0000000' },
-      { asset_type: 'credit_alphanum4', asset_code: 'COOP', asset_issuer: issuerKey, balance: '5000.00' },
+      {
+        asset_type: 'credit_alphanum4',
+        asset_code: 'COOP',
+        asset_issuer: issuerKey,
+        balance: '5000.00',
+      },
     ];
     fetchMock.mockResolvedValue(jsonResponse(200, { data: { account: issuerKey, balances } }));
 
     const { result } = renderHook(() => useTreasuryBalance(communityId), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(fetchMock).toHaveBeenCalledWith(`http://localhost:4000/api/v1/communities/${communityId}/treasury`);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://localhost:4000/api/v1/communities/${communityId}/treasury`
+    );
     expect(result.current.data).toEqual({ account: issuerKey, balances });
   });
 

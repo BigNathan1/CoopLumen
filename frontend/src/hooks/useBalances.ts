@@ -20,5 +20,6 @@ export function useBalances(publicKey: string | null, filters: BalancesFilters =
   const query = params.toString();
   const path = publicKey ? `/api/v1/balances/${publicKey}${query ? `?${query}` : ''}` : null;
 
-  return useSWR<Balance[]>(path, fetcher);
+  // Balances poll faster than the 30s global default so transfers show up promptly.
+  return useSWR<Balance[]>(path, fetcher, { refreshInterval: 15_000 });
 }

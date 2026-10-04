@@ -39,24 +39,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={inter.className}>
         <SWRProvider>
           <ThemeProvider>
-            <ToastProvider>
-              <ErrorBoundary>{children}</ErrorBoundary>
-              <Footer />
-              <ToastDisplay />
-            </ToastProvider>
+            <LocaleProvider defaultLocale={defaultLocale}>
+              <ToastProvider>
+                <ErrorBoundary>
+                  <PageTransition>{children}</PageTransition>
+                </ErrorBoundary>
+                <Footer />
+                <ToastDisplay />
+              </ToastProvider>
+            </LocaleProvider>
           </ThemeProvider>
         </SWRProvider>
-        <ThemeProvider>
-          <LocaleProvider defaultLocale={defaultLocale}>
-            <ToastProvider>
-              <ErrorBoundary>
-                <PageTransition>{children}</PageTransition>
-              </ErrorBoundary>
-              <Footer />
-              <ToastDisplay />
-            </ToastProvider>
-          </LocaleProvider>
-        </ThemeProvider>
       </body>
     </html>
   );
