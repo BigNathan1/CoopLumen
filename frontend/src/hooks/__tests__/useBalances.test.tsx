@@ -46,6 +46,6 @@ describe('useBalances', () => {
     const { result } = renderHook(() => useBalances(PUBLIC_KEY), { wrapper });
 
     await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
-    expect((result.current.error as Error).message).toBe('Failed to fetch balances');
+    expect((result.current.error as Error).message).toBe('Account not found');
   });
 });

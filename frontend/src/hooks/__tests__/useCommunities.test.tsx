@@ -79,12 +79,12 @@ beforeEach(() => {
 describe('useCommunities', () => {
   it('requests the base endpoint when called without filters', () => {
     renderHook(() => useCommunities());
-    expect(lastCall?.key).toBe('http://localhost:4000/api/v1/communities');
+    expect(lastCall?.key).toBe('/api/v1/communities');
   });
 
   it('encodes page, limit, and search as query parameters', () => {
     renderHook(() => useCommunities({ page: 2, limit: 10, search: 'solar co-op' }));
-    const url = new URL(lastCall?.key as string);
+    const url = new URL(lastCall?.key as string, 'http://localhost');
     expect(url.pathname).toBe('/api/v1/communities');
     expect(url.searchParams.get('page')).toBe('2');
     expect(url.searchParams.get('limit')).toBe('10');
@@ -93,7 +93,7 @@ describe('useCommunities', () => {
 
   it('omits parameters that are not provided', () => {
     renderHook(() => useCommunities({ search: 'eco' }));
-    const url = new URL(lastCall?.key as string);
+    const url = new URL(lastCall?.key as string, 'http://localhost');
     expect(url.searchParams.has('page')).toBe(false);
     expect(url.searchParams.has('limit')).toBe(false);
     expect(url.searchParams.get('search')).toBe('eco');
@@ -103,18 +103,14 @@ describe('useCommunities', () => {
     renderHook(() => useCommunities());
     fetchMock.mockResolvedValue(jsonResponse(200, { data: [{ id: 'c1' }] }));
 
-    await expect(lastCall?.fetcher('http://localhost:4000/api/v1/communities')).resolves.toEqual([
-      { id: 'c1' },
-    ]);
+    await expect(lastCall?.fetcher('/api/v1/communities')).resolves.toEqual([{ id: 'c1' }]);
   });
 
   it('rejects with the API error message on a failed response', async () => {
     renderHook(() => useCommunities());
     fetchMock.mockResolvedValue(jsonResponse(500, { error: 'Database unavailable' }));
 
-    await expect(lastCall?.fetcher('http://localhost:4000/api/v1/communities')).rejects.toThrow(
-      'Database unavailable'
-    );
+    await expect(lastCall?.fetcher('/api/v1/communities')).rejects.toThrow('Database unavailable');
   });
 });
 
@@ -128,25 +124,25 @@ describe('useCommunity', () => {
 
   it('requests the single-community endpoint for a given id', () => {
     renderHook(() => useCommunity('community-1'));
-    expect(lastCall?.key).toBe('http://localhost:4000/api/v1/communities/community-1');
+    expect(lastCall?.key).toBe('/api/v1/communities/community-1');
   });
 
   it('resolves the unwrapped community on a successful response', async () => {
     renderHook(() => useCommunity('community-1'));
     fetchMock.mockResolvedValue(jsonResponse(200, { data: MOCK_COMMUNITY }));
 
-    await expect(
-      lastCall?.fetcher('http://localhost:4000/api/v1/communities/community-1')
-    ).resolves.toEqual(MOCK_COMMUNITY);
+    await expect(lastCall?.fetcher('/api/v1/communities/community-1')).resolves.toEqual(
+      MOCK_COMMUNITY
+    );
   });
 
   it('rejects with a fallback message when the error body has no message', async () => {
     renderHook(() => useCommunity('missing'));
     fetchMock.mockResolvedValue(jsonResponse(404, {}));
 
-    await expect(
-      lastCall?.fetcher('http://localhost:4000/api/v1/communities/missing')
-    ).rejects.toThrow('Request failed');
+    await expect(lastCall?.fetcher('/api/v1/communities/missing')).rejects.toThrow(
+      'Request failed'
+    );
   });
 });
 

@@ -1,6 +1,5 @@
 import useSWR from 'swr';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+import { fetcher } from './SWRProvider';
 
 export interface ReputationScore {
   id: string;
@@ -26,15 +25,6 @@ export interface ReputationDetail {
   summary: ReputationSummary;
 }
 
-async function fetcher<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? 'Failed to fetch reputation');
-  }
-  return (res.json() as Promise<{ data: T }>).then((r) => r.data);
-}
-
 /**
  * Reputation leaderboard, highest score first. Optionally scoped to a single
  * community; `limit` caps how many entries the panel requests.
@@ -42,9 +32,7 @@ async function fetcher<T>(url: string): Promise<T> {
 export function useReputation(communityId?: string, limit = 10) {
   const params = new URLSearchParams({ limit: String(limit) });
   if (communityId) params.set('communityId', communityId);
-  return useSWR<ReputationScore[]>(`${API_URL}/api/v1/reputation?${params.toString()}`, fetcher, {
-    refreshInterval: 30_000,
-  });
+  return useSWR<ReputationScore[]>(`/api/v1/reputation?${params.toString()}`, fetcher);
 }
 
 /**
@@ -53,9 +41,7 @@ export function useReputation(communityId?: string, limit = 10) {
  * callers should treat an error as "no reputation yet".
  */
 export function useReputationDetail(address: string | null) {
-  return useSWR<ReputationDetail>(
-    address ? `${API_URL}/api/v1/reputation/${address}` : null,
-    fetcher,
-    { shouldRetryOnError: false }
-  );
+  return useSWR<ReputationDetail>(address ? `/api/v1/reputation/${address}` : null, fetcher, {
+    shouldRetryOnError: false,
+  });
 }

@@ -1,6 +1,5 @@
 import useSWR from 'swr';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+import { fetcher } from './SWRProvider';
 
 export type LoanStatus = 'pending' | 'active' | 'repaid' | 'defaulted' | 'cancelled';
 
@@ -41,15 +40,6 @@ export interface LoanDetail extends Loan {
   events: LoanEvent[];
 }
 
-async function fetcher<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? 'Failed to fetch loans');
-  }
-  return (res.json() as Promise<{ data: T }>).then((r) => r.data);
-}
-
 export interface LoanFilters {
   communityId?: string;
   borrower?: string;
@@ -65,9 +55,7 @@ export function useLoans(filters: LoanFilters = {}) {
   if (filters.borrower) params.set('borrower', filters.borrower);
   if (filters.lender) params.set('lender', filters.lender);
   if (filters.status) params.set('status', filters.status);
-  return useSWR<Loan[]>(`${API_URL}/api/v1/loans?${params.toString()}`, fetcher, {
-    refreshInterval: 30_000,
-  });
+  return useSWR<Loan[]>(`/api/v1/loans?${params.toString()}`, fetcher);
 }
 
 /**
@@ -76,5 +64,5 @@ export function useLoans(filters: LoanFilters = {}) {
  * when a card's history is expanded).
  */
 export function useLoan(id: string, enabled = true) {
-  return useSWR<LoanDetail>(enabled ? `${API_URL}/api/v1/loans/${id}` : null, fetcher);
+  return useSWR<LoanDetail>(enabled ? `/api/v1/loans/${id}` : null, fetcher);
 }

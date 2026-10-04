@@ -36,9 +36,7 @@ describe('useAddMember', () => {
 
     expect(created).toEqual(member);
     expect(post).toHaveBeenCalledWith(`/api/v1/communities/${communityId}/members`, input);
-    expect(mutate).toHaveBeenCalledWith(
-      `http://localhost:4000/api/v1/communities/${communityId}/members`
-    );
+    expect(mutate).toHaveBeenCalledWith(`/api/v1/communities/${communityId}/members`);
     expect(result.current.error).toBeNull();
     expect(result.current.submitting).toBe(false);
   });
