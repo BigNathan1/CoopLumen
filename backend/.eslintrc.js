@@ -56,5 +56,5 @@ module.exports = {
       },
     },
   ],
-  ignorePatterns:['dist/', 'node_modules/', 'jest.config.js'],
+  ignorePatterns: ['dist/', 'node_modules/', 'jest.config.js'],
 };
