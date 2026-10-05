@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { CommunityTransactions } from '@/components/CommunityTransactions';
+import { CommunityTransactions } from '@/components/transactions/CommunityTransactions';
 import * as txHook from '@/hooks/useCommunityTransactions';
 import * as communityHook from '@/hooks/useCommunities';
-import type { TransactionHistoryItem } from '@/components/TransactionHistory';
+import type { TransactionHistoryItem } from '@/components/transactions/TransactionHistory';
 
 const push = jest.fn();
 let search = '';

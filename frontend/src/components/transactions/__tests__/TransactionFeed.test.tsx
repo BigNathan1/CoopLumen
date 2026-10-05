@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { TransactionFeed } from '@/components/TransactionFeed';
+import { TransactionFeed } from '@/components/transactions/TransactionFeed';
 import { LocaleProvider } from '@/hooks/useLocale';
 import {
   useTransactions,

@@ -6,7 +6,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { WalletConnect } from '@/components/wallet/WalletConnect';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { LocaleSwitcher } from '@/components/layout/LocaleSwitcher';
-import { TransactionFeed } from '@/components/TransactionFeed';
+import { TransactionFeed } from '@/components/transactions/TransactionFeed';
 import { CommunityCard } from '@/components/community/CommunityCard';
 import { BalancePanel } from '@/components/wallet/BalancePanel';
 import { PortfolioPanel } from '@/components/loans/PortfolioPanel';

@@ -6,7 +6,7 @@ import { useCommunity } from '@/hooks/useCommunities';
 import { useCommunityTransactions } from '@/hooks/useCommunityTransactions';
 import { Alert } from '@/components/ui/Alert';
 import { Pagination } from '@/components/ui/Pagination';
-import { TransactionHistory } from '@/components/TransactionHistory';
+import { TransactionHistory } from '@/components/transactions/TransactionHistory';
 import styles from './CommunityTransactions.module.css';
 
 interface CommunityTransactionsProps {

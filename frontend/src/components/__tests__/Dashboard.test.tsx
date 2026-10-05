@@ -30,7 +30,7 @@ jest.mock('@/components/layout/LocaleSwitcher', () => ({
   LocaleSwitcher: () => <div data-testid="locale-switcher" />,
 }));
 
-jest.mock('@/components/TransactionFeed', () => ({
+jest.mock('@/components/transactions/TransactionFeed', () => ({
   TransactionFeed: ({ publicKey }: { publicKey: string | null }) => (
     <div data-testid="transaction-feed">{publicKey ?? 'no-account'}</div>
   ),
