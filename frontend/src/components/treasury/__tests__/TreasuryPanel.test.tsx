@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { TreasuryPanel } from '@/components/TreasuryPanel';
+import { TreasuryPanel } from '@/components/treasury/TreasuryPanel';
 import { useAccountDetails } from '@/hooks/useAccountDetails';
 
 jest.mock('@/hooks/useAccountDetails');

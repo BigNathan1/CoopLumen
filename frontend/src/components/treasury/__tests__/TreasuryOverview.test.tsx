@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
-import { TreasuryOverview } from '@/components/TreasuryOverview';
+import { TreasuryOverview } from '@/components/treasury/TreasuryOverview';
 import * as treasuryHook from '@/hooks/useTreasury';
 import * as communityHook from '@/hooks/useCommunities';
 
