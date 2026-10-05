@@ -11,7 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Global SWR configuration (`frontend/src/hooks/SWRProvider.tsx`): one shared fetcher, `errorRetryCount: 3`, `revalidateOnFocus: false` and a 30s default refresh, mounted at the app root. Data hooks now key on API paths rather than absolute URLs (#344). `useBalances` accepts an optional `communityId` filter (#335), and `useTreasuryBalance(communityId)` reads a community's treasury balances (#337).
+- Global SWR configuration (`frontend/src/hooks/SWRProvider.tsx`): one shared fetcher, `errorRetryCount: 3`, `revalidateOnFocus: false` and a 30s default refresh, mounted at the app root. Data hooks now key on API paths rather than absolute URLs (#344). `useBalances` accepts an optional `communityId` filter (#335). Treasury balances (#337) are served by the existing `useTreasury(communityId)`.
 - `useXlmPrice` hook tests covering the price fetch and error paths, ported from #810 (#338); the hook itself already polls every 60 seconds.
 - `useEstimateFee` hook to calculate and display estimated transaction fees dynamically before signing, preventing surprise rejections on busy networks (#348).
 - App Router error page with an accessible retry action and theme-aware design tokens (#322).
