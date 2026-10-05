@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useRef, useEffect } from 'react';
+import { ReactNode, useCallback, useEffect, useRef } from 'react';
 import { Modal } from './Modal';
 import styles from './ConfirmDialog.module.css';
 
@@ -50,13 +50,17 @@ export function ConfirmDialog({
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Handle Enter key on confirm button (if explicitly focused)
+  const handleConfirm = useCallback(async () => {
+    if (loading) return;
+    await onConfirm();
+  }, [loading, onConfirm]);
+
+  // Enter confirms only while the confirm button itself has focus, so a stray
+  // Enter elsewhere in the dialog never triggers the destructive action.
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Only trigger confirm on Enter if the confirm button has explicit focus
-      // This prevents accidental destructive actions from Enter key alone
       if (e.key === 'Enter' && document.activeElement === confirmButtonRef.current) {
         e.preventDefault();
         if (!loading) {
@@ -67,12 +71,7 @@ export function ConfirmDialog({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, loading]);
-
-  const handleConfirm = async () => {
-    if (loading) return;
-    await onConfirm();
-  };
+  }, [isOpen, loading, handleConfirm]);
 
   return (
     <Modal

@@ -70,6 +70,8 @@ export function Avatar({ address, src, alt, size = 40, className, ...props }: Av
   const fallback = createIdenticon(address);
 
   return (
+    // Identicons are inline SVG data URIs, which next/image cannot optimise.
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       {...props}
       src={src || fallback}
