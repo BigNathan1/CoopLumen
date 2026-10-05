@@ -7,8 +7,8 @@ import {
   minWidthQuery,
 } from '@/lib/breakpoints';
 
-const APP_DIR = path.resolve(__dirname, '../../app');
-const COMPONENTS_DIR = path.resolve(__dirname, '..');
+const APP_DIR = path.resolve(__dirname, '..');
+const COMPONENTS_DIR = path.resolve(__dirname, '../../components');
 
 const globals = readFileSync(path.join(APP_DIR, 'globals.css'), 'utf8');
 
