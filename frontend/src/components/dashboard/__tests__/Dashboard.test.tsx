@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Dashboard } from '@/components/Dashboard';
+import { Dashboard } from '@/components/dashboard/Dashboard';
 import { useCommunities, type Community } from '@/hooks/useCommunities';
 import { useWallet } from '@/hooks/useWallet';
 

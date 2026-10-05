@@ -15,9 +15,9 @@ import { ReputationPanel } from '@/components/reputation/ReputationPanel';
 import { LoansSection } from '@/components/loans/LoansSection';
 import { CreateLoanForm } from '@/components/loans/CreateLoanForm';
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
-import { Button } from './ui/Button';
+import { Button } from '@/components/ui/Button';
 import styles from './Dashboard.module.css';
-import { EmptyState } from './ui/EmptyState';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 /** Placeholder cards shown in the grid while communities are loading. */
 const SKELETON_CARD_COUNT = 6;

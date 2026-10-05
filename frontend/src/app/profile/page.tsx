@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { ProfileOverview } from '@/components/ProfileOverview';
+import { ProfileOverview } from '@/components/profile/ProfileOverview';
 
 export const metadata: Metadata = {
   title: 'Your Profile | CoopLumen',

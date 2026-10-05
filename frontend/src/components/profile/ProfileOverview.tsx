@@ -1,12 +1,12 @@
 'use client';
 
-import { Badge, type BadgeVariant } from './ui/Badge';
-import { Button } from './ui/Button';
-import { Card } from './ui/Card';
-import { EmptyState } from './ui/EmptyState';
-import { LoadingSkeleton } from './ui/LoadingSkeleton';
-import { NetworkBadge } from './ui/NetworkBadge';
-import { StellarAddress } from './ui/StellarAddress';
+import { Badge, type BadgeVariant } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
+import { NetworkBadge } from '@/components/ui/NetworkBadge';
+import { StellarAddress } from '@/components/ui/StellarAddress';
 import { useBalances, type Balance } from '@/hooks/useBalances';
 import { useMemberships, type Membership } from '@/hooks/useMemberships';
 import { useWallet } from '@/hooks/useWallet';
