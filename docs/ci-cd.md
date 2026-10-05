@@ -20,23 +20,24 @@ the runtime is a one-line change.
 
 ### Jobs
 
-| Job              | What it checks                                                                                                                                                                    | Timeout |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| `lint`           | ESLint + Prettier `--check` for `backend/`, `frontend/`, and the repo root (root covers `scripts/`, `docs/`, and config files that per-workspace runs left unexamined)            | 20 min  |
-| `typecheck`      | `tsc --noEmit` for both packages                                                                                                                                                  | 20 min  |
-| `test-backend`   | Jest against real Postgres 16 and Redis 7 service containers; migrations run first; tests run serially (`--runInBand`) to avoid race conditions on a shared DB                    | 20 min  |
-| `test-frontend`  | Jest (jsdom) for components and hooks                                                                                                                                             | 20 min  |
-| `build`          | `npm run build` for both packages — catches build-only breakage that `tsc --noEmit` alone misses (e.g. Next.js server/client boundary errors)                                     | —       |
-| `docker-build`   | `docker build` for both `Dockerfile`s — catches breakage in the production image path specifically                                                                                | —       |
-| `security-audit` | `npm audit --audit-level=high` for both packages. **Non-blocking** (`continue-on-error: true`) — reports loudly but never fails a PR. See the workflow comment for when to harden | —       |
-| `commitlint`     | Every commit in the PR against `commitlint.config.js` (Conventional Commits). PR-only (skipped on direct pushes). Requires `fetch-depth: 0` so the full commit range is available | —       |
-| `quality-gate`   | Aggregates `lint`, `typecheck`, `test-backend`, `test-frontend`, `build`, `docker-build`, and `commitlint` into one pass/fail. Point branch protection at this single job         | —       |
+| Job              | What it checks                                                                                                                                                                                             | Timeout |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `lint`           | ESLint + Prettier `--check` for `backend/`, `frontend/`, and the repo root (root covers `scripts/`, `docs/`, and config files that per-workspace runs left unexamined)                                     | 20 min  |
+| `typecheck`      | `tsc --noEmit` for both packages                                                                                                                                                                           | 20 min  |
+| `test-backend`   | Jest against real Postgres 16 and Redis 7 service containers; migrations run first; tests run serially (`--runInBand`) to avoid race conditions on a shared DB                                             | 20 min  |
+| `test-frontend`  | Jest (jsdom) for components and hooks                                                                                                                                                                      | 20 min  |
+| `build`          | `npm run build` for both packages — catches build-only breakage that `tsc --noEmit` alone misses (e.g. Next.js server/client boundary errors)                                                              | —       |
+| `docker-build`   | `docker build` for both `Dockerfile`s — catches breakage in the production image path specifically                                                                                                         | —       |
+| `security-audit` | `npm audit --omit=dev --audit-level=high` for both packages fails the job on a high-severity advisory in a production dependency. A full audit including dev tooling is reported but does not fail the job | —       |
+| `commitlint`     | Every commit in the PR against `commitlint.config.js` (Conventional Commits). PR-only (skipped on direct pushes). Requires `fetch-depth: 0` so the full commit range is available                          | —       |
+| `quality-gate`   | Aggregates `lint`, `typecheck`, `test-backend`, `test-frontend`, `build`, `docker-build`, and `commitlint` into one pass/fail. Point branch protection at this single job                                  | —       |
 
 > **Why `security-audit` is not in `quality-gate`:** A new upstream CVE would
-> immediately break every open PR without giving the team time to triage or
-> update the dependency. It is intentionally a loud-but-non-blocking signal.
-> Flip `continue-on-error` to `false` in the workflow once the existing finding
-> backlog has been triaged and the team wants a hard gate.
+> immediately block every open PR without giving the team time to triage or
+> update the dependency. The job goes red so the finding is visible, but merging
+> is not blocked. Dev tooling is only reported, because some of its advisories
+> have no patched release (`braces`, via `ts-node-dev` and `eslint-config-next`)
+> and that code never ships.
 
 #### `test-backend` service containers
 

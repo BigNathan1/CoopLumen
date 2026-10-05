@@ -210,11 +210,6 @@ jobs:
   security-audit:
     name: Dependency audit
     runs-on: ubuntu-latest
-    # Vulnerable transitive deps shouldn't block every PR the moment a new CVE
-    # is published upstream — this reports loudly but doesn't fail the build.
-    # Flip continue-on-error to false once the backlog of existing findings
-    # (if any) has been triaged and the project wants a hard gate.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
 
@@ -222,12 +217,27 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Audit backend
+      # Gate on what ships: a high-severity advisory in a production dependency
+      # fails the job.
+      - name: Audit backend production dependencies
         working-directory: backend
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit frontend production dependencies
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
+
+      # Dev tooling is reported but not gated. Some advisories there have no
+      # patched release (braces, via ts-node-dev and eslint-config-next) and
+      # only ever see developer-written glob patterns.
+      - name: Report all backend advisories
+        working-directory: backend
+        continue-on-error: true
         run: npm audit --audit-level=high
 
-      - name: Audit frontend
+      - name: Report all frontend advisories
         working-directory: frontend
+        continue-on-error: true
         run: npm audit --audit-level=high
 
   commitlint:
