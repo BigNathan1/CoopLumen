@@ -91,7 +91,7 @@ pub enum DataKey {
     ProposalCount,
 }
 
-// ── Event topic symbols ───────────────────────────────────────────────────────
+// Event topic symbols
 
 /// Emitted when a proposal is successfully executed.
 /// `topics = ("proposal_executed", proposal_id)`
@@ -349,13 +349,13 @@ impl GovernanceContract {
             .get(&DataKey::Proposal(proposal_id))
             .ok_or(GovernanceError::ProposalNotFound)?;
 
-        // ── 1. Status gate ────────────────────────────────────────────────────
+        // 1. Status gate
         // Only a Passed proposal may be executed; Executed proposals are idempotent-blocked.
         if proposal.status != ProposalStatus::Passed {
             return Err(GovernanceError::ProposalExecutionFailed);
         }
 
-        // ── 2. Quorum check ───────────────────────────────────────────────────
+        // 2. Quorum check
         // participation = votes_for + votes_against
         // required      = total_supply * quorum_bps / 10_000
         //
@@ -382,7 +382,7 @@ impl GovernanceContract {
             return Err(GovernanceError::InsufficientQuorum);
         }
 
-        // ── 3. Status transition ──────────────────────────────────────────────
+        // 3. Status transition
         // Mark Executed before dispatching actions so re-entrant calls are
         // blocked even if an action somehow calls back into this contract.
         proposal.status = ProposalStatus::Executed;
@@ -390,7 +390,7 @@ impl GovernanceContract {
             .instance()
             .set(&DataKey::Proposal(proposal_id), &proposal);
 
-        // ── 4. Action dispatch ────────────────────────────────────────────────
+        // 4. Action dispatch
         // Actions are opaque encoded strings (e.g. "disburse_treasury:500").
         // The contract records each one in an event so off-chain indexers and
         // executor bots can pick them up and drive the corresponding sub-calls.
@@ -497,7 +497,7 @@ mod test {
         (env, admin, token_admin, token, client)
     }
 
-    // ── Helper: create a proposal and advance past its voting window ──────────
+    // Helper: create a proposal and advance past its voting window
 
     /// Creates a proposal, optionally mints tokens to `voter` and casts a FOR
     /// vote, then advances the ledger past `voting_ends_at` and calls
@@ -536,7 +536,7 @@ mod test {
         (id, voter)
     }
 
-    // ── Existing tests ────────────────────────────────────────────────────────
+    // Existing tests
 
     #[test]
     fn test_initialize_and_get_config() {
@@ -674,7 +674,7 @@ mod test {
         assert_eq!(err, GovernanceError::VotingPeriodEnded);
     }
 
-    // ── finalize_proposal tests ───────────────────────────────────────────────
+    // finalize_proposal tests
 
     #[test]
     fn test_finalize_proposal_passed() {
@@ -748,7 +748,7 @@ mod test {
         assert_eq!(err, GovernanceError::ProposalNotActive);
     }
 
-    // ── execute_proposal tests ────────────────────────────────────────────────
+    // execute_proposal tests
 
     /// Happy path: a passed, quorate proposal executes successfully and is
     /// marked `Executed`.
