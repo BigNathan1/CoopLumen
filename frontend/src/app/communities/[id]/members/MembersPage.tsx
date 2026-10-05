@@ -139,7 +139,7 @@ export function MembersPage({ communityId }: Props) {
   // Remove confirm handler
   const handleRemoveConfirm = async () => {
     if (!pendingRemove) return;
-    await removeMember(pendingRemove.id);
+    await removeMember(pendingRemove.stellar_address);
     setPendingRemove(null);
   };
 
@@ -202,7 +202,7 @@ export function MembersPage({ communityId }: Props) {
           {!membersLoading && !membersError && members && members.length > 0 && (
             <ul className={styles.list} aria-label="Community members">
               {members.map((member) => (
-                <li key={member.id} className={styles.row}>
+                <li key={member.stellar_address} className={styles.row}>
                   <Avatar address={member.stellar_address} size={40} />
                   <div className={styles.info}>
                     <span className={styles.address} title={member.stellar_address}>

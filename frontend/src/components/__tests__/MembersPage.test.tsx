@@ -475,7 +475,7 @@ describe('MembersPage', () => {
       expect(screen.getByText('Remove member?')).toBeInTheDocument();
     });
 
-    it('calls removeMember with the member id when the dialog is confirmed', async () => {
+    it('calls removeMember with the member address when the dialog is confirmed', async () => {
       const removeMemberFn = jest.fn().mockResolvedValue(true);
       mockRemoveMember({ removeMember: removeMemberFn });
       const user = userEvent.setup();
@@ -487,7 +487,7 @@ describe('MembersPage', () => {
       await user.click(screen.getByRole('button', { name: `Remove ${truncated}` }));
       await user.click(screen.getByRole('button', { name: 'Remove' }));
 
-      expect(removeMemberFn).toHaveBeenCalledWith(MEMBER_REGULAR.id);
+      expect(removeMemberFn).toHaveBeenCalledWith(MEMBER_REGULAR.stellar_address);
     });
 
     it('closes the confirm dialog without calling removeMember when cancelled', async () => {

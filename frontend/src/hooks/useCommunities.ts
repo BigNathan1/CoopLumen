@@ -1,10 +1,8 @@
 import useSWR, { mutate } from 'swr';
 import { fetcher } from './SWRProvider';
 import { useState, useCallback } from 'react';
-import { api, getBaseUrl } from '@/lib/api';
+import { api } from '@/lib/api';
 import type { MemberRole } from '@/lib/schemas';
-
-const API_URL = getBaseUrl();
 
 export interface Community {
   id: string;
@@ -103,25 +101,20 @@ export function useAddMember(communityId: string) {
 }
 
 /**
- * Removes a member from a community via DELETE /api/communities/:id/members/:memberId
- * and revalidates the member list cache.
+ * Removes a member from a community via
+ * DELETE /api/v1/communities/:id/members/:address and revalidates the member
+ * list cache. Members are identified by their Stellar address.
  */
 export function useRemoveMember(communityId: string) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const removeMember = useCallback(
-    async (memberId: string): Promise<boolean> => {
+    async (stellarAddress: string): Promise<boolean> => {
       setSubmitting(true);
       setError(null);
       try {
-        const res = await fetch(`${API_URL}/api/communities/${communityId}/members/${memberId}`, {
-          method: 'DELETE',
-        });
-        if (!res.ok) {
-          const body = (await res.json().catch(() => ({}))) as { error?: string };
-          throw new Error(body.error ?? 'Failed to remove member');
-        }
+        await api.delete(`/api/v1/communities/${communityId}/members/${stellarAddress}`);
         await mutate(`/api/v1/communities/${communityId}/members`);
         return true;
       } catch (err) {
