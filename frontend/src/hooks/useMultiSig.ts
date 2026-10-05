@@ -1,5 +1,5 @@
 import useSWR from 'swr';
-import { requestRaw } from '../lib/api';
+import { requestRaw } from '@/lib/api';
 
 export type MultiSigAction =
   | 'payment'

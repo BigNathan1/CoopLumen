@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/Button';
-import styles from '../components/ui/ErrorBoundary.module.css';
+import styles from '@/components/ui/ErrorBoundary.module.css';
 
 interface ErrorPageProps {
   error: Error & { digest?: string };
