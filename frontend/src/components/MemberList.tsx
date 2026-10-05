@@ -12,16 +12,12 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PaginationInner } from '@/components/ui/Pagination';
 import styles from './MemberList.module.css';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 // Re-export CommunityMember so the paginated tests that import it from here
 // continue to work, even though the canonical definition lives in useCommunities.
 export type { CommunityMember };
 
 /** Short alias for consumers that refer to a row simply as a member. */
 export type Member = CommunityMember;
-
-// ─── Constants ────────────────────────────────────────────────────────────────
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -39,8 +35,6 @@ const ROLE_LABEL: Record<string, string> = {
   member: 'Member',
   observer: 'Observer',
 };
-
-// ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface MemberListProps {
   /**
@@ -63,7 +57,7 @@ export interface MemberListProps {
    */
   error?: Error | undefined;
 
-  // ── Remote-fetch mode ───────────────────────────────────────────────────
+  // Remote-fetch mode
   /** Community UUID used to fetch members from the API when no local data is supplied. */
   communityId?: string;
   /** Initial local data supplied by server-rendered boundaries. */
@@ -73,7 +67,7 @@ export interface MemberListProps {
   /** Alias for `initialMembers` for server-rendered route boundaries. */
   initialData?: readonly CommunityMember[];
 
-  // ── Pagination ──────────────────────────────────────────────────────────
+  // Pagination
   /** Page size. Defaults to 20 and is capped at the backend's limit of 100. */
   pageSize?: number;
   /** Alias for `pageSize`, matching the API's `limit` terminology. */
@@ -106,8 +100,6 @@ interface PageMeta {
   offset?: number;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function truncateAddress(address: string): string {
   if (address.length <= 13) return address;
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
@@ -131,8 +123,6 @@ function normalizeMember(value: unknown): CommunityMember {
     joined_at: String(row.joined_at ?? row.joinedAt ?? ''),
   };
 }
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 /**
  * Renders the member roster for a community.
@@ -294,18 +284,18 @@ export function MemberList({
     [activePage, handlePageChange, totalPages]
   );
 
-  // ── Resolve the active loading / error state ───────────────────────────────
+  // Resolve the active loading / error state
   // The parent-prop `isLoading` / `error` take precedence when they are
   // supplied; otherwise we fall through to the remote-fetch state.
   const effectiveLoading = isLoading || remoteLoading;
   const effectiveError = error ?? (remoteError instanceof Error ? remoteError : undefined);
 
-  // ── Visible rows for the current page ─────────────────────────────────────
+  // Visible rows for the current page
   const visibleMembers = hasLocalData
     ? localMembers.slice((activePage - 1) * resolvedPageSize, activePage * resolvedPageSize)
     : remoteMembers;
 
-  // ── Loading skeleton ───────────────────────────────────────────────────────
+  // Loading skeleton
   if (effectiveLoading) {
     return (
       <section className={styles.section} aria-label={ariaLabel}>
@@ -330,7 +320,7 @@ export function MemberList({
     );
   }
 
-  // ── Error state ────────────────────────────────────────────────────────────
+  // Error state
   if (effectiveError) {
     return (
       <section className={styles.section} aria-label={ariaLabel}>
@@ -342,7 +332,7 @@ export function MemberList({
     );
   }
 
-  // ── Empty state ────────────────────────────────────────────────────────────
+  // Empty state
   if (visibleMembers.length === 0 && !hasLocalData && !communityId) {
     return (
       <section className={styles.section} aria-label={ariaLabel}>
@@ -370,7 +360,7 @@ export function MemberList({
     );
   }
 
-  // ── Populated list ─────────────────────────────────────────────────────────
+  // Populated list
   return (
     <section className={styles.section} aria-label={ariaLabel}>
       <h2 className={styles.heading}>

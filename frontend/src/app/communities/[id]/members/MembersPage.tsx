@@ -20,8 +20,6 @@ import { useState, useId } from 'react';
 import type { MemberRole } from '@/lib/schemas';
 import styles from './MembersPage.module.css';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
 const STELLAR_KEY_RE = /^G[A-Z2-7]{55}$/;
 
 const ROLE_VARIANT: Record<MemberRole, BadgeVariant> = {
@@ -45,8 +43,6 @@ function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }
 
-// ── Props ─────────────────────────────────────────────────────────────────────
-
 interface Props {
   communityId: string;
 }
@@ -67,7 +63,7 @@ interface Props {
  * - Confirm dialog is modal and focus-trapped (ConfirmDialog).
  */
 export function MembersPage({ communityId }: Props) {
-  // ── Data ────────────────────────────────────────────────────────────────────
+  // Data
   const {
     data: community,
     error: communityError,
@@ -81,13 +77,13 @@ export function MembersPage({ communityId }: Props) {
   const { addMember, submitting: adding, error: addError } = useAddMember(communityId);
   const { removeMember, submitting: removing, error: removeError } = useRemoveMember(communityId);
 
-  // ── Add-member form state ────────────────────────────────────────────────────
+  // Add-member form state
   const [address, setAddress] = useState('');
   const [role, setRole] = useState<MemberRole>('member');
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [addSuccess, setAddSuccess] = useState(false);
 
-  // ── Remove confirm state ─────────────────────────────────────────────────────
+  // Remove confirm state
   const [pendingRemove, setPendingRemove] = useState<CommunityMember | null>(null);
 
   const formId = useId();
@@ -95,7 +91,7 @@ export function MembersPage({ communityId }: Props) {
   const roleId = `${formId}-role`;
   const addressErrorId = `${formId}-address-error`;
 
-  // ── Full-page community loading ──────────────────────────────────────────────
+  // Full-page community loading
   if (communityLoading) {
     return (
       <div className={styles.centred}>
@@ -120,7 +116,7 @@ export function MembersPage({ communityId }: Props) {
     );
   }
 
-  // ── Add member handler ───────────────────────────────────────────────────────
+  // Add member handler
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     setFieldError(null);
@@ -140,7 +136,7 @@ export function MembersPage({ communityId }: Props) {
     }
   };
 
-  // ── Remove confirm handler ───────────────────────────────────────────────────
+  // Remove confirm handler
   const handleRemoveConfirm = async () => {
     if (!pendingRemove) return;
     await removeMember(pendingRemove.id);

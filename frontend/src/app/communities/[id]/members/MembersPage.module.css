@@ -4,7 +4,7 @@
   gap: var(--space-8);
 }
 
-/* ─── Back navigation ────────────────────────────────────────────────────── */
+/* Back navigation */
 
 .backLink {
   display: inline-flex;
@@ -31,7 +31,7 @@
   flex-shrink: 0;
 }
 
-/* ─── Two-column grid ────────────────────────────────────────────────────── */
+/* Two-column grid */
 
 .grid {
   display: grid;
@@ -46,7 +46,7 @@
   }
 }
 
-/* ─── Section cards ──────────────────────────────────────────────────────── */
+/* Section cards */
 
 .section {
   display: flex;
@@ -82,7 +82,7 @@
   font-weight: 700;
 }
 
-/* ─── Member list ────────────────────────────────────────────────────────── */
+/* Member list */
 
 .list {
   list-style: none;
@@ -135,7 +135,7 @@
   color: var(--color-error);
 }
 
-/* ─── Skeleton rows ──────────────────────────────────────────────────────── */
+/* Skeleton rows */
 
 .skeletonRow {
   display: flex;
@@ -156,7 +156,7 @@
   gap: var(--space-2);
 }
 
-/* ─── Add-member form ────────────────────────────────────────────────────── */
+/* Add-member form */
 
 .form {
   display: flex;
@@ -227,7 +227,7 @@
   line-height: 1.5;
 }
 
-/* ─── Full-page loading / error states ──────────────────────────────────── */
+/* Full-page loading / error states */
 
 .centred {
   display: flex;

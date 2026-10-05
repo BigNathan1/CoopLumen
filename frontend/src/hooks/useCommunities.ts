@@ -63,7 +63,7 @@ export function useCommunityMembers(communityId: string) {
   );
 }
 
-// ── Member mutation hooks ─────────────────────────────────────────────────────
+// Member mutation hooks
 
 export interface AddMemberInput {
   stellarAddress: string;

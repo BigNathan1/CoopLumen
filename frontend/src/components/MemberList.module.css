@@ -75,7 +75,7 @@
   flex-shrink: 0;
 }
 
-/* ─── Skeleton states ─────────────────────────────────────────────────────── */
+/* Skeleton states */
 
 .skeletonRow {
   display: flex;
@@ -96,7 +96,7 @@
   gap: var(--space-2);
 }
 
-/* ─── Pagination ──────────────────────────────────────────────────────────── */
+/* Pagination */
 
 .pagination {
   display: flex;
