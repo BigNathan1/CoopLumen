@@ -2,7 +2,7 @@ import useSWR, { mutate } from 'swr';
 import { useState, useCallback } from 'react';
 import { api } from '@/lib/api';
 import type { MemberRole } from '@/lib/schemas';
-import { fetcher } from './SWRProvider';
+import { fetcher } from '@/lib/swr';
 
 /** A row of `GET /api/v1/communities/:id/members`. */
 export interface CommunityMember {

@@ -1,5 +1,5 @@
 import useSWR from 'swr';
-import { fetcher } from './SWRProvider';
+import { fetcher } from '@/lib/swr';
 
 /** Response of `GET /api/v1/fees/estimate`; fee values are stroops per operation. */
 export interface FeeStats {

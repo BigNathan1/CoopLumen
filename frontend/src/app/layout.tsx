@@ -3,7 +3,7 @@ import { Inter } from 'next/font/google';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { ToastProvider } from '@/hooks/useToast';
 import { ThemeProvider } from '@/hooks/useTheme';
-import { SWRProvider } from '@/hooks/SWRProvider';
+import { SWRProvider } from '@/lib/swr';
 import { LocaleProvider } from '@/hooks/useLocale';
 import { ToastDisplay } from '@/components/ToastDisplay';
 import { Footer } from '@/components/Footer';
