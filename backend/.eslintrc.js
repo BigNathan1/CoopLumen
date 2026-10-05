@@ -47,6 +47,14 @@ module.exports = {
         '@typescript-eslint/no-unnecessary-type-assertion': 'off',
       },
     },
+    {
+      // The migration CLI reports to stdout, and the opt-in testnet suites print
+      // account keys and transaction hashes for checking on a block explorer.
+      files: ['src/db/migrate.ts', '**/*.testnet.test.ts'],
+      rules: {
+        'no-console': 'off',
+      },
+    },
   ],
-  ignorePatterns: ['dist/', 'node_modules/', 'jest.config.js'],
+  ignorePatterns:['dist/', 'node_modules/', 'jest.config.js'],
 };
