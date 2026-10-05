@@ -27,7 +27,6 @@ describe('StellarService.streamPayments', () => {
       })
     );
 
-    // Call the cancel function
     cancelFn();
     expect(mockCancel).toHaveBeenCalled();
 

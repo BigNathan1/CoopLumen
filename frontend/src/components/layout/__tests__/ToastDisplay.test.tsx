@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { useToast, ToastProvider } from '@/hooks/useToast';
 import { ToastDisplay } from '../ToastDisplay';
 import userEvent from '@testing-library/user-event';
@@ -567,6 +567,3 @@ describe('Toast System', () => {
     });
   });
 });
-
-// Import act from React for test utilities
-import { act } from '@testing-library/react';

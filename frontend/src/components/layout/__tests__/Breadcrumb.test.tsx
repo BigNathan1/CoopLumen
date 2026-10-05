@@ -1,19 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import { Breadcrumb, buildCrumbs } from '../Breadcrumb';
 import type { BreadcrumbItem } from '../Breadcrumb';
-
-// ---------------------------------------------------------------------------
-// next/navigation mock — mutable so individual tests can set the pathname.
-// ---------------------------------------------------------------------------
 const mockState = { pathname: '/communities/comm-1/treasury' };
 
 jest.mock('next/navigation', () => ({
   usePathname: () => mockState.pathname,
 }));
-
-// ---------------------------------------------------------------------------
-// buildCrumbs unit tests — pure function, no DOM needed.
-// ---------------------------------------------------------------------------
 describe('buildCrumbs', () => {
   it('returns an empty array for the root path', () => {
     expect(buildCrumbs('/')).toEqual([]);
@@ -64,18 +56,10 @@ describe('buildCrumbs', () => {
     expect(crumbs[2].label).toBe('my-custom-segment');
   });
 });
-
-// ---------------------------------------------------------------------------
-// Breadcrumb component tests.
-// ---------------------------------------------------------------------------
 describe('Breadcrumb', () => {
   afterEach(() => {
     mockState.pathname = '/communities/comm-1/treasury';
   });
-
-  // -------------------------------------------------------------------------
-  // Rendering
-  // -------------------------------------------------------------------------
   it('renders a nav landmark with the default accessible label', () => {
     render(<Breadcrumb />);
     expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toBeInTheDocument();
@@ -120,10 +104,6 @@ describe('Breadcrumb', () => {
 
     expect(screen.getByText('Treasury')).toHaveAttribute('aria-current', 'page');
   });
-
-  // -------------------------------------------------------------------------
-  // Suppression on top-level routes
-  // -------------------------------------------------------------------------
   it('renders nothing on the landing page (/)', () => {
     mockState.pathname = '/';
     const { container } = render(<Breadcrumb />);
@@ -135,10 +115,6 @@ describe('Breadcrumb', () => {
     const { container } = render(<Breadcrumb />);
     expect(container).toBeEmptyDOMElement();
   });
-
-  // -------------------------------------------------------------------------
-  // Manual crumbs prop
-  // -------------------------------------------------------------------------
   it('uses the crumbs prop instead of deriving from the pathname', () => {
     mockState.pathname = '/dashboard'; // would be suppressed without crumbs prop
 
@@ -175,10 +151,6 @@ describe('Breadcrumb', () => {
     const { container } = render(<Breadcrumb crumbs={[{ label: 'Home', href: '/' }]} />);
     expect(container).toBeEmptyDOMElement();
   });
-
-  // -------------------------------------------------------------------------
-  // Accessibility — separators
-  // -------------------------------------------------------------------------
   it('hides separators from assistive technology via aria-hidden', () => {
     mockState.pathname = '/communities/comm-1/treasury';
     render(<Breadcrumb />);
@@ -187,10 +159,6 @@ describe('Breadcrumb', () => {
     // There should be one separator per intermediate crumb (Home, Communities, comm-1 → 3 separators).
     expect(separators.length).toBeGreaterThanOrEqual(3);
   });
-
-  // -------------------------------------------------------------------------
-  // Pathname variants
-  // -------------------------------------------------------------------------
   it('renders correctly on /communities', () => {
     mockState.pathname = '/communities';
     render(<Breadcrumb />);
