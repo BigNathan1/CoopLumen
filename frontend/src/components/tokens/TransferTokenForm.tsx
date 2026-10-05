@@ -2,12 +2,12 @@
 
 import { useId, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
-import { Alert } from './ui/Alert';
-import { AmountInput } from './ui/AmountInput';
-import { Button } from './ui/Button';
-import { Card } from './ui/Card';
-import { Input } from './ui/Input';
-import { Select, type SelectOption } from './ui/Select';
+import { Alert } from '@/components/ui/Alert';
+import { AmountInput } from '@/components/ui/AmountInput';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { Select, type SelectOption } from '@/components/ui/Select';
 import { paymentSchema, toFieldErrors } from '@/lib/schemas';
 import { useTransferToken } from '@/hooks/useTransferToken';
 import styles from './TransferTokenForm.module.css';

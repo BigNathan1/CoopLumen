@@ -2,12 +2,12 @@
 
 import { useId, useState, type FormEvent } from 'react';
 import { z } from 'zod';
-import { Alert } from './ui/Alert';
-import { AmountInput } from './ui/AmountInput';
-import { Button } from './ui/Button';
-import { Card } from './ui/Card';
-import { Input } from './ui/Input';
-import { Textarea } from './ui/Textarea';
+import { Alert } from '@/components/ui/Alert';
+import { AmountInput } from '@/components/ui/AmountInput';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { Textarea } from '@/components/ui/Textarea';
 import { amountSchema, assetCodeSchema, toFieldErrors } from '@/lib/schemas';
 import styles from './TokenIssuanceForm.module.css';
 
