@@ -56,8 +56,6 @@ describe('CommunityDetailPage', () => {
     jest.resetAllMocks();
   });
 
-  /* ── Loading states ── */
-
   it('shows a loading spinner while the community is being fetched', () => {
     mockUseCommunity.mockReturnValue({ data: undefined, error: undefined, isLoading: true });
     mockUseCommunityMembers.mockReturnValue({
@@ -71,8 +69,6 @@ describe('CommunityDetailPage', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Loading community…');
     expect(screen.queryByRole('heading')).not.toBeInTheDocument();
   });
-
-  /* ── Error states ── */
 
   it('shows an error alert when the community fetch fails', () => {
     mockUseCommunity.mockReturnValue({
@@ -107,8 +103,6 @@ describe('CommunityDetailPage', () => {
 
     expect(screen.getByRole('link', { name: /back to communities/i })).toBeInTheDocument();
   });
-
-  /* ── Populated / happy path ── */
 
   it('renders the community name as the page heading', () => {
     mockLoaded();
@@ -179,8 +173,6 @@ describe('CommunityDetailPage', () => {
     expect(backLink).toHaveAttribute('href', '/communities');
   });
 
-  /* ── Members section ── */
-
   it('renders the member list when members are available', () => {
     mockLoaded();
 
@@ -212,8 +204,6 @@ describe('CommunityDetailPage', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent('Members unavailable');
   });
-
-  /* ── Accessibility ── */
 
   it('renders the page inside a <main> landmark', () => {
     mockLoaded();

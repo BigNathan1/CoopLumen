@@ -7,7 +7,7 @@ import {
   type CommunityMember,
 } from '../useCommunities';
 
-// ─── Fixtures ─────────────────────────────────────────────────────────────────
+// Fixtures
 
 const MOCK_COMMUNITY: Community = {
   id: 'uuid-1',
@@ -36,7 +36,7 @@ const MOCK_MEMBERS: CommunityMember[] = [
   },
 ];
 
-// ─── SWR mock ─────────────────────────────────────────────────────────────────
+// SWR mock
 
 type CapturedCall = {
   key: string | null;
@@ -56,7 +56,7 @@ jest.mock('swr', () => ({
   mutate: jest.fn(),
 }));
 
-// ─── Fetch mock ───────────────────────────────────────────────────────────────
+// Fetch mock
 
 function jsonResponse(status: number, body: unknown) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
@@ -73,8 +73,6 @@ beforeEach(() => {
   fetchMock.mockReset();
   lastCall = undefined;
 });
-
-// ─── useCommunities ───────────────────────────────────────────────────────────
 
 describe('useCommunities', () => {
   it('requests the base endpoint when called without filters', () => {
@@ -114,8 +112,6 @@ describe('useCommunities', () => {
   });
 });
 
-// ─── useCommunity ─────────────────────────────────────────────────────────────
-
 describe('useCommunity', () => {
   it('does not fetch when id is empty', () => {
     renderHook(() => useCommunity(''));
@@ -145,8 +141,6 @@ describe('useCommunity', () => {
     );
   });
 });
-
-// ─── useCommunityMembers ──────────────────────────────────────────────────────
 
 describe('useCommunityMembers', () => {
   it('passes a null key when communityId is falsy so SWR skips the fetch', () => {

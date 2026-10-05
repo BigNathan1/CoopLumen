@@ -4,7 +4,7 @@ import { api } from '@/lib/api';
 import { MemberList } from '../MemberList';
 import type { CommunityMember } from '@/hooks/useCommunities';
 
-// ─── Fixtures ─────────────────────────────────────────────────────────────────
+// Fixtures
 
 function makeMember(overrides: Partial<CommunityMember> = {}): CommunityMember {
   return {
@@ -35,8 +35,6 @@ function remoteMember(index: number): CommunityMember {
   };
 }
 
-// ─── Loading state ─────────────────────────────────────────────────────────────
-
 describe('MemberList', () => {
   describe('loading state', () => {
     it('renders a loading skeleton with an accessible label', () => {
@@ -51,8 +49,6 @@ describe('MemberList', () => {
       expect(screen.getByRole('heading', { name: 'Members' })).toBeInTheDocument();
     });
   });
-
-  // ─── Error state ───────────────────────────────────────────────────────────
 
   describe('error state', () => {
     it('renders an error alert with the error message', () => {
@@ -69,8 +65,6 @@ describe('MemberList', () => {
     });
   });
 
-  // ─── Empty state ───────────────────────────────────────────────────────────
-
   describe('empty state', () => {
     it('shows an empty state when the members array is empty', () => {
       render(<MemberList members={[]} isLoading={false} error={undefined} />);
@@ -78,8 +72,6 @@ describe('MemberList', () => {
       expect(screen.getByText('No members yet')).toBeInTheDocument();
     });
   });
-
-  // ─── Populated state ───────────────────────────────────────────────────────
 
   describe('populated state', () => {
     it('renders all members', () => {
@@ -138,8 +130,6 @@ describe('MemberList', () => {
     });
   });
 
-  // ─── Accessibility ─────────────────────────────────────────────────────────
-
   describe('accessibility', () => {
     it('wraps members in a <ul> list', () => {
       render(<MemberList members={MEMBERS} isLoading={false} error={undefined} />);
@@ -153,8 +143,6 @@ describe('MemberList', () => {
       expect(screen.getByRole('region', { name: 'Community members' })).toBeInTheDocument();
     });
   });
-
-  // ─── Pagination (local) ────────────────────────────────────────────────────
 
   describe('pagination with local data', () => {
     const paginationMembers = Array.from({ length: 5 }, (_, i) => remoteMember(i));
@@ -182,8 +170,6 @@ describe('MemberList', () => {
       expect(screen.getByText('Page 3 of 3')).toBeInTheDocument();
     });
   });
-
-  // ─── Pagination (remote / communityId) ────────────────────────────────────
 
   describe('pagination with remote data', () => {
     it('fetches a server page and renders its pagination metadata', async () => {

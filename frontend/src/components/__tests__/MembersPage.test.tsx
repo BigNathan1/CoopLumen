@@ -11,7 +11,7 @@ import {
   type CommunityMember,
 } from '@/hooks/useCommunities';
 
-// ── Module mocks ──────────────────────────────────────────────────────────────
+// Module mocks
 
 jest.mock('@/hooks/useCommunities');
 jest.mock('next/link', () => ({
@@ -31,7 +31,7 @@ jest.mock('next/link', () => ({
   ),
 }));
 
-// ── Typed mock handles ────────────────────────────────────────────────────────
+// Typed mock handles
 
 const mockUseCommunity = useCommunity as jest.MockedFunction<typeof useCommunity>;
 const mockUseCommunityMembers = useCommunityMembers as jest.MockedFunction<
@@ -40,7 +40,7 @@ const mockUseCommunityMembers = useCommunityMembers as jest.MockedFunction<
 const mockUseAddMember = useAddMember as jest.MockedFunction<typeof useAddMember>;
 const mockUseRemoveMember = useRemoveMember as jest.MockedFunction<typeof useRemoveMember>;
 
-// ── Test fixtures ─────────────────────────────────────────────────────────────
+// Test fixtures
 
 const COMMUNITY: Community = {
   id: 'comm-1',
@@ -84,7 +84,7 @@ const MEMBER_REGULAR = makeMember({
   stellar_address: `G${'B'.repeat(55)}`,
 });
 
-// ── Default mock factories ────────────────────────────────────────────────────
+// Default mock factories
 
 function mockCommunityLoaded(overrides: Partial<Community> = {}) {
   mockUseCommunity.mockReturnValue({
@@ -164,7 +164,7 @@ function mockRemoveMember(overrides: Partial<ReturnType<typeof useRemoveMember>>
   });
 }
 
-// ── Setup / teardown ──────────────────────────────────────────────────────────
+// Setup / teardown
 
 beforeEach(() => {
   jest.resetAllMocks();
@@ -174,11 +174,7 @@ beforeEach(() => {
   mockRemoveMember();
 });
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
-
 describe('MembersPage', () => {
-  // ── Loading & error states ──────────────────────────────────────────────────
-
   describe('loading states', () => {
     it('shows a spinner while the community is loading', () => {
       mockCommunityLoading();
@@ -240,8 +236,6 @@ describe('MembersPage', () => {
     });
   });
 
-  // ── Loaded state ────────────────────────────────────────────────────────────
-
   describe('loaded state', () => {
     it('renders the back link pointing to the community detail page', () => {
       render(<MembersPage communityId="comm-1" />);
@@ -279,8 +273,6 @@ describe('MembersPage', () => {
       expect(screen.queryByRole('list', { name: 'Community members' })).not.toBeInTheDocument();
     });
   });
-
-  // ── Member rows ─────────────────────────────────────────────────────────────
 
   describe('member rows', () => {
     it('displays a truncated address for each member', () => {
@@ -321,8 +313,6 @@ describe('MembersPage', () => {
       expect(within(list).getByText('Observer')).toBeInTheDocument();
     });
   });
-
-  // ── Add member form ─────────────────────────────────────────────────────────
 
   describe('add member form', () => {
     it('renders the Stellar address input with a visible label', () => {
@@ -472,8 +462,6 @@ describe('MembersPage', () => {
     });
   });
 
-  // ── Remove member flow ──────────────────────────────────────────────────────
-
   describe('remove member flow', () => {
     it('opens a confirm dialog when the Remove button is clicked', async () => {
       const user = userEvent.setup();
@@ -538,8 +526,6 @@ describe('MembersPage', () => {
       }
     });
   });
-
-  // ── Accessibility ───────────────────────────────────────────────────────────
 
   describe('accessibility', () => {
     it('provides an accessible name for the add-member form', () => {
