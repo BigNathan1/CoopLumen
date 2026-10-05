@@ -2,18 +2,18 @@ import React from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MembersPage } from '@/app/communities/[id]/members/MembersPage';
+import { useCommunity, type Community } from '@/hooks/useCommunities';
 import {
-  useCommunity,
   useCommunityMembers,
   useAddMember,
   useRemoveMember,
-  type Community,
   type CommunityMember,
-} from '@/hooks/useCommunities';
+} from '@/hooks/useCommunityMembers';
 
 // Module mocks
 
 jest.mock('@/hooks/useCommunities');
+jest.mock('@/hooks/useCommunityMembers');
 jest.mock('next/link', () => ({
   __esModule: true,
   default: ({
@@ -54,8 +54,6 @@ const COMMUNITY: Community = {
 
 function makeMember(overrides: Partial<CommunityMember> = {}): CommunityMember {
   return {
-    id: 'member-1',
-    community_id: 'comm-1',
     stellar_address: `G${'B'.repeat(55)}`,
     role: 'member',
     joined_at: '2026-03-15T00:00:00.000Z',
@@ -64,22 +62,18 @@ function makeMember(overrides: Partial<CommunityMember> = {}): CommunityMember {
 }
 
 const MEMBER_ADMIN = makeMember({
-  id: 'member-admin',
   role: 'admin',
   stellar_address: `G${'C'.repeat(55)}`,
 });
 const MEMBER_TREASURER = makeMember({
-  id: 'member-treasurer',
   role: 'treasurer',
   stellar_address: `G${'D'.repeat(55)}`,
 });
 const MEMBER_OBSERVER = makeMember({
-  id: 'member-observer',
   role: 'observer',
   stellar_address: `G${'E'.repeat(55)}`,
 });
 const MEMBER_REGULAR = makeMember({
-  id: 'member-regular',
   role: 'member',
   stellar_address: `G${'B'.repeat(55)}`,
 });

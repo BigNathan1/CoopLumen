@@ -1,13 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { useCommunity } from '@/hooks/useCommunities';
 import {
-  useCommunity,
   useCommunityMembers,
   useAddMember,
   useRemoveMember,
   type CommunityMember,
-} from '@/hooks/useCommunities';
+} from '@/hooks/useCommunityMembers';
 import { Spinner } from '@/components/ui/Spinner';
 import { Alert } from '@/components/ui/Alert';
 import { Badge, type BadgeVariant } from '@/components/ui/Badge';

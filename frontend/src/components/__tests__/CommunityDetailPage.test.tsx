@@ -1,13 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { CommunityDetailPage } from '@/app/communities/[id]/CommunityDetailPage';
-import {
-  useCommunity,
-  useCommunityMembers,
-  type Community,
-  type CommunityMember,
-} from '@/hooks/useCommunities';
+import { useCommunity, type Community } from '@/hooks/useCommunities';
+import { useCommunityMembers, type CommunityMember } from '@/hooks/useCommunityMembers';
 
 jest.mock('@/hooks/useCommunities');
+jest.mock('@/hooks/useCommunityMembers');
 // StellarAddress renders clipboard and external link buttons — stub so we
 // don't need to wire up the clipboard API in jsdom.
 jest.mock('@/components/ui/StellarAddress', () => ({
@@ -31,15 +28,11 @@ const COMMUNITY: Community = {
 
 const MEMBERS: CommunityMember[] = [
   {
-    id: 'm-1',
-    community_id: 'uuid-1',
     stellar_address: 'G' + 'C'.repeat(55),
     role: 'admin',
     joined_at: '2025-03-16T00:00:00.000Z',
   },
   {
-    id: 'm-2',
-    community_id: 'uuid-1',
     stellar_address: 'G' + 'D'.repeat(55),
     role: 'member',
     joined_at: '2025-04-01T00:00:00.000Z',

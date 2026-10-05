@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CommunityMember } from '@/hooks/useCommunities';
+import type { CommunityMember } from '@/hooks/useCommunityMembers';
 import { api, type ApiEnvelope } from '@/lib/api';
 import type { UsePaginationReturn } from '@/hooks/usePagination';
 import { Avatar } from '@/components/ui/Avatar';
@@ -11,13 +11,6 @@ import { Alert } from '@/components/ui/Alert';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PaginationInner } from '@/components/ui/Pagination';
 import styles from './MemberList.module.css';
-
-// Re-export CommunityMember so the paginated tests that import it from here
-// continue to work, even though the canonical definition lives in useCommunities.
-export type { CommunityMember };
-
-/** Short alias for consumers that refer to a row simply as a member. */
-export type Member = CommunityMember;
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -112,12 +105,10 @@ function normalizePageSize(value: number | undefined): number {
 
 function normalizeMember(value: unknown): CommunityMember {
   if (typeof value !== 'object' || value === null) {
-    return { id: '', community_id: '', stellar_address: '', role: 'member', joined_at: '' };
+    return { stellar_address: '', role: 'member', joined_at: '' };
   }
   const row = value as Record<string, unknown>;
   return {
-    id: String(row.id ?? ''),
-    community_id: String(row.community_id ?? ''),
     stellar_address: String(row.stellar_address ?? row.address ?? ''),
     role: String(row.role ?? 'member') as CommunityMember['role'],
     joined_at: String(row.joined_at ?? row.joinedAt ?? ''),
@@ -371,7 +362,7 @@ export function MemberList({
       </h2>
       <ul className={styles.list}>
         {visibleMembers.map((member) => (
-          <li key={member.id || member.stellar_address} className={styles.row}>
+          <li key={member.stellar_address} className={styles.row}>
             <Avatar address={member.stellar_address} size={40} />
             <div className={styles.info}>
               <span className={styles.address} title={member.stellar_address}>

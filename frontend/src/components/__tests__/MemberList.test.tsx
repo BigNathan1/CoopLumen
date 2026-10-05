@@ -2,14 +2,12 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { api } from '@/lib/api';
 import { MemberList } from '../MemberList';
-import type { CommunityMember } from '@/hooks/useCommunities';
+import type { CommunityMember } from '@/hooks/useCommunityMembers';
 
 // Fixtures
 
 function makeMember(overrides: Partial<CommunityMember> = {}): CommunityMember {
   return {
-    id: 'member-1',
-    community_id: 'comm-1',
     stellar_address: 'GABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEF',
     role: 'member',
     joined_at: '2025-06-01T00:00:00.000Z',
@@ -18,17 +16,15 @@ function makeMember(overrides: Partial<CommunityMember> = {}): CommunityMember {
 }
 
 const MEMBERS: CommunityMember[] = [
-  makeMember({ id: 'member-1', stellar_address: 'G' + 'A'.repeat(55), role: 'admin' }),
-  makeMember({ id: 'member-2', stellar_address: 'G' + 'B'.repeat(55), role: 'treasurer' }),
-  makeMember({ id: 'member-3', stellar_address: 'G' + 'C'.repeat(55), role: 'member' }),
-  makeMember({ id: 'member-4', stellar_address: 'G' + 'D'.repeat(55), role: 'observer' }),
+  makeMember({ stellar_address: 'G' + 'A'.repeat(55), role: 'admin' }),
+  makeMember({ stellar_address: 'G' + 'B'.repeat(55), role: 'treasurer' }),
+  makeMember({ stellar_address: 'G' + 'C'.repeat(55), role: 'member' }),
+  makeMember({ stellar_address: 'G' + 'D'.repeat(55), role: 'observer' }),
 ];
 
 function remoteMember(index: number): CommunityMember {
   const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
   return {
-    id: `remote-${index}`,
-    community_id: 'community-1',
     stellar_address: `G${letters[index % letters.length].repeat(55)}`,
     role: index % 2 === 0 ? 'member' : 'admin',
     joined_at: `2025-01-${String(index + 1).padStart(2, '0')}T12:00:00.000Z`,
