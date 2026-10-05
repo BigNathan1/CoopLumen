@@ -1,72 +1,82 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { SWRConfig } from 'swr';
-import { useEstimateFee } from '../useEstimateFee';
+import { estimateFee, useEstimateFee, type FeeStats } from '../useEstimateFee';
+
+const STATS: FeeStats = {
+  baseFee: 100,
+  lastLedger: '123456',
+  ledgerCapacityUsage: '0.42',
+  feeCharged: {
+    min: '100',
+    mode: '100',
+    p10: '100',
+    p50: '250',
+    p90: '1000',
+    p95: '2000',
+    p99: '5000',
+  },
+};
+
+const fetchMock = jest.fn();
+
+beforeAll(() => {
+  (global as { fetch?: unknown }).fetch = fetchMock;
+});
+
+afterEach(() => {
+  fetchMock.mockReset();
+});
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>{children}</SWRConfig>
 );
 
-describe('useEstimateFee', () => {
-  const mockFetch = jest.fn();
-  global.fetch = mockFetch;
-
-  beforeEach(() => {
-    jest.clearAllMocks();
+describe('estimateFee', () => {
+  it('multiplies the median per-operation fee by the operation count', () => {
+    expect(estimateFee(STATS, 3)).toBe('750');
   });
 
-  it('pauses fetching if operations are undefined', () => {
+  it('never estimates below the base fee', () => {
+    const quiet = { ...STATS, feeCharged: { ...STATS.feeCharged, p50: '50' } };
+    expect(estimateFee(quiet, 2)).toBe('200');
+  });
+});
+
+describe('useEstimateFee', () => {
+  it('does not fetch when operations are undefined', () => {
     const { result } = renderHook(() => useEstimateFee(), { wrapper });
 
-    expect(mockFetch).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(result.current.estimatedFee).toBeNull();
   });
 
-  it('pauses fetching if operations array is empty', () => {
+  it('does not fetch when the operations array is empty', () => {
     const { result } = renderHook(() => useEstimateFee([]), { wrapper });
 
-    expect(mockFetch).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(result.current.estimatedFee).toBeNull();
   });
 
-  it('fetches the fee estimate when valid operations are provided', async () => {
-    const operations = [{ type: 'payment', amount: '10' }];
-    const mockData = { fee: '1000' };
+  it('reads the fee stats and estimates the fee for the given operations', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ data: STATS }) });
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ data: mockData }),
-    });
-
+    const operations = [{ type: 'payment' }, { type: 'payment' }];
     const { result } = renderHook(() => useEstimateFee(operations), { wrapper });
 
-    await waitFor(() => {
-      expect(result.current.estimatedFee).toEqual('1000');
-    });
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/api/v1/fees/estimate'),
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({ operations }),
-      })
-    );
+    await waitFor(() => expect(result.current.estimatedFee).toBe('500'));
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:4000/api/v1/fees/estimate');
   });
 
-  it('handles API errors gracefully', async () => {
-    const operations = [{ type: 'payment', amount: '10' }];
-
-    mockFetch.mockResolvedValueOnce({
+  it('surfaces API errors', async () => {
+    fetchMock.mockResolvedValueOnce({
       ok: false,
-      json: async () => ({ error: 'Unable to calculate surge pricing' }),
+      json: async () => ({ error: 'Horizon unavailable' }),
     });
 
-    const { result } = renderHook(() => useEstimateFee(operations), { wrapper });
+    const { result } = renderHook(() => useEstimateFee([{ type: 'payment' }]), { wrapper });
 
-    await waitFor(() => {
-      expect(result.current.error).toBeDefined();
-    });
-
-    expect(result.current.error?.message).toBe('Unable to calculate surge pricing');
+    await waitFor(() => expect(result.current.error).toBeDefined());
+    expect(result.current.error?.message).toBe('Horizon unavailable');
     expect(result.current.estimatedFee).toBeNull();
   });
 });
