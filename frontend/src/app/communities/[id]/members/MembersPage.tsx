@@ -145,14 +145,14 @@ export function MembersPage({ communityId }: Props) {
 
   return (
     <div className={styles.content}>
-      {/* ── Back link ── */}
+      {/* Back link */}
       <Link href={`/communities/${communityId}`} className={styles.backLink}>
         <span className={styles.backArrow} aria-hidden="true" />
         Back to {community.name}
       </Link>
 
       <div className={styles.grid}>
-        {/* ── Left: member roster ── */}
+        {/* Left: member roster */}
         <section aria-labelledby="members-heading" className={styles.section}>
           <h2 id="members-heading" className={styles.sectionHeading}>
             Members
@@ -236,7 +236,7 @@ export function MembersPage({ communityId }: Props) {
           )}
         </section>
 
-        {/* ── Right: add member form ── */}
+        {/* Right: add member form */}
         <section aria-labelledby="add-member-heading" className={styles.section}>
           <h2 id="add-member-heading" className={styles.sectionHeading}>
             Add a member
@@ -320,7 +320,7 @@ export function MembersPage({ communityId }: Props) {
         </section>
       </div>
 
-      {/* ── Remove confirm dialog ── */}
+      {/* Remove confirm dialog */}
       <ConfirmDialog
         isOpen={Boolean(pendingRemove)}
         title="Remove member?"

@@ -42,7 +42,7 @@ export function CommunityDetailPage({ communityId }: Props) {
     isLoading: membersLoading,
   } = useCommunityMembers(communityId);
 
-  /* ── Full-page loading state ── */
+  /* Full-page loading state */
   if (communityLoading) {
     return (
       <main className={styles.page} aria-label="Community detail">
@@ -55,7 +55,7 @@ export function CommunityDetailPage({ communityId }: Props) {
     );
   }
 
-  /* ── Community fetch error ── */
+  /* Community fetch error */
   if (communityError || !community) {
     return (
       <main className={styles.page} aria-label="Community detail">
@@ -88,7 +88,7 @@ export function CommunityDetailPage({ communityId }: Props) {
         </Link>
 
         <div className={styles.grid}>
-          {/* ── Left column: hero card ── */}
+          {/* Left column: hero card */}
           <div>
             <Card>
               <div className={styles.heroCard}>
@@ -147,7 +147,7 @@ export function CommunityDetailPage({ communityId }: Props) {
             </Card>
           </div>
 
-          {/* ── Right column: member roster ── */}
+          {/* Right column: member roster */}
           <div>
             <Card>
               <MemberList
