@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { CreateCommunityForm } from '@/components/CreateCommunityForm';
+import { CreateCommunityForm } from '@/components/community/CreateCommunityForm';
 import { api, ApiError } from '@/lib/api';
 
 // Every case here drives the form through userEvent, which types each field a

@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { AddMemberForm } from '@/components/AddMemberForm';
+import { AddMemberForm } from '@/components/community/AddMemberForm';
 
 /** A syntactically valid Stellar account, as the address schema accepts. */
 const MEMBER = `G${'A'.repeat(55)}`;

@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { Select, type SelectOption } from './ui/Select';
-import { Alert } from './ui/Alert';
-import { Button } from './ui/Button';
-import { Card } from './ui/Card';
-import { Input } from './ui/Input';
+import { Select, type SelectOption } from '@/components/ui/Select';
+import { Alert } from '@/components/ui/Alert';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
 import { addMemberSchema, toFieldErrors, type MemberRole } from '@/lib/schemas';
 import styles from './AddMemberForm.module.css';
 

@@ -10,8 +10,8 @@ import {
   parseWithFieldErrors,
   type CreateCommunityInput,
 } from '@/lib/schemas';
-import { Form, FormError, FormField, FormSubmit } from './ui/Form';
-import { Button } from './ui/Button';
+import { Form, FormError, FormField, FormSubmit } from '@/components/ui/Form';
+import { Button } from '@/components/ui/Button';
 import styles from './CreateCommunityForm.module.css';
 
 /** Values held by the controlled fields in the create form. */

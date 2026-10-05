@@ -7,7 +7,7 @@ import { WalletConnect } from '@/components/wallet/WalletConnect';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { LocaleSwitcher } from '@/components/layout/LocaleSwitcher';
 import { TransactionFeed } from '@/components/TransactionFeed';
-import { CommunityCard } from '@/components/CommunityCard';
+import { CommunityCard } from '@/components/community/CommunityCard';
 import { BalancePanel } from '@/components/wallet/BalancePanel';
 import { PortfolioPanel } from '@/components/loans/PortfolioPanel';
 import { MyReputationPanel } from '@/components/reputation/MyReputationPanel';

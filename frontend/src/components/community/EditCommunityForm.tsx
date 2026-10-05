@@ -9,9 +9,9 @@ import {
   parseWithFieldErrors,
   type UpdateCommunityInput,
 } from '@/lib/schemas';
-import { Form, FormError, FormField, FormSubmit } from './ui/Form';
-import { Button } from './ui/Button';
-import { Alert } from './ui/Alert';
+import { Form, FormError, FormField, FormSubmit } from '@/components/ui/Form';
+import { Button } from '@/components/ui/Button';
+import { Alert } from '@/components/ui/Alert';
 import styles from './EditCommunityForm.module.css';
 
 /** The community fields needed to render the edit form. */

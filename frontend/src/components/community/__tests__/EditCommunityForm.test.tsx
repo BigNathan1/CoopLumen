@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { api } from '@/lib/api';
-import { EditCommunityForm } from '@/components/EditCommunityForm';
+import { EditCommunityForm } from '@/components/community/EditCommunityForm';
 
 const community = {
   id: 'community-1',
