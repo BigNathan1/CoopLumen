@@ -1,10 +1,10 @@
 .DEFAULT_GOAL := help
 
-# ── Colours ────────────────────────────────────────────────────────────────────
+# Colours
 CYAN  := \033[0;36m
 RESET := \033[0m
 
-# ── Help ───────────────────────────────────────────────────────────────────────
+# Help
 .PHONY: help
 help:
 	@echo ""
@@ -28,14 +28,14 @@ help:
 	@echo "  $(CYAN)make clean$(RESET)        Remove build artefacts and coverage reports"
 	@echo ""
 
-# ── Dependencies ───────────────────────────────────────────────────────────────
+# Dependencies
 .PHONY: install
 install:
 	npm install
 	cd backend && npm install
 	cd frontend && npm install
 
-# ── Development ────────────────────────────────────────────────────────────────
+# Development
 .PHONY: dev
 dev:
 	docker-compose up
@@ -53,13 +53,13 @@ dev-local:
 stop:
 	docker-compose down
 
-# ── Build ──────────────────────────────────────────────────────────────────────
+# Build
 .PHONY: build
 build:
 	cd backend && npm run build
 	cd frontend && npm run build
 
-# ── Code quality ───────────────────────────────────────────────────────────────
+# Code quality
 .PHONY: lint
 lint:
 	cd backend && npm run lint
@@ -86,7 +86,7 @@ type-check:
 .PHONY: check
 check: lint type-check format-check
 
-# ── Testing ────────────────────────────────────────────────────────────────────
+# Testing
 .PHONY: test
 test:
 	cd backend && npm test
@@ -105,7 +105,7 @@ coverage:
 	cd backend && npm run test:coverage
 	cd frontend && npm run test:coverage
 
-# ── Database ───────────────────────────────────────────────────────────────────
+# Database
 .PHONY: migrate
 migrate:
 	cd backend && npm run db:migrate
@@ -118,7 +118,7 @@ seed:
 db-status:
 	cd backend && npm run db:status
 
-# ── Cleanup ────────────────────────────────────────────────────────────────────
+# Cleanup
 .PHONY: clean
 clean:
 	rm -rf backend/dist
