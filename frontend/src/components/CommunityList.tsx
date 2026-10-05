@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { CommunityCard, type DiscoverableCommunity } from './CommunityCard';
+import { CommunityCard, type DiscoverableCommunity } from '@/components/CommunityCard';
 
 interface CommunityListProps {
   initialCommunities: DiscoverableCommunity[];

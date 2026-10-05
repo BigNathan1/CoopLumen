@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { TransferTokenForm, type TransferAsset } from '../TransferTokenForm';
+import { TransferTokenForm, type TransferAsset } from '@/components/TransferTokenForm';
 import { api } from '@/lib/api';
 
 const SENDER = `G${'A'.repeat(55)}`;

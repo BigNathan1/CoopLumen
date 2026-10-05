@@ -1,5 +1,5 @@
 import React from 'react';
-import { Header } from '@/components/Header';
+import { Header } from '@/components/layout/Header';
 import { CommunityList } from '@/components/CommunityList';
 import type { DiscoverableCommunity } from '@/components/CommunityCard';
 

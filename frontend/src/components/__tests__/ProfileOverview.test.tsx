@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ProfileOverview } from '../ProfileOverview';
+import { ProfileOverview } from '@/components/ProfileOverview';
 import { useBalances, type Balance } from '@/hooks/useBalances';
 import { useMemberships, type Membership } from '@/hooks/useMemberships';
 import { useWallet } from '@/hooks/useWallet';

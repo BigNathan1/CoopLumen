@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MultiSigProposalDetail } from '../MultiSigProposalDetail';
-import { MultiSigProposalList, MultiSigProposal } from '../../MultiSigProposalList';
+import { MultiSigProposalList, MultiSigProposal } from '@/components/MultiSigProposalList';
 import type { MultiSigRequest } from '../../../hooks/useMultiSig';
 
 /**

@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { api } from '@/lib/api';
-import { MemberList } from '../MemberList';
+import { MemberList } from '@/components/MemberList';
 import type { CommunityMember } from '@/hooks/useCommunityMembers';
 
 // Fixtures

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { CommunityList } from '../CommunityList';
-import type { DiscoverableCommunity } from '../CommunityCard';
+import { CommunityList } from '@/components/CommunityList';
+import type { DiscoverableCommunity } from '@/components/CommunityCard';
 
 function makeCommunity(i: number, overrides: Partial<DiscoverableCommunity> = {}) {
   return {

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useId, useState } from 'react';
-import { ThemeToggle } from '@/components/ThemeToggle';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import styles from './LandingNav.module.css';
 
 /** In-page anchors, in the order the sections appear. */

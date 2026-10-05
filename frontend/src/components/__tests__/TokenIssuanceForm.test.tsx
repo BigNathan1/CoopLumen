@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { TokenIssuanceForm } from '../TokenIssuanceForm';
+import { TokenIssuanceForm } from '@/components/TokenIssuanceForm';
 
 /** A syntactically valid Stellar account, as the address schema accepts. */
 const ISSUER = `G${'A'.repeat(55)}`;

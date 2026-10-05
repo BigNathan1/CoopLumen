@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { CommunityCard } from '../CommunityCard';
+import { CommunityCard } from '@/components/CommunityCard';
 import type { Community } from '@/hooks/useCommunities';
 
 const mockCommunity: Community = {

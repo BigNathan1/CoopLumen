@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MultiSigProposalList, MultiSigProposal } from '../MultiSigProposalList';
+import { MultiSigProposalList, MultiSigProposal } from '@/components/MultiSigProposalList';
 
 const MOCK_PROPOSALS: MultiSigProposal[] = [
   {

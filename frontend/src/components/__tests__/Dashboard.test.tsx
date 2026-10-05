@@ -1,13 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Dashboard } from '../Dashboard';
+import { Dashboard } from '@/components/Dashboard';
 import { useCommunities, type Community } from '@/hooks/useCommunities';
 import { useWallet } from '@/hooks/useWallet';
 
 jest.mock('@/hooks/useCommunities');
 jest.mock('@/hooks/useWallet');
 
-jest.mock('../ThemeToggle', () => ({
+jest.mock('@/components/layout/ThemeToggle', () => ({
   ThemeToggle: () => <button type="button">Toggle theme</button>,
 }));
 
@@ -26,11 +26,11 @@ jest.mock('@/components/wallet/BalancePanel', () => ({
  * provides in the app. Stubbing them keeps this suite about Dashboard's own
  * wiring; each has its own suite for its behaviour.
  */
-jest.mock('../LocaleSwitcher', () => ({
+jest.mock('@/components/layout/LocaleSwitcher', () => ({
   LocaleSwitcher: () => <div data-testid="locale-switcher" />,
 }));
 
-jest.mock('../TransactionFeed', () => ({
+jest.mock('@/components/TransactionFeed', () => ({
   TransactionFeed: ({ publicKey }: { publicKey: string | null }) => (
     <div data-testid="transaction-feed">{publicKey ?? 'no-account'}</div>
   ),

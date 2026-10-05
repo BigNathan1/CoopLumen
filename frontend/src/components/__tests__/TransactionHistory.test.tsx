@@ -4,7 +4,7 @@ import {
   formatAmount,
   truncateHash,
   type TransactionHistoryItem,
-} from '../TransactionHistory';
+} from '@/components/TransactionHistory';
 
 const HASH = 'a3f1c9d2e4b7a8f0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4';
 
