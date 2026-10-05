@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { CommunityTransactions } from '@/components/CommunityTransactions';
+import { CommunityTransactions } from '@/components/transactions/CommunityTransactions';
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 
 export const metadata: Metadata = {

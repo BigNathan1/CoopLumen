@@ -1,66 +1,55 @@
 import useSWR from 'swr';
+import { fetcher } from '@/lib/swr';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
-
-export interface FeeEstimateResponse {
-  fee: string; // The estimated fee string (e.g., in stroops or lumens depending on backend config)
-  base_fee?: string;
-  surge_multiplier?: number;
+/** Response of `GET /api/v1/fees/estimate`; fee values are stroops per operation. */
+export interface FeeStats {
+  baseFee: number;
+  lastLedger: string;
+  ledgerCapacityUsage: string;
+  feeCharged: {
+    min: string;
+    mode: string;
+    p10: string;
+    p50: string;
+    p90: string;
+    p95: string;
+    p99: string;
+  };
 }
 
 /**
- * Custom fetcher that serializes the operations array into a POST request.
+ * Estimated total fee, in stroops, for a transaction with `operationCount`
+ * operations: the median per-operation fee recently charged on the network,
+ * never less than the base fee.
  */
-async function estimateFetcher([url, operations]: [
-  string,
-  Record<string, unknown>[],
-]): Promise<FeeEstimateResponse> {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ operations }),
-  });
-
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? 'Failed to estimate fee');
-  }
-
-  // Assume the backend returns the estimate wrapped in `{ data: { fee: "100" } }` or similar standard wrapper
-  const json = await res.json();
-  return json.data ?? json;
+export function estimateFee(stats: FeeStats, operationCount: number): string {
+  const perOperation = Math.max(stats.baseFee, Number(stats.feeCharged.p50) || 0);
+  return String(perOperation * operationCount);
 }
 
 /**
- * Hook to fetch the estimated transaction fee based on a given set of operations.
- * If the operations array is empty or undefined, the hook pauses and does not fetch.
+ * Estimated fee for a transaction built from `operations`, shown before
+ * signing so users are not surprised by a rejection on a busy network.
  *
- * @param operations Array of operations that will be included in the transaction
- * @returns { estimatedFee, isLoading, error }
+ * The request is skipped until there is at least one operation. Fee stats are
+ * shared across every caller and refreshed at most every 5 seconds.
  *
  * @example
  * ```tsx
- * const operations = [{ type: 'payment', destination: 'GABC...', amount: '100' }];
- * const { estimatedFee, isLoading, error } = useEstimateFee(operations);
+ * const { estimatedFee } = useEstimateFee([{ type: 'payment', amount: '100' }]);
  * ```
  */
-export function useEstimateFee(operations?: Record<string, unknown>[]) {
-  const shouldFetch = operations && operations.length > 0;
+export function useEstimateFee(operations?: unknown[]) {
+  const operationCount = operations?.length ?? 0;
 
-  const { data, error, isLoading, isValidating } = useSWR<FeeEstimateResponse, Error>(
-    // Serialize operations into the key via tuple to trigger re-fetches when operations change
-    shouldFetch ? [`${API_URL}/api/v1/fees/estimate`, operations] : null,
-    estimateFetcher,
-    {
-      keepPreviousData: true,
-      dedupingInterval: 5000,
-    }
+  const { data, error, isLoading, isValidating } = useSWR<FeeStats, Error>(
+    operationCount > 0 ? '/api/v1/fees/estimate' : null,
+    fetcher,
+    { keepPreviousData: true, dedupingInterval: 5000 }
   );
 
   return {
-    estimatedFee: data?.fee ?? null,
+    estimatedFee: data && operationCount > 0 ? estimateFee(data, operationCount) : null,
     isLoading,
     isValidating,
     error,

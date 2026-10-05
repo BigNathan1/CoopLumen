@@ -30,7 +30,7 @@ export function idempotent(endpoint: string) {
       }
 
       const originalJson = res.json.bind(res);
-      res.json = (body: unknown) => {
+      res.json = (body: unknown): Response => {
         if (res.statusCode < 500) {
           db.query(
             `INSERT INTO idempotency_keys (key, endpoint, response_body, status_code)

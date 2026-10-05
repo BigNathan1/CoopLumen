@@ -1,7 +1,7 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { SWRConfig } from 'swr';
 import { useCommunityMembers } from '../useCommunityMembers';
-import { swrConfig } from '../SWRProvider';
+import { swrConfig } from '@/lib/swr';
 
 const fetchMock = jest.fn();
 

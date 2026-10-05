@@ -1,5 +1,5 @@
 import useSWR from 'swr';
-import { fetcher } from './SWRProvider';
+import { fetcher } from '@/lib/swr';
 
 export type LoanStatus = 'pending' | 'active' | 'repaid' | 'defaulted' | 'cancelled';
 

@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { api } from '@/lib/api';
-import { useAddMember } from '../useCommunities';
+import { useAddMember } from '../useCommunityMembers';
 
 jest.mock('swr', () => ({
   ...jest.requireActual<object>('swr'),
@@ -36,7 +36,11 @@ describe('useAddMember', () => {
 
     expect(created).toEqual(member);
     expect(post).toHaveBeenCalledWith(`/api/v1/communities/${communityId}/members`, input);
-    expect(mutate).toHaveBeenCalledWith(`/api/v1/communities/${communityId}/members`);
+    expect(mutate).toHaveBeenCalledTimes(1);
+    const [matches] = mutate.mock.calls[0] as [(key: unknown) => boolean];
+    expect(matches(`/api/v1/communities/${communityId}/members`)).toBe(true);
+    expect(matches(`/api/v1/communities/${communityId}/members?page=2`)).toBe(true);
+    expect(matches('/api/v1/communities/other/members')).toBe(false);
     expect(result.current.error).toBeNull();
     expect(result.current.submitting).toBe(false);
   });

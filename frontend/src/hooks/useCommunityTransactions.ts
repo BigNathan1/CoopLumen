@@ -1,6 +1,6 @@
 import useSWR from 'swr';
 import { api } from '@/lib/api';
-import type { TransactionHistoryItem } from '@/components/TransactionHistory';
+import type { TransactionHistoryItem } from '@/components/transactions/TransactionHistory';
 
 /** A row of the backend's `transactions_log` audit table. */
 export interface TransactionLogRow {

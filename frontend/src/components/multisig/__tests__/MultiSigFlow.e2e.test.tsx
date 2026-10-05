@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MultiSigProposalDetail } from '../MultiSigProposalDetail';
-import { MultiSigProposalList, MultiSigProposal } from '../../MultiSigProposalList';
-import type { MultiSigRequest } from '../../../hooks/useMultiSig';
+import { MultiSigProposalList, MultiSigProposal } from '../MultiSigProposalList';
+import type { MultiSigRequest } from '@/hooks/useMultiSig';
 
 /**
  * End-to-End Simulation Component for Multi-Sig Propose, Co-Sign, and Execute Workflow

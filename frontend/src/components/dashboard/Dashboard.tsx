@@ -1,0 +1,124 @@
+'use client';
+
+import Link from 'next/link';
+import { useCommunities } from '@/hooks/useCommunities';
+import { useWallet } from '@/hooks/useWallet';
+import { WalletConnect } from '@/components/wallet/WalletConnect';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
+import { LocaleSwitcher } from '@/components/layout/LocaleSwitcher';
+import { TransactionFeed } from '@/components/transactions/TransactionFeed';
+import { CommunityCard } from '@/components/community/CommunityCard';
+import { BalancePanel } from '@/components/wallet/BalancePanel';
+import { PortfolioPanel } from '@/components/loans/PortfolioPanel';
+import { MyReputationPanel } from '@/components/reputation/MyReputationPanel';
+import { ReputationPanel } from '@/components/reputation/ReputationPanel';
+import { LoansSection } from '@/components/loans/LoansSection';
+import { CreateLoanForm } from '@/components/loans/CreateLoanForm';
+import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
+import { Button } from '@/components/ui/Button';
+import styles from './Dashboard.module.css';
+import { EmptyState } from '@/components/ui/EmptyState';
+
+/** Placeholder cards shown in the grid while communities are loading. */
+const SKELETON_CARD_COUNT = 6;
+
+export function Dashboard() {
+  const { data: communities, error, isLoading, mutate } = useCommunities();
+  const { publicKey, connected } = useWallet();
+
+  return (
+    <div className={styles.layout}>
+      <header className={styles.header}>
+        {/* The brand doubles as the way back to the landing page at `/`. */}
+        <Link href="/" className={styles.brand}>
+          <span aria-hidden="true" className={styles.logo}>
+            ◆
+          </span>
+          <h1 className={styles.title}>CoopLumen</h1>
+          <span className={styles.tagline}>Decentralized Community Finance</span>
+        </Link>
+
+        <div className={styles.actions}>
+          <LocaleSwitcher />
+          <ThemeToggle />
+          <WalletConnect />
+        </div>
+      </header>
+
+      <div className={styles.content}>
+        <aside className={styles.sidebar}>
+          {connected && publicKey && <BalancePanel publicKey={publicKey} />}
+          <TransactionFeed publicKey={connected ? publicKey : null} />
+          {connected && publicKey && <PortfolioPanel address={publicKey} />}
+          {connected && publicKey && <MyReputationPanel address={publicKey} />}
+          <ReputationPanel />
+        </aside>
+
+        <div className={styles.main}>
+          <section>
+            <div className={styles.sectionHeader}>
+              <h2>Communities</h2>
+              <span className={styles.count}>{communities?.length ?? 0} registered</span>
+            </div>
+
+            {isLoading && (
+              <div className={styles.grid}>
+                {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
+                  <div key={index} className={styles.skeletonCard}>
+                    <LoadingSkeleton
+                      variant="text"
+                      width="40%"
+                      decorative={index !== 0}
+                      label={index === 0 ? 'Loading communities' : undefined}
+                    />
+                    <LoadingSkeleton variant="text" count={2} lastLineWidth="60%" decorative />
+                    <LoadingSkeleton variant="text" width="80%" decorative />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {error && (
+              <div className={`${styles.state} ${styles.error}`} role="alert">
+                <p>Could not load communities. Is the API running?</p>
+                <Button variant="secondary" size="sm" onClick={() => void mutate()}>
+                  Retry
+                </Button>
+              </div>
+            )}
+
+            {!isLoading && !error && communities?.length === 0 && (
+              <EmptyState
+                title="No communities yet"
+                message="Create the first community to get started."
+                action={
+                  <a
+                    href="https://github.com/yourname/cooplumen#quickstart"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Create the first one
+                  </a>
+                }
+              />
+            )}
+
+            {!isLoading && (
+              <div className={styles.grid}>
+                {communities?.map((c) => (
+                  <CommunityCard key={c.id} community={c} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {connected && publicKey && communities && communities.length > 0 && (
+            <CreateLoanForm lenderAddress={publicKey} communities={communities} />
+          )}
+
+          <LoansSection communities={communities} />
+        </div>
+      </div>
+    </div>
+  );
+}

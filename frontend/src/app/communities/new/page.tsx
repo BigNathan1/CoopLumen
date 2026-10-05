@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { CreateCommunityForm } from '@/components/CreateCommunityForm';
+import { CreateCommunityForm } from '@/components/community/CreateCommunityForm';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {

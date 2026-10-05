@@ -35,6 +35,7 @@ module.exports = {
         project: './tsconfig.test.json',
       },
       rules: {
+        '@typescript-eslint/explicit-function-return-type': 'off',
         '@typescript-eslint/no-explicit-any': 'off',
         '@typescript-eslint/no-unsafe-member-access': 'off',
         '@typescript-eslint/no-unsafe-assignment': 'off',
@@ -44,6 +45,14 @@ module.exports = {
         '@typescript-eslint/unbound-method': 'off',
         '@typescript-eslint/require-await': 'off',
         '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      },
+    },
+    {
+      // The migration CLI reports to stdout, and the opt-in testnet suites print
+      // account keys and transaction hashes for checking on a block explorer.
+      files: ['src/db/migrate.ts', '**/*.testnet.test.ts'],
+      rules: {
+        'no-console': 'off',
       },
     },
   ],

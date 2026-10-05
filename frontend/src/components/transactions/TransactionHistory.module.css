@@ -1,55 +1,70 @@
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.entry {
-  display: flex;
+.hashCell {
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: 10px 14px;
-  font-size: 0.8rem;
+  display: inline-flex;
+  gap: var(--space-2);
 }
 
-.actor {
-  font-family: monospace;
-  color: var(--color-text-muted);
-}
-
-.hash {
-  font-family: monospace;
+.hashLink {
   color: var(--color-primary);
   text-decoration: none;
 }
 
-.hash:hover {
+.hashLink:hover {
   text-decoration: underline;
 }
 
-.time {
-  margin-left: auto;
+.hashLink:focus-visible,
+.copyButton:focus-visible {
+  border-radius: var(--radius-sm);
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.hashLink code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+}
+
+.copyButton {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
   color: var(--color-text-muted);
+  cursor: pointer;
+  font: inherit;
   font-size: 0.75rem;
+  padding: 2px var(--space-2);
+  white-space: nowrap;
 }
 
-.state {
-  padding: 40px 20px;
-  text-align: center;
+.copyButton:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.amountHeader {
+  text-align: right;
+}
+
+.amountCell {
+  text-align: right;
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.asset {
   color: var(--color-text-muted);
-  font-size: 0.9rem;
 }
 
-.error {
-  color: var(--color-error);
+.date {
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--color-text-muted);
 }

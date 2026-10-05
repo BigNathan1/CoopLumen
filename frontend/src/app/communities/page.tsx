@@ -1,7 +1,7 @@
 import React from 'react';
-import { Header } from '@/components/Header';
-import { CommunityList } from '@/components/CommunityList';
-import type { DiscoverableCommunity } from '@/components/CommunityCard';
+import { Header } from '@/components/layout/Header';
+import { CommunityList } from '@/components/community/CommunityList';
+import type { DiscoverableCommunity } from '@/components/community/CommunityCard';
 
 // Mock data generator for MVP phase, until the discovery endpoint lands.
 const SECTORS = ['energy', 'farming', 'housing', 'software', 'logistics'];

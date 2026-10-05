@@ -2,7 +2,7 @@ import { renderHook, act } from '@testing-library/react';
 import { api } from '@/lib/api';
 import { useCreateCommunity } from '@/hooks/useCreateCommunity';
 
-// ── Mocks ─────────────────────────────────────────────────────────────────────
+// Mocks
 
 // mutate is a module-level SWR function; stub it so tests don't trigger real
 // SWR revalidation cycles.
@@ -48,8 +48,6 @@ function mockFetchOk(data: unknown) {
 function mockFetchError(errorMessage: string) {
   postMock.mockRejectedValueOnce(new Error(errorMessage));
 }
-
-// ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('useCreateCommunity', () => {
   it('returns initial state with loading=false and error=null', () => {

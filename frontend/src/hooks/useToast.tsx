@@ -44,10 +44,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const idCounterRef = useRef(0);
   const timersRef = useRef<Record<string, NodeJS.Timeout>>({});
 
+  const dismiss = useCallback((id: string) => {
+    if (timersRef.current[id]) {
+      clearTimeout(timersRef.current[id]);
+      delete timersRef.current[id];
+    }
+
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
   const createToast = useCallback(
     (message: string, variant: ToastVariant, options: ToastOptions = {}) => {
       const id = `toast-${++idCounterRef.current}`;
-      const duration = options.duration ?? 4000; // Default 4s
+      const duration = options.duration ?? 4000;
       const dismissible = options.dismissible ?? true;
 
       const newToast: Toast = {
@@ -69,21 +78,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         timersRef.current[id] = timer;
       }
     },
-    []
+    [dismiss]
   );
 
-  const dismiss = useCallback((id: string) => {
-    // Clear any pending timer
-    if (timersRef.current[id]) {
-      clearTimeout(timersRef.current[id]);
-      delete timersRef.current[id];
-    }
-
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
-
   const dismissAll = useCallback(() => {
-    // Clear all timers
     Object.values(timersRef.current).forEach(clearTimeout);
     timersRef.current = {};
 

@@ -24,7 +24,7 @@
   gap: var(--space-8);
 }
 
-/* ─── Back navigation ────────────────────────────────────────────────────── */
+/* Back navigation */
 
 .backLink {
   display: inline-flex;
@@ -51,7 +51,7 @@
   flex-shrink: 0;
 }
 
-/* ─── Page header ────────────────────────────────────────────────────────── */
+/* Page header */
 
 .header {
   display: flex;
@@ -74,7 +74,7 @@
   margin: 0;
 }
 
-/* ─── Form card ──────────────────────────────────────────────────────────── */
+/* Form card */
 
 .card {
   background: var(--color-surface);

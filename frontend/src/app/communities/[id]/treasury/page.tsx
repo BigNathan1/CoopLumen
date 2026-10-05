@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { TreasuryOverview } from '@/components/TreasuryOverview';
+import { TreasuryOverview } from '@/components/treasury/TreasuryOverview';
 
 export const metadata: Metadata = {
   title: 'Treasury | CoopLumen',

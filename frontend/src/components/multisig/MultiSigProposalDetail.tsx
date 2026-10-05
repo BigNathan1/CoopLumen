@@ -8,7 +8,7 @@ import { StellarAddress } from '../ui/StellarAddress';
 import { ProgressBar } from '../ui/ProgressBar';
 import { Alert } from '../ui/Alert';
 import { Table } from '../ui/Table';
-import type { MultiSigRequest, MultiSigSignerStatus } from '../../hooks/useMultiSig';
+import type { MultiSigRequest, MultiSigSignerStatus } from '@/hooks/useMultiSig';
 import styles from './MultiSigProposalDetail.module.css';
 
 export interface MultiSigProposalDetailProps {

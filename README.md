@@ -78,11 +78,20 @@ cooplumen/
 │   │   ├── app/                # Routes, layout, global CSS
 │   │   ├── components/
 │   │   │   ├── ui/             # Design-system primitives
+│   │   │   ├── layout/         # Header, footer, sidebar, navigation, theme and locale
+│   │   │   ├── community/      # Community and member forms and lists
+│   │   │   ├── dashboard/      # Dashboard view
+│   │   │   ├── landing/        # Marketing landing page
 │   │   │   ├── loans/          # Lending flow
+│   │   │   ├── multisig/       # Multi-signature proposals
+│   │   │   ├── profile/        # Account profile
 │   │   │   ├── reputation/     # Borrower reputation
+│   │   │   ├── tokens/         # Token issuance, transfer and listing
+│   │   │   ├── transactions/   # Transaction history and live feed
+│   │   │   ├── treasury/       # Treasury balances and signers
 │   │   │   └── wallet/         # Wallet connection and balances
-│   │   ├── hooks/              # useWallet, useCommunities, useBalances
-│   │   └── lib/                # API client, schemas, design tokens
+│   │   ├── hooks/              # SWR data-fetching and mutation hooks
+│   │   └── lib/                # API client, SWR config, schemas, design tokens
 │   ├── Dockerfile
 │   └── package.json
 ├── docs/                       # Architecture, database, CI/CD, OpenAPI spec

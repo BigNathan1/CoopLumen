@@ -24,7 +24,7 @@
   gap: var(--space-8);
 }
 
-/* ─── Back navigation ────────────────────────────────────────────────────── */
+/* Back navigation */
 
 .backLink {
   display: inline-flex;
@@ -52,7 +52,7 @@
   flex-shrink: 0;
 }
 
-/* ─── Hero / header card ─────────────────────────────────────────────────── */
+/* Hero / header card */
 
 .heroCard {
   display: flex;
@@ -97,7 +97,7 @@
   margin: 0;
 }
 
-/* ─── Stats row ──────────────────────────────────────────────────────────── */
+/* Stats row */
 
 .statsRow {
   display: grid;
@@ -130,7 +130,7 @@
   font-size: 0.8125rem;
 }
 
-/* ─── Layout grid (hero + members) ──────────────────────────────────────── */
+/* Layout grid (hero + members) */
 
 .grid {
   display: grid;
@@ -145,7 +145,7 @@
   }
 }
 
-/* ─── Loading / error full-page states ───────────────────────────────────── */
+/* Loading / error full-page states */
 
 .centred {
   display: flex;

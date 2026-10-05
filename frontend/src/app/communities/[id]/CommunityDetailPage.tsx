@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useCommunity, useCommunityMembers } from '@/hooks/useCommunities';
+import { useCommunity } from '@/hooks/useCommunities';
+import { useCommunityMembers } from '@/hooks/useCommunityMembers';
 import { Card } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { Alert } from '@/components/ui/Alert';
 import { StellarAddress } from '@/components/ui/StellarAddress';
-import { MemberList } from '@/components/MemberList';
+import { MemberList } from '@/components/community/MemberList';
 import styles from './CommunityDetailPage.module.css';
 
 interface Props {

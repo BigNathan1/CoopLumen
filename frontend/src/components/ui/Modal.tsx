@@ -125,7 +125,6 @@ export function Modal({
       }
     }, 0);
 
-    // Cleanup
     return () => {
       clearTimeout(timer);
       document.removeEventListener('keydown', handleKeyDown);

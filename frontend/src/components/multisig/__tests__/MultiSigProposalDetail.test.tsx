@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MultiSigProposalDetail } from '../MultiSigProposalDetail';
-import type { MultiSigRequest } from '../../../hooks/useMultiSig';
+import type { MultiSigRequest } from '@/hooks/useMultiSig';
 
 const mockRequest: MultiSigRequest = {
   id: 'req-101',

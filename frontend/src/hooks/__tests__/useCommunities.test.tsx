@@ -1,13 +1,7 @@
 import { renderHook } from '@testing-library/react';
-import {
-  useCommunities,
-  useCommunity,
-  useCommunityMembers,
-  type Community,
-  type CommunityMember,
-} from '../useCommunities';
+import { useCommunities, useCommunity, type Community } from '../useCommunities';
 
-// ─── Fixtures ─────────────────────────────────────────────────────────────────
+// Fixtures
 
 const MOCK_COMMUNITY: Community = {
   id: 'uuid-1',
@@ -19,24 +13,7 @@ const MOCK_COMMUNITY: Community = {
   created_at: '2025-01-01T00:00:00.000Z',
 };
 
-const MOCK_MEMBERS: CommunityMember[] = [
-  {
-    id: 'm-1',
-    community_id: 'uuid-1',
-    stellar_address: 'G' + 'C'.repeat(55),
-    role: 'admin',
-    joined_at: '2025-01-02T00:00:00.000Z',
-  },
-  {
-    id: 'm-2',
-    community_id: 'uuid-1',
-    stellar_address: 'G' + 'D'.repeat(55),
-    role: 'member',
-    joined_at: '2025-03-01T00:00:00.000Z',
-  },
-];
-
-// ─── SWR mock ─────────────────────────────────────────────────────────────────
+// SWR mock
 
 type CapturedCall = {
   key: string | null;
@@ -56,7 +33,7 @@ jest.mock('swr', () => ({
   mutate: jest.fn(),
 }));
 
-// ─── Fetch mock ───────────────────────────────────────────────────────────────
+// Fetch mock
 
 function jsonResponse(status: number, body: unknown) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
@@ -73,8 +50,6 @@ beforeEach(() => {
   fetchMock.mockReset();
   lastCall = undefined;
 });
-
-// ─── useCommunities ───────────────────────────────────────────────────────────
 
 describe('useCommunities', () => {
   it('requests the base endpoint when called without filters', () => {
@@ -114,8 +89,6 @@ describe('useCommunities', () => {
   });
 });
 
-// ─── useCommunity ─────────────────────────────────────────────────────────────
-
 describe('useCommunity', () => {
   it('does not fetch when id is empty', () => {
     renderHook(() => useCommunity(''));
@@ -143,54 +116,5 @@ describe('useCommunity', () => {
     await expect(lastCall?.fetcher('/api/v1/communities/missing')).rejects.toThrow(
       'Request failed'
     );
-  });
-});
-
-// ─── useCommunityMembers ──────────────────────────────────────────────────────
-
-describe('useCommunityMembers', () => {
-  it('passes a null key when communityId is falsy so SWR skips the fetch', () => {
-    renderHook(() => useCommunityMembers(''));
-    expect(lastCall?.key).toBeNull();
-  });
-
-  it('fires a request to the members endpoint when communityId is provided', () => {
-    renderHook(() => useCommunityMembers('uuid-1'));
-    expect(lastCall?.key).toMatch(/\/api\/v1\/communities\/uuid-1\/members/);
-  });
-
-  it('resolves the unwrapped members list on a successful response', async () => {
-    renderHook(() => useCommunityMembers('uuid-1'));
-    fetchMock.mockResolvedValue(jsonResponse(200, { data: MOCK_MEMBERS }));
-
-    await expect(lastCall?.fetcher(lastCall?.key as string)).resolves.toEqual(MOCK_MEMBERS);
-  });
-
-  it('rejects with an error message when the fetch fails', async () => {
-    renderHook(() => useCommunityMembers('uuid-1'));
-    fetchMock.mockResolvedValue(jsonResponse(500, { error: 'Internal server error' }));
-
-    await expect(lastCall?.fetcher(lastCall?.key as string)).rejects.toThrow(
-      'Internal server error'
-    );
-  });
-
-  describe('CommunityMember interface', () => {
-    it('has the expected shape fields', () => {
-      const member: CommunityMember = MOCK_MEMBERS[0];
-      expect(member).toHaveProperty('id');
-      expect(member).toHaveProperty('community_id');
-      expect(member).toHaveProperty('stellar_address');
-      expect(member).toHaveProperty('role');
-      expect(member).toHaveProperty('joined_at');
-    });
-
-    it('accepts all valid role values', () => {
-      const roles: CommunityMember['role'][] = ['admin', 'treasurer', 'member', 'observer'];
-      roles.forEach((role) => {
-        const m: CommunityMember = { ...MOCK_MEMBERS[0], role };
-        expect(m.role).toBe(role);
-      });
-    });
   });
 });

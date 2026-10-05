@@ -1,5 +1,5 @@
 import useSWR from 'swr';
-import { fetcher } from './SWRProvider';
+import { fetcher } from '@/lib/swr';
 
 export interface Balance {
   asset_type: string;

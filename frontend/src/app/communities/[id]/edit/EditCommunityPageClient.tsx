@@ -5,7 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { api, isApiError } from '@/lib/api';
 import type { UpdateCommunityInput } from '@/lib/schemas';
-import { EditCommunityForm, type EditableCommunity } from '@/components/EditCommunityForm';
+import {
+  EditCommunityForm,
+  type EditableCommunity,
+} from '@/components/community/EditCommunityForm';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';

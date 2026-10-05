@@ -1,6 +1,6 @@
 import useSWR from 'swr';
 import type { Balance } from './useBalances';
-import { fetcher } from './SWRProvider';
+import { fetcher } from '@/lib/swr';
 
 export interface AccountSigner {
   key: string;
