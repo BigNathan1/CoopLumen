@@ -157,10 +157,10 @@ async function fetchFromKraken(currency: string): Promise<XlmPriceResult> {
  */
 export async function fetchXlmPrice(currency = 'USD'): Promise<XlmPriceResult> {
   const providers: Array<[string, () => Promise<XlmPriceResult>]> = [
-    ['coingecko', () => fetchFromCoinGecko(currency)],
-    ['binance', () => fetchFromBinance(currency)],
-    ['coinbase', () => fetchFromCoinbase(currency)],
-    ['kraken', () => fetchFromKraken(currency)],
+    ['coingecko', (): Promise<XlmPriceResult> => fetchFromCoinGecko(currency)],
+    ['binance', (): Promise<XlmPriceResult> => fetchFromBinance(currency)],
+    ['coinbase', (): Promise<XlmPriceResult> => fetchFromCoinbase(currency)],
+    ['kraken', (): Promise<XlmPriceResult> => fetchFromKraken(currency)],
   ];
 
   const errors: string[] = [];

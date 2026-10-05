@@ -1,11 +1,11 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { type RateLimitRequestHandler } from 'express-rate-limit';
 
 const isTest = process.env.NODE_ENV === 'test';
 
 const isReadOnlyMethod = (method: string): boolean =>
   method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
 
-const createWriteLimiter = () =>
+const createWriteLimiter = (): RateLimitRequestHandler =>
   rateLimit({
     windowMs: 60 * 1000,
     max: 10,

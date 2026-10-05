@@ -12,6 +12,7 @@ import { logger } from '../utils/logger';
  * agreeing. Taking ReturnType of this factory keeps them identical without
  * naming any of redis's generics, so it survives the next change to them too.
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type -- inferred on purpose, see above
 function createRedisClient() {
   return createClient({ url: process.env.REDIS_URL });
 }

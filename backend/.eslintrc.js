@@ -35,6 +35,7 @@ module.exports = {
         project: './tsconfig.test.json',
       },
       rules: {
+        '@typescript-eslint/explicit-function-return-type': 'off',
         '@typescript-eslint/no-explicit-any': 'off',
         '@typescript-eslint/no-unsafe-member-access': 'off',
         '@typescript-eslint/no-unsafe-assignment': 'off',
