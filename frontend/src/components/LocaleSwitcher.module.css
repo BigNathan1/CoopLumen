@@ -17,8 +17,7 @@
 }
 
 .icon {
-  font-size: 0.9rem;
-  line-height: 1;
+  flex-shrink: 0;
 }
 
 .select {

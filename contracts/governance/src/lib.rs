@@ -759,7 +759,7 @@ mod test {
 
         // total_supply = 10_000 (from setup_test); quorum_bps = 5000 (50%)
         // required participation = 10_000 * 5000 / 10_000 = 5000
-        // actual participation   = 6000 (FOR) >= 5000 ✓
+        // actual participation   = 6000 (FOR) >= 5000, so quorum is met
         let (id, _) = create_and_finalize(&env, &client, &token, 6000);
 
         client.execute_proposal(&id, &executor);
