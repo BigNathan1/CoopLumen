@@ -16,6 +16,16 @@ updates:
       # human to actually read the changelog.
       minor-and-patch:
         update-types: ['minor', 'patch']
+    ignore:
+      # These majors need code migrations, not just a version bump — upgrade
+      # them deliberately in their own PR instead of letting Dependabot open
+      # one that will fail CI.
+      - dependency-name: '@stellar/stellar-sdk'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'express'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'eslint'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: 'npm'
     directory: '/frontend'
@@ -25,6 +35,11 @@ updates:
     groups:
       minor-and-patch:
         update-types: ['minor', 'patch']
+    ignore:
+      - dependency-name: 'eslint'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'eslint-config-next'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: 'docker'
     directory: '/backend'
