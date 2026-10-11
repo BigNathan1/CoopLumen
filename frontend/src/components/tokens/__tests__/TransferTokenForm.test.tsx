@@ -12,7 +12,14 @@ const ASSETS: TransferAsset[] = [
   { assetCode: 'ECO', assetIssuer: COMMUNITY_TOKEN_ISSUER, issuerName: 'EcoDAO' },
 ];
 
-const signTransaction = jest.fn<Promise<string>, [string]>();
+const signTransaction = jest.fn<
+  Promise<{
+    signedTxXdr: string;
+    signerAddress: string;
+    error?: { code: number; message: string };
+  }>,
+  [string]
+>();
 const unsigned = { xdr: 'unsigned-xdr' };
 const submittedHash = 'a'.repeat(64);
 
@@ -36,7 +43,7 @@ function renderForm(overrides: Partial<React.ComponentProps<typeof TransferToken
 
 beforeEach(() => {
   jest.clearAllMocks();
-  signTransaction.mockResolvedValue('signed-xdr');
+  signTransaction.mockResolvedValue({ signedTxXdr: 'signed-xdr', signerAddress: 'G...' });
   post.mockImplementation(async (path: string) => {
     if (path === '/api/v1/transactions/unsigned') return unsigned;
     if (path === '/api/v1/tokens/transfer') return { txHash: submittedHash };
@@ -284,7 +291,7 @@ describe('TransferTokenForm', () => {
       const seen: string[] = [];
       signTransaction.mockImplementation(async () => {
         seen.push(status.textContent ?? '');
-        return 'signed-xdr';
+        return { signedTxXdr: 'signed-xdr', signerAddress: 'G...' };
       });
 
       await fillValidForm(user);
@@ -296,10 +303,11 @@ describe('TransferTokenForm', () => {
 
     it('disables the submit button and reports the wait while in flight', async () => {
       const user = userEvent.setup();
-      let release: (value: string) => void = () => undefined;
+      let release: (value: { signedTxXdr: string; signerAddress: string }) => void = () =>
+        undefined;
       signTransaction.mockImplementation(
         () =>
-          new Promise<string>((resolve) => {
+          new Promise<{ signedTxXdr: string; signerAddress: string }>((resolve) => {
             release = resolve;
           })
       );
@@ -312,7 +320,7 @@ describe('TransferTokenForm', () => {
       expect(busy).toBeDisabled();
       expect(busy).toHaveAttribute('aria-busy', 'true');
 
-      release('signed-xdr');
+      release({ signedTxXdr: 'signed-xdr', signerAddress: 'G...' });
       await waitFor(() => expect(screen.getByText(submittedHash)).toBeInTheDocument());
     });
   });

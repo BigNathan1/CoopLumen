@@ -3,6 +3,16 @@ import { isConnected, isAllowed, signTransaction } from '@stellar/freighter-api'
 
 const DEFAULT_NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK ?? 'TESTNET';
 
+/**
+ * `signTransaction`'s v6 API dropped the `network` name shorthand v2 had in
+ * favor of requiring the passphrase directly, so the friendly network name
+ * this hook accepts is resolved to Stellar's well-known passphrase here.
+ */
+const NETWORK_PASSPHRASES: Record<string, string> = {
+  TESTNET: 'Test SDF Network ; September 2015',
+  PUBLIC: 'Public Global Stellar Network ; September 2015',
+};
+
 export interface UseFreighterSignResult {
   /** Initiates the signing flow. Accepts an optional XDR override. */
   sign: (overrideXdr?: string, network?: string) => Promise<string>;
@@ -46,18 +56,23 @@ export function useFreighterSign(defaultXdr?: string): UseFreighterSignResult {
           throw new Error('No XDR provided for signing.');
         }
 
-        const connected = await isConnected();
+        const { isConnected: connected } = await isConnected();
         if (!connected) {
           throw new Error('Freighter is not connected or installed.');
         }
 
-        const allowed = await isAllowed();
+        const { isAllowed: allowed } = await isAllowed();
         if (!allowed) {
           throw new Error('Freighter is not authorized for this application.');
         }
 
-        const signedXdr = await signTransaction(targetXdr, { network });
-        return signedXdr;
+        const { signedTxXdr, error: signError } = await signTransaction(targetXdr, {
+          networkPassphrase: NETWORK_PASSPHRASES[network] ?? network,
+        });
+        if (signError) {
+          throw new Error(signError.message);
+        }
+        return signedTxXdr;
       } catch (err: unknown) {
         const errorObj =
           err instanceof Error ? err : new Error(String(err) || 'Failed to sign transaction');

@@ -4,12 +4,47 @@ const freighter = {
   isConnected: jest.fn(),
   isAllowed: jest.fn(),
   setAllowed: jest.fn(),
-  getPublicKey: jest.fn(),
+  getAddress: jest.fn(),
   getNetworkDetails: jest.fn(),
   signMessage: jest.fn(),
 };
 
-jest.mock('@stellar/freighter-api', () => freighter);
+// `WatchWalletChanges` polls internally rather than exposing a timer the test
+// can tick, so the mock instead hands the test the registered callback to
+// invoke directly -- simulating "Freighter reported a change" without caring
+// how/when the real class would have noticed it.
+let watchCallback:
+  | ((params: {
+      address: string;
+      network: string;
+      networkPassphrase: string;
+      error?: { code: number; message: string };
+    }) => void)
+  | null = null;
+const mockWatcherStop = jest.fn();
+
+class MockWatchWalletChanges {
+  watch(
+    cb: (params: {
+      address: string;
+      network: string;
+      networkPassphrase: string;
+      error?: { code: number; message: string };
+    }) => void
+  ) {
+    watchCallback = cb;
+    return {};
+  }
+  stop() {
+    mockWatcherStop();
+    watchCallback = null;
+  }
+}
+
+jest.mock('@stellar/freighter-api', () => ({
+  ...freighter,
+  WatchWalletChanges: MockWatchWalletChanges,
+}));
 
 jest.mock('@/lib/api', () => ({
   api: { post: jest.fn().mockResolvedValue({ token: 'session-token' }) },
@@ -23,19 +58,22 @@ const PUBLIC_KEY = 'G' + 'A'.repeat(55);
 const OTHER_PUBLIC_KEY = 'G' + 'B'.repeat(55);
 
 function mockNotYetAllowed() {
-  freighter.isAllowed.mockResolvedValue(false);
-  freighter.isConnected.mockResolvedValue(true);
+  freighter.isAllowed.mockResolvedValue({ isAllowed: false });
+  freighter.isConnected.mockResolvedValue({ isConnected: true });
   freighter.getNetworkDetails.mockResolvedValue({
     network: EXPECTED_NETWORK,
     networkPassphrase: 'passphrase',
   });
-  freighter.getPublicKey.mockResolvedValue(PUBLIC_KEY);
-  freighter.signMessage.mockResolvedValue('signature');
+  freighter.getAddress.mockResolvedValue({ address: PUBLIC_KEY });
+  freighter.signMessage.mockResolvedValue({
+    signedMessage: 'signature',
+    signerAddress: PUBLIC_KEY,
+  });
 }
 
 async function connectOnNetwork(network: string) {
   mockNotYetAllowed();
-  freighter.isConnected.mockResolvedValue(true);
+  freighter.isConnected.mockResolvedValue({ isConnected: true });
   freighter.getNetworkDetails.mockResolvedValue({ network, networkPassphrase: 'passphrase' });
 
   const { result } = renderHook(() => useWallet());
@@ -48,11 +86,11 @@ async function connectOnNetwork(network: string) {
 describe('useWallet network validation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.useRealTimers();
+    watchCallback = null;
     // Every test defaults to "not previously granted", so the mount-time
     // auto-reconnect effect is a no-op unless a test opts in with
-    // isAllowed.mockResolvedValue(true) — keeps the existing manual-connect
-    // tests below from also racing against that effect.
+    // isAllowed.mockResolvedValue({ isAllowed: true }) -- keeps the existing
+    // manual-connect tests below from also racing against that effect.
     mockNotYetAllowed();
   });
 
@@ -94,8 +132,11 @@ describe('useWallet network validation', () => {
   });
 
   it('surfaces a connection error and does not mark the network incorrect', async () => {
-    freighter.isConnected.mockResolvedValue(false);
-    freighter.setAllowed.mockRejectedValue(new Error('User rejected access'));
+    freighter.isConnected.mockResolvedValue({ isConnected: false });
+    freighter.setAllowed.mockResolvedValue({
+      isAllowed: false,
+      error: { code: -1, message: 'User rejected access' },
+    });
 
     const { result } = renderHook(() => useWallet());
     await act(async () => {
@@ -111,16 +152,20 @@ describe('useWallet network validation', () => {
 describe('useWallet auto-reconnect on mount', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    watchCallback = null;
   });
 
   it('restores the session on mount when the site was previously granted access, without a fresh prompt', async () => {
-    freighter.isAllowed.mockResolvedValue(true);
-    freighter.getPublicKey.mockResolvedValue(PUBLIC_KEY);
+    freighter.isAllowed.mockResolvedValue({ isAllowed: true });
+    freighter.getAddress.mockResolvedValue({ address: PUBLIC_KEY });
     freighter.getNetworkDetails.mockResolvedValue({
       network: EXPECTED_NETWORK,
       networkPassphrase: 'passphrase',
     });
-    freighter.signMessage.mockResolvedValue('signature');
+    freighter.signMessage.mockResolvedValue({
+      signedMessage: 'signature',
+      signerAddress: PUBLIC_KEY,
+    });
 
     const { result } = renderHook(() => useWallet());
 
@@ -131,7 +176,7 @@ describe('useWallet auto-reconnect on mount', () => {
   });
 
   it('stays disconnected on mount when the site was never granted access', async () => {
-    freighter.isAllowed.mockResolvedValue(false);
+    freighter.isAllowed.mockResolvedValue({ isAllowed: false });
 
     const { result } = renderHook(() => useWallet());
 
@@ -140,7 +185,7 @@ describe('useWallet auto-reconnect on mount', () => {
     });
     expect(result.current.connected).toBe(false);
     expect(result.current.error).toBeNull();
-    expect(freighter.getPublicKey).not.toHaveBeenCalled();
+    expect(freighter.getAddress).not.toHaveBeenCalled();
   });
 
   it('stays disconnected, without throwing, when Freighter is not installed', async () => {
@@ -159,11 +204,7 @@ describe('useWallet auto-reconnect on mount', () => {
 describe('useWallet reacts to changes inside Freighter while connected', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.useFakeTimers();
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
+    watchCallback = null;
   });
 
   it('re-authenticates under the new address when the user switches accounts in Freighter', async () => {
@@ -173,13 +214,15 @@ describe('useWallet reacts to changes inside Freighter while connected', () => {
       await result.current.connect();
     });
     expect(result.current.publicKey).toBe(PUBLIC_KEY);
-
-    freighter.getPublicKey.mockResolvedValue(OTHER_PUBLIC_KEY);
+    expect(watchCallback).not.toBeNull();
 
     await act(async () => {
-      jest.advanceTimersByTime(5_000);
-      // Flush the poll's own microtask chain (getPublicKey/getNetworkDetails
-      // both resolve immediately here, but are still real Promises).
+      watchCallback?.({
+        address: OTHER_PUBLIC_KEY,
+        network: EXPECTED_NETWORK,
+        networkPassphrase: 'passphrase',
+      });
+      // Flush establishSession's own microtask chain.
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -195,19 +238,32 @@ describe('useWallet reacts to changes inside Freighter while connected', () => {
       await result.current.connect();
     });
     expect(result.current.network).toBe(EXPECTED_NETWORK);
-
-    freighter.getNetworkDetails.mockResolvedValue({
-      network: 'PUBLIC',
-      networkPassphrase: 'public-passphrase',
-    });
+    expect(watchCallback).not.toBeNull();
 
     await act(async () => {
-      jest.advanceTimersByTime(5_000);
-      await Promise.resolve();
-      await Promise.resolve();
+      watchCallback?.({
+        address: PUBLIC_KEY,
+        network: 'PUBLIC',
+        networkPassphrase: 'public-passphrase',
+      });
     });
 
     expect(result.current.network).toBe('PUBLIC');
     expect(result.current.networkMismatch).toBe(true);
+  });
+
+  it('stops watching on disconnect', async () => {
+    mockNotYetAllowed();
+    const { result } = renderHook(() => useWallet());
+    await act(async () => {
+      await result.current.connect();
+    });
+    expect(watchCallback).not.toBeNull();
+
+    act(() => {
+      result.current.disconnect();
+    });
+
+    expect(mockWatcherStop).toHaveBeenCalled();
   });
 });

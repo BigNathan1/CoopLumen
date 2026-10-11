@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { WatchWalletChanges } from '@stellar/freighter-api';
 import { api, setAuthToken } from '@/lib/api';
 
 export interface WalletState {
@@ -43,15 +44,12 @@ export const EXPECTED_NETWORK = (
  * Auto-reconnects on mount if the site is already allowed (issue #251):
  * Freighter remembers a prior grant itself, so re-asking the user to click
  * Connect again on every page load/reload would be a needless extra step.
- * While connected, a lightweight poll watches for the user switching
- * accounts or networks *inside* Freighter itself and reacts to either.
- * `@stellar/freighter-api`'s version pinned here (`^2.0.0`) has no native
- * change-subscription API to attach a real listener to (a newer major
- * version adds one, `WatchWalletChanges` -- out of scope for this change:
- * it is a breaking API redesign across every function this hook and
- * `TransferTokenForm.tsx` call, not a drop-in addition), so this stays
- * poll-based, the same mechanism the network-only version of this effect
- * already used.
+ * While connected, `WatchWalletChanges` (native to `@stellar/freighter-api`
+ * v6+, added after this hook's `^2.0.0` had no change-subscription API at
+ * all) watches for the user switching accounts or networks *inside*
+ * Freighter itself and reacts to either. It still polls internally -- there
+ * is no real push event from the extension -- so the 5s interval passed to
+ * it below matches the cadence this hook polled manually before v6.
  */
 export function useWallet() {
   const [state, setState] = useState<WalletState>(INITIAL_STATE);
@@ -66,24 +64,20 @@ export function useWallet() {
   }, []);
 
   const authenticate = useCallback(async (publicKey: string) => {
-    const freighter = (await import('@stellar/freighter-api')) as unknown as {
-      signMessage?: (
-        message: string,
-        opts?: { address?: string; accountToSign?: string }
-      ) => Promise<string>;
-      signBlob?: (blob: string, opts?: { accountToSign?: string }) => Promise<string>;
-    };
+    const { signMessage } = await import('@stellar/freighter-api');
 
     const { challenge } = await api.post<ChallengeResponse>(
       '/api/v1/auth/challenge',
       { address: publicKey },
       { auth: false }
     );
-    const signFn = freighter.signMessage ?? freighter.signBlob;
-    if (!signFn) {
-      throw new Error('Freighter signing function not available');
+    const { signedMessage, error } = await signMessage(challenge, { address: publicKey });
+    if (error || !signedMessage) {
+      throw new Error(error?.message ?? 'Freighter declined to sign the challenge');
     }
-    const signature = await signFn(challenge, { address: publicKey, accountToSign: publicKey });
+    // v6's type still allows a legacy Buffer return for an older extension
+    // message format; every current Freighter build resolves a plain string.
+    const signature = typeof signedMessage === 'string' ? signedMessage : signedMessage.toString();
     const verified = await api.post<VerifyResponse>(
       '/api/v1/auth/verify',
       { address: publicKey, challenge, signature },
@@ -96,7 +90,10 @@ export function useWallet() {
   const establishSession = useCallback(
     async (publicKey: string) => {
       const { getNetworkDetails } = await import('@stellar/freighter-api');
-      const { network, networkPassphrase } = await getNetworkDetails();
+      const { network, networkPassphrase, error } = await getNetworkDetails();
+      if (error) {
+        throw new Error(error.message);
+      }
 
       try {
         await authenticate(publicKey);
@@ -121,15 +118,21 @@ export function useWallet() {
   const connect = useCallback(async () => {
     setState((s) => ({ ...s, connecting: true, error: null }));
     try {
-      const { isConnected, getPublicKey, setAllowed } = await import('@stellar/freighter-api');
+      const { isConnected, getAddress, setAllowed } = await import('@stellar/freighter-api');
 
-      const connected = await isConnected();
+      const { isConnected: connected } = await isConnected();
       if (!connected) {
-        await setAllowed();
+        const { error } = await setAllowed();
+        if (error) {
+          throw new Error(error.message);
+        }
       }
 
-      const publicKey = await getPublicKey();
-      await establishSession(publicKey);
+      const { address, error } = await getAddress();
+      if (error) {
+        throw new Error(error.message);
+      }
+      await establishSession(address);
     } catch (err) {
       if (!mountedRef.current) return;
       const message = err instanceof Error ? err.message : 'Failed to connect wallet';
@@ -146,18 +149,21 @@ export function useWallet() {
   // the right check here -- it only reports whether the extension itself is
   // present, true even for a site it has never been asked about. `isAllowed()`
   // is the actual per-site grant check: true only once the user has approved
-  // this site, at which point `getPublicKey()` can be read back without a
+  // this site, at which point `getAddress()` can be read back without a
   // fresh prompt.
   useEffect(() => {
     (async () => {
       try {
-        const { isAllowed, getPublicKey } = await import('@stellar/freighter-api');
-        const allowed = await isAllowed();
+        const { isAllowed, getAddress } = await import('@stellar/freighter-api');
+        const { isAllowed: allowed } = await isAllowed();
         if (!allowed || !mountedRef.current) return;
 
-        const publicKey = await getPublicKey();
+        const { address, error } = await getAddress();
+        if (error) {
+          throw new Error(error.message);
+        }
         if (!mountedRef.current) return;
-        await establishSession(publicKey);
+        await establishSession(address);
       } catch {
         // Freighter not installed, or this site was never granted access --
         // stay disconnected silently; the user can still click Connect.
@@ -169,42 +175,44 @@ export function useWallet() {
   }, []);
 
   // Watches for the user switching accounts or networks *inside* Freighter
-  // itself while already connected, polling lightly so a stale reading of
-  // either never masks a live change. See this function's doc comment for
-  // why this stays poll-based rather than a native event subscription.
+  // itself while already connected, via the native subscription described in
+  // this function's doc comment.
   useEffect(() => {
     if (!state.connected) return;
 
     let cancelled = false;
-    const poll = async () => {
-      try {
-        const { getPublicKey, getNetworkDetails } = await import('@stellar/freighter-api');
-        const [publicKey, { network, networkPassphrase }] = await Promise.all([
-          getPublicKey(),
-          getNetworkDetails(),
-        ]);
-        if (cancelled) return;
+    let watcher: WatchWalletChanges | null = null;
+
+    (async () => {
+      const { WatchWalletChanges } = await import('@stellar/freighter-api');
+      if (cancelled) return;
+
+      watcher = new WatchWalletChanges(5_000);
+      watcher.watch(({ address, network, networkPassphrase, error }) => {
+        // On a transient error, `WatchWalletChanges` can still invoke the
+        // callback again right after with blank fields (its internal
+        // "changed" check compares against the real last-known values) --
+        // both are ignored the same way the old poll's catch block ignored
+        // transient errors.
+        if (cancelled || error || !address) return;
 
         setState((s) => {
           if (!s.connected) return s;
-          if (publicKey !== s.publicKey) {
+          if (address !== s.publicKey) {
             // The user switched accounts in Freighter itself: re-run the
             // full session flow (including re-authenticating) under the new
             // address rather than presenting stale data as if it were theirs.
-            void establishSession(publicKey);
+            void establishSession(address);
             return s;
           }
           return { ...s, network, networkPassphrase };
         });
-      } catch {
-        // Ignore transient Freighter errors while polling.
-      }
-    };
+      });
+    })();
 
-    const interval = setInterval(poll, 5_000);
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      watcher?.stop();
     };
   }, [state.connected, establishSession]);
 

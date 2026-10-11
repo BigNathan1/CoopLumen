@@ -2,7 +2,14 @@ import { act, renderHook } from '@testing-library/react';
 import { api } from '@/lib/api';
 import { useIssueToken } from '../useIssueToken';
 
-const mockSignTransaction = jest.fn<Promise<string>, [string]>();
+const mockSignTransaction = jest.fn<
+  Promise<{
+    signedTxXdr: string;
+    signerAddress: string;
+    error?: { code: number; message: string };
+  }>,
+  [string]
+>();
 
 jest.mock('@stellar/freighter-api', () => ({
   signTransaction: (...args: unknown[]) => mockSignTransaction(...(args as [string])),
@@ -26,7 +33,7 @@ const input = {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockSignTransaction.mockResolvedValue('signed-xdr');
+  mockSignTransaction.mockResolvedValue({ signedTxXdr: 'signed-xdr', signerAddress: 'G...' });
   post.mockImplementation(async (path: string) => {
     if (path === '/api/v1/tokens/build-issue') return { xdr: 'unsigned-xdr' };
     if (path === '/api/v1/tokens/submit') return { txHash: 'transaction-hash' };

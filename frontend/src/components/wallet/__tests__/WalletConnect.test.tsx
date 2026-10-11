@@ -4,12 +4,22 @@ import userEvent from '@testing-library/user-event';
 const freighter = {
   isConnected: jest.fn(),
   setAllowed: jest.fn(),
-  getPublicKey: jest.fn(),
+  getAddress: jest.fn(),
   getNetworkDetails: jest.fn(),
   signMessage: jest.fn(),
 };
 
-jest.mock('@stellar/freighter-api', () => freighter);
+class MockWatchWalletChanges {
+  watch() {
+    return {};
+  }
+  stop() {}
+}
+
+jest.mock('@stellar/freighter-api', () => ({
+  ...freighter,
+  WatchWalletChanges: MockWatchWalletChanges,
+}));
 
 jest.mock('@/lib/api', () => ({
   api: { post: jest.fn() },
@@ -29,13 +39,16 @@ const mockSetAuthToken = setAuthToken as jest.Mock;
 const PUBLIC_KEY = 'G' + 'A'.repeat(55);
 
 function setupFreighter(network = 'TESTNET') {
-  freighter.isConnected.mockResolvedValue(true);
-  freighter.getPublicKey.mockResolvedValue(PUBLIC_KEY);
+  freighter.isConnected.mockResolvedValue({ isConnected: true });
+  freighter.getAddress.mockResolvedValue({ address: PUBLIC_KEY });
   freighter.getNetworkDetails.mockResolvedValue({
     network,
     networkPassphrase: `${network} passphrase`,
   });
-  freighter.signMessage.mockResolvedValue('signed-challenge');
+  freighter.signMessage.mockResolvedValue({
+    signedMessage: 'signed-challenge',
+    signerAddress: PUBLIC_KEY,
+  });
   mockApiPost.mockImplementation((path: string) => {
     if (path.endsWith('/challenge')) return Promise.resolve({ challenge: 'challenge' });
     return Promise.resolve({ token: 'session-token' });
@@ -64,11 +77,10 @@ describe('WalletConnect', () => {
     await user.click(screen.getByRole('button', { name: 'Connect Freighter' }));
 
     expect(freighter.isConnected).toHaveBeenCalledTimes(1);
-    expect(freighter.getPublicKey).toHaveBeenCalledTimes(1);
+    expect(freighter.getAddress).toHaveBeenCalledTimes(1);
     expect(freighter.getNetworkDetails).toHaveBeenCalledTimes(1);
     expect(freighter.signMessage).toHaveBeenCalledWith('challenge', {
       address: PUBLIC_KEY,
-      accountToSign: PUBLIC_KEY,
     });
     expect(mockApiPost).toHaveBeenNthCalledWith(
       1,
@@ -110,9 +122,9 @@ describe('WalletConnect', () => {
 
   it('announces the loading state while Freighter is connecting', async () => {
     setupFreighter();
-    let resolveConnection: (value: boolean) => void = () => undefined;
+    let resolveConnection: (value: { isConnected: boolean }) => void = () => undefined;
     freighter.isConnected.mockReturnValue(
-      new Promise<boolean>((resolve) => {
+      new Promise<{ isConnected: boolean }>((resolve) => {
         resolveConnection = resolve;
       })
     );
@@ -127,13 +139,16 @@ describe('WalletConnect', () => {
     expect(screen.getByText('Connecting to Freighter')).toBeInTheDocument();
 
     await act(async () => {
-      resolveConnection(true);
+      resolveConnection({ isConnected: true });
     });
   });
 
   it('announces a Freighter connection error and leaves the wallet disconnected', async () => {
-    freighter.isConnected.mockResolvedValue(false);
-    freighter.setAllowed.mockRejectedValue(new Error('User rejected access'));
+    freighter.isConnected.mockResolvedValue({ isConnected: false });
+    freighter.setAllowed.mockResolvedValue({
+      isAllowed: false,
+      error: { code: -1, message: 'User rejected access' },
+    });
     const user = userEvent.setup();
     render(<WalletConnect />);
 

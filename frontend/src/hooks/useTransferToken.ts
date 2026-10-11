@@ -31,11 +31,14 @@ export function useTransferToken() {
 
         onProgress?.('Approve the transfer in your wallet…');
         const { signTransaction } = await import('@stellar/freighter-api');
-        const signedXdr = await signTransaction(xdr);
+        const { signedTxXdr, error } = await signTransaction(xdr);
+        if (error) {
+          throw new Error(error.message);
+        }
 
         onProgress?.('Submitting the signed transfer…');
         const { txHash } = await api.post<{ txHash: string }>('/api/v1/tokens/transfer', {
-          signedXdr,
+          signedXdr: signedTxXdr,
         });
 
         const baseUrl = getBaseUrl();

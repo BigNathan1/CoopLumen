@@ -15,14 +15,14 @@ describe('useFreighterSign', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockIsConnected.mockResolvedValue(true);
-    mockIsAllowed.mockResolvedValue(true);
+    mockIsConnected.mockResolvedValue({ isConnected: true });
+    mockIsAllowed.mockResolvedValue({ isAllowed: true });
   });
 
   it('signs successfully when provided an XDR string', async () => {
     const rawXdr = 'AAAA_RAW_XDR_...';
     const signedXdr = 'AAAA_SIGNED_XDR_...';
-    mockSignTransaction.mockResolvedValueOnce(signedXdr);
+    mockSignTransaction.mockResolvedValueOnce({ signedTxXdr: signedXdr, signerAddress: 'G...' });
 
     const { result } = renderHook(() => useFreighterSign(rawXdr));
 
@@ -31,14 +31,16 @@ describe('useFreighterSign', () => {
       returnedXdr = await result.current.sign();
     });
 
-    expect(mockSignTransaction).toHaveBeenCalledWith(rawXdr, { network: 'TESTNET' });
+    expect(mockSignTransaction).toHaveBeenCalledWith(rawXdr, {
+      networkPassphrase: 'Test SDF Network ; September 2015',
+    });
     expect(returnedXdr).toBe(signedXdr);
     expect(result.current.error).toBeNull();
     expect(result.current.isSigning).toBe(false);
   });
 
   it('throws an error if Freighter is not connected', async () => {
-    mockIsConnected.mockResolvedValueOnce(false);
+    mockIsConnected.mockResolvedValueOnce({ isConnected: false });
 
     const { result } = renderHook(() => useFreighterSign('some-xdr'));
 
@@ -52,7 +54,7 @@ describe('useFreighterSign', () => {
   });
 
   it('throws an error if Freighter is not authorized', async () => {
-    mockIsAllowed.mockResolvedValueOnce(false);
+    mockIsAllowed.mockResolvedValueOnce({ isAllowed: false });
 
     const { result } = renderHook(() => useFreighterSign('some-xdr'));
 
@@ -73,7 +75,11 @@ describe('useFreighterSign', () => {
   });
 
   it('handles user rejection or signing failure from Freighter', async () => {
-    mockSignTransaction.mockRejectedValueOnce(new Error('User declined the transaction'));
+    mockSignTransaction.mockResolvedValueOnce({
+      signedTxXdr: '',
+      signerAddress: '',
+      error: { code: -1, message: 'User declined the transaction' },
+    });
 
     const { result } = renderHook(() => useFreighterSign('some-xdr'));
 
