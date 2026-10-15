@@ -40,10 +40,56 @@ tags:
     description: Batch payment disbursement, preview, and CSV parsing endpoints
   - name: Stream
     description: Server-Sent Events feeds of live account activity
+  - name: Proposals
+    description: Governance proposals and voting-power delegation
   - name: Auth
     description: Wallet sign-in (challenge, signature, session cookie)
 
 paths:
+  /api/v1/proposals/{id}/delegate:
+    post:
+      tags: [Proposals]
+      summary: Delegate voting power for a proposal
+      description: Creates or replaces the authenticated member's one-hop delegation while the proposal is active and neither account has voted.
+      security:
+        - SessionToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProposalDelegationRequest'
+      responses:
+        '200':
+          description: Delegation stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalDelegationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Delegator or delegatee is not an active community member
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Proposal state, voting history, or delegation topology conflicts with the request
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /api/v1/auth/logout:
     post:
       tags: [Auth]
@@ -1397,6 +1443,24 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
   schemas:
+    ProposalDelegationRequest:
+      type: object
+      required: [delegateeAddress]
+      properties:
+        delegateeAddress: { $ref: '#/components/schemas/StellarKey' }
+    ProposalDelegationResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [proposalId, delegatorAddress, delegateeAddress, createdAt, updatedAt]
+          properties:
+            proposalId: { type: string, format: uuid }
+            delegatorAddress: { $ref: '#/components/schemas/StellarKey' }
+            delegateeAddress: { $ref: '#/components/schemas/StellarKey' }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
     AuthLogoutResponse:
       type: object
       properties:
@@ -2093,6 +2157,11 @@ components:
         defaults: { type: integer }
         offset: { type: integer }
   securitySchemes:
+    SessionToken:
+      type: http
+      scheme: bearer
+      bearerFormat: CoopLumen session token
+      description: HMAC-signed session token returned by `POST /api/v1/auth/verify`.
     SessionCookie:
       type: apiKey
       in: cookie

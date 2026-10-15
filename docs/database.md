@@ -662,6 +662,28 @@ Indexes: `community_id`, `proposer_address`, `(community_id, status)`, and a par
 
 ---
 
+### `proposal_delegations`
+
+One proposal-scoped delegation per delegator. Both addresses must be active
+members when the API writes the row. The API prevents self-delegation,
+multi-hop chains, cycles, and delegation after either account has voted.
+
+| Column              | Type          | Notes                                                   |
+| ------------------- | ------------- | ------------------------------------------------------- |
+| `id`                | `UUID`        | PK                                                      |
+| `proposal_id`       | `UUID`        | FK → `proposals(id) ON DELETE CASCADE`                  |
+| `delegator_address` | `TEXT`        | Authenticated member assigning its voting power         |
+| `delegatee_address` | `TEXT`        | Active member receiving the voting power                |
+| `created_at`        | `TIMESTAMPTZ` |                                                         |
+| `updated_at`        | `TIMESTAMPTZ` | Auto-updated when the delegator changes their delegatee |
+
+Both addresses have Stellar public-key CHECK constraints, and a CHECK prevents
+self-delegation. Unique constraint: `(proposal_id, delegator_address)`.
+
+Index: `(proposal_id, delegatee_address)` for resolving represented voters.
+
+---
+
 ### `votes`
 
 Ballots cast against a proposal. One row per voter per proposal — a voter changing their mind
@@ -710,24 +732,25 @@ Unique constraint: `(community_id, stellar_address)` — one KYC record per addr
 
 ## Foreign Key `ON DELETE` Summary
 
-| Child table          | FK column      | References        | Behaviour               |
-| -------------------- | -------------- | ----------------- | ----------------------- |
-| `members`            | `community_id` | `communities(id)` | CASCADE                 |
-| `loans`              | `community_id` | `communities(id)` | CASCADE (migration 019) |
-| `payments`           | `community_id` | `communities(id)` | SET NULL (nullable)     |
-| `payments`           | `loan_id`      | `loans(id)`       | SET NULL (nullable)     |
-| `trustlines`         | —              | —                 | standalone              |
-| `loan_events`        | `loan_id`      | `loans(id)`       | CASCADE                 |
-| `loan_events`        | `payment_id`   | `payments(id)`    | SET NULL (nullable)     |
-| `tokens`             | `community_id` | `communities(id)` | CASCADE                 |
-| `transactions_log`   | `community_id` | `communities(id)` | SET NULL (nullable)     |
-| `reputation_scores`  | `community_id` | `communities(id)` | CASCADE                 |
-| `community_settings` | `community_id` | `communities(id)` | CASCADE                 |
-| `notifications`      | `community_id` | `communities(id)` | CASCADE                 |
-| `multisig_requests`  | `community_id` | `communities(id)` | CASCADE                 |
-| `proposals`          | `community_id` | `communities(id)` | CASCADE                 |
-| `votes`              | `proposal_id`  | `proposals(id)`   | CASCADE                 |
-| `kyc_records`        | `community_id` | `communities(id)` | CASCADE                 |
+| Child table            | FK column      | References        | Behaviour               |
+| ---------------------- | -------------- | ----------------- | ----------------------- |
+| `members`              | `community_id` | `communities(id)` | CASCADE                 |
+| `loans`                | `community_id` | `communities(id)` | CASCADE (migration 019) |
+| `payments`             | `community_id` | `communities(id)` | SET NULL (nullable)     |
+| `payments`             | `loan_id`      | `loans(id)`       | SET NULL (nullable)     |
+| `trustlines`           | —              | —                 | standalone              |
+| `loan_events`          | `loan_id`      | `loans(id)`       | CASCADE                 |
+| `loan_events`          | `payment_id`   | `payments(id)`    | SET NULL (nullable)     |
+| `tokens`               | `community_id` | `communities(id)` | CASCADE                 |
+| `transactions_log`     | `community_id` | `communities(id)` | SET NULL (nullable)     |
+| `reputation_scores`    | `community_id` | `communities(id)` | CASCADE                 |
+| `community_settings`   | `community_id` | `communities(id)` | CASCADE                 |
+| `notifications`        | `community_id` | `communities(id)` | CASCADE                 |
+| `multisig_requests`    | `community_id` | `communities(id)` | CASCADE                 |
+| `proposals`            | `community_id` | `communities(id)` | CASCADE                 |
+| `proposal_delegations` | `proposal_id`  | `proposals(id)`   | CASCADE                 |
+| `votes`                | `proposal_id`  | `proposals(id)`   | CASCADE                 |
+| `kyc_records`          | `community_id` | `communities(id)` | CASCADE                 |
 
 ### ON DELETE Behavior Design Rationale
 
