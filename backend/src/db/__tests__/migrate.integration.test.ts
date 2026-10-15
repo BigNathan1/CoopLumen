@@ -272,6 +272,7 @@ describeIf('Migration integration', () => {
       'multisig_requests',
       'notifications',
       'payments',
+      'proposal_delegations',
       'proposals',
       'reputation_scores',
       'schema_migrations',
