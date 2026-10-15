@@ -688,13 +688,16 @@ Indexes: `proposal_id`, `voter_address`, `(proposal_id, choice)` for tallying.
 
 ### `kyc_records`
 
-Per-community KYC verification state for a Stellar address. **Phase 4 prep** — dormant until SEP-12 anchor integration activates it; no API routes read or write this table yet.
+Per-community KYC verification state for a Stellar address. Migration
+`025_activate_kyc_records.sql` activates the table additively, preserves the
+checksum of the original preparation migration, and can be replayed without
+removing existing records.
 
 | Column               | Type          | Notes                                                                                        |
 | -------------------- | ------------- | -------------------------------------------------------------------------------------------- |
 | `id`                 | `UUID`        | PK                                                                                           |
 | `community_id`       | `UUID`        | FK → `communities(id) ON DELETE CASCADE`                                                     |
-| `stellar_address`    | `TEXT`        |                                                                                              |
+| `stellar_address`    | `TEXT`        | Stellar address, `^G[A-Z2-7]{55}$` CHECK enforced for new and updated rows                   |
 | `status`             | `TEXT`        | `pending \| submitted \| verified \| rejected \| expired`, CHECK enforced, default `pending` |
 | `provider`           | `TEXT`        | Nullable — SEP-12 anchor / KYC provider identifier                                           |
 | `provider_reference` | `TEXT`        | Nullable — external reference ID from the provider                                           |
@@ -705,6 +708,9 @@ Per-community KYC verification state for a Stellar address. **Phase 4 prep** —
 | `updated_at`         | `TIMESTAMPTZ` | Auto-updated by trigger                                                                      |
 
 Unique constraint: `(community_id, stellar_address)` — one KYC record per address per community.
+
+Indexes: `community_id`, `stellar_address`, `status`, and
+`(stellar_address, updated_at DESC, created_at DESC)` for current-status lookups.
 
 ---
 
