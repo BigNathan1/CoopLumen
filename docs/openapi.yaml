@@ -35,7 +35,7 @@ tags:
   - name: Fees
     description: Stellar network fee estimation
   - name: Webhooks
-    description: Inbound webhook endpoints for Stellar account/transaction event notifications
+    description: Signed inbound callbacks for Stellar events and third-party KYC status updates
   - name: BatchPayments
     description: Batch payment disbursement, preview, and CSV parsing endpoints
   - name: Stream
@@ -617,6 +617,53 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '503':
           description: The server has no webhook secret configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/webhooks/kyc:
+    post:
+      tags: [Webhooks]
+      summary: Receive a third-party KYC verification status callback
+      description: >
+        Authenticates a provider-neutral KYC callback using an HMAC-SHA256
+        signature over the exact request bytes, then creates or updates the
+        community-scoped KYC record for the supplied Stellar address.
+      parameters:
+        - name: X-KYC-Webhook-Signature
+          in: header
+          required: true
+          description: Hex-encoded HMAC-SHA256 digest keyed with KYC_WEBHOOK_SECRET.
+          schema: { type: string, pattern: '^[0-9a-fA-F]{64}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KycWebhookPayload'
+      responses:
+        '200':
+          description: KYC status accepted and persisted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KycWebhookResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: Missing or invalid webhook signature
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The referenced community does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: The server has no KYC webhook secret configured
           content:
             application/json:
               schema:
@@ -1668,6 +1715,47 @@ components:
         data:
           type: object
           additionalProperties: true
+    KycWebhookPayload:
+      type: object
+      required:
+        [eventId, provider, providerReference, communityId, stellarAddress, status, occurredAt]
+      properties:
+        eventId: { type: string, minLength: 1, maxLength: 200 }
+        provider: { type: string, minLength: 1, maxLength: 100 }
+        providerReference: { type: string, minLength: 1, maxLength: 200 }
+        communityId: { type: string, format: uuid }
+        stellarAddress: { $ref: '#/components/schemas/StellarKey' }
+        status:
+          type: string
+          enum: [pending, submitted, verified, rejected, expired]
+        occurredAt: { type: string, format: date-time }
+        rejectionReason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Required when status is rejected.
+        metadata:
+          type: object
+          additionalProperties: true
+          default: {}
+    KycWebhookResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [received, eventId, recordId, status, verifiedAt]
+          properties:
+            received: { type: boolean, example: true }
+            eventId: { type: string }
+            recordId: { type: string, format: uuid }
+            status:
+              type: string
+              enum: [pending, submitted, verified, rejected, expired]
+            verifiedAt:
+              type: string
+              format: date-time
+              nullable: true
     TokenTransferRequest:
       type: object
       required: [signedXdr]
