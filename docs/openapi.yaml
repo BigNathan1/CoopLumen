@@ -40,10 +40,37 @@ tags:
     description: Batch payment disbursement, preview, and CSV parsing endpoints
   - name: Stream
     description: Server-Sent Events feeds of live account activity
+  - name: KYC
+    description: Account verification status
   - name: Auth
     description: Wallet sign-in (challenge, signature, session cookie)
 
 paths:
+  /api/v1/kyc/status/{address}:
+    get:
+      tags: [KYC]
+      summary: Get an account's KYC status
+      description: Returns the latest recorded verification outcome, normalized to the public KYC lifecycle.
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/StellarKey' }
+      responses:
+        '200':
+          description: Current KYC status, or none when no record exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KycStatusResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          description: Database lookup failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/auth/logout:
     post:
       tags: [Auth]
@@ -1397,6 +1424,18 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
   schemas:
+    KycStatusResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [address, status]
+          properties:
+            address: { $ref: '#/components/schemas/StellarKey' }
+            status:
+              type: string
+              enum: [none, pending, approved, rejected]
     AuthLogoutResponse:
       type: object
       properties:
