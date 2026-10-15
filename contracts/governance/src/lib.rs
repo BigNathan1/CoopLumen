@@ -1,8 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, token, Address, Env,
-    String, Symbol, Vec,
+    contract, contracterror, contractimpl, contracttype, symbol_short, token, Address, Env, String,
+    Symbol, Vec,
 };
 
 /// Errors returned by the CoopLumen Governance contract.
@@ -80,6 +80,25 @@ pub struct Vote {
     pub voter: Address,
     pub choice: VoteChoice,
     pub weight: i128,
+}
+
+/// Aggregate governance metrics derived from on-chain proposal tallies.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GovernanceAnalytics {
+    pub total_proposals: u64,
+    pub active_proposals: u64,
+    pub finalized_proposals: u64,
+    pub passed_proposals: u64,
+    pub rejected_proposals: u64,
+    pub executed_proposals: u64,
+    pub total_voting_power_cast: i128,
+    /// Average participation across every proposal, in basis points.
+    pub voter_turnout_bps: u32,
+    /// Average participation across finalized proposals, in basis points.
+    pub average_quorum_bps: u32,
+    /// Passed and executed proposals divided by finalized proposals, in basis points.
+    pub proposal_pass_rate_bps: u32,
 }
 
 /// Contract storage keys.
@@ -273,7 +292,10 @@ impl GovernanceContract {
     ///
     /// Returns `VotingPeriodEnded` if the window is still open, and
     /// `ProposalNotActive` if the proposal is already finalised.
-    pub fn finalize_proposal(env: Env, proposal_id: u64) -> Result<ProposalStatus, GovernanceError> {
+    pub fn finalize_proposal(
+        env: Env,
+        proposal_id: u64,
+    ) -> Result<ProposalStatus, GovernanceError> {
         let mut proposal: Proposal = env
             .storage()
             .instance()
@@ -400,20 +422,16 @@ impl GovernanceContract {
         for action in proposal.actions.iter() {
             // Validate the action string is non-empty before recording it.
             if action.is_empty() {
-                env.events().publish(
-                    (TOPIC_EXECUTION_FAILED, proposal_id),
-                    action.clone(),
-                );
+                env.events()
+                    .publish((TOPIC_EXECUTION_FAILED, proposal_id), action.clone());
                 continue;
             }
 
             // Emit the action for off-chain executors / indexers.
             // In a production contract this is where cross-contract calls or
             // sub-invocations keyed on the action prefix would be dispatched.
-            env.events().publish(
-                (TOPIC_PROPOSAL_EXECUTED, proposal_id),
-                action.clone(),
-            );
+            env.events()
+                .publish((TOPIC_PROPOSAL_EXECUTED, proposal_id), action.clone());
         }
 
         Ok(())
@@ -425,6 +443,112 @@ impl GovernanceContract {
             .instance()
             .get(&DataKey::Config)
             .ok_or(GovernanceError::NotInitialized)
+    }
+
+    /// Calculate aggregate governance metrics from the current on-chain state.
+    ///
+    /// Turnout includes active proposals so dashboards can reflect live
+    /// participation. Average quorum and pass rate include only finalized
+    /// proposals (`Passed`, `Rejected`, or `Executed`) so open ballots do not
+    /// distort outcome metrics. `Executed` is counted as a passed outcome.
+    pub fn get_analytics(env: Env) -> Result<GovernanceAnalytics, GovernanceError> {
+        let config: Config = env
+            .storage()
+            .instance()
+            .get(&DataKey::Config)
+            .ok_or(GovernanceError::NotInitialized)?;
+        let total_proposals: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::ProposalCount)
+            .unwrap_or(0);
+
+        let mut active_proposals = 0_u64;
+        let mut finalized_proposals = 0_u64;
+        let mut passed_proposals = 0_u64;
+        let mut rejected_proposals = 0_u64;
+        let mut executed_proposals = 0_u64;
+        let mut total_voting_power_cast = 0_i128;
+        let mut turnout_bps_total = 0_u64;
+        let mut finalized_quorum_bps_total = 0_u64;
+
+        let mut proposal_id = 1_u64;
+        while proposal_id <= total_proposals {
+            let proposal: Proposal = env
+                .storage()
+                .instance()
+                .get(&DataKey::Proposal(proposal_id))
+                .ok_or(GovernanceError::ProposalNotFound)?;
+            let participation = proposal
+                .votes_for
+                .checked_add(proposal.votes_against)
+                .ok_or(GovernanceError::Overflow)?;
+            total_voting_power_cast = total_voting_power_cast
+                .checked_add(participation)
+                .ok_or(GovernanceError::Overflow)?;
+
+            let participation_bps = participation_basis_points(participation, config.total_supply)?;
+            turnout_bps_total = turnout_bps_total
+                .checked_add(u64::from(participation_bps))
+                .ok_or(GovernanceError::Overflow)?;
+
+            match proposal.status {
+                ProposalStatus::Active => active_proposals += 1,
+                ProposalStatus::Passed => {
+                    finalized_proposals += 1;
+                    passed_proposals += 1;
+                    finalized_quorum_bps_total += u64::from(participation_bps);
+                }
+                ProposalStatus::Rejected => {
+                    finalized_proposals += 1;
+                    rejected_proposals += 1;
+                    finalized_quorum_bps_total += u64::from(participation_bps);
+                }
+                ProposalStatus::Executed => {
+                    finalized_proposals += 1;
+                    passed_proposals += 1;
+                    executed_proposals += 1;
+                    finalized_quorum_bps_total += u64::from(participation_bps);
+                }
+            }
+
+            proposal_id = proposal_id
+                .checked_add(1)
+                .ok_or(GovernanceError::Overflow)?;
+        }
+
+        let voter_turnout_bps = if total_proposals == 0 {
+            0
+        } else {
+            (turnout_bps_total / total_proposals) as u32
+        };
+        let average_quorum_bps = if finalized_proposals == 0 {
+            0
+        } else {
+            (finalized_quorum_bps_total / finalized_proposals) as u32
+        };
+        let proposal_pass_rate_bps = if finalized_proposals == 0 {
+            0
+        } else {
+            passed_proposals
+                .checked_mul(10_000)
+                .ok_or(GovernanceError::Overflow)?
+                .checked_div(finalized_proposals)
+                .ok_or(GovernanceError::Overflow)? as u32
+        };
+
+        Ok(GovernanceAnalytics {
+            total_proposals,
+            active_proposals,
+            finalized_proposals,
+            passed_proposals,
+            rejected_proposals,
+            executed_proposals,
+            total_voting_power_cast,
+            voter_turnout_bps,
+            average_quorum_bps,
+            proposal_pass_rate_bps,
+        })
     }
 
     /// Read a proposal by ID.
@@ -464,6 +588,23 @@ impl GovernanceContract {
             .get(&DataKey::Vote(proposal_id, voter))
             .ok_or(GovernanceError::ProposalNotFound)
     }
+}
+
+fn participation_basis_points(
+    participation: i128,
+    total_supply: i128,
+) -> Result<u32, GovernanceError> {
+    let basis_points = participation
+        .checked_mul(10_000)
+        .ok_or(GovernanceError::Overflow)?
+        .checked_div(total_supply)
+        .ok_or(GovernanceError::InvalidInput)?;
+
+    Ok(if basis_points > 10_000 {
+        10_000
+    } else {
+        basis_points as u32
+    })
 }
 
 #[cfg(test)]
@@ -807,10 +948,7 @@ mod test {
         env.ledger().set_timestamp(1_086_401);
         client.finalize_proposal(&id);
 
-        assert_eq!(
-            client.get_proposal(&id).status,
-            ProposalStatus::Rejected
-        );
+        assert_eq!(client.get_proposal(&id).status, ProposalStatus::Rejected);
 
         let err = client
             .try_execute_proposal(&id, &executor)
@@ -1048,5 +1186,93 @@ mod test {
         assert_eq!(after_for.votes_for, 750);
         assert_eq!(after_for.votes_against, 250);
         assert_eq!(after_for.status, ProposalStatus::Active);
+    }
+
+    #[test]
+    fn test_governance_analytics_are_zero_safe() {
+        let (_env, _admin, _token_admin, _token, client) = setup_test();
+
+        assert_eq!(
+            client.get_analytics(),
+            GovernanceAnalytics {
+                total_proposals: 0,
+                active_proposals: 0,
+                finalized_proposals: 0,
+                passed_proposals: 0,
+                rejected_proposals: 0,
+                executed_proposals: 0,
+                total_voting_power_cast: 0,
+                voter_turnout_bps: 0,
+                average_quorum_bps: 0,
+                proposal_pass_rate_bps: 0,
+            }
+        );
+    }
+
+    #[test]
+    fn test_governance_analytics_report_turnout_quorum_and_pass_rate() {
+        let (env, _admin, _token_admin, token, client) = setup_test();
+        let proposer = Address::generate(&env);
+        let voter_for = Address::generate(&env);
+        let voter_against = Address::generate(&env);
+        let active_voter = Address::generate(&env);
+        let sac = StellarAssetClient::new(&env, &token);
+        sac.mint(&voter_for, &6_000);
+        sac.mint(&voter_against, &2_000);
+        sac.mint(&active_voter, &1_000);
+
+        let passed_id = client.create_proposal(
+            &proposer,
+            &String::from_str(&env, "Passed"),
+            &String::from_str(&env, "Sixty percent turnout"),
+            &vec![&env],
+        );
+        let rejected_id = client.create_proposal(
+            &proposer,
+            &String::from_str(&env, "Rejected"),
+            &String::from_str(&env, "Twenty percent turnout"),
+            &vec![&env],
+        );
+        let active_id = client.create_proposal(
+            &proposer,
+            &String::from_str(&env, "Active"),
+            &String::from_str(&env, "Ten percent live turnout"),
+            &vec![&env],
+        );
+
+        client.cast_vote(&passed_id, &VoteChoice::For, &voter_for);
+        client.cast_vote(&rejected_id, &VoteChoice::Against, &voter_against);
+        client.cast_vote(&active_id, &VoteChoice::For, &active_voter);
+
+        env.ledger().set_timestamp(1_086_401);
+        client.finalize_proposal(&passed_id);
+        client.finalize_proposal(&rejected_id);
+
+        let analytics = client.get_analytics();
+        assert_eq!(analytics.total_proposals, 3);
+        assert_eq!(analytics.active_proposals, 1);
+        assert_eq!(analytics.finalized_proposals, 2);
+        assert_eq!(analytics.passed_proposals, 1);
+        assert_eq!(analytics.rejected_proposals, 1);
+        assert_eq!(analytics.executed_proposals, 0);
+        assert_eq!(analytics.total_voting_power_cast, 9_000);
+        assert_eq!(analytics.voter_turnout_bps, 3_000);
+        assert_eq!(analytics.average_quorum_bps, 4_000);
+        assert_eq!(analytics.proposal_pass_rate_bps, 5_000);
+    }
+
+    #[test]
+    fn test_governance_analytics_count_executed_as_passed() {
+        let (env, _admin, _token_admin, token, client) = setup_test();
+        let executor = Address::generate(&env);
+        let (proposal_id, _) = create_and_finalize(&env, &client, &token, 6_000);
+        client.execute_proposal(&proposal_id, &executor);
+
+        let analytics = client.get_analytics();
+        assert_eq!(analytics.finalized_proposals, 1);
+        assert_eq!(analytics.passed_proposals, 1);
+        assert_eq!(analytics.executed_proposals, 1);
+        assert_eq!(analytics.average_quorum_bps, 6_000);
+        assert_eq!(analytics.proposal_pass_rate_bps, 10_000);
     }
 }
