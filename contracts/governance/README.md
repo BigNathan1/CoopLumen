@@ -11,13 +11,14 @@ chain instead of from a backend that has to be trusted.
 
 ## Data model
 
-| Type             | Fields                                                                                                                                            |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Config`         | `admin`, `governance_token`, `voting_period` (seconds), `quorum_bps` (basis points, at most `10_000`)                                             |
-| `Proposal`       | `proposal_id`, `proposer`, `title`, `description`, `actions: Vec<String>`, `votes_for`, `votes_against`, `status`, `created_at`, `voting_ends_at` |
-| `Vote`           | `voter`, `choice`, `weight`                                                                                                                       |
-| `ProposalStatus` | `Active`, `Passed`, `Rejected`, `Executed`                                                                                                        |
-| `VoteChoice`     | `For`, `Against`                                                                                                                                  |
+| Type                  | Fields                                                                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Config`              | `admin`, `governance_token`, `voting_period` (seconds), `quorum_bps` (basis points, at most `10_000`)                                             |
+| `Proposal`            | `proposal_id`, `proposer`, `title`, `description`, `actions: Vec<String>`, `votes_for`, `votes_against`, `status`, `created_at`, `voting_ends_at` |
+| `Vote`                | `voter`, `choice`, `weight`                                                                                                                       |
+| `GovernanceAnalytics` | Proposal counts, total voting power cast, turnout, average quorum, and pass rate                                                                  |
+| `ProposalStatus`      | `Active`, `Passed`, `Rejected`, `Executed`                                                                                                        |
+| `VoteChoice`          | `For`, `Against`                                                                                                                                  |
 
 State is addressed through the `DataKey` enum:
 
@@ -102,6 +103,22 @@ The read side of the contract, and the view the off-chain layers surface:
 ### `get_vote(proposal_id, voter) -> Vote`
 
 Returns the `Vote` that `voter` cast on `proposal_id`.
+
+### `get_analytics() -> GovernanceAnalytics`
+
+Returns aggregate metrics computed directly from on-chain proposal records:
+
+- `voter_turnout_bps` is average token participation across every proposal,
+  including active ballots so live dashboards move as votes arrive.
+- `average_quorum_bps` is average token participation across finalized
+  proposals only.
+- `proposal_pass_rate_bps` is the share of finalized proposals that passed;
+  executed proposals remain successful outcomes.
+
+All rates use basis points (`10_000` = 100%). Participation for an individual
+proposal is capped at 100% in analytics, preventing token movement between
+ballots from producing a misleading percentage above the configured supply.
+Empty collections return zero-valued rates rather than failing division.
 
 ## Errors
 
