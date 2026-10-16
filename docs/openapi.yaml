@@ -42,6 +42,8 @@ tags:
     description: Server-Sent Events feeds of live account activity
   - name: Proposals
     description: Governance proposal creation and read models
+  - name: KYC
+    description: Account identity verification flows
   - name: Auth
     description: Wallet sign-in (challenge, signature, session cookie)
 
@@ -123,6 +125,46 @@ paths:
                   data: { $ref: '#/components/schemas/GovernanceProposal' }
         '400': { $ref: '#/components/responses/ValidationError' }
         '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/kyc/initiate:
+    post:
+      tags: [KYC]
+      summary: Start or resume KYC verification
+      description: Starts a pending KYC flow for the authenticated member's own address. Pending and submitted flows are idempotent; rejected or expired flows are restarted.
+      security:
+        - SessionToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InitiateKycRequest' }
+      responses:
+        '200':
+          description: An existing pending flow was returned
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InitiateKycResponse' }
+        '201':
+          description: A new or restarted pending flow was created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InitiateKycResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Address mismatch or inactive community membership
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: Address is already verified
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /api/v1/auth/logout:
     post:
       tags: [Auth]
@@ -1515,6 +1557,27 @@ components:
         votes_for: { type: string }
         votes_against: { type: string }
         votes_abstain: { type: string }
+    InitiateKycRequest:
+      type: object
+      required: [communityId, address]
+      properties:
+        communityId: { type: string, format: uuid }
+        address: { $ref: '#/components/schemas/StellarKey' }
+        provider: { type: string, default: sep12, maxLength: 100 }
+    InitiateKycResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [id, communityId, address, status, provider, initiatedAt]
+          properties:
+            id: { type: string, format: uuid }
+            communityId: { type: string, format: uuid }
+            address: { $ref: '#/components/schemas/StellarKey' }
+            status: { type: string, enum: [pending] }
+            provider: { type: string, nullable: true }
+            initiatedAt: { type: string, format: date-time }
     AuthLogoutResponse:
       type: object
       properties:
