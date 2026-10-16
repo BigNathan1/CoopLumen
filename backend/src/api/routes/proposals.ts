@@ -2,14 +2,15 @@ import { NextFunction, Request, Response, Router } from 'express';
 import { PoolClient } from 'pg';
 import { db } from '../../db';
 import { requireAuth } from '../middleware/auth';
-import { validateBody, validateParams } from '../middleware/validate';
+import { validateBody, validateParams, validateQuery } from '../middleware/validate';
 import {
+  castVoteSchema,
+  createProposalSchema,
+  proposalIdParamsSchema,
+  listProposalsQuerySchema,
   delegateProposalSchema,
   DelegateProposalInput,
-import { db } from '../../db';
-import { requireAuth } from '../middleware/auth';
-import { validateBody, validateParams } from '../middleware/validate';
-import { castVoteSchema, createProposalSchema, proposalIdParamsSchema } from '../schemas/proposal';
+} from '../schemas/proposal';
 
 export const proposalRouter: Router = Router();
 
@@ -67,23 +68,6 @@ async function isActiveMember(communityId: string, address: string): Promise<boo
   );
   return member?.exists === true;
 }
-
-/** Public proposal detail with a tally recomputed from persisted ballots. */
-proposalRouter.get(
-  '/:id',
-  validateParams(proposalIdParamsSchema),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const proposal = await findProposal(req.params.id);
-import { validateBody, validateParams, validateQuery } from '../middleware/validate';
-import {
-  CreateProposalInput,
-  createProposalSchema,
-  listProposalsQuerySchema,
-  proposalIdParamsSchema,
-} from '../schemas/proposal';
-
-export const proposalRouter = Router();
 
 class ProposalRequestError extends Error {
   constructor(
@@ -213,6 +197,12 @@ proposalRouter.post(
           updatedAt: delegation.updated_at,
         },
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 const proposalSelect = `
   SELECT p.*,
          COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'for'), 0)::text AS votes_for,
@@ -397,41 +387,6 @@ proposalRouter.post(
         res.status(409).json({ data: null, error: 'This member has already voted' });
         return;
       }
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const input = req.body as CreateProposalInput;
-      const [proposal] = await db.query(
-        `INSERT INTO proposals
-           (community_id, proposer_address, title, description, type, status,
-            quorum_percent, metadata, voting_starts_at, voting_ends_at)
-         SELECT $1, $2, $3, $4, $5, 'active', $6, $7::jsonb, NOW(), $8
-           FROM members
-          WHERE community_id = $1
-            AND stellar_address = $2
-            AND deleted_at IS NULL
-         RETURNING *`,
-        [
-          input.communityId,
-          req.auth!.address,
-          input.title,
-          input.description ?? null,
-          input.type,
-          input.quorumPercent,
-          JSON.stringify(input.metadata ?? {}),
-          input.votingEndsAt,
-        ]
-      );
-
-      if (!proposal) {
-        res.status(403).json({
-          data: null,
-          error: 'Only active community members can create proposals',
-        });
-        return;
-      }
-
-      res.status(201).json({ data: proposal });
-    } catch (error) {
       next(error);
     }
   }
