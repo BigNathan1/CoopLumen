@@ -15,6 +15,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Community write endpoints (`POST /api/v1/communities`, `PUT /:id`, `DELETE /:id`, `POST /:id/members`, `PUT /:id/members/:address`, `DELETE /:id/members/:address`, `POST /:id/avatar`) guarded with `authenticateJWT` (#356, #278).
 - Community member removal (`DELETE /api/v1/communities/:id/members/:address`) guarded with `requireRole(['admin'])` (#358, #280).
 - Token issuance (`POST /api/v1/tokens/build-issue`) guarded with `authenticateJWT` and `requireRole(['admin', 'treasurer'])` (#357, #279).
+- `AuthProvider` context and `useAuth` hook (`frontend/src/hooks/useAuth.tsx`) wrapping the application in `app/layout.tsx`, coordinating Freighter wallet connection, challenge-response session tokens, and modal state (#362).
+- `ProtectedRoute` component (`frontend/src/components/auth/ProtectedRoute.tsx`) redirecting unauthenticated visitors to `/` with accessible loading skeleton fallback and zero secret exposure (#363).
+- `401 Unauthorized` interceptor callback in `frontend/src/lib/api.ts` triggering `ReauthModal` (`frontend/src/components/auth/ReauthModal.tsx`) with dark-mode support and focus trap, enabling seamless re-signing upon token expiration (#365).
+- Technical documentation of the wallet-based authentication architecture, RBAC middleware, 401 interceptor, and Mermaid sequence diagram in `docs/auth-flow.md` (#368).
 - End-to-end integration test coverage for the full wallet authentication and RBAC flow (`backend/src/api/routes/__tests__/auth.integration.test.ts`), verifying challenge issuance, Freighter signature verification, session token minting, session cookie transit, RBAC access guards, refresh token rotation, logout, and credential secrecy hygiene (#367).
 - Dedicated containerized test PostgreSQL database in `docker-compose.test.yml` with tmpfs storage and isolated test ports (#369).
 - Test database setup runner (`backend/src/test/setup.ts`) executing pending schema migrations and baseline seeds before tests (#370).

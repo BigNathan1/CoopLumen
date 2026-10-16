@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { ToastProvider } from '@/hooks/useToast';
+import { AuthProvider } from '@/hooks/useAuth';
 import { ThemeProvider } from '@/hooks/useTheme';
 import { SWRProvider } from '@/lib/swr';
 import { LocaleProvider } from '@/hooks/useLocale';
@@ -41,11 +42,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ThemeProvider>
             <LocaleProvider defaultLocale={defaultLocale}>
               <ToastProvider>
-                <ErrorBoundary>
-                  <PageTransition>{children}</PageTransition>
-                </ErrorBoundary>
-                <Footer />
-                <ToastDisplay />
+                <AuthProvider>
+                  <ErrorBoundary>
+                    <PageTransition>{children}</PageTransition>
+                  </ErrorBoundary>
+                  <Footer />
+                  <ToastDisplay />
+                </AuthProvider>
               </ToastProvider>
             </LocaleProvider>
           </ThemeProvider>
