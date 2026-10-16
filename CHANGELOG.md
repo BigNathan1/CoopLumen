@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `AuthProvider` context and `useAuth` hook (`frontend/src/hooks/useAuth.tsx`) wrapping the application in `app/layout.tsx`, coordinating Freighter wallet connection, challenge-response session tokens, and modal state (#362).
+- `ProtectedRoute` component (`frontend/src/components/auth/ProtectedRoute.tsx`) redirecting unauthenticated visitors to `/` with accessible loading skeleton fallback and zero secret exposure (#363).
+- `401 Unauthorized` interceptor callback in `frontend/src/lib/api.ts` triggering `ReauthModal` (`frontend/src/components/auth/ReauthModal.tsx`) with dark-mode support and focus trap, enabling seamless re-signing upon token expiration (#365).
+- Technical documentation of the wallet-based authentication architecture, RBAC middleware, 401 interceptor, and Mermaid sequence diagram in `docs/auth-flow.md` (#368).
 - Global SWR configuration (`frontend/src/lib/swr.tsx`): one shared fetcher, `errorRetryCount: 3`, `revalidateOnFocus: false` and a 30s default refresh, mounted at the app root. Data hooks now key on API paths rather than absolute URLs (#344). `useBalances` accepts an optional `communityId` filter (#335). Treasury balances (#337) are served by the existing `useTreasury(communityId)`.
 - `useXlmPrice` hook tests covering the price fetch and error paths, ported from #810 (#338); the hook itself already polls every 60 seconds.
 - `useEstimateFee` hook to calculate and display estimated transaction fees dynamically before signing, preventing surprise rejections on busy networks (#348).

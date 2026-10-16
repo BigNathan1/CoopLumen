@@ -102,10 +102,14 @@ export type AuthTokenProvider = () =>
   | undefined
   | Promise<string | null | undefined>;
 
+/** Callback invoked when an API request returns HTTP 401 Unauthorized. */
+export type UnauthorizedHandler = () => void;
+
 interface ApiConfig {
   baseUrl?: string;
   timeoutMs?: number;
   getAuthToken?: AuthTokenProvider;
+  onUnauthorized?: UnauthorizedHandler;
 }
 
 const config: ApiConfig = {};
@@ -123,6 +127,7 @@ export function resetApiConfig(): void {
   delete config.baseUrl;
   delete config.timeoutMs;
   delete config.getAuthToken;
+  delete config.onUnauthorized;
 }
 
 /**
@@ -136,6 +141,14 @@ export function setAuthTokenProvider(provider: AuthTokenProvider | null): void {
 /** Convenience wrapper over {@link setAuthTokenProvider} for a static token. */
 export function setAuthToken(token: string | null): void {
   setAuthTokenProvider(token === null ? null : () => token);
+}
+
+/**
+ * Registers a global callback invoked when any API request receives an HTTP 401
+ * Unauthorized response. Used by AuthProvider to trigger the re-authentication modal.
+ */
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
+  config.onUnauthorized = handler ?? undefined;
 }
 
 /** The origin every relative path is resolved against. */
@@ -335,6 +348,13 @@ export async function requestRaw<T>(
   const envelope = await readEnvelope(response);
 
   if (!response.ok) {
+    if (response.status === 401) {
+      try {
+        config.onUnauthorized?.();
+      } catch {
+        // Prevent subscriber callback errors from suppressing the ApiError
+      }
+    }
     throw new ApiError(readErrorMessage(envelope?.error, statusFallbackMessage(response)), {
       status: response.status,
       code: readErrorCode(envelope?.error, response.status),
