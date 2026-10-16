@@ -271,6 +271,7 @@ cd frontend && npm test
 - [Contributing Guide](CONTRIBUTING.md) — branch model, conventions, code review
 - [Multi-Signature & Batch Operations Guide](docs/multisig.md) — multi-sig treasury governance, signing lifecycle, batch payments
 - [Governance Contract ABI and Deployment](docs/governance-contract.md) — contract types, functions, errors, events, and deployment procedure
+- [SEP-12 KYC Requirements](docs/kyc.md) — provider integration, status mapping, privacy, and security requirements
 
 ## Community
 
