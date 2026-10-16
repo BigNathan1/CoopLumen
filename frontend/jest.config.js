@@ -2,6 +2,8 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
+  roots: ['<rootDir>/src'],
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/e2e/'],
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
     // Stylesheets first, so aliased CSS module imports are stubbed too.
