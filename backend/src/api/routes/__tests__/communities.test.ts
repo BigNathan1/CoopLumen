@@ -584,8 +584,10 @@ describe('members', () => {
     expect(res.status).toBe(400);
   });
 
-  it('lets a member remove themselves', async () => {
-    mockDb.query.mockResolvedValueOnce([{ stellar_address: validKey }]);
+  it('lets an admin remove themselves', async () => {
+    mockDb.query
+      .mockResolvedValueOnce([{ role: 'admin' }])
+      .mockResolvedValueOnce([{ stellar_address: validKey }]);
     const res = await request(app)
       .delete(`/api/v1/communities/uuid-1/members/${validKey}`)
       .set('Authorization', authHeader(validKey));
@@ -615,6 +617,7 @@ describe('members', () => {
   });
 
   it('rejects an invalid Stellar address in path parameter for delete', async () => {
+    mockDb.query.mockResolvedValueOnce([{ role: 'admin' }]);
     const res = await request(app)
       .delete('/api/v1/communities/uuid-1/members/invalid-address')
       .set('Authorization', authHeader(validKey));

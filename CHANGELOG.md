@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Double-submit cookie CSRF protection (`csrfProtection` middleware) guarding state-changing routes under `/api/v1`, with `GET /api/v1/auth/csrf` endpoint, `cooplumen_csrf` cookie management, and OpenAPI documentation (#359, #281).
+- Community write endpoints (`POST /api/v1/communities`, `PUT /:id`, `DELETE /:id`, `POST /:id/members`, `PUT /:id/members/:address`, `DELETE /:id/members/:address`, `POST /:id/avatar`) guarded with `authenticateJWT` (#356, #278).
+- Community member removal (`DELETE /api/v1/communities/:id/members/:address`) guarded with `requireRole(['admin'])` (#358, #280).
+- Token issuance (`POST /api/v1/tokens/build-issue`) guarded with `authenticateJWT` and `requireRole(['admin', 'treasurer'])` (#357, #279).
+
 - Global SWR configuration (`frontend/src/lib/swr.tsx`): one shared fetcher, `errorRetryCount: 3`, `revalidateOnFocus: false` and a 30s default refresh, mounted at the app root. Data hooks now key on API paths rather than absolute URLs (#344). `useBalances` accepts an optional `communityId` filter (#335). Treasury balances (#337) are served by the existing `useTreasury(communityId)`.
 - `useXlmPrice` hook tests covering the price fetch and error paths, ported from #810 (#338); the hook itself already polls every 60 seconds.
 - `useEstimateFee` hook to calculate and display estimated transaction fees dynamically before signing, preventing surprise rejections on busy networks (#348).

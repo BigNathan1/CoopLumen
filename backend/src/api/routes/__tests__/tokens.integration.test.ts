@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { Keypair, TransactionBuilder } from '@stellar/stellar-sdk';
 import { db } from '../../../db';
+import { createSessionToken } from '../../utils/sessionToken';
 
 const mockRedisClient = {
   connect: jest.fn().mockResolvedValue(undefined),
@@ -89,14 +90,21 @@ describe('Token lifecycle: build, sign, submit, transfer', () => {
   it('carries a token through issuance, trustline and transfer', async () => {
     // Build the unsigned issuance transaction. The issuer's secret never
     // reaches the server; the wallet signs the XDR that comes back.
+    (db.query as jest.Mock)
+      .mockResolvedValueOnce([{ id: 'community-1' }])
+      .mockResolvedValueOnce([{ role: 'admin' }]);
     (buildUnsignedIssueAsset as jest.Mock).mockResolvedValueOnce('unsigned-issue-xdr');
 
-    const buildIssueRes = await request(app).post('/api/v1/tokens/build-issue').send({
-      issuerPublicKey: issuerKeypair.publicKey(),
-      assetCode,
-      distributorPublicKey: distributorKeypair.publicKey(),
-      amount: '1000',
-    });
+    const authHeader = `Bearer ${createSessionToken(issuerKeypair.publicKey()).token}`;
+    const buildIssueRes = await request(app)
+      .post('/api/v1/tokens/build-issue')
+      .set('Authorization', authHeader)
+      .send({
+        issuerPublicKey: issuerKeypair.publicKey(),
+        assetCode,
+        distributorPublicKey: distributorKeypair.publicKey(),
+        amount: '1000',
+      });
 
     expect(buildIssueRes.status).toBe(200);
     expect(buildIssueRes.body.data.xdr).toBe('unsigned-issue-xdr');
@@ -164,12 +172,16 @@ describe('Token lifecycle: build, sign, submit, transfer', () => {
   });
 
   it('rejects an invalid asset code before building anything', async () => {
-    const res = await request(app).post('/api/v1/tokens/build-issue').send({
-      issuerPublicKey: issuerKeypair.publicKey(),
-      assetCode: 'INVALID-CODE_WITH_SPECIAL_CHARS',
-      distributorPublicKey: distributorKeypair.publicKey(),
-      amount: '1000',
-    });
+    const authHeader = `Bearer ${createSessionToken(issuerKeypair.publicKey()).token}`;
+    const res = await request(app)
+      .post('/api/v1/tokens/build-issue')
+      .set('Authorization', authHeader)
+      .send({
+        issuerPublicKey: issuerKeypair.publicKey(),
+        assetCode: 'INVALID-CODE_WITH_SPECIAL_CHARS',
+        distributorPublicKey: distributorKeypair.publicKey(),
+        amount: '1000',
+      });
 
     expect(res.status).toBe(400);
     expect(res.body.meta.errors).toBeDefined();

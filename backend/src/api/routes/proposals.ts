@@ -2,14 +2,16 @@ import { NextFunction, Request, Response, Router } from 'express';
 import { PoolClient } from 'pg';
 import { db } from '../../db';
 import { requireAuth } from '../middleware/auth';
-import { validateBody, validateParams } from '../middleware/validate';
+import { validateBody, validateParams, validateQuery } from '../middleware/validate';
 import {
   delegateProposalSchema,
   DelegateProposalInput,
-import { db } from '../../db';
-import { requireAuth } from '../middleware/auth';
-import { validateBody, validateParams } from '../middleware/validate';
-import { castVoteSchema, createProposalSchema, proposalIdParamsSchema } from '../schemas/proposal';
+  castVoteSchema,
+  createProposalSchema,
+  CreateProposalInput,
+  listProposalsQuerySchema,
+  proposalIdParamsSchema,
+} from '../schemas/proposal';
 
 export const proposalRouter: Router = Router();
 
@@ -67,23 +69,6 @@ async function isActiveMember(communityId: string, address: string): Promise<boo
   );
   return member?.exists === true;
 }
-
-/** Public proposal detail with a tally recomputed from persisted ballots. */
-proposalRouter.get(
-  '/:id',
-  validateParams(proposalIdParamsSchema),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const proposal = await findProposal(req.params.id);
-import { validateBody, validateParams, validateQuery } from '../middleware/validate';
-import {
-  CreateProposalInput,
-  createProposalSchema,
-  listProposalsQuerySchema,
-  proposalIdParamsSchema,
-} from '../schemas/proposal';
-
-export const proposalRouter = Router();
 
 class ProposalRequestError extends Error {
   constructor(
@@ -187,40 +172,6 @@ async function saveDelegation(
   return result.rows[0];
 }
 
-proposalRouter.post(
-  '/:id/delegate',
-  requireAuth,
-  validateParams(proposalIdParamsSchema),
-  validateBody(delegateProposalSchema),
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const delegatorAddress = req.auth!.address;
-    const { delegateeAddress } = req.body as DelegateProposalInput;
-    if (delegatorAddress === delegateeAddress) {
-      res.status(400).json({ data: null, error: 'Cannot delegate voting power to yourself' });
-      return;
-    }
-
-    try {
-      const delegation = await db.transaction((client) =>
-        saveDelegation(client, req.params.id, delegatorAddress, delegateeAddress)
-      );
-      res.status(200).json({
-        data: {
-          proposalId: delegation.proposal_id,
-          delegatorAddress: delegation.delegator_address,
-          delegateeAddress: delegation.delegatee_address,
-          createdAt: delegation.created_at,
-          updatedAt: delegation.updated_at,
-        },
-      });
-const proposalSelect = `
-  SELECT p.*,
-         COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'for'), 0)::text AS votes_for,
-         COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'against'), 0)::text AS votes_against,
-         COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'abstain'), 0)::text AS votes_abstain
-    FROM proposals p
-    LEFT JOIN votes v ON v.proposal_id = p.id`;
-
 proposalRouter.get(
   '/',
   validateQuery(listProposalsQuerySchema),
@@ -231,7 +182,7 @@ proposalRouter.get(
         status?: string;
       };
       const proposals = await db.query(
-        `${proposalSelect}
+        `${PROPOSAL_SELECT}
           WHERE p.community_id = $1
             AND ($2::text IS NULL OR p.status = $2)
           GROUP BY p.id
@@ -250,12 +201,7 @@ proposalRouter.get(
   validateParams(proposalIdParamsSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const [proposal] = await db.query(
-        `${proposalSelect}
-          WHERE p.id = $1
-          GROUP BY p.id`,
-        [req.params.id]
-      );
+      const proposal = await findProposal(req.params.id);
       if (!proposal) {
         res.status(404).json({ data: null, error: 'Proposal not found' });
         return;
@@ -267,12 +213,11 @@ proposalRouter.get(
   }
 );
 
-/** Creates the application's persisted projection of a governance proposal. */
 proposalRouter.post(
   '/',
   requireAuth,
   validateBody(createProposalSchema),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const {
         communityId,
@@ -281,19 +226,15 @@ proposalRouter.post(
         type,
         quorumPercent,
         votingDurationHours,
+        votingEndsAt,
         metadata,
-      } = req.body as {
-        communityId: string;
-        title: string;
-        description?: string;
-        type: string;
-        quorumPercent: number;
-        votingDurationHours: number;
-        metadata?: Record<string, unknown>;
-      };
+      } = req.body as CreateProposalInput;
 
       if (!(await isActiveMember(communityId, req.auth!.address))) {
-        res.status(403).json({ data: null, error: 'Active community membership required' });
+        res.status(403).json({
+          data: null,
+          error: 'Only active community members can create proposals',
+        });
         return;
       }
 
@@ -303,7 +244,7 @@ proposalRouter.post(
            quorum_percent, metadata, voting_starts_at, voting_ends_at
          )
          VALUES ($1, $2, $3, $4, $5, 'active', $6, $7, NOW(),
-                 NOW() + ($8 * INTERVAL '1 hour'))
+                 COALESCE($8::timestamptz, NOW() + ($9 * INTERVAL '1 hour')))
          RETURNING id`,
         [
           communityId,
@@ -313,7 +254,8 @@ proposalRouter.post(
           type,
           quorumPercent,
           metadata ? JSON.stringify(metadata) : null,
-          votingDurationHours,
+          votingEndsAt ? new Date(votingEndsAt).toISOString() : null,
+          votingDurationHours ?? 24,
         ]
       );
 
@@ -325,13 +267,12 @@ proposalRouter.post(
   }
 );
 
-/** Records one authenticated member ballot and returns the refreshed tally. */
 proposalRouter.post(
   '/:id/votes',
   requireAuth,
   validateParams(proposalIdParamsSchema),
   validateBody(castVoteSchema),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { choice, reason } = req.body as { choice: string; reason?: string };
 
@@ -369,8 +310,6 @@ proposalRouter.post(
           throw error;
         }
 
-        // This table is an application projection. The Soroban indexer replaces
-        // this unit weight with the token balance observed on-chain.
         await client.query(
           `INSERT INTO votes (proposal_id, voter_address, choice, weight, reason)
            VALUES ($1, $2, $3, 1, $4)`,
@@ -397,41 +336,42 @@ proposalRouter.post(
         res.status(409).json({ data: null, error: 'This member has already voted' });
         return;
       }
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const input = req.body as CreateProposalInput;
-      const [proposal] = await db.query(
-        `INSERT INTO proposals
-           (community_id, proposer_address, title, description, type, status,
-            quorum_percent, metadata, voting_starts_at, voting_ends_at)
-         SELECT $1, $2, $3, $4, $5, 'active', $6, $7::jsonb, NOW(), $8
-           FROM members
-          WHERE community_id = $1
-            AND stellar_address = $2
-            AND deleted_at IS NULL
-         RETURNING *`,
-        [
-          input.communityId,
-          req.auth!.address,
-          input.title,
-          input.description ?? null,
-          input.type,
-          input.quorumPercent,
-          JSON.stringify(input.metadata ?? {}),
-          input.votingEndsAt,
-        ]
-      );
+      next(error);
+    }
+  }
+);
 
-      if (!proposal) {
-        res.status(403).json({
-          data: null,
-          error: 'Only active community members can create proposals',
-        });
+proposalRouter.post(
+  '/:id/delegate',
+  requireAuth,
+  validateParams(proposalIdParamsSchema),
+  validateBody(delegateProposalSchema),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const delegatorAddress = req.auth!.address;
+    const { delegateeAddress } = req.body as DelegateProposalInput;
+    if (delegatorAddress === delegateeAddress) {
+      res.status(400).json({ data: null, error: 'Cannot delegate voting power to yourself' });
+      return;
+    }
+
+    try {
+      const delegation = await db.transaction((client) =>
+        saveDelegation(client, req.params.id, delegatorAddress, delegateeAddress)
+      );
+      res.status(200).json({
+        data: {
+          proposalId: delegation.proposal_id,
+          delegatorAddress: delegation.delegator_address,
+          delegateeAddress: delegation.delegatee_address,
+          createdAt: delegation.created_at,
+          updatedAt: delegation.updated_at,
+        },
+      });
+    } catch (error) {
+      if (error instanceof ProposalRequestError) {
+        res.status(error.status).json({ data: null, error: error.message });
         return;
       }
-
-      res.status(201).json({ data: proposal });
-    } catch (error) {
       next(error);
     }
   }

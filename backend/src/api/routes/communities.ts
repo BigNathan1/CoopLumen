@@ -5,7 +5,7 @@ import { StellarService } from '../../contracts/stellar';
 import { logger } from '../../utils/logger';
 import { parsePagination, pageMeta, parseSort, queryString } from '../utils/http';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate';
-import { requireAuth, requireRole } from '../middleware/auth';
+import { authenticateJWT, requireRole } from '../middleware/auth';
 import { writeLimiter } from '../middleware/rateLimit';
 import { isValidStellarPublicKey } from '../utils/stellar';
 import { mapHorizonError } from '../utils/horizonError';
@@ -324,7 +324,7 @@ communityRouter.get('/:id', validateParams(communityIdParamsSchema), async (req,
  */
 communityRouter.post(
   '/',
-  requireAuth,
+  authenticateJWT,
   writeLimiter,
   validateBody(createCommunitySchema),
   async (req: Request, res: Response) => {
@@ -405,7 +405,7 @@ communityRouter.post(
  */
 communityRouter.put(
   '/:id',
-  requireAuth,
+  authenticateJWT,
   requireRole(['admin', 'treasurer']),
   writeLimiter,
   validateParams(communityIdParamsSchema),
@@ -493,7 +493,7 @@ communityRouter.put(
  */
 communityRouter.delete(
   '/:id',
-  requireAuth,
+  authenticateJWT,
   writeLimiter,
   requireRole(['admin']),
   async (req, res, next) => {
@@ -590,7 +590,7 @@ communityRouter.get('/:id/members', async (req, res, next) => {
  */
 communityRouter.post(
   '/:id/members',
-  requireAuth,
+  authenticateJWT,
   requireRole(['admin']),
   writeLimiter,
   validateBody(addMemberSchema),
@@ -669,7 +669,7 @@ communityRouter.get('/:id/members/:address', async (req, res, next) => {
  */
 communityRouter.put(
   '/:id/members/:address',
-  requireAuth,
+  authenticateJWT,
   requireRole(['admin']),
   writeLimiter,
   validateBody(updateMemberSchema),
@@ -711,29 +711,14 @@ communityRouter.put(
  */
 communityRouter.delete(
   '/:id/members/:address',
-  requireAuth,
+  authenticateJWT,
+  requireRole(['admin']),
   writeLimiter,
   async (req, res, next) => {
     try {
       if (!isValidStellarPublicKey(req.params.address)) {
         res.status(400).json({ data: null, error: 'Invalid Stellar address' });
         return;
-      }
-
-      // A member may remove themselves; removing anyone else requires admin.
-      if (req.auth!.address !== req.params.address) {
-        const [caller] = await db.query<{ role: string }>(
-          `SELECT role FROM members
-           WHERE community_id = $1 AND stellar_address = $2 AND deleted_at IS NULL`,
-          [req.params.id, req.auth!.address]
-        );
-        if (caller?.role !== 'admin') {
-          res.status(403).json({
-            data: null,
-            error: 'Only an admin can remove another member',
-          });
-          return;
-        }
       }
 
       const result = await db.query<{ stellar_address: string }>(
@@ -802,7 +787,7 @@ communityRouter.get(
  */
 communityRouter.post(
   '/:id/avatar',
-  requireAuth,
+  authenticateJWT,
   requireRole(['admin', 'treasurer']),
   writeLimiter,
   validateBody(setAvatarSchema),

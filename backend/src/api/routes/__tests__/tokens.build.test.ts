@@ -4,6 +4,14 @@ import app from '../../../app';
 import { buildUnsignedIssueAsset } from '../../../contracts/assets';
 import { buildUnsignedTrustline } from '../../../contracts/trustlines';
 import { submitSignedXdr } from '../../../contracts/transactions';
+import { db } from '../../../db';
+import { createSessionToken } from '../../utils/sessionToken';
+
+jest.mock('../../../db', () => ({
+  db: {
+    query: jest.fn(),
+  },
+}));
 
 jest.mock('../../../contracts/assets', () => ({
   buildUnsignedIssueAsset: jest.fn(),
@@ -17,6 +25,7 @@ jest.mock('../../../contracts/transactions', () => ({
   submitSignedXdr: jest.fn(),
 }));
 
+const mockDb = db as jest.Mocked<typeof db>;
 const mockBuildUnsignedIssueAsset = buildUnsignedIssueAsset as jest.Mock;
 const mockBuildUnsignedTrustline = buildUnsignedTrustline as jest.Mock;
 const mockSubmitSignedXdr = submitSignedXdr as jest.Mock;
@@ -24,6 +33,10 @@ const mockSubmitSignedXdr = submitSignedXdr as jest.Mock;
 const issuerKeypair = Keypair.random();
 const distributorKeypair = Keypair.random();
 const accountKeypair = Keypair.random();
+
+function authHeader(address = issuerKeypair.publicKey()): string {
+  return `Bearer ${createSessionToken(address).token}`;
+}
 
 describe('POST /api/v1/tokens/build-issue', () => {
   beforeEach(() => {
@@ -37,11 +50,38 @@ describe('POST /api/v1/tokens/build-issue', () => {
     amount: '1000.0000000',
   };
 
+  it('rejects an unauthenticated request', async () => {
+    const response = await request(app).post('/api/v1/tokens/build-issue').send(validRequest);
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ data: null, error: 'Authentication required' });
+    expect(mockBuildUnsignedIssueAsset).not.toHaveBeenCalled();
+  });
+
+  it('rejects a caller who lacks admin or treasurer role', async () => {
+    mockDb.query
+      .mockResolvedValueOnce([{ id: 'community-1' }])
+      .mockResolvedValueOnce([{ role: 'member' }]);
+
+    const response = await request(app)
+      .post('/api/v1/tokens/build-issue')
+      .set('Authorization', authHeader())
+      .send(validRequest);
+
+    expect(response.status).toBe(403);
+    expect(response.body.error).toContain('Requires community role: admin or treasurer');
+    expect(mockBuildUnsignedIssueAsset).not.toHaveBeenCalled();
+  });
+
   it('returns an unsigned XDR built from public keys only, ignoring any secret field sent alongside it', async () => {
+    mockDb.query
+      .mockResolvedValueOnce([{ id: 'community-1' }])
+      .mockResolvedValueOnce([{ role: 'admin' }]);
     mockBuildUnsignedIssueAsset.mockResolvedValueOnce('unsigned-xdr');
 
     const response = await request(app)
       .post('/api/v1/tokens/build-issue')
+      .set('Authorization', authHeader())
       .send({ ...validRequest, issuerSecret: 'SBOGUSSECRETSHOULDNEVERBEFORWARDED' });
 
     expect(response.status).toBe(200);
@@ -56,7 +96,10 @@ describe('POST /api/v1/tokens/build-issue', () => {
   });
 
   it('validates required fields', async () => {
-    const response = await request(app).post('/api/v1/tokens/build-issue').send({});
+    const response = await request(app)
+      .post('/api/v1/tokens/build-issue')
+      .set('Authorization', authHeader())
+      .send({});
 
     expect(response.status).toBe(400);
     expect(mockBuildUnsignedIssueAsset).not.toHaveBeenCalled();
@@ -65,6 +108,7 @@ describe('POST /api/v1/tokens/build-issue', () => {
   it('rejects an issuerPublicKey that is not a valid Stellar public key', async () => {
     const response = await request(app)
       .post('/api/v1/tokens/build-issue')
+      .set('Authorization', authHeader())
       .send({ ...validRequest, issuerPublicKey: 'not-a-key' });
 
     expect(response.status).toBe(400);
@@ -72,9 +116,15 @@ describe('POST /api/v1/tokens/build-issue', () => {
   });
 
   it('maps a Horizon failure to the mapped error response', async () => {
+    mockDb.query
+      .mockResolvedValueOnce([{ id: 'community-1' }])
+      .mockResolvedValueOnce([{ role: 'treasurer' }]);
     mockBuildUnsignedIssueAsset.mockRejectedValueOnce({ response: { status: 404 } });
 
-    const response = await request(app).post('/api/v1/tokens/build-issue').send(validRequest);
+    const response = await request(app)
+      .post('/api/v1/tokens/build-issue')
+      .set('Authorization', authHeader())
+      .send(validRequest);
 
     expect(response.status).toBe(404);
     expect(response.body.data).toBeNull();

@@ -1,7 +1,9 @@
 import { NextFunction, Request, Response, Router } from 'express';
+import { PoolClient } from 'pg';
 import { db } from '../../db';
-import { validateParams } from '../middleware/validate';
-import { kycStatusParamsSchema } from '../schemas/kyc';
+import { requireAuth } from '../middleware/auth';
+import { validateBody, validateParams } from '../middleware/validate';
+import { kycStatusParamsSchema, initiateKycSchema, InitiateKycInput } from '../schemas/kyc';
 
 export const kycRouter = Router();
 
@@ -34,13 +36,13 @@ kycRouter.get(
         data: {
           address: req.params.address,
           status: toPublicStatus(record?.status),
-import { PoolClient } from 'pg';
-import { db } from '../../db';
-import { requireAuth } from '../middleware/auth';
-import { validateBody } from '../middleware/validate';
-import { initiateKycSchema, InitiateKycInput } from '../schemas/kyc';
-
-export const kycRouter = Router();
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 class KycInitiationError extends Error {
   constructor(

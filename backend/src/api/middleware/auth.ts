@@ -87,11 +87,32 @@ export function requireRole(roles: readonly MemberRole[]) {
     }
 
     try {
-      const [member] = await db.query<{ role: string }>(
-        `SELECT role FROM members
+      let communityId =
+        req.params?.id ??
+        (req.params as Record<string, string> | undefined)?.communityId ??
+        (req.body as Record<string, unknown> | undefined)?.communityId;
+
+      if (!communityId && (req.body as Record<string, unknown> | undefined)?.issuerPublicKey) {
+        const issuerKey = (req.body as Record<string, unknown>).issuerPublicKey;
+        const [c] = await db.query<{ id: string }>(
+          `SELECT id FROM communities WHERE (issuer_public_key = $1 OR asset_issuer = $1) AND deleted_at IS NULL`,
+          [issuerKey]
+        );
+        communityId = c?.id;
+      }
+
+      if (!communityId) {
+        res.status(404).json({ data: null, error: 'Community not found' });
+        return;
+      }
+
+      const members =
+        (await db.query<{ role: string }>(
+          `SELECT role FROM members
          WHERE community_id = $1 AND stellar_address = $2 AND deleted_at IS NULL`,
-        [req.params.id, req.auth.address]
-      );
+          [communityId, req.auth.address]
+        )) ?? [];
+      const member = members[0];
 
       if (!member || !(roles as readonly string[]).includes(member.role)) {
         res.status(403).json({

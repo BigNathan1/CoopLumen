@@ -6,6 +6,7 @@ import { errorHandler } from './api/middleware/errorHandler';
 import { notFound } from './api/middleware/notFound';
 import { requestLogger } from './api/middleware/requestLogger';
 import { communityWriteLimiter } from './api/middleware/rateLimit';
+import { csrfProtection } from './api/middleware/csrf';
 import { db } from './db';
 import { StellarService } from './contracts/stellar';
 
@@ -50,7 +51,7 @@ app.get('/api/health', healthHandler);
 app.use('/api/v1/communities', communityWriteLimiter);
 
 // All resource routes live under the /api/v1 version prefix.
-app.use('/api/v1', apiRouter);
+app.use('/api/v1', csrfProtection, apiRouter);
 
 app.use(notFound);
 app.use(errorHandler);
