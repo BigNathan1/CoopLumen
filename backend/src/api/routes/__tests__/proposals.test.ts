@@ -63,7 +63,6 @@ describe('governance proposal routes', () => {
   describe('GET /api/v1/proposals', () => {
     it('requires a valid communityId query parameter', async () => {
       const response = await request(app).get('/api/v1/proposals?communityId=bad');
-
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('Validation failed');
       expect(response.body.meta.errors[0].path).toBe('communityId');
@@ -72,11 +71,9 @@ describe('governance proposal routes', () => {
 
     it('lists proposals for a community with an optional status filter', async () => {
       query.mockResolvedValue([proposal]);
-
       const response = await request(app).get(
         `/api/v1/proposals?communityId=${communityId}&status=active`
       );
-
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ data: [proposal] });
       expect(query).toHaveBeenCalledWith(expect.stringContaining('p.community_id = $1'), [
@@ -89,7 +86,6 @@ describe('governance proposal routes', () => {
   describe('GET /api/v1/proposals/:id', () => {
     it('rejects a malformed proposal id before querying', async () => {
       const response = await request(app).get('/api/v1/proposals/not-a-uuid');
-
       expect(response.status).toBe(400);
       expect(response.body.error).toBe('Validation failed');
       expect(query).not.toHaveBeenCalled();
@@ -97,18 +93,14 @@ describe('governance proposal routes', () => {
 
     it('returns 404 for an unknown proposal', async () => {
       query.mockResolvedValue([]);
-
       const response = await request(app).get(`/api/v1/proposals/${proposalId}`);
-
       expect(response.status).toBe(404);
       expect(response.body).toEqual({ data: null, error: 'Proposal not found' });
     });
 
     it('returns proposal detail with its current database tally', async () => {
       query.mockResolvedValue([{ ...proposal, votes_for: '75', votes_against: '25' }]);
-
       const response = await request(app).get(`/api/v1/proposals/${proposalId}`);
-
       expect(response.status).toBe(200);
       expect(response.body.data.votes_for).toBe('75');
       expect(response.body.data.votes_against).toBe('25');
@@ -129,7 +121,6 @@ describe('governance proposal routes', () => {
 
     it('requires authentication', async () => {
       const response = await request(app).post('/api/v1/proposals').send(payload);
-
       expect(response.status).toBe(401);
       expect(response.body).toEqual({ data: null, error: 'Authentication required' });
       expect(query).not.toHaveBeenCalled();
@@ -154,6 +145,7 @@ describe('governance proposal routes', () => {
 
     it('rejects a caller who is not an active community member', async () => {
       mockDb.query.mockResolvedValueOnce([{ exists: false }]);
+      query.mockResolvedValueOnce([{ exists: false }]);
 
       const response = await request(app)
         .post('/api/v1/proposals')
@@ -163,12 +155,13 @@ describe('governance proposal routes', () => {
       expect(response.status).toBe(403);
       expect(response.body).toEqual({
         data: null,
-        error: 'Only active community members can create proposals',
+        error: 'Active community membership required',
       });
     });
 
     it('creates an active proposal for an authenticated member', async () => {
       mockDb.query
+      query
         .mockResolvedValueOnce([{ exists: true }])
         .mockResolvedValueOnce([{ id: proposalId }])
         .mockResolvedValueOnce([proposal]);

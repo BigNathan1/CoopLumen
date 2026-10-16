@@ -4,6 +4,10 @@ import { db } from '../../db';
 import { requireAuth } from '../middleware/auth';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate';
 import {
+  castVoteSchema,
+  createProposalSchema,
+  proposalIdParamsSchema,
+  listProposalsQuerySchema,
   delegateProposalSchema,
   DelegateProposalInput,
   castVoteSchema,
@@ -171,6 +175,46 @@ async function saveDelegation(
   );
   return result.rows[0];
 }
+
+proposalRouter.post(
+  '/:id/delegate',
+  requireAuth,
+  validateParams(proposalIdParamsSchema),
+  validateBody(delegateProposalSchema),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const delegatorAddress = req.auth!.address;
+    const { delegateeAddress } = req.body as DelegateProposalInput;
+    if (delegatorAddress === delegateeAddress) {
+      res.status(400).json({ data: null, error: 'Cannot delegate voting power to yourself' });
+      return;
+    }
+
+    try {
+      const delegation = await db.transaction((client) =>
+        saveDelegation(client, req.params.id, delegatorAddress, delegateeAddress)
+      );
+      res.status(200).json({
+        data: {
+          proposalId: delegation.proposal_id,
+          delegatorAddress: delegation.delegator_address,
+          delegateeAddress: delegation.delegatee_address,
+          createdAt: delegation.created_at,
+          updatedAt: delegation.updated_at,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+const proposalSelect = `
+  SELECT p.*,
+         COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'for'), 0)::text AS votes_for,
+         COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'against'), 0)::text AS votes_against,
+         COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'abstain'), 0)::text AS votes_abstain
+    FROM proposals p
+    LEFT JOIN votes v ON v.proposal_id = p.id`;
 
 proposalRouter.get(
   '/',
