@@ -13,6 +13,8 @@ import {
   setAuthToken,
   setAuthTokenProvider,
   swrFetcher,
+  AUTH_COOKIE_NAME,
+  readCookie,
 } from '../api';
 
 const BASE_URL = 'https://api.cooplumen.test';
@@ -196,6 +198,32 @@ describe('auth header injection', () => {
     fetchMock.mockResolvedValue(jsonResponse({ data: null }));
     await api.get('/api/v1/communities');
     expect(requestHeader('Authorization')).toBeNull();
+  });
+
+  it('injects JWT from cooplumen_session cookie when no provider is configured', async () => {
+    (global as unknown as { document?: { cookie: string } }).document = {
+      cookie: `${AUTH_COOKIE_NAME}=jwt-cookie-token; other_cookie=xyz`,
+    };
+    fetchMock.mockResolvedValue(jsonResponse({ data: null }));
+
+    await api.get('/api/v1/communities');
+    expect(requestHeader('Authorization')).toBe('Bearer jwt-cookie-token');
+
+    delete (global as unknown as { document?: { cookie: string } }).document;
+  });
+
+  it('sets credentials to include by default for session cookie transit', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ data: null }));
+    await api.get('/api/v1/communities');
+    expect(requestInit().credentials).toBe('include');
+  });
+
+  it('readCookie helper correctly parses cookies and handles special characters', () => {
+    const cookieHeader = 'theme=dark; cooplumen_session=my%2Etoken%2Ehere; lang=en';
+    expect(readCookie('cooplumen_session', cookieHeader)).toBe('my.token.here');
+    expect(readCookie('theme', cookieHeader)).toBe('dark');
+    expect(readCookie('nonexistent', cookieHeader)).toBeNull();
+    expect(readCookie('cooplumen_session', null)).toBeNull();
   });
 });
 
