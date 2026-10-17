@@ -77,6 +77,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/proposals/{id}/delegate:
+    post:
+      tags: [Proposals]
+      summary: Delegate voting power for a proposal
+      description: Creates or replaces the authenticated member's one-hop delegation while the proposal is active and neither account has voted.
+      security:
+        - SessionToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProposalDelegationRequest'
+      responses:
+        '200':
+          description: Delegation stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalDelegationResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Delegator or delegatee is not an active community member
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Proposal state, voting history, or delegation topology conflicts with the request
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /api/v1/proposals:
     get:
       tags: [Proposals]
@@ -212,6 +255,7 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/InitiateKycRequest'
+            schema: { $ref: '#/components/schemas/InitiateKycRequest' }
       responses:
         '200':
           description: An existing pending flow was returned
@@ -314,6 +358,12 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '401':
           description: No matching challenge, or the signature is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many failed authentication attempts from this IP (blocked for 5 minutes)
           content:
             application/json:
               schema:

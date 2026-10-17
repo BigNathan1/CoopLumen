@@ -151,6 +151,36 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): voi
   config.onUnauthorized = handler ?? undefined;
 }
 
+/** Name of the httpOnly cookie carrying the authenticated session token. */
+export const AUTH_COOKIE_NAME = 'cooplumen_session';
+
+/**
+ * Extracts a cookie value by name from a cookie string or the browser's `document.cookie`.
+ */
+export function readCookie(name: string, cookieString?: string | null): string | null {
+  const source =
+    cookieString !== undefined
+      ? cookieString
+      : typeof document !== 'undefined'
+        ? document.cookie
+        : null;
+
+  if (!source) return null;
+
+  for (const part of source.split(';')) {
+    const index = part.indexOf('=');
+    if (index === -1) continue;
+    if (part.slice(0, index).trim() !== name) continue;
+    const value = part.slice(index + 1).trim();
+    try {
+      return decodeURIComponent(value) || null;
+    } catch {
+      return value || null;
+    }
+  }
+  return null;
+}
+
 /** The origin every relative path is resolved against. */
 export function getBaseUrl(): string {
   const raw = config.baseUrl ?? process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_BASE_URL;
@@ -216,8 +246,15 @@ async function buildHeaders(
     headers.set('Content-Type', 'application/json');
   }
 
-  if (auth && !headers.has('Authorization') && config.getAuthToken) {
-    const token = await config.getAuthToken();
+  if (auth && !headers.has('Authorization')) {
+    let token: string | null | undefined = null;
+    if (config.getAuthToken) {
+      token = await config.getAuthToken();
+    }
+    // Fall back to reading JWT from session cookie (Issue #364)
+    if (!token) {
+      token = readCookie(AUTH_COOKIE_NAME);
+    }
     if (token) {
       // A caller-supplied scheme ("Bearer x", "Basic y") is passed through as-is.
       headers.set('Authorization', /^\S+\s/.test(token) ? token : `Bearer ${token}`);
@@ -320,6 +357,7 @@ export async function requestRaw<T>(
   let response: Response;
   try {
     response = await fetch(buildUrl(path, query), {
+      credentials: rest.credentials ?? 'include',
       ...rest,
       method,
       headers,

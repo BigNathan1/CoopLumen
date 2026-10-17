@@ -4,6 +4,7 @@ import app from '../../../app';
 import { verifySessionToken, createSessionToken } from '../../utils/sessionToken';
 import { REFRESH_COOKIE_NAME, resetRefreshTokens } from '../../utils/refreshToken';
 import { AUTH_COOKIE_NAME } from '../../utils/authCookie';
+import { resetFailedAuthAttempts } from '../auth';
 
 jest.mock('../../../db', () => ({
   db: {
@@ -50,6 +51,10 @@ describe('POST /api/v1/auth/challenge', () => {
 });
 
 describe('POST /api/v1/auth/verify', () => {
+  beforeEach(() => {
+    resetFailedAuthAttempts();
+  });
+
   it('rejects an invalid payload', async () => {
     const res = await request(app).post('/api/v1/auth/verify').send({});
     expect(res.status).toBe(400);
@@ -158,6 +163,105 @@ describe('POST /api/v1/auth/verify', () => {
       .post('/api/v1/auth/verify')
       .send({ address, challenge, signature });
     expect(second.status).toBe(401);
+  });
+
+  it('rejects verification when address does not match the challenge address', async () => {
+    const keypairA = Keypair.random();
+    const keypairB = Keypair.random();
+
+    const challengeRes = await request(app)
+      .post('/api/v1/auth/challenge')
+      .send({ address: keypairA.publicKey() });
+    const { challenge } = challengeRes.body.data as { challenge: string };
+
+    const signatureB = keypairB.sign(Buffer.from(challenge, 'utf8')).toString('base64');
+
+    const res = await request(app)
+      .post('/api/v1/auth/verify')
+      .send({ address: keypairB.publicKey(), challenge, signature: signatureB });
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('No matching challenge for this address. Request a new one.');
+  });
+
+  it('does not leak private keys or server secrets in error envelopes', async () => {
+    const address = Keypair.random().publicKey();
+    const res = await request(app)
+      .post('/api/v1/auth/verify')
+      .send({ address, challenge: 'fake-challenge', signature: 'invalid-sig' });
+
+    expect(res.status).toBe(401);
+    expect(res.text).not.toMatch(/S[A-Z0-9]{55}/);
+    expect(res.text).not.toMatch(/Bearer\s+[A-Za-z0-9-_=]+/);
+  });
+
+  it('tracks failed auth attempts per IP and blocks after 10 failures in 5 minutes', async () => {
+    const ip = '198.51.100.42';
+    const address = Keypair.random().publicKey();
+
+    // Trigger 10 failures from this IP
+    for (let i = 0; i < 10; i++) {
+      const res = await request(app)
+        .post('/api/v1/auth/verify')
+        .set('X-Forwarded-For', ip)
+        .send({ address, challenge: `bad-challenge-${i}`, signature: 'invalid' });
+      expect(res.status).toBe(401);
+    }
+
+    // 11th request should be blocked with 429
+    const blockedRes = await request(app)
+      .post('/api/v1/auth/verify')
+      .set('X-Forwarded-For', ip)
+      .send({ address, challenge: 'bad-challenge-11', signature: 'invalid' });
+
+    expect(blockedRes.status).toBe(429);
+    expect(blockedRes.body).toEqual({
+      data: null,
+      error: 'Too many failed authentication attempts. Please try again later.',
+    });
+
+    // A different IP is not blocked
+    const otherIpRes = await request(app)
+      .post('/api/v1/auth/verify')
+      .set('X-Forwarded-For', '203.0.113.99')
+      .send({ address, challenge: 'bad-challenge-12', signature: 'invalid' });
+    expect(otherIpRes.status).toBe(401);
+  });
+
+  it('clears failed attempt count after a successful login', async () => {
+    const ip = '198.51.100.55';
+    const keypair = Keypair.random();
+    const address = keypair.publicKey();
+
+    // Trigger 9 failures (1 below threshold)
+    for (let i = 0; i < 9; i++) {
+      const res = await request(app)
+        .post('/api/v1/auth/verify')
+        .set('X-Forwarded-For', ip)
+        .send({ address, challenge: `bad-${i}`, signature: 'bad' });
+      expect(res.status).toBe(401);
+    }
+
+    // Perform successful authentication
+    const challengeRes = await request(app)
+      .post('/api/v1/auth/challenge')
+      .set('X-Forwarded-For', ip)
+      .send({ address });
+    const { challenge } = challengeRes.body.data as { challenge: string };
+    const signature = keypair.sign(Buffer.from(challenge, 'utf8')).toString('base64');
+
+    const successRes = await request(app)
+      .post('/api/v1/auth/verify')
+      .set('X-Forwarded-For', ip)
+      .send({ address, challenge, signature });
+    expect(successRes.status).toBe(200);
+
+    // Failures should have been cleared; one more failure should be 401, not 429
+    const nextRes = await request(app)
+      .post('/api/v1/auth/verify')
+      .set('X-Forwarded-For', ip)
+      .send({ address, challenge: 'bad-again', signature: 'bad' });
+    expect(nextRes.status).toBe(401);
   });
 });
 

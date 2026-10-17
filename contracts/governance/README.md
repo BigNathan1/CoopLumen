@@ -11,13 +11,13 @@ chain instead of from a backend that has to be trusted.
 
 ## Data model
 
-| Type             | Fields                                                                                                                                            |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Config`         | `admin`, `governance_token`, `voting_period` (seconds), `quorum_bps` (basis points, at most `10_000`), `total_supply`                             |
-| `Proposal`       | `proposal_id`, `proposer`, `title`, `description`, `actions: Vec<String>`, `votes_for`, `votes_against`, `status`, `created_at`, `voting_ends_at` |
-| `Vote`           | `voter`, `choice`, `weight`                                                                                                                       |
-| `ProposalStatus` | `Active`, `Passed`, `Rejected`, `Executed`                                                                                                        |
-| `VoteChoice`     | `For`, `Against`                                                                                                                                  |
+| Type                  | Fields                                                                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Config`              | `admin`, `governance_token`, `voting_period` (seconds), `quorum_bps` (basis points, at most `10_000`), `total_supply`                             |
+| `Proposal`            | `proposal_id`, `proposer`, `title`, `description`, `actions: Vec<String>`, `votes_for`, `votes_against`, `status`, `created_at`, `voting_ends_at` |
+| `Vote`                | `voter`, `choice`, `weight`                                                                                                                       |
+| `ProposalStatus`      | `Active`, `Passed`, `Rejected`, `Executed`                                                                                                        |
+| `VoteChoice`          | `For`, `Against`                                                                                                                                  |
 | Type                  | Fields                                                                                                                                            |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Config`              | `admin`, `governance_token`, `voting_period` (seconds), `quorum_bps` (basis points, at most `10_000`)                                             |
@@ -159,21 +159,21 @@ Empty collections return zero-valued rates rather than failing division.
 
 For the complete embedded ABI and a CLI-verified deployment procedure, see
 [`docs/governance-contract.md`](../../docs/governance-contract.md).
-| Code | Name                   | Raised when                                                     |
+| Code | Name | Raised when |
 | ---- | ---------------------- | --------------------------------------------------------------- |
-| 1    | `AlreadyInitialized`   | `initialize` is called on an initialized contract               |
-| 2    | `NotInitialized`       | Any call before `initialize`                                    |
-| 3    | `InvalidInput`         | Empty title, zero voting period, or quorum above `10_000` bps   |
-| 4    | `ProposalNotFound`     | Unknown `proposal_id`, or no vote from that voter on a proposal |
-| 5    | `ProposalNotActive`    | Voting on a proposal whose status is no longer `Active`         |
-| 6    | `VotingPeriodEnded`    | Voting after `voting_ends_at`                                   |
-| 7    | `AlreadyVoted`         | The same address voting twice on one proposal                   |
-| 8    | `NoVotingPower`        | The voter's governance-token balance is zero                    |
-| 9    | `Overflow`             | Counter or tally arithmetic overflow                            |
-| 12   | `CannotDelegateToSelf` | An account tries to delegate to itself                          |
-| 13   | `InvalidDelegation`    | A delegation would create a chain or cycle                      |
-| 14   | `VotingPowerDelegated` | A delegator tries to vote before revoking                       |
-| 15   | `NoDelegation`         | An account tries to revoke when it has no delegation            |
+| 1 | `AlreadyInitialized` | `initialize` is called on an initialized contract |
+| 2 | `NotInitialized` | Any call before `initialize` |
+| 3 | `InvalidInput` | Empty title, zero voting period, or quorum above `10_000` bps |
+| 4 | `ProposalNotFound` | Unknown `proposal_id`, or no vote from that voter on a proposal |
+| 5 | `ProposalNotActive` | Voting on a proposal whose status is no longer `Active` |
+| 6 | `VotingPeriodEnded` | Voting after `voting_ends_at` |
+| 7 | `AlreadyVoted` | The same address voting twice on one proposal |
+| 8 | `NoVotingPower` | The voter's governance-token balance is zero |
+| 9 | `Overflow` | Counter or tally arithmetic overflow |
+| 12 | `CannotDelegateToSelf` | An account tries to delegate to itself |
+| 13 | `InvalidDelegation` | A delegation would create a chain or cycle |
+| 14 | `VotingPowerDelegated` | A delegator tries to vote before revoking |
+| 15 | `NoDelegation` | An account tries to revoke when it has no delegation |
 
 ## Development
 
