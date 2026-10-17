@@ -41,7 +41,11 @@ services:
     ports:
       - '6432:6432' # PgBouncer default port
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -p 6432 -U cooplumen']
+      test:
+        [
+          'CMD-SHELL',
+          "pg_isready -h 127.0.0.1 -p 6432 -d cooplumen || bash -c '</dev/tcp/127.0.0.1/6432'",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
