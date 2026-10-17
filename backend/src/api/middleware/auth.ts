@@ -19,18 +19,21 @@ declare global {
 }
 
 /**
- * Requires a valid `Authorization: Bearer <token>` session token, minted by
+ * Requires a valid `Authorization: Bearer <token>` or session cookie, minted by
  * POST /api/v1/auth/verify after the caller signed a Freighter challenge.
  * On success, `req.auth.address` is the authenticated Stellar address.
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  const cookieToken = readAuthCookie(req);
   const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) {
+  const token = cookieToken ?? (header?.startsWith('Bearer ') ? header.slice(7) : null);
+
+  if (!token) {
     res.status(401).json({ data: null, error: 'Authentication required' });
     return;
   }
 
-  const payload = verifySessionToken(header.slice(7));
+  const payload = verifySessionToken(token);
   if (!payload) {
     res.status(401).json({ data: null, error: 'Invalid or expired session token' });
     return;
