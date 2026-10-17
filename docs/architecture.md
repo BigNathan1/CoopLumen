@@ -149,7 +149,7 @@ CoopLumen/
 - Helmet.js enforces CSP, HSTS, X-Frame-Options
 - CORS restricted to `FRONTEND_URL`
 - Rate limiting on all write endpoints (Phase 1: `express-rate-limit`)
-- JWT authentication (wallet-challenge-response) in Phase 1
+- JWT authentication (wallet-challenge-response) in Phase 1 — see [Wallet Authentication Flow](auth-flow.md)
 - Multi-sig treasury accounts in Phase 2
 - Soroban-governed treasury in Phase 3
 

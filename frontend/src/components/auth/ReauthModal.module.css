@@ -1,0 +1,25 @@
+.description {
+  color: var(--color-text-muted);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  margin: 0 0 var(--space-4) 0;
+}
+
+.errorAlert {
+  padding: var(--space-3) var(--space-4);
+  background-color: color-mix(in srgb, var(--color-error) 12%, transparent);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  color: var(--color-error);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  margin-bottom: var(--space-4);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}

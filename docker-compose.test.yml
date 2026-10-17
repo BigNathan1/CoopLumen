@@ -1,0 +1,39 @@
+version: '3.9'
+
+# Dedicated containerized PostgreSQL database and Redis cache for testing.
+# Runs on distinct host ports (5433 and 6380) with tmpfs storage for fast, isolated test runs.
+
+services:
+  test-db:
+    image: postgres:16-alpine
+    container_name: cooplumen-test-db
+    restart: 'no'
+    environment:
+      POSTGRES_USER: ${TEST_POSTGRES_USER:-cooplumen_test}
+      POSTGRES_PASSWORD: ${TEST_POSTGRES_PASSWORD:-cooplumen_test}
+      POSTGRES_DB: ${TEST_POSTGRES_DB:-cooplumen_test}
+    ports:
+      - '${TEST_POSTGRES_PORT:-5433}:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U $${POSTGRES_USER:-cooplumen_test} -d $${POSTGRES_DB:-cooplumen_test}',
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+
+  test-redis:
+    image: redis:7-alpine
+    container_name: cooplumen-test-redis
+    restart: 'no'
+    ports:
+      - '${TEST_REDIS_PORT:-6380}:6379'
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli ping']
+      interval: 2s
+      timeout: 3s
+      retries: 10

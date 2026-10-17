@@ -35,15 +35,208 @@ tags:
   - name: Fees
     description: Stellar network fee estimation
   - name: Webhooks
-    description: Inbound webhook endpoints for Stellar account/transaction event notifications
+    description: Signed inbound callbacks for Stellar events and third-party KYC status updates
   - name: BatchPayments
     description: Batch payment disbursement, preview, and CSV parsing endpoints
   - name: Stream
     description: Server-Sent Events feeds of live account activity
+  - name: KYC
+    description: Account verification status
+  - name: Proposals
+    description: Governance proposals and voting-power delegation
+  - name: Proposals
+    description: Governance proposal creation and read models
+  - name: KYC
+    description: Account identity verification flows
   - name: Auth
     description: Wallet sign-in (challenge, signature, session cookie)
 
 paths:
+  /api/v1/kyc/status/{address}:
+    get:
+      tags: [KYC]
+      summary: Get an account's KYC status
+      description: Returns the latest recorded verification outcome, normalized to the public KYC lifecycle.
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { $ref: '#/components/schemas/StellarKey' }
+      responses:
+        '200':
+          description: Current KYC status, or none when no record exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KycStatusResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          description: Database lookup failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/proposals/{id}/delegate:
+    post:
+      tags: [Proposals]
+      summary: Delegate voting power for a proposal
+      description: Creates or replaces the authenticated member's one-hop delegation while the proposal is active and neither account has voted.
+      security:
+        - SessionToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProposalDelegationRequest'
+      responses:
+        '200':
+          description: Delegation stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalDelegationResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Delegator or delegatee is not an active community member
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Proposal state, voting history, or delegation topology conflicts with the request
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /api/v1/proposals:
+    get:
+      tags: [Proposals]
+      summary: List proposals for a community
+      parameters:
+        - name: communityId
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, active, passed, rejected, executed, cancelled]
+      responses:
+        '200':
+          description: Community proposals with current database tallies
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/GovernanceProposal' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+    post:
+      tags: [Proposals]
+      summary: Create a proposal
+      description: Creates the database read model for an authenticated active community member.
+      security:
+        - SessionToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateGovernanceProposal' }
+      responses:
+        '201':
+          description: Proposal created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/GovernanceProposal' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Caller is not an active member of the community
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /api/v1/proposals/{id}:
+    get:
+      tags: [Proposals]
+      summary: Get proposal detail and current tally
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Proposal detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/GovernanceProposal' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/kyc/initiate:
+    post:
+      tags: [KYC]
+      summary: Start or resume KYC verification
+      description: Starts a pending KYC flow for the authenticated member's own address. Pending and submitted flows are idempotent; rejected or expired flows are restarted.
+      security:
+        - SessionToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InitiateKycRequest' }
+      responses:
+        '200':
+          description: An existing pending flow was returned
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InitiateKycResponse' }
+        '201':
+          description: A new or restarted pending flow was created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InitiateKycResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Address mismatch or inactive community membership
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: Address is already verified
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /api/v1/auth/logout:
     post:
       tags: [Auth]
@@ -542,6 +735,11 @@ paths:
     post:
       tags: [Transactions]
       summary: Submit a signed Stellar payment transaction
+      description: >
+        Validates and submits a signed single-payment transaction. Community-token
+        transfers from accounts without a verified KYC record are limited to a
+        cumulative 100 tokens per UTC day. The source, asset, and amount are read
+        from the signed XDR rather than trusted from separate request fields.
       requestBody:
         required: true
         content:
@@ -562,6 +760,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InsufficientBalanceResponse'
+        '403':
+          description: The transfer would exceed the unverified account's daily token limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyTransactionLimitResponse'
         '422':
           description: The Stellar network rejected the signed transaction
           content:
@@ -623,6 +827,53 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '503':
           description: The server has no webhook secret configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/webhooks/kyc:
+    post:
+      tags: [Webhooks]
+      summary: Receive a third-party KYC verification status callback
+      description: >
+        Authenticates a provider-neutral KYC callback using an HMAC-SHA256
+        signature over the exact request bytes, then creates or updates the
+        community-scoped KYC record for the supplied Stellar address.
+      parameters:
+        - name: X-KYC-Webhook-Signature
+          in: header
+          required: true
+          description: Hex-encoded HMAC-SHA256 digest keyed with KYC_WEBHOOK_SECRET.
+          schema: { type: string, pattern: '^[0-9a-fA-F]{64}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KycWebhookPayload'
+      responses:
+        '200':
+          description: KYC status accepted and persisted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KycWebhookResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: Missing or invalid webhook signature
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The referenced community does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: The server has no KYC webhook secret configured
           content:
             application/json:
               schema:
@@ -1403,6 +1654,96 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
   schemas:
+    KycStatusResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [address, status]
+          properties:
+            address: { $ref: '#/components/schemas/StellarKey' }
+            status:
+              type: string
+              enum: [none, pending, approved, rejected]
+    ProposalDelegationRequest:
+      type: object
+      required: [delegateeAddress]
+      properties:
+        delegateeAddress: { $ref: '#/components/schemas/StellarKey' }
+    ProposalDelegationResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [proposalId, delegatorAddress, delegateeAddress, createdAt, updatedAt]
+          properties:
+            proposalId: { type: string, format: uuid }
+            delegatorAddress: { $ref: '#/components/schemas/StellarKey' }
+            delegateeAddress: { $ref: '#/components/schemas/StellarKey' }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    CreateGovernanceProposal:
+      type: object
+      required: [communityId, title, votingEndsAt]
+      properties:
+        communityId: { type: string, format: uuid }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 10000 }
+        type:
+          type: string
+          enum:
+            [
+              general,
+              loan_approval,
+              member_removal,
+              treasury_spend,
+              settings_change,
+              token_issuance,
+            ]
+          default: general
+        quorumPercent: { type: number, minimum: 0, maximum: 100, default: 50 }
+        metadata: { type: object, additionalProperties: true }
+        votingEndsAt: { type: string, format: date-time }
+    GovernanceProposal:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        community_id: { type: string, format: uuid }
+        proposer_address: { $ref: '#/components/schemas/StellarKey' }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        type: { type: string }
+        status: { type: string }
+        quorum_percent: { type: string }
+        metadata: { type: object, nullable: true, additionalProperties: true }
+        voting_starts_at: { type: string, format: date-time }
+        voting_ends_at: { type: string, format: date-time }
+        votes_for: { type: string }
+        votes_against: { type: string }
+        votes_abstain: { type: string }
+    InitiateKycRequest:
+      type: object
+      required: [communityId, address]
+      properties:
+        communityId: { type: string, format: uuid }
+        address: { $ref: '#/components/schemas/StellarKey' }
+        provider: { type: string, default: sep12, maxLength: 100 }
+    InitiateKycResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [id, communityId, address, status, provider, initiatedAt]
+          properties:
+            id: { type: string, format: uuid }
+            communityId: { type: string, format: uuid }
+            address: { $ref: '#/components/schemas/StellarKey' }
+            status: { type: string, enum: [pending] }
+            provider: { type: string, nullable: true }
+            initiatedAt: { type: string, format: date-time }
     AuthLogoutResponse:
       type: object
       properties:
@@ -1674,6 +2015,47 @@ components:
         data:
           type: object
           additionalProperties: true
+    KycWebhookPayload:
+      type: object
+      required:
+        [eventId, provider, providerReference, communityId, stellarAddress, status, occurredAt]
+      properties:
+        eventId: { type: string, minLength: 1, maxLength: 200 }
+        provider: { type: string, minLength: 1, maxLength: 100 }
+        providerReference: { type: string, minLength: 1, maxLength: 200 }
+        communityId: { type: string, format: uuid }
+        stellarAddress: { $ref: '#/components/schemas/StellarKey' }
+        status:
+          type: string
+          enum: [pending, submitted, verified, rejected, expired]
+        occurredAt: { type: string, format: date-time }
+        rejectionReason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Required when status is rejected.
+        metadata:
+          type: object
+          additionalProperties: true
+          default: {}
+    KycWebhookResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [received, eventId, recordId, status, verifiedAt]
+          properties:
+            received: { type: boolean, example: true }
+            eventId: { type: string }
+            recordId: { type: string, format: uuid }
+            status:
+              type: string
+              enum: [pending, submitted, verified, rejected, expired]
+            verifiedAt:
+              type: string
+              format: date-time
+              nullable: true
     TokenTransferRequest:
       type: object
       required: [signedXdr]
@@ -1812,6 +2194,32 @@ components:
           nullable: true
         error:
           $ref: '#/components/schemas/InsufficientBalanceError'
+    DailyTransactionLimitError:
+      type: object
+      required: [code, message, limit, dailyTotal, attemptedAmount]
+      properties:
+        code:
+          type: string
+          enum: [UNVERIFIED_DAILY_LIMIT_EXCEEDED]
+        message:
+          type: string
+        limit:
+          type: string
+          example: '100.0000000'
+        dailyTotal:
+          type: string
+          example: '80.0000000'
+        attemptedAmount:
+          type: string
+          example: '25.0000000'
+    DailyTransactionLimitResponse:
+      type: object
+      required: [data, error]
+      properties:
+        data:
+          nullable: true
+        error:
+          $ref: '#/components/schemas/DailyTransactionLimitError'
     Token:
       type: object
       properties:
@@ -2099,6 +2507,11 @@ components:
         defaults: { type: integer }
         offset: { type: integer }
   securitySchemes:
+    SessionToken:
+      type: http
+      scheme: bearer
+      bearerFormat: CoopLumen session token
+      description: HMAC-signed session token returned by `POST /api/v1/auth/verify`.
     SessionCookie:
       type: apiKey
       in: cookie

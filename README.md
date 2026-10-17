@@ -179,14 +179,16 @@ You will need a local PostgreSQL instance. Set `DATABASE_URL` in `backend/.env`.
 
 ### Backend (`backend/.env`)
 
-| Variable              | Default                 | Description                  |
-| --------------------- | ----------------------- | ---------------------------- |
-| `PORT`                | `4000`                  | API server port              |
-| `DATABASE_URL`        | —                       | PostgreSQL connection string |
-| `STELLAR_NETWORK`     | `testnet`               | `testnet` or `mainnet`       |
-| `STELLAR_HORIZON_URL` | Testnet Horizon         | Override Horizon endpoint    |
-| `FRONTEND_URL`        | `http://localhost:3000` | CORS allowed origin          |
-| `LOG_LEVEL`           | `info`                  | winston log level            |
+| Variable                 | Default                 | Description                            |
+| ------------------------ | ----------------------- | -------------------------------------- |
+| `PORT`                   | `4000`                  | API server port                        |
+| `DATABASE_URL`           | —                       | PostgreSQL connection string           |
+| `STELLAR_NETWORK`        | `testnet`               | `testnet` or `mainnet`                 |
+| `STELLAR_HORIZON_URL`    | Testnet Horizon         | Override Horizon endpoint              |
+| `STELLAR_WEBHOOK_SECRET` | -                       | HMAC secret for Stellar callbacks      |
+| `KYC_WEBHOOK_SECRET`     | -                       | HMAC secret for KYC provider callbacks |
+| `FRONTEND_URL`           | `http://localhost:3000` | CORS allowed origin                    |
+| `LOG_LEVEL`              | `info`                  | winston log level                      |
 
 ### Frontend (`frontend/.env.local`)
 
@@ -269,7 +271,11 @@ cd frontend && npm test
 
 - [Product Requirements Document](PRD.md) — goals, roadmap, user stories
 - [Contributing Guide](CONTRIBUTING.md) — branch model, conventions, code review
+- [Wallet Authentication Flow](docs/auth-flow.md) — wallet challenge/verify flow, session tokens, RBAC, 401 handling, and sequence diagram
+- [Governance Guide](docs/governance.md) - Soroban proposals, token-weighted voting, quorum, and execution
 - [Multi-Signature & Batch Operations Guide](docs/multisig.md) — multi-sig treasury governance, signing lifecycle, batch payments
+- [Governance Contract ABI and Deployment](docs/governance-contract.md) — contract types, functions, errors, events, and deployment procedure
+- [SEP-12 KYC Requirements](docs/kyc.md) — provider integration, status mapping, privacy, and security requirements
 
 ## Community
 
