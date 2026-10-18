@@ -20,14 +20,46 @@ function validateEnv(): void {
 
 const PORT = process.env.PORT ?? 4000;
 
+let isShuttingDown = false;
+
 async function main(): Promise<void> {
   validateEnv();
 
   await db.connect();
   logger.info('Database connected');
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     logger.info(`CoopLumen API running on port ${PORT}`);
+  });
+
+  // Graceful shutdown handler for SIGTERM
+  process.on('SIGTERM', async () => {
+    if (isShuttingDown) {
+      return;
+    }
+    isShuttingDown = true;
+
+    logger.info('SIGTERM received, starting graceful shutdown');
+
+    try {
+      // Close HTTP server first (stops accepting new connections)
+      await new Promise<void>((resolve, reject) => {
+        server.close((err?: Error) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      logger.info('HTTP server closed');
+
+      // Close database pool
+      await db.end();
+      logger.info('Database pool closed');
+
+      process.exit(0);
+    } catch (err) {
+      logger.error('Error during graceful shutdown', err);
+      process.exit(1);
+    }
   });
 }
 
