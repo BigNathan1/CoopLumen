@@ -17,6 +17,7 @@ env:
   # the image ships another, the suite stops saying anything about the runtime
   # that actually runs in production.
   NODE_VERSION: '26'
+  CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
 jobs:
   lint:
@@ -136,7 +137,16 @@ jobs:
 
       - name: Run tests (unit + integration)
         working-directory: backend
-        run: npm test -- --runInBand
+        run: npm test -- --runInBand --coverage
+
+      - name: Upload backend coverage to Codecov
+        if: env.CODECOV_TOKEN != ''
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ env.CODECOV_TOKEN }}
+          files: ./backend/coverage/lcov.info
+          flags: backend
+          fail_ci_if_error: false
 
   test-frontend:
     name: Frontend tests
@@ -161,7 +171,16 @@ jobs:
       # deterministic — and stricter about shared state, not looser.
       - name: Run tests
         working-directory: frontend
-        run: npm test -- --runInBand
+        run: npm test -- --runInBand --coverage
+
+      - name: Upload frontend coverage to Codecov
+        if: env.CODECOV_TOKEN != ''
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ env.CODECOV_TOKEN }}
+          files: ./frontend/coverage/lcov.info
+          flags: frontend
+          fail_ci_if_error: false
 
   test-contracts:
     name: Governance contract tests
@@ -175,11 +194,10 @@ jobs:
       - name: Run contract tests
         run: cargo test --workspace
 
-  test-governance-e2e:
-    name: Governance browser flow
+  e2e:
+    name: E2E tests (Playwright)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v7
 
@@ -203,13 +221,24 @@ jobs:
           exec -T -e DATABASE_URL=postgresql://cooplumen:cooplumen@db:5432/cooplumen
           backend npm run db:migrate
 
-      - name: Run governance browser test
+      - name: Run Playwright E2E tests
         working-directory: frontend
         env:
           AUTH_SESSION_SECRET: governance-e2e-secret
           PLAYWRIGHT_BASE_URL: http://localhost:3000
           PLAYWRIGHT_API_URL: http://localhost:4000
         run: npm run test:e2e
+
+      - name: Upload Playwright test report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 14
+          if-no-files-found: warn
 
       - name: Print service logs on failure
         if: failure()
@@ -328,7 +357,7 @@ jobs:
         test-backend,
         test-frontend,
         test-contracts,
-        test-governance-e2e,
+        e2e,
         build,
         docker-build,
         commitlint,
