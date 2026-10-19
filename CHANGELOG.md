@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Stellar testnet live Friendbot integration test covering account funding, loading, custom asset trustline creation, issuance, and payment error handling (`backend/src/contracts/__tests__/stellar.testnet.test.ts`) (#403, #325).
+- Playwright E2E browser test for viewing community transaction history with query filtering and empty states against the running stack (`frontend/e2e/transactions.spec.ts`) (#397, #319).
+- Playwright E2E browser test for responsive mobile layout on a 375px viewport checking navigation drawer toggle and layout bounds (`frontend/e2e/responsive-mobile.spec.ts`) (#398, #320).
+- CI test coverage threshold enforcement failing builds below 70% backend and 60% frontend coverage in Jest and GitHub Actions workflow (#409, #331).
+
 - Double-submit cookie CSRF protection (`csrfProtection` middleware) guarding state-changing routes under `/api/v1`, with `GET /api/v1/auth/csrf` endpoint, `cooplumen_csrf` cookie management, and OpenAPI documentation (#359, #281).
 - Community write endpoints (`POST /api/v1/communities`, `PUT /:id`, `DELETE /:id`, `POST /:id/members`, `PUT /:id/members/:address`, `DELETE /:id/members/:address`, `POST /:id/avatar`) guarded with `authenticateJWT` (#356, #278).
 - Community member removal (`DELETE /api/v1/communities/:id/members/:address`) guarded with `requireRole(['admin'])` (#358, #280).

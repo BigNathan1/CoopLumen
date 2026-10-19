@@ -118,6 +118,7 @@ jobs:
       REDIS_URL: redis://localhost:6379
       STELLAR_NETWORK: testnet
       STELLAR_HORIZON_URL: https://horizon-testnet.stellar.org
+      STELLAR_FRIENDBOT_URL: https://friendbot.stellar.org
 
     steps:
       - uses: actions/checkout@v7
@@ -134,9 +135,9 @@ jobs:
         working-directory: backend
         run: npm run db:migrate
 
-      - name: Run tests (unit + integration)
+      - name: Run tests with coverage (unit + integration + testnet)
         working-directory: backend
-        run: npm test -- --runInBand
+        run: npm run test:coverage -- --runInBand
 
   test-frontend:
     name: Frontend tests
@@ -159,9 +160,9 @@ jobs:
       # Jest's default 5s budget when workers compete, failing on timing
       # rather than on any assertion. Running in band makes the gate
       # deterministic — and stricter about shared state, not looser.
-      - name: Run tests
+      - name: Run tests with coverage
         working-directory: frontend
-        run: npm test -- --runInBand
+        run: npm run test:coverage -- --runInBand
 
   test-contracts:
     name: Governance contract tests
@@ -176,7 +177,7 @@ jobs:
         run: cargo test --workspace
 
   test-governance-e2e:
-    name: Governance browser flow
+    name: Governance and browser flows E2E
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: github.event_name == 'pull_request'
@@ -203,7 +204,7 @@ jobs:
           exec -T -e DATABASE_URL=postgresql://cooplumen:cooplumen@db:5432/cooplumen
           backend npm run db:migrate
 
-      - name: Run governance browser test
+      - name: Run E2E browser tests (governance, transactions, mobile)
         working-directory: frontend
         env:
           AUTH_SESSION_SECRET: governance-e2e-secret

@@ -585,6 +585,7 @@ impl GovernanceContract {
         // Failures are surfaced as individual TOPIC_EXECUTION_FAILED events;
         // they do not revert the Executed status (preventing indefinite retry
         // loops on a permanently-failing action).
+        #[allow(deprecated)]
         for action in proposal.actions.iter() {
             // Validate the action string is non-empty before recording it.
             if action.is_empty() {
@@ -683,16 +684,10 @@ impl GovernanceContract {
                 .ok_or(GovernanceError::Overflow)?;
         }
 
-        let voter_turnout_bps = if total_proposals == 0 {
-            0
-        } else {
-            (turnout_bps_total / total_proposals) as u32
-        };
-        let average_quorum_bps = if finalized_proposals == 0 {
-            0
-        } else {
-            (finalized_quorum_bps_total / finalized_proposals) as u32
-        };
+        let voter_turnout_bps = turnout_bps_total.checked_div(total_proposals).unwrap_or(0) as u32;
+        let average_quorum_bps = finalized_quorum_bps_total
+            .checked_div(finalized_proposals)
+            .unwrap_or(0) as u32;
         let proposal_pass_rate_bps = if finalized_proposals == 0 {
             0
         } else {
