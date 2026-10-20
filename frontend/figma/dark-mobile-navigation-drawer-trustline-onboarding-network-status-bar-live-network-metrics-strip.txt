@@ -1,0 +1,11 @@
+-- Dark mode designs done
+
+What are done include these issues
+#869 — Mobile Navigation Drawer: Create a compact navigation experience with clear menu hierarchy, accessible controls, and layouts suited to mobile screens.
+#881 — Trustline Onboarding: Design a guided onboarding flow that helps users understand and complete the trustline setup process.
+#870 — Network Status Bar: Establish a clear status indicator for communicating network availability and relevant connection states.
+#873 — Live Network Metrics Strip: Present live network measurements in a concise format that makes important metrics easy to scan.
+
+
+
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&t=38U5cG6K9v31VXzP-0
