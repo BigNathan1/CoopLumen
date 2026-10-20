@@ -160,7 +160,7 @@ describe('governance proposal routes', () => {
     });
 
     it('creates an active proposal for an authenticated member', async () => {
-      mockDb.query
+      mockDb.query;
       query
         .mockResolvedValueOnce([{ exists: true }])
         .mockResolvedValueOnce([{ id: proposalId }])

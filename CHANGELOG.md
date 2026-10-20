@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Automated branch protection configuration script `scripts/ci/configure-branch-protection.js` enforcing passing `Quality gate` CI check and at least one approving review on `main` (#412).
+- Trivy container scanning job in `.github/workflows/ci.yml` scanning backend and frontend production images for high and critical vulnerabilities and gating PRs in `quality-gate` (#415).
+- Automated GitHub release publication workflow (`.github/workflows/release.yml`) using `semantic-release` configured via `release.config.js` to publish versioned GitHub releases on merge to `main` (#416).
+- Automated container image publishing workflow (`.github/workflows/publish-docker.yml`) building and pushing multi-stage backend and frontend container images to GitHub Container Registry (GHCR) on merge to `main` (#417).
+
 - Double-submit cookie CSRF protection (`csrfProtection` middleware) guarding state-changing routes under `/api/v1`, with `GET /api/v1/auth/csrf` endpoint, `cooplumen_csrf` cookie management, and OpenAPI documentation (#359, #281).
 - Community write endpoints (`POST /api/v1/communities`, `PUT /:id`, `DELETE /:id`, `POST /:id/members`, `PUT /:id/members/:address`, `DELETE /:id/members/:address`, `POST /:id/avatar`) guarded with `authenticateJWT` (#356, #278).
 - Community member removal (`DELETE /api/v1/communities/:id/members/:address`) guarded with `requireRole(['admin'])` (#358, #280).

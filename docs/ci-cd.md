@@ -28,9 +28,10 @@ the runtime is a one-line change.
 | `test-frontend`  | Jest (jsdom) for components and hooks                                                                                                                                                                      | 20 min  |
 | `build`          | `npm run build` for both packages — catches build-only breakage that `tsc --noEmit` alone misses (e.g. Next.js server/client boundary errors)                                                              | —       |
 | `docker-build`   | `docker build` for both `Dockerfile`s — catches breakage in the production image path specifically                                                                                                         | —       |
+| `trivy-scan`     | Aqua Security Trivy container scan for backend and frontend production images, failing on high or critical unfixed vulnerabilities                                                                         | —       |
 | `security-audit` | `npm audit --omit=dev --audit-level=high` for both packages fails the job on a high-severity advisory in a production dependency. A full audit including dev tooling is reported but does not fail the job | —       |
 | `commitlint`     | Every commit in the PR against `commitlint.config.js` (Conventional Commits). PR-only (skipped on direct pushes). Requires `fetch-depth: 0` so the full commit range is available                          | —       |
-| `quality-gate`   | Aggregates `lint`, `typecheck`, `test-backend`, `test-frontend`, `build`, `docker-build`, and `commitlint` into one pass/fail. Point branch protection at this single job                                  | —       |
+| `quality-gate`   | Aggregates `lint`, `typecheck`, `test-backend`, `test-frontend`, `test-contracts`, `test-governance-e2e`, `build`, `docker-build`, `trivy-scan`, and `commitlint` into one pass/fail                       | —       |
 
 > **Why `security-audit` is not in `quality-gate`:** A new upstream CVE would
 > immediately block every open PR without giving the team time to triage or
@@ -65,9 +66,43 @@ NEXT_PUBLIC_STELLAR_NETWORK=TESTNET
 These are placeholder values — they let the build job run without secrets and
 are overwritten by the real deployment environment at runtime.
 
-**Branch protection**: set `main` to require the `quality-gate` check and at
-least one approving review before merge (Settings → Branches → Branch
-protection rules). This is a repo setting, not workflow configuration.
+**Branch protection**: `main` requires the `quality-gate` status check and at
+least one approving review before merge. This rule enforces:
+
+- Required status checks: `strict: true` (branch must be up-to-date) and contexts: `["Quality gate"]`.
+- Required pull request reviews: `required_approving_review_count: 1`, `dismiss_stale_reviews: true`.
+- Protection can be configured via GitHub Settings or automated via:
+  ```bash
+  npm run ci:branch-protection
+  # Or verify compliance without mutating:
+  npm run ci:branch-protection -- --verify
+  ```
+
+---
+
+## `release.yml` — automated semantic releases
+
+Automatically triggered on merge to `main` (and callable via `workflow_dispatch`).
+Uses `semantic-release` (configured in `release.config.js`) to:
+
+1. Analyze conventional commit history since the last release tag.
+2. Determine next semver increment (`feat` -> minor, `fix` -> patch, `BREAKING CHANGE` -> major).
+3. Generate structured release notes.
+4. Publish a GitHub release and push the corresponding git tag.
+
+Runs with `contents: write`, `issues: write`, and `pull-requests: write` permissions.
+
+---
+
+## `publish-docker.yml` — publishing container images to GHCR
+
+Triggered on push to `main` (and callable via `workflow_dispatch`).
+Builds and pushes production multi-stage Docker images to GitHub Container Registry (`ghcr.io`):
+
+- `ghcr.io/<owner>/cooplumen/backend`
+- `ghcr.io/<owner>/cooplumen/frontend`
+
+Tagged with `latest`, short commit SHA (`sha-<short-sha>`), branch ref, and semver tag when applicable.
 
 ---
 
@@ -99,9 +134,7 @@ GitHub Actions versions.
 
 ## What's intentionally not here yet
 
-The backlog (`issue.md`, CI/CD category) tracks the rest of the pipeline that
-hasn't been built yet: staging/production deploy workflows, semantic-release,
-Trivy container scanning, SonarCloud, and coverage-threshold enforcement. These
-need real infrastructure (a hosting target, secrets, a release strategy)
-decided first — adding the workflow YAML before that groundwork exists would
-just be dead configuration.
+The backlog (`issue.md`, CI/CD category) tracks future pipeline enhancements that
+haven't been built yet: staging/production deploy workflows, SonarCloud, and
+coverage-threshold enforcement. These need real infrastructure (a hosting target,
+secrets, deploy targets) decided first.
