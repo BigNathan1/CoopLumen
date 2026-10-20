@@ -1,0 +1,24 @@
+-- Dark mode designs done
+
+What are done include these issues
+1. Identity, KYC & Price Oracles — #886
+
+Arrange identity verification and KYC information into a clear, approachable layout.
+
+Present price oracle data in a readable and structured format.
+
+2. Live On-Chain Activity Feed — #888
+- Design an activity feed that makes blockchain events easy to scan.
+- Establish clear visual distinctions between transaction details, statuses, and timestamps.
+
+3. Community Discovery Explorer — #889
+- Create an explorer layout that helps users browse and identify relevant communities.
+- Use consistent content hierarchy and reusable interface elements.
+
+4. Network Health & XLM/USD Ticker — #891
+- Present network health indicators and the XLM/USD price ticker in a unified view.
+- Prioritize visibility and readability for key status and market information.
+
+
+
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&t=38U5cG6K9v31VXzP-0
