@@ -258,4 +258,145 @@ describe('requireRole', () => {
   it('keeps requireCommunityRole as an alias of requireRole', () => {
     expect(requireCommunityRole).toBe(requireRole);
   });
+
+  it('extracts community ID from params.communityId when params.id is not set', async () => {
+    mockDb.query.mockResolvedValueOnce([{ role: 'admin' }]);
+    const req = {
+      params: { communityId },
+      auth: { address },
+    } as unknown as Request;
+    const res = mockRes();
+    const next = jest.fn();
+
+    await requireRole(['admin'])(req, res, next);
+
+    expect(mockDb.query).toHaveBeenCalledWith(
+      expect.any(String),
+      [communityId, address]
+    );
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('extracts community ID from body.communityId when params are not set', async () => {
+    mockDb.query.mockResolvedValueOnce([{ role: 'admin' }]);
+    const req = {
+      params: {},
+      body: { communityId },
+      auth: { address },
+    } as unknown as Request;
+    const res = mockRes();
+    const next = jest.fn();
+
+    await requireRole(['admin'])(req, res, next);
+
+    expect(mockDb.query).toHaveBeenCalledWith(
+      expect.any(String),
+      [communityId, address]
+    );
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('looks up community by issuerPublicKey when provided in body', async () => {
+    const issuerKey = 'GISSUERKEY' + 'A'.repeat(45);
+    mockDb.query
+      .mockResolvedValueOnce([{ id: communityId }]) // Community lookup
+      .mockResolvedValueOnce([{ role: 'admin' }]); // Role check
+    const req = {
+      params: {},
+      body: { issuerPublicKey: issuerKey },
+      auth: { address },
+    } as unknown as Request;
+    const res = mockRes();
+    const next = jest.fn();
+
+    await requireRole(['admin'])(req, res, next);
+
+    expect(mockDb.query).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('issuer_public_key'),
+      [issuerKey]
+    );
+    expect(mockDb.query).toHaveBeenNthCalledWith(
+      2,
+      expect.any(String),
+      [communityId, address]
+    );
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('returns 404 when community cannot be found by issuerPublicKey', async () => {
+    const issuerKey = 'GISSUERKEY' + 'A'.repeat(45);
+    mockDb.query.mockResolvedValueOnce([]); // No community found
+    const req = {
+      params: {},
+      body: { issuerPublicKey: issuerKey },
+      auth: { address },
+    } as unknown as Request;
+    const res = mockRes();
+    const next = jest.fn();
+
+    await requireRole(['admin'])(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ data: null, error: 'Community not found' });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when no community ID can be determined', async () => {
+    const req = {
+      params: {},
+      body: {},
+      auth: { address },
+    } as unknown as Request;
+    const res = mockRes();
+    const next = jest.fn();
+
+    await requireRole(['admin'])(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ data: null, error: 'Community not found' });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('accepts member with exact role match', async () => {
+    mockDb.query.mockResolvedValueOnce([{ role: 'observer' }]);
+    const req = { params: { id: communityId }, auth: { address } } as unknown as Request;
+    const res = mockRes();
+    const next = jest.fn();
+
+    await requireRole(['observer'])(req, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('includes required roles in error message', async () => {
+    mockDb.query.mockResolvedValueOnce([{ role: 'observer' }]);
+    const req = { params: { id: communityId }, auth: { address } } as unknown as Request;
+    const res = mockRes();
+    const next = jest.fn();
+
+    await requireRole(['admin', 'treasurer'])(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      data: null,
+      error: 'Requires community role: admin or treasurer',
+    });
+  });
+
+  it('filters out soft-deleted members', async () => {
+    mockDb.query.mockResolvedValueOnce([]);
+    const req = { params: { id: communityId }, auth: { address } } as unknown as Request;
+    const res = mockRes();
+    const next = jest.fn();
+
+    await requireRole(['admin'])(req, res, next);
+
+    expect(mockDb.query).toHaveBeenCalledWith(
+      expect.stringContaining('deleted_at IS NULL'),
+      [communityId, address]
+    );
+    expect(res.status).toHaveBeenCalledWith(403);
+  });
 });
