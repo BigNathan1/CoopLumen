@@ -1,0 +1,15 @@
+-- Dark mode designs done
+
+What are done include these issues
+#882 — Shared Multi-Signature Treasury
+Create a structured treasury interface that communicates shared control, signer participation, and key treasury information clearly.
+#883 — Batch Disbursement & Airdrop
+Design an organized workflow for presenting batch payments and airdrop information, with clear visual grouping and status indicators.
+#874 — Wallet Connect Hero Panel
+Develop a prominent wallet connection panel that guides users toward connecting their wallet while maintaining the platform's visual identity.
+#875 — The Financial Exclusion Problem
+Present the financial exclusion challenge through an engaging, easy-to-understand layout that communicates the problem and establishes context for CoopLumen's purpose.
+
+
+
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&t=38U5cG6K9v31VXzP-0
