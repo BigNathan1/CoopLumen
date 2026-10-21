@@ -1,0 +1,11 @@
+-- Light mode designs done
+
+What are done include these issues
+#895 — Impact Metrics & Success Targets: Present community growth, wallet activity, transaction volume, contributor participation, issues, and testing targets.
+#897 — Pricing & Community Plans: Design clear presentations of free access, self-hosted deployment, and NGO support options.
+#896 — Security, Transparency & Open Source: Organize security information around key protection, signed transactions, API validation, security controls, and disclosure practices.
+#898 — Community & Support Hub: Provide accessible pathways to discussions, Discord, issue tracking, templates, and community assistance.
+
+
+
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&t=38U5cG6K9v31VXzP-0
