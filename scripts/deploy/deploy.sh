@@ -55,8 +55,8 @@ active_file="${state_dir}/active_slot"
 upstream_file="${state_dir}/nginx/active.conf"
 images_file="${state_dir}/images.env"
 
-port_of() { [[ "$1" == "blue" ]] && echo "$BLUE_PORT" || echo "$GREEN_PORT"; }
-other_of() { [[ "$1" == "blue" ]] && echo "green" || echo "blue"; }
+port_of() { if [[ "$1" == "blue" ]]; then echo "$BLUE_PORT"; else echo "$GREEN_PORT"; fi; }
+other_of() { if [[ "$1" == "blue" ]]; then echo "green"; else echo "blue"; fi; }
 
 # Remembers each slot's image so starting one never changes the other.
 if [[ -f "$images_file" ]]; then

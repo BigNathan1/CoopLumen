@@ -25,7 +25,7 @@ export PROXY_HEALTH_TIMEOUT=4
 
 cleanup() {
   for pidfile in "${FAKE_DIR}"/*.pid; do
-    [[ -f "$pidfile" ]] && kill "$(cat "$pidfile")" 2>/dev/null || true
+    if [[ -f "$pidfile" ]]; then kill "$(cat "$pidfile")" 2>/dev/null || true; fi
   done
   rm -rf "$work"
 }
