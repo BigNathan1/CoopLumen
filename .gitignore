@@ -32,6 +32,10 @@ yarn-error.log*
 coverage/
 .nyc_output/
 
+# Playwright
+playwright-report/
+test-results/
+
 # Editor and assistant tooling
 .vscode/
 .idea/

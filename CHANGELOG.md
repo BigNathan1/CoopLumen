@@ -11,6 +11,9 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Playwright end-to-end suite for the frontend (`frontend/e2e/`): shared fixtures that sign the browser's API requests, a gateway that serves the app and the API from one origin, and specs covering the public pages, community registration and the governance flow (#389, #311).
+- Playwright configuration (`frontend/playwright.config.ts`) with an HTML report, failure traces and screenshots, plus an `e2e` CI job that boots the Docker Compose stack, runs the suite on every pull request and uploads the report as an artifact (#389, #311).
+- `docs/testing.md` describing the three test layers, how to run the end-to-end suite locally and how to write a spec (#389, #311).
 - Double-submit cookie CSRF protection (`csrfProtection` middleware) guarding state-changing routes under `/api/v1`, with `GET /api/v1/auth/csrf` endpoint, `cooplumen_csrf` cookie management, and OpenAPI documentation (#359, #281).
 - Community write endpoints (`POST /api/v1/communities`, `PUT /:id`, `DELETE /:id`, `POST /:id/members`, `PUT /:id/members/:address`, `DELETE /:id/members/:address`, `POST /:id/avatar`) guarded with `authenticateJWT` (#356, #278).
 - Community member removal (`DELETE /api/v1/communities/:id/members/:address`) guarded with `requireRole(['admin'])` (#358, #280).

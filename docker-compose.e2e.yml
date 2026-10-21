@@ -3,8 +3,17 @@ services:
     build:
       target: dev
     environment:
+      # The suite mints session tokens with the same secret, so a token the
+      # test signs is a token the backend verifies.
       AUTH_SESSION_SECRET: governance-e2e-secret
+      # The browser reaches the app through the E2E gateway, so the app's
+      # origin is the gateway's.
+      FRONTEND_URL: http://127.0.0.1:3100
 
   frontend:
     build:
       target: dev
+    environment:
+      # The page, its assets and the API are served from one origin by the
+      # E2E gateway, so the app calls the API on its own origin.
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:3100

@@ -15,6 +15,7 @@
     "lint": "npm run lint --prefix backend && npm run lint --prefix frontend",
     "prepare": "husky",
     "test": "npm test --prefix backend && npm test --prefix frontend",
+    "test:e2e": "npm run test:e2e --prefix frontend",
     "test:coverage": "npm run test:coverage --prefix backend && npm run test:coverage --prefix frontend",
     "type-check": "npm run type-check --prefix backend && npm run type-check --prefix frontend"
   },

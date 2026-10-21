@@ -253,6 +253,27 @@ npm run type-check    # TypeScript
 npm test              # Jest + Testing Library
 ```
 
+### End-to-end tests
+
+The Playwright suite drives a browser against the whole stack, so it needs
+Docker:
+
+```bash
+# Start the stack and apply the migrations the suite expects
+docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d --build --wait
+docker compose -f docker-compose.yml -f docker-compose.e2e.yml \
+  exec -T -e DATABASE_URL=postgresql://cooplumen:cooplumen@db:5432/cooplumen \
+  backend npm run db:migrate
+
+# Run the suite
+cd frontend
+npm run test:e2e      # headless
+npm run test:e2e:ui   # with the Playwright inspector
+```
+
+Specs live in `frontend/e2e/`. See [docs/testing.md](docs/testing.md) for the
+fixtures, the conventions and how the suite reaches the app.
+
 ### Coverage thresholds
 
 - Backend: minimum **70%** line coverage (enforced in CI)
