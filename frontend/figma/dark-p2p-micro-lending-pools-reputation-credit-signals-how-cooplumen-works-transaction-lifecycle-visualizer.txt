@@ -1,0 +1,16 @@
+-- Dark mode designs done
+
+What are done include these issues
+#884 — P2P Micro-Lending Pools: Design a clear interface for exploring lending pools and understanding relevant pool information.
+
+#885 — Reputation & Credit Signals: Organize reputation indicators and credit-related information into an accessible visual hierarchy.
+
+#876 — How CoopLumen Works: Create an explanatory layout that guides users through the platform's core concept and workflow.
+
+#887 — Transaction Lifecycle Visualizer: Illustrate transaction stages and statuses through an intuitive, easy-to-follow visual flow.
+
+
+
+
+
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&t=38U5cG6K9v31VXzP-0
