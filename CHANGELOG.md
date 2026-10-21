@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Redis-backed `express-rate-limit` store (`rate-limit-redis`) with per-route limits: 300 requests/min API-wide, 20/min on `/api/v1/auth`, 30/min on `/api/v1/tokens`, and the existing 10/min write limit, so limits hold across backend instances. Falls back to an in-memory store without `REDIS_URL` and fails open, with a logged warning, when Redis is unreachable. New optional `TRUST_PROXY` setting so per-IP limits see the real client address behind a proxy. See `docs/rate-limiting.md` (#429, #351).
+- `express-slow-down` graduated slowdown ahead of each hard rate limit, backed by the same Redis store, so a client sending too much is delayed progressively before it is blocked with HTTP 429 (#430, #352).
+- SonarCloud analysis and quality gate in CI (`sonarcloud` job, `sonar-project.properties`), fed by backend and frontend lcov coverage and required by `quality-gate`. Needs the `SONAR_TOKEN` secret; skipped with a warning where secrets are unavailable, such as fork PRs (#426, #348).
+- Zero-downtime blue/green deployment of the API: `docker-compose.prod.yml` with an nginx proxy and two backend slots, `scripts/deploy/deploy.sh` and `wait-for-health.sh` (health-check polling with automatic rollback), a `deploy.yml` workflow that stays inactive until `DEPLOY_ENABLED` and the deploy secrets are configured, a `deploy-scripts` CI job covering the pass, failed-health-check and rollback paths, and documentation in `docs/ci-cd.md` (#425, #347).
+- The API drains in-flight requests on `SIGTERM`/`SIGINT` before exiting, so retiring a container does not drop requests (#425, #347).
 - Double-submit cookie CSRF protection (`csrfProtection` middleware) guarding state-changing routes under `/api/v1`, with `GET /api/v1/auth/csrf` endpoint, `cooplumen_csrf` cookie management, and OpenAPI documentation (#359, #281).
 - Community write endpoints (`POST /api/v1/communities`, `PUT /:id`, `DELETE /:id`, `POST /:id/members`, `PUT /:id/members/:address`, `DELETE /:id/members/:address`, `POST /:id/avatar`) guarded with `authenticateJWT` (#356, #278).
 - Community member removal (`DELETE /api/v1/communities/:id/members/:address`) guarded with `requireRole(['admin'])` (#358, #280).

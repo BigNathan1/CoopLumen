@@ -52,3 +52,6 @@ pg_data/
 
 # Local development roadmap (not for GitHub)
 issue.md
+
+# Blue/green deploy state written on the deploy host
+.deploy/
