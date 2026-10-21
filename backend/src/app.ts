@@ -12,6 +12,14 @@ import { StellarService } from './contracts/stellar';
 
 const app: Application = express();
 
+// Behind a load balancer every request otherwise appears to come from the proxy,
+// so per-IP rate limits would throttle all clients as one. Opt in with the
+// number of trusted proxy hops, e.g. TRUST_PROXY=1.
+if (process.env.TRUST_PROXY) {
+  const hops = Number(process.env.TRUST_PROXY);
+  app.set('trust proxy', Number.isInteger(hops) ? hops : process.env.TRUST_PROXY);
+}
+
 app.use(helmet());
 app.use(cors({ origin: process.env.FRONTEND_URL ?? 'http://localhost:3000' }));
 // Captures the exact bytes received so webhook signature verification can
