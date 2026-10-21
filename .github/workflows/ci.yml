@@ -12,10 +12,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Kept in step with the node:<major>-alpine tag in backend/Dockerfile and
-  # frontend/Dockerfile, and with @types/node. If CI tests on one major while
-  # the image ships another, the suite stops saying anything about the runtime
-  # that actually runs in production.
   NODE_VERSION: '26'
 
 jobs:
@@ -24,11 +20,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
 
       - name: Install backend deps
         working-directory: backend
@@ -46,9 +44,6 @@ jobs:
         working-directory: frontend
         run: npm run lint
 
-      # One check for the whole repository. Per-workspace checks left root
-      # configs, scripts/ and docs/ unexamined, which is how a malformed
-      # openapi.yaml and a drifting set of config files reached main.
       - name: Install root deps
         run: npm ci
 
@@ -60,11 +55,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
 
       - name: Install backend deps
         working-directory: backend
@@ -96,7 +93,6 @@ jobs:
           POSTGRES_DB: cooplumen
         ports:
           - 5432:5432
-        # Wait until Postgres is accepting connections before the job runs.
         options: >-
           --health-cmd "pg_isready -U cooplumen"
           --health-interval 5s
@@ -106,7 +102,6 @@ jobs:
         image: redis:7-alpine
         ports:
           - 6379:6379
-        # Wait until Redis is accepting connections before the job runs.
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 5s
@@ -120,11 +115,13 @@ jobs:
       STELLAR_HORIZON_URL: https://horizon-testnet.stellar.org
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
 
       - name: Install backend deps
         working-directory: backend
@@ -143,22 +140,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
 
       - name: Install frontend deps
         working-directory: frontend
         run: npm ci
 
-      # Serial, like the backend job. The frontend suite is now 94 suites, and
-      # several of the heavier ones (userEvent-driven forms, the multi-sig E2E
-      # flow) are load-sensitive: they pass alone but intermittently blow
-      # Jest's default 5s budget when workers compete, failing on timing
-      # rather than on any assertion. Running in band makes the gate
-      # deterministic — and stricter about shared state, not looser.
       - name: Run tests
         working-directory: frontend
         run: npm test -- --runInBand
@@ -168,7 +161,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -181,11 +174,13 @@ jobs:
     timeout-minutes: 30
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
 
       - name: Install Playwright
         working-directory: frontend
@@ -215,6 +210,14 @@ jobs:
         if: failure()
         run: docker compose -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color
 
+      - name: Upload Playwright Report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 14
+
       - name: Stop the Docker Compose stack
         if: always()
         run: docker compose -f docker-compose.yml -f docker-compose.e2e.yml down -v
@@ -223,11 +226,13 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
 
       - name: Install backend deps
         working-directory: backend
@@ -245,9 +250,6 @@ jobs:
         working-directory: frontend
         run: npm run build
         env:
-          # next build needs *a* value for these at build time; real values are
-          # injected at deploy time. Keeping this here (rather than committing
-          # a .env file) is what lets the build job run without secrets.
           NEXT_PUBLIC_API_URL: http://localhost:4000
           NEXT_PUBLIC_STELLAR_NETWORK: TESTNET
 
@@ -255,7 +257,7 @@ jobs:
     name: Docker image build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
       - name: Build backend image
         run: docker build -t cooplumen-backend:ci ./backend
@@ -267,14 +269,14 @@ jobs:
     name: Dependency audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
 
-      # Gate on what ships: a high-severity advisory in a production dependency
-      # fails the job.
       - name: Audit backend production dependencies
         working-directory: backend
         run: npm audit --omit=dev --audit-level=high
@@ -283,9 +285,6 @@ jobs:
         working-directory: frontend
         run: npm audit --omit=dev --audit-level=high
 
-      # Dev tooling is reported but not gated. Some advisories there have no
-      # patched release (braces, via ts-node-dev and eslint-config-next) and
-      # only ever see developer-written glob patterns.
       - name: Report all backend advisories
         working-directory: backend
         continue-on-error: true
@@ -301,13 +300,15 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
 
       - name: Install commitlint
         run: npm install --no-save @commitlint/cli @commitlint/config-conventional
@@ -315,9 +316,6 @@ jobs:
       - name: Lint commits in this PR
         run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
 
-  # Single required status check to point branch protection at, instead of
-  # every job above individually — add a job to the `needs` list here and it
-  # becomes part of the gate with no branch-protection settings to update.
   quality-gate:
     name: Quality gate
     runs-on: ubuntu-latest
