@@ -167,42 +167,305 @@ describe('TransferTokenForm', () => {
   });
 
   describe('validation', () => {
-    it('reports a recipient that is not a Stellar public key', async () => {
-      const user = userEvent.setup();
-      renderForm();
+    describe('recipient validation', () => {
+      it('reports a recipient that is not a Stellar public key', async () => {
+        const user = userEvent.setup();
+        renderForm();
 
-      await user.type(screen.getByLabelText(/recipient/i), 'nope');
-      await user.click(screen.getByRole('button', { name: /^send$/i }));
+        await user.type(screen.getByLabelText(/recipient/i), 'nope');
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
 
-      expect(
-        await screen.findByText('Enter a valid Stellar public key (starts with G, 56 characters)')
-      ).toBeInTheDocument();
-      expect(post).not.toHaveBeenCalled();
+        expect(
+          await screen.findByText('Enter a valid Stellar public key (starts with G, 56 characters)')
+        ).toBeInTheDocument();
+        expect(post).not.toHaveBeenCalled();
+      });
+
+      it('rejects an empty recipient address', async () => {
+        const user = userEvent.setup();
+        renderForm();
+
+        await user.click(screen.getByRole('combobox', { name: /asset/i }));
+        await user.click(screen.getByRole('option', { name: 'XLM' }));
+        await user.type(screen.getByLabelText(/amount/i), '5');
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
+
+        expect(await screen.findByText('Stellar address is required')).toBeInTheDocument();
+        expect(post).not.toHaveBeenCalled();
+      });
+
+      it('rejects a recipient address that is too short', async () => {
+        const user = userEvent.setup();
+        renderForm();
+
+        await user.type(screen.getByLabelText(/recipient/i), 'GABC');
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
+
+        expect(
+          await screen.findByText('Enter a valid Stellar public key (starts with G, 56 characters)')
+        ).toBeInTheDocument();
+        expect(post).not.toHaveBeenCalled();
+      });
+
+      it('rejects a recipient address that is too long', async () => {
+        const user = userEvent.setup();
+        renderForm();
+
+        await user.type(screen.getByLabelText(/recipient/i), 'G' + 'A'.repeat(60));
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
+
+        expect(
+          await screen.findByText('Enter a valid Stellar public key (starts with G, 56 characters)')
+        ).toBeInTheDocument();
+        expect(post).not.toHaveBeenCalled();
+      });
+
+      it('rejects a recipient that starts with S (secret key)', async () => {
+        const user = userEvent.setup();
+        renderForm();
+
+        await user.type(screen.getByLabelText(/recipient/i), 'S' + 'A'.repeat(55));
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
+
+        expect(
+          await screen.findByText('Enter a valid Stellar public key (starts with G, 56 characters)')
+        ).toBeInTheDocument();
+        expect(post).not.toHaveBeenCalled();
+      });
+
+      it('rejects a recipient with lowercase characters', async () => {
+        const user = userEvent.setup();
+        renderForm();
+
+        await user.type(screen.getByLabelText(/recipient/i), 'g' + 'a'.repeat(55));
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
+
+        expect(
+          await screen.findByText('Enter a valid Stellar public key (starts with G, 56 characters)')
+        ).toBeInTheDocument();
+        expect(post).not.toHaveBeenCalled();
+      });
+
+      it('rejects a recipient with invalid base32 characters', async () => {
+        const user = userEvent.setup();
+        renderForm();
+
+        // '1' and '0' are not valid base32 characters
+        await user.type(screen.getByLabelText(/recipient/i), 'G' + '1'.repeat(55));
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
+
+        expect(
+          await screen.findByText('Enter a valid Stellar public key (starts with G, 56 characters)')
+        ).toBeInTheDocument();
+        expect(post).not.toHaveBeenCalled();
+      });
+
+      it('trims whitespace from the recipient address', async () => {
+        const user = userEvent.setup();
+        renderForm();
+
+        await user.type(screen.getByLabelText(/recipient/i), `  ${RECIPIENT}  `);
+        await user.click(screen.getByRole('combobox', { name: /asset/i }));
+        await user.click(screen.getByRole('option', { name: 'XLM' }));
+        await user.type(screen.getByLabelText(/amount/i), '5');
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
+
+        await waitFor(() =>
+          expect(post).toHaveBeenCalledWith(
+            '/api/v1/transactions/unsigned',
+            expect.objectContaining({ destinationPublicKey: RECIPIENT })
+          )
+        );
+      });
     });
 
-    it('reports a missing amount', async () => {
-      const user = userEvent.setup();
-      renderForm();
+    describe('amount validation', () => {
+      it('reports a missing amount', async () => {
+        const user = userEvent.setup();
+        renderForm();
 
-      await user.type(screen.getByLabelText(/recipient/i), RECIPIENT);
-      await user.click(screen.getByRole('combobox', { name: /asset/i }));
-      await user.click(screen.getByRole('option', { name: 'XLM' }));
-      await user.click(screen.getByRole('button', { name: /^send$/i }));
+        await user.type(screen.getByLabelText(/recipient/i), RECIPIENT);
+        await user.click(screen.getByRole('combobox', { name: /asset/i }));
+        await user.click(screen.getByRole('option', { name: 'XLM' }));
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
 
-      expect(await screen.findByText('Amount is required')).toBeInTheDocument();
-      expect(post).not.toHaveBeenCalled();
+        expect(await screen.findByText('Amount is required')).toBeInTheDocument();
+        expect(post).not.toHaveBeenCalled();
+      });
+
+      it('rejects a zero amount', async () => {
+        const user = userEvent.setup();
+        renderForm();
+
+        await user.type(screen.getByLabelText(/recipient/i), RECIPIENT);
+        await user.click(screen.getByRole('combobox', { name: /asset/i }));
+        await user.click(screen.getByRole('option', { name: 'XLM' }));
+        await user.type(screen.getByLabelText(/amount/i), '0');
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
+
+        expect(await screen.findByText('Amount must be greater than zero')).toBeInTheDocument();
+        expect(post).not.toHaveBeenCalled();
+      });
+
+      it('rejects a negative amount', async () => {
+        const user = userEvent.setup();
+        renderForm();
+
+        await user.type(screen.getByLabelText(/recipient/i), RECIPIENT);
+        await user.click(screen.getByRole('combobox', { name: /asset/i }));
+        await user.click(screen.getByRole('option', { name: 'XLM' }));
+        await user.type(screen.getByLabelText(/amount/i), '-10');
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
+
+        expect(
+          await screen.findByText('Enter a positive amount with up to 7 decimal places')
+        ).toBeInTheDocument();
+        expect(post).not.toHaveBeenCalled();
+      });
+
+      it('rejects an amount with more than 7 decimal places', async () => {
+        const user = userEvent.setup();
+        renderForm();
+
+        await user.type(screen.getByLabelText(/recipient/i), RECIPIENT);
+        await user.click(screen.getByRole('combobox', { name: /asset/i }));
+        await user.click(screen.getByRole('option', { name: 'XLM' }));
+        await user.type(screen.getByLabelText(/amount/i), '1.12345678');
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
+
+        expect(
+          await screen.findByText('Enter a positive amount with up to 7 decimal places')
+        ).toBeInTheDocument();
+        expect(post).not.toHaveBeenCalled();
+      });
+
+      it('accepts an amount with exactly 7 decimal places', async () => {
+        const user = userEvent.setup();
+        renderForm();
+
+        await user.type(screen.getByLabelText(/recipient/i), RECIPIENT);
+        await user.click(screen.getByRole('combobox', { name: /asset/i }));
+        await user.click(screen.getByRole('option', { name: 'XLM' }));
+        await user.type(screen.getByLabelText(/amount/i), '1.1234567');
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
+
+        await waitFor(() =>
+          expect(post).toHaveBeenCalledWith(
+            '/api/v1/transactions/unsigned',
+            expect.objectContaining({ amount: '1.1234567' })
+          )
+        );
+      });
+
+      it('accepts a whole number amount without decimals', async () => {
+        const user = userEvent.setup();
+        renderForm();
+
+        await user.type(screen.getByLabelText(/recipient/i), RECIPIENT);
+        await user.click(screen.getByRole('combobox', { name: /asset/i }));
+        await user.click(screen.getByRole('option', { name: 'XLM' }));
+        await user.type(screen.getByLabelText(/amount/i), '100');
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
+
+        await waitFor(() =>
+          expect(post).toHaveBeenCalledWith(
+            '/api/v1/transactions/unsigned',
+            expect.objectContaining({ amount: '100' })
+          )
+        );
+      });
+
+      it('rejects an amount with non-numeric characters', async () => {
+        const user = userEvent.setup();
+        renderForm();
+
+        await user.type(screen.getByLabelText(/recipient/i), RECIPIENT);
+        await user.click(screen.getByRole('combobox', { name: /asset/i }));
+        await user.click(screen.getByRole('option', { name: 'XLM' }));
+        await user.type(screen.getByLabelText(/amount/i), '10abc');
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
+
+        expect(
+          await screen.findByText('Enter a positive amount with up to 7 decimal places')
+        ).toBeInTheDocument();
+        expect(post).not.toHaveBeenCalled();
+      });
+
+      it('trims whitespace from the amount', async () => {
+        const user = userEvent.setup();
+        renderForm();
+
+        await user.type(screen.getByLabelText(/recipient/i), RECIPIENT);
+        await user.click(screen.getByRole('combobox', { name: /asset/i }));
+        await user.click(screen.getByRole('option', { name: 'XLM' }));
+        await user.type(screen.getByLabelText(/amount/i), '  25.5  ');
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
+
+        await waitFor(() =>
+          expect(post).toHaveBeenCalledWith(
+            '/api/v1/transactions/unsigned',
+            expect.objectContaining({ amount: '25.5' })
+          )
+        );
+      });
     });
 
-    it('reports that no asset was chosen', async () => {
-      const user = userEvent.setup();
-      renderForm();
+    describe('asset validation', () => {
+      it('reports that no asset was chosen', async () => {
+        const user = userEvent.setup();
+        renderForm();
 
-      await user.type(screen.getByLabelText(/recipient/i), RECIPIENT);
-      await user.type(screen.getByLabelText(/amount/i), '5');
-      await user.click(screen.getByRole('button', { name: /^send$/i }));
+        await user.type(screen.getByLabelText(/recipient/i), RECIPIENT);
+        await user.type(screen.getByLabelText(/amount/i), '5');
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
 
-      expect(await screen.findByText('Select an asset to send')).toBeInTheDocument();
-      expect(post).not.toHaveBeenCalled();
+        expect(await screen.findByText('Select an asset to send')).toBeInTheDocument();
+        expect(post).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('multiple validation errors', () => {
+      it('shows all validation errors when multiple fields are invalid', async () => {
+        const user = userEvent.setup();
+        renderForm();
+
+        await user.type(screen.getByLabelText(/recipient/i), 'invalid');
+        await user.type(screen.getByLabelText(/amount/i), '-5');
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
+
+        expect(
+          await screen.findByText('Enter a valid Stellar public key (starts with G, 56 characters)')
+        ).toBeInTheDocument();
+        expect(
+          screen.getByText('Enter a positive amount with up to 7 decimal places')
+        ).toBeInTheDocument();
+        expect(screen.getByText('Select an asset to send')).toBeInTheDocument();
+        expect(post).not.toHaveBeenCalled();
+      });
+
+      it('clears previous validation errors when correcting a field', async () => {
+        const user = userEvent.setup();
+        renderForm();
+
+        await user.type(screen.getByLabelText(/recipient/i), 'invalid');
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
+
+        expect(
+          await screen.findByText('Enter a valid Stellar public key (starts with G, 56 characters)')
+        ).toBeInTheDocument();
+
+        await user.clear(screen.getByLabelText(/recipient/i));
+        await user.type(screen.getByLabelText(/recipient/i), RECIPIENT);
+        await user.click(screen.getByRole('combobox', { name: /asset/i }));
+        await user.click(screen.getByRole('option', { name: 'XLM' }));
+        await user.type(screen.getByLabelText(/amount/i), '5');
+        await user.click(screen.getByRole('button', { name: /^send$/i }));
+
+        await waitFor(() => expect(post).toHaveBeenCalled());
+        expect(
+          screen.queryByText('Enter a valid Stellar public key (starts with G, 56 characters)')
+        ).not.toBeInTheDocument();
+      });
     });
 
     it('flags the invalid field with aria-invalid', async () => {
