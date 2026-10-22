@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Staging environment configuration on Fly.io (`fly.staging.toml`) and Railway (`railway.staging.json`) with environment secrets documentation and setup guide in `docs/staging.md` (#418, #340).
+- Automated staging deployment workflow (`.github/workflows/deploy-staging.yml`) auto-deploying `main` to staging after CI passes or on manual dispatch, remaining inert until `STAGING_ENABLED=true` (#419, #341).
+- Automated smoke tests runner (`scripts/deploy/smoke-test.sh`) executing post-deployment verification against `/health` (checking database and Stellar connectivity), `/api/communities`, and 404 handling, verified by `scripts/deploy/test-smoke-test.sh` in the CI `deploy-scripts` job (#420, #342).
+- Manual approval-gated production deployment workflow (`.github/workflows/deploy-production.yml`) triggered via `workflow_dispatch` with GitHub Environment reviewer approval gating, blue/green rollout, and post-deploy smoke testing (#422, #344).
+
 - Redis-backed `express-rate-limit` store (`rate-limit-redis`) with per-route limits: 300 requests/min API-wide, 20/min on `/api/v1/auth`, 30/min on `/api/v1/tokens`, and the existing 10/min write limit, so limits hold across backend instances. Falls back to an in-memory store without `REDIS_URL` and fails open, with a logged warning, when Redis is unreachable. New optional `TRUST_PROXY` setting so per-IP limits see the real client address behind a proxy. See `docs/rate-limiting.md` (#429, #351).
 - `express-slow-down` graduated slowdown ahead of each hard rate limit, backed by the same Redis store, so a client sending too much is delayed progressively before it is blocked with HTTP 429 (#430, #352).
 - SonarCloud analysis and quality gate in CI (`sonarcloud` job, `sonar-project.properties`), fed by backend and frontend lcov coverage and required by `quality-gate`. Needs the `SONAR_TOKEN` secret; skipped with a warning where secrets are unavailable, such as fork PRs (#426, #348).

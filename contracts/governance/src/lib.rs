@@ -518,6 +518,7 @@ impl GovernanceContract {
     /// The `executor` address must authorise the call (`require_auth`). Any
     /// address may execute a passed, quorate proposal — the contract does not
     /// restrict execution to the admin or proposer.
+    #[allow(deprecated)]
     pub fn execute_proposal(
         env: Env,
         proposal_id: u64,
@@ -683,16 +684,10 @@ impl GovernanceContract {
                 .ok_or(GovernanceError::Overflow)?;
         }
 
-        let voter_turnout_bps = if total_proposals == 0 {
-            0
-        } else {
-            (turnout_bps_total / total_proposals) as u32
-        };
-        let average_quorum_bps = if finalized_proposals == 0 {
-            0
-        } else {
-            (finalized_quorum_bps_total / finalized_proposals) as u32
-        };
+        let voter_turnout_bps = turnout_bps_total.checked_div(total_proposals).unwrap_or(0) as u32;
+        let average_quorum_bps = finalized_quorum_bps_total
+            .checked_div(finalized_proposals)
+            .unwrap_or(0) as u32;
         let proposal_pass_rate_bps = if finalized_proposals == 0 {
             0
         } else {

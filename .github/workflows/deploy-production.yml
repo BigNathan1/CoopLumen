@@ -1,27 +1,29 @@
-name: Deploy
+name: Deploy Production
 
-# Builds the backend image and rolls it out with zero downtime using
-# scripts/deploy/deploy.sh (blue/green behind nginx, gated on health checks, with
-# automatic rollback). See docs/ci-cd.md.
+# Deploys CoopLumen backend to the production environment with zero downtime.
+# Triggered by manual approval via workflow_dispatch and gated on GitHub Environment
+# protection rules (required reviewers on the 'production' environment).
+# See docs/ci-cd.md.
 #
-# Nothing here runs until a deploy target exists: set the repository variable
-# DEPLOY_ENABLED=true and the secrets listed in docs/ci-cd.md. Until then both
-# jobs are skipped, so merging this workflow cannot fail or deploy anything.
+# Builds the production image, pushes it to GHCR, rolls it out via blue/green
+# behind nginx with health-check gating and automatic rollback, then verifies
+# with automated post-deployment smoke tests.
+#
+# Inactive until configured: set the repository variable DEPLOY_ENABLED=true
+# (or PRODUCTION_DEPLOY_ENABLED=true) and configure the production environment secrets.
 
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: [main]
   workflow_dispatch:
     inputs:
       ref:
         description: 'Git ref (branch, tag or SHA) to deploy; defaults to main'
         required: false
         default: main
+      skip_smoke_tests:
+        description: 'Skip post-deployment smoke tests (true/false)'
+        required: false
+        default: 'false'
 
-# Deploys must never overlap, and a newer deploy must not cancel one that is
-# mid-switch, so queue instead of cancelling.
 concurrency:
   group: deploy-production
   cancel-in-progress: false
@@ -37,13 +39,7 @@ jobs:
     name: Build and push image
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Only a green CI run on a push to main deploys automatically; a manual run
-    # deploys whatever ref the operator names.
-    if: >-
-      vars.DEPLOY_ENABLED == 'true' &&
-      (github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push'))
+    if: vars.DEPLOY_ENABLED == 'true' || vars.PRODUCTION_DEPLOY_ENABLED == 'true'
     permissions:
       contents: read
       packages: write
@@ -52,7 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
+          ref: ${{ inputs.ref }}
 
       - name: Compute image reference
         id: meta
@@ -79,15 +75,20 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
-    name: Zero-downtime deploy
+    name: Zero-downtime deploy (Manual approval gate)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: build
-    environment: production
+    # Environment protection rules enforce manual reviewer approval before this step runs
+    environment:
+      name: production
+      url: ${{ steps.url.outputs.production_url }}
+    outputs:
+      production_url: ${{ steps.url.outputs.production_url }}
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
+          ref: ${{ inputs.ref }}
 
       - name: Configure SSH
         env:
@@ -132,6 +133,44 @@ jobs:
             "docker login ghcr.io -u '${REGISTRY_USER}' --password-stdin \
              && cd '${DEPLOY_PATH}' && bash scripts/deploy/deploy.sh '${IMAGE}'"
 
+      - name: Resolve Production URL
+        id: url
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          PROXY_PORT: ${{ vars.DEPLOY_PROXY_PORT || '80' }}
+        run: |
+          if [[ -n "${{ vars.PRODUCTION_URL }}" ]]; then
+            echo "production_url=${{ vars.PRODUCTION_URL }}" >> "$GITHUB_OUTPUT"
+          elif [[ "$PROXY_PORT" == "80" || "$PROXY_PORT" == "443" ]]; then
+            echo "production_url=http://${DEPLOY_HOST}" >> "$GITHUB_OUTPUT"
+          else
+            echo "production_url=http://${DEPLOY_HOST}:${PROXY_PORT}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Remove SSH credentials
         if: always()
         run: rm -f ~/.ssh/id_deploy ~/.ssh/known_hosts
+
+  smoke-tests:
+    name: Production smoke tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: deploy
+    if: inputs.skip_smoke_tests != 'true'
+    environment:
+      name: production
+      url: ${{ needs.deploy.outputs.production_url }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Run post-deploy smoke tests
+        env:
+          PRODUCTION_URL: ${{ needs.deploy.outputs.production_url || vars.PRODUCTION_URL }}
+        run: |
+          if [[ -n "$PRODUCTION_URL" ]]; then
+            bash scripts/deploy/smoke-test.sh "${PRODUCTION_URL}" 90 2
+          else
+            echo "PRODUCTION_URL not configured; skipping production smoke test."
+          fi
