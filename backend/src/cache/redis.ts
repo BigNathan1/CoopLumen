@@ -88,6 +88,43 @@ class RedisCacheClient {
     }
   }
 
+  /**
+   * Whether a Redis URL is configured. Lets callers pick a Redis-backed
+   * implementation or an in-memory fallback without opening a connection.
+   */
+  isConfigured(): boolean {
+    return Boolean(process.env.REDIS_URL);
+  }
+
+  /**
+   * Sends a raw command and rejects, rather than swallowing the failure, when
+   * Redis is unavailable. Unlike get/setEx/del this does not degrade to a
+   * no-op: the rate limit store needs to know a command failed so it can apply
+   * its own fail-open policy. The call is bounded by `timeoutMs` because
+   * node-redis queues commands while reconnecting, which would otherwise hang
+   * every request behind the limiter for as long as Redis is down.
+   */
+  async sendCommand(args: string[], timeoutMs = 1000): Promise<unknown> {
+    const run = async (): Promise<unknown> => {
+      const client = await this.getClient();
+      if (!client?.isReady) {
+        throw new Error('Redis is not available');
+      }
+      return client.sendCommand(args);
+    };
+
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error('Redis command timed out')), timeoutMs);
+    });
+
+    try {
+      return await Promise.race([run(), timeout]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   private async getClient(): Promise<RedisClient | null> {
     if (this.client?.isOpen) {
       return this.client;

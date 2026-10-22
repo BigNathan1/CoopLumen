@@ -134,9 +134,20 @@ jobs:
         working-directory: backend
         run: npm run db:migrate
 
+      # Coverage is collected here rather than in a second test run: the
+      # sonarcloud job needs the lcov report, and re-running the suite just to
+      # produce it would double the slowest job.
       - name: Run tests (unit + integration)
         working-directory: backend
-        run: npm test -- --runInBand
+        run: npm test -- --runInBand --coverage
+
+      - name: Upload backend coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 7
 
   test-frontend:
     name: Frontend tests
@@ -161,7 +172,15 @@ jobs:
       # deterministic — and stricter about shared state, not looser.
       - name: Run tests
         working-directory: frontend
-        run: npm test -- --runInBand
+        run: npm test -- --runInBand --coverage
+
+      - name: Upload frontend coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 7
 
   test-contracts:
     name: Governance contract tests
@@ -315,6 +334,94 @@ jobs:
       - name: Lint commits in this PR
         run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
 
+  # The deploy path is exercised on every PR, not first discovered during a
+  # release: the shell is linted, the health-check poller and the blue/green
+  # control flow (including failed health checks and rollback) are run against
+  # local fakes, and the production compose and nginx configs are validated.
+  deploy-scripts:
+    name: Deploy scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Lint shell scripts
+        run: shellcheck scripts/deploy/*.sh
+
+      - name: Test health-check polling (pass and fail paths)
+        run: bash scripts/deploy/test-wait-for-health.sh
+
+      - name: Test blue/green deploy flow (switch, failure, rollback)
+        run: bash scripts/deploy/test-deploy.sh
+
+      - name: Validate production compose file
+        run: |
+          touch .env.production
+          docker compose -f docker-compose.prod.yml config --quiet
+
+      - name: Validate nginx config
+        run: |
+          mkdir -p .deploy/nginx
+          echo 'server 127.0.0.1:4000;' > .deploy/nginx/active.conf
+          docker run --rm             -v "$PWD/deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro"             -v "$PWD/.deploy/nginx:/etc/nginx/upstream:ro"             nginx:1.27-alpine nginx -t
+
+  # Static analysis and the SonarCloud quality gate. Runs once both test jobs
+  # have produced coverage. The scanner waits for the gate result
+  # (sonar.qualitygate.wait), so a gate that fails on new bugs, vulnerabilities,
+  # code smells, duplication or coverage fails this job and, through
+  # `quality-gate` below, blocks the PR. Fork PRs cannot read SONAR_TOKEN, so
+  # the analysis is skipped with a warning there instead of failing; it still
+  # runs on pushes to the upstream repository and on same-repository PRs.
+  sonarcloud:
+    name: SonarCloud
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [test-backend, test-frontend]
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - name: Check for SONAR_TOKEN
+        id: token
+        run: |
+          if [[ -n "$SONAR_TOKEN" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::SONAR_TOKEN is not available (fork pull request or secret not configured); skipping SonarCloud analysis."
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.token.outputs.available == 'true'
+        with:
+          # Full history so SonarCloud can attribute new code and blame correctly.
+          fetch-depth: 0
+
+      - name: Download backend coverage
+        if: steps.token.outputs.available == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage
+
+      - name: Download frontend coverage
+        if: steps.token.outputs.available == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
+
+      - name: SonarCloud scan and quality gate
+        if: steps.token.outputs.available == 'true'
+        uses: SonarSource/sonarqube-scan-action@v6
+        with:
+          args: >-
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=300
+
   # Single required status check to point branch protection at, instead of
   # every job above individually — add a job to the `needs` list here and it
   # becomes part of the gate with no branch-protection settings to update.
@@ -331,6 +438,8 @@ jobs:
         test-governance-e2e,
         build,
         docker-build,
+        deploy-scripts,
+        sonarcloud,
         commitlint,
       ]
     if: always()
