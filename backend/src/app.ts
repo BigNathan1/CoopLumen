@@ -25,13 +25,24 @@ app.use(cors({ origin: process.env.FRONTEND_URL ?? 'http://localhost:3000' }));
 // Captures the exact bytes received so webhook signature verification can
 // HMAC over the same payload the client signed, before JSON parsing/
 // re-serialization has a chance to change its byte representation.
-app.use(
-  express.json({
-    verify: (req: Request & { rawBody?: Buffer }, _res, buf) => {
-      req.rawBody = Buffer.from(buf);
-    },
-  })
-);
+const captureRawBody = (req: Request & { rawBody?: Buffer }, _res: Response, buf: Buffer): void => {
+  req.rawBody = Buffer.from(buf);
+};
+
+// Bodies over the limit are rejected with 413 before they are fully buffered,
+// so an oversized payload cannot exhaust memory in the parser.
+const defaultJsonParser = express.json({ limit: '10kb', verify: captureRawBody });
+
+// POST /tokens/transfer carries a client-signed XDR envelope of up to 100,000
+// characters (see transferSchema in routes/tokens.ts), which exceeds 10kb.
+const transferJsonParser = express.json({ limit: '100kb', verify: captureRawBody });
+const transferPath = /^\/api\/v1\/tokens\/transfer\/?$/i;
+
+app.use((req, res, next) => {
+  const parser =
+    req.method === 'POST' && transferPath.test(req.path) ? transferJsonParser : defaultJsonParser;
+  parser(req, res, next);
+});
 app.use(requestLogger);
 
 const healthHandler = (_req: Request, res: Response, next: NextFunction): void => {

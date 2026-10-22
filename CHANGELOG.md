@@ -270,6 +270,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - New `reputation_scores` rows now start at the neutral score `50` instead of `0`, matching the midpoint the scoring formula converges on for a member with no borrowing history
 - Migration 001 is now the single source of truth for the `schema_migrations` table: the runner bootstraps by executing that file instead of an inlined copy of the DDL, and records it as applied so it is never replayed
 - `schema_migrations` gained an `applied_at` index and table/column comments
+
+### Fixed
+
+- JSON request bodies are now limited to 10kb in `backend/src/app.ts`. Oversized payloads are rejected with `413` before they are fully buffered, closing a memory-exhaustion vector on every JSON endpoint. `POST /api/v1/tokens/transfer` keeps a 100kb limit because its `signedXdr` can exceed 10kb (#431).
 - Restored `backend/src/api/routes/transactions.ts`, `backend/src/api/schemas/transaction.ts`, `backend/src/contracts/stellar.ts`, `backend/src/api/middleware/rateLimit.ts`, and `backend/src/api/routes/tokens.ts` after three PRs generated against a stale base were merged directly and left `main` unable to compile — each duplicated functionality already added in a prior PR (transaction-hash lookup, CSV export, and token-issuance rate limiting), and GitHub's merge produced garbled, duplicated code in the process. Also removed two stray `pnpm-lock.yaml` files (this is an npm-only monorepo).
 - `frontend/src/hooks/useToast.tsx` is now marked `'use client'`. It uses `useState`/`useEffect` and is rendered from the root layout, so without the directive `npm run build` failed with a Server Component error (#260).
 - Restored `backend/src/contracts/transactions.ts` (`buildUnsignedPayment`), which a prior cleanup commit deleted as unused dead code without also removing its only caller, `POST /api/v1/transactions/unsigned` — leaving the backend unable to compile or run its test suite.
