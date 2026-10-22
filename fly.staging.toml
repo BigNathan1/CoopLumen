@@ -1,0 +1,55 @@
+# fly.staging.toml - CoopLumen Staging Backend (Fly.io)
+# See docs/staging.md and docs/ci-cd.md for setup instructions and secret management.
+
+app = "cooplumen-staging-api"
+primary_region = "iad"
+
+[build]
+  dockerfile = "backend/Dockerfile"
+  target = "production"
+
+[env]
+  PORT = "4000"
+  NODE_ENV = "production"
+  STELLAR_NETWORK = "testnet"
+  STELLAR_HORIZON_URL = "https://horizon-testnet.stellar.org"
+  LOG_LEVEL = "info"
+  TRUST_PROXY = "1"
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 250
+    soft_limit = 200
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 4000
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.http_checks]]
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+    protocol = "http"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

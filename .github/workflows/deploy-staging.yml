@@ -1,0 +1,86 @@
+name: Deploy Staging
+
+# Automatically deploys main to the staging environment after CI succeeds,
+# or on manual workflow_dispatch.
+#
+# Runs on Fly.io (or alternative host) with staging environment secrets,
+# followed by an automated smoke test suite to verify deployment health.
+# See docs/staging.md and docs/ci-cd.md.
+#
+# Inactive until configured: set repository variable STAGING_ENABLED=true
+# and configure environment secrets for the 'staging' environment.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref (branch, tag or SHA) to deploy; defaults to main'
+        required: false
+        default: main
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to Staging (Fly.io)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Auto-deploy when CI passes on push to main, or on manual workflow_dispatch
+    if: >-
+      vars.STAGING_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'))
+    environment:
+      name: staging
+      url: ${{ steps.url.outputs.staging_url }}
+    outputs:
+      staging_url: ${{ steps.url.outputs.staging_url }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
+
+      - name: Resolve Staging URL
+        id: url
+        run: |
+          target_url="${{ vars.STAGING_URL || 'https://cooplumen-staging-api.fly.dev' }}"
+          echo "staging_url=${target_url}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_APP_NAME: ${{ vars.FLY_STAGING_APP || 'cooplumen-staging-api' }}
+        run: |
+          flyctl deploy --config fly.staging.toml --app "$FLY_APP_NAME" --remote-only
+
+  smoke-tests:
+    name: Staging smoke tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [deploy]
+    environment:
+      name: staging
+      url: ${{ needs.deploy.outputs.staging_url }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
+
+      - name: Run smoke tests
+        env:
+          STAGING_URL: ${{ needs.deploy.outputs.staging_url || vars.STAGING_URL || 'https://cooplumen-staging-api.fly.dev' }}
+        run: |
+          bash scripts/deploy/smoke-test.sh "${STAGING_URL}" 90 2

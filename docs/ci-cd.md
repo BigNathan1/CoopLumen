@@ -98,17 +98,45 @@ maintainer should treat a fork PR's skipped SonarCloud job as "not yet analysed"
 
 ---
 
-## `deploy.yml` — zero-downtime deploys
+## `deploy-staging.yml` — auto-deploy `main` to staging
 
-Runs after `CI` succeeds on a push to `main`, or manually (`workflow_dispatch`
-with an optional `ref`). It builds the backend `production` image, pushes it to
-GHCR tagged `sha-<12 chars>`, then runs `scripts/deploy/deploy.sh` on the
-deploy host over SSH. Deploys are serialized by a concurrency group and never
-cancelled part-way.
+Runs automatically after `CI` succeeds on a push to `main`, or on manual
+`workflow_dispatch`. It deploys the backend to Fly.io staging (configured via
+`fly.staging.toml`) or an alternative target using environment secrets from the
+`staging` environment. Deploys are serialized by `concurrency: deploy-staging`.
+
+**Disabled until configured.** The workflow is skipped unless the repository
+variable `STAGING_ENABLED` is `true`. See [staging.md](staging.md) for full setup
+instructions, required Fly.io app secrets, and GitHub environment configuration.
+
+### Post-staging deployment smoke tests
+
+Immediately following staging deployment, the `smoke-tests` job runs
+`scripts/deploy/smoke-test.sh` against the deployed staging URL (`STAGING_URL`).
+The suite validates:
+1. Health endpoint (`/health`) returns HTTP 200 with JSON payload `{"status":"ok"}`
+   confirming database and Stellar connectivity.
+2. Core API endpoints (`/api/communities`) respond with HTTP 200.
+3. Unmatched routes respond cleanly with HTTP 404 without internal server errors.
+
+---
+
+## `deploy-production.yml` — production deploys with manual approval
+
+Triggered by manual approval via `workflow_dispatch` (with an optional `ref`).
+The deployment job targets the `production` GitHub Environment, allowing
+repository maintainers to enforce Environment Protection Rules (required
+reviewers) before any rollout begins.
+
+It builds the backend `production` image, pushes it to GHCR tagged `sha-<12 chars>`,
+then runs `scripts/deploy/deploy.sh` on the deploy host over SSH (blue/green behind
+nginx with zero downtime and automatic rollback). After deployment, post-deploy
+smoke tests run to verify the live production service. Deploys are serialized by
+`concurrency: deploy-production` and never cancelled mid-flight.
 
 **Disabled until configured.** Both jobs are skipped unless the repository
-variable `DEPLOY_ENABLED` is `true`, so the workflow is inert until a host
-exists. Configure the `production` environment with these secrets:
+variable `DEPLOY_ENABLED` (or `PRODUCTION_DEPLOY_ENABLED`) is `true`. Configure
+the `production` environment with these secrets:
 
 | Secret               | Purpose                                                                 |
 | -------------------- | ----------------------------------------------------------------------- |
@@ -192,10 +220,8 @@ GitHub Actions versions.
 
 ## What's intentionally not here yet
 
-The backlog (`issue.md`, CI/CD category) tracks the rest of the pipeline that
-hasn't been built yet: a staging environment, semantic-release, Trivy
-container scanning, and coverage-threshold enforcement. These need real
-infrastructure (a hosting target, secrets, a release strategy) decided first —
-adding the workflow YAML before that groundwork exists would just be dead
-configuration. Production deploys and SonarCloud are described above and are
-inert until their secrets and variables are configured.
+The backlog (`issue.md`, CI/CD category) tracks future pipeline capabilities that
+have not been scheduled yet: semantic-release, Trivy container scanning, and
+coverage-threshold enforcement. The staging and production deploy workflows,
+smoke tests, and SonarCloud quality gates are described above and are inert
+until their secrets and variables are configured.

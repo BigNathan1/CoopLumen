@@ -358,6 +358,9 @@ jobs:
       - name: Test blue/green deploy flow (switch, failure, rollback)
         run: bash scripts/deploy/test-deploy.sh
 
+      - name: Test smoke test script (pass and fail paths)
+        run: bash scripts/deploy/test-smoke-test.sh
+
       - name: Validate production compose file
         run: |
           touch .env.production
