@@ -84,6 +84,42 @@ paths:
       description: Creates or replaces the authenticated member's one-hop delegation while the proposal is active and neither account has voted.
       security:
         - SessionToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProposalDelegationRequest'
+      responses:
+        '200':
+          description: Delegation stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalDelegationResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Delegator or delegatee is not an active community member
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Proposal state, voting history, or delegation topology conflicts with the request
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /api/v1/proposals:
     get:
       tags: [Proposals]
@@ -162,13 +198,18 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '404': { $ref: '#/components/responses/NotFound' }
 
-  /api/v1/kyc/initiate:
+  /api/v1/proposals/{id}/delegate:
     post:
-      tags: [KYC]
-      summary: Start or resume KYC verification
-      description: Starts a pending KYC flow for the authenticated member's own address. Pending and submitted flows are idempotent; rejected or expired flows are restarted.
+      tags: [Governance]
+      summary: Delegate voting power for a proposal
+      description: Delegates the caller's voting power on an active proposal to another community member.
       security:
         - SessionToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
@@ -182,8 +223,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProposalDelegationResponse'
-        '400':
-          $ref: '#/components/responses/ValidationError'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Delegator or delegatee is not an active community member
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Proposal state, voting history, or delegation topology conflicts with the request
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/v1/kyc/initiate:
+    post:
+      tags: [KYC]
+      summary: Start or resume KYC verification
+      description: Starts a pending KYC flow for the authenticated member's own address. Pending and submitted flows are idempotent; rejected or expired flows are restarted.
+      security:
+        - SessionToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitiateKycRequest'
             schema: { $ref: '#/components/schemas/InitiateKycRequest' }
       responses:
         '200':
@@ -203,14 +274,6 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '403':
-          description: Delegator or delegatee is not an active community member
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ErrorResponse' }
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: Proposal state, voting history, or delegation topology conflicts with the request
           description: Address mismatch or inactive community membership
           content:
             application/json:
@@ -220,6 +283,32 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/v1/auth/csrf:
+    get:
+      tags: [Auth]
+      summary: Get CSRF token
+      description: >
+        Returns a fresh CSRF token and sets the `cooplumen_csrf` cookie for double-submit
+        cookie CSRF protection.
+      responses:
+        '200':
+          description: CSRF token issued
+          headers:
+            Set-Cookie:
+              description: The `cooplumen_csrf` cookie (SameSite=Strict; Path=/)
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      csrfToken:
+                        type: string
+                        description: Hex-encoded CSRF token matching the cookie.
   /api/v1/auth/logout:
     post:
       tags: [Auth]
@@ -269,6 +358,12 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '401':
           description: No matching challenge, or the signature is invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many failed authentication attempts from this IP (blocked for 5 minutes)
           content:
             application/json:
               schema:
@@ -977,6 +1072,54 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/tokens/build-issue:
+    post:
+      tags: [Tokens]
+      summary: Build an unsigned token issuance transaction for client-side signing
+      description: >-
+        Builds an unsigned XDR transaction for issuing a community token to a distributor
+        account, so the issuer's wallet (e.g. Freighter) can sign it client-side. Guarded
+        with `authenticateJWT` and requires `admin` or `treasurer` role in the community.
+      security:
+        - SessionToken: []
+        - SessionCookie: []
+          CsrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [issuerPublicKey, assetCode, distributorPublicKey, amount]
+              properties:
+                communityId: { type: string, format: uuid, description: Optional community UUID }
+                issuerPublicKey: { $ref: '#/components/schemas/StellarKey' }
+                assetCode: { type: string, minLength: 1, maxLength: 12 }
+                distributorPublicKey: { $ref: '#/components/schemas/StellarKey' }
+                amount:
+                  { type: string, description: Decimal string amount with up to 7 decimal places }
+                memo: { type: string, maxLength: 28 }
+      responses:
+        '200':
+          description: Unsigned issuance transaction built successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      xdr:
+                        {
+                          type: string,
+                          description: Base64-encoded unsigned Stellar transaction XDR,
+                        }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/schemas/ErrorResponse' }
+        '403': { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/schemas/ErrorResponse' }
+
   /api/v1/tokens/build-trustline:
     post:
       tags: [Tokens]
@@ -1649,6 +1792,18 @@ components:
       properties:
         delegateeAddress: { $ref: '#/components/schemas/StellarKey' }
     ProposalDelegationResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [proposalId, delegatorAddress, delegateeAddress, createdAt, updatedAt]
+          properties:
+            proposalId: { type: string, format: uuid }
+            delegatorAddress: { $ref: '#/components/schemas/StellarKey' }
+            delegateeAddress: { $ref: '#/components/schemas/StellarKey' }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
     CreateGovernanceProposal:
       type: object
       required: [communityId, title, votingEndsAt]
@@ -1701,13 +1856,6 @@ components:
       properties:
         data:
           type: object
-          required: [proposalId, delegatorAddress, delegateeAddress, createdAt, updatedAt]
-          properties:
-            proposalId: { type: string, format: uuid }
-            delegatorAddress: { $ref: '#/components/schemas/StellarKey' }
-            delegateeAddress: { $ref: '#/components/schemas/StellarKey' }
-            createdAt: { type: string, format: date-time }
-            updatedAt: { type: string, format: date-time }
           required: [id, communityId, address, status, provider, initiatedAt]
           properties:
             id: { type: string, format: uuid }
@@ -2501,3 +2649,13 @@ components:
       description: >
         Admin authentication using JWT tokens. 
         Currently a placeholder - actual implementation pending.
+    CsrfToken:
+      type: apiKey
+      in: header
+      name: x-csrf-token
+      description: Hex-encoded CSRF token matching the `cooplumen_csrf` cookie for state-changing browser requests.
+    CsrfCookie:
+      type: apiKey
+      in: cookie
+      name: cooplumen_csrf
+      description: Cookie storing the client CSRF token for double-submit cookie validation.

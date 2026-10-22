@@ -10,6 +10,11 @@ import {
   listProposalsQuerySchema,
   delegateProposalSchema,
   DelegateProposalInput,
+  castVoteSchema,
+  createProposalSchema,
+  CreateProposalInput,
+  listProposalsQuerySchema,
+  proposalIdParamsSchema,
 } from '../schemas/proposal';
 
 export const proposalRouter: Router = Router();
@@ -221,7 +226,7 @@ proposalRouter.get(
         status?: string;
       };
       const proposals = await db.query(
-        `${proposalSelect}
+        `${PROPOSAL_SELECT}
           WHERE p.community_id = $1
             AND ($2::text IS NULL OR p.status = $2)
           GROUP BY p.id
@@ -240,12 +245,7 @@ proposalRouter.get(
   validateParams(proposalIdParamsSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const [proposal] = await db.query(
-        `${proposalSelect}
-          WHERE p.id = $1
-          GROUP BY p.id`,
-        [req.params.id]
-      );
+      const proposal = await findProposal(req.params.id);
       if (!proposal) {
         res.status(404).json({ data: null, error: 'Proposal not found' });
         return;
@@ -257,12 +257,11 @@ proposalRouter.get(
   }
 );
 
-/** Creates the application's persisted projection of a governance proposal. */
 proposalRouter.post(
   '/',
   requireAuth,
   validateBody(createProposalSchema),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const {
         communityId,
@@ -271,19 +270,15 @@ proposalRouter.post(
         type,
         quorumPercent,
         votingDurationHours,
+        votingEndsAt,
         metadata,
-      } = req.body as {
-        communityId: string;
-        title: string;
-        description?: string;
-        type: string;
-        quorumPercent: number;
-        votingDurationHours: number;
-        metadata?: Record<string, unknown>;
-      };
+      } = req.body as CreateProposalInput;
 
       if (!(await isActiveMember(communityId, req.auth!.address))) {
-        res.status(403).json({ data: null, error: 'Active community membership required' });
+        res.status(403).json({
+          data: null,
+          error: 'Only active community members can create proposals',
+        });
         return;
       }
 
@@ -293,7 +288,7 @@ proposalRouter.post(
            quorum_percent, metadata, voting_starts_at, voting_ends_at
          )
          VALUES ($1, $2, $3, $4, $5, 'active', $6, $7, NOW(),
-                 NOW() + ($8 * INTERVAL '1 hour'))
+                 COALESCE($8::timestamptz, NOW() + ($9 * INTERVAL '1 hour')))
          RETURNING id`,
         [
           communityId,
@@ -303,7 +298,8 @@ proposalRouter.post(
           type,
           quorumPercent,
           metadata ? JSON.stringify(metadata) : null,
-          votingDurationHours,
+          votingEndsAt ? new Date(votingEndsAt).toISOString() : null,
+          votingDurationHours ?? 24,
         ]
       );
 
@@ -315,13 +311,12 @@ proposalRouter.post(
   }
 );
 
-/** Records one authenticated member ballot and returns the refreshed tally. */
 proposalRouter.post(
   '/:id/votes',
   requireAuth,
   validateParams(proposalIdParamsSchema),
   validateBody(castVoteSchema),
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { choice, reason } = req.body as { choice: string; reason?: string };
 
@@ -359,8 +354,6 @@ proposalRouter.post(
           throw error;
         }
 
-        // This table is an application projection. The Soroban indexer replaces
-        // this unit weight with the token balance observed on-chain.
         await client.query(
           `INSERT INTO votes (proposal_id, voter_address, choice, weight, reason)
            VALUES ($1, $2, $3, 1, $4)`,
@@ -385,6 +378,42 @@ proposalRouter.post(
       }
       if (databaseError.code === '23505' && databaseError.constraint === 'votes_unique_per_voter') {
         res.status(409).json({ data: null, error: 'This member has already voted' });
+        return;
+      }
+      next(error);
+    }
+  }
+);
+
+proposalRouter.post(
+  '/:id/delegate',
+  requireAuth,
+  validateParams(proposalIdParamsSchema),
+  validateBody(delegateProposalSchema),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const delegatorAddress = req.auth!.address;
+    const { delegateeAddress } = req.body as DelegateProposalInput;
+    if (delegatorAddress === delegateeAddress) {
+      res.status(400).json({ data: null, error: 'Cannot delegate voting power to yourself' });
+      return;
+    }
+
+    try {
+      const delegation = await db.transaction((client) =>
+        saveDelegation(client, req.params.id, delegatorAddress, delegateeAddress)
+      );
+      res.status(200).json({
+        data: {
+          proposalId: delegation.proposal_id,
+          delegatorAddress: delegation.delegator_address,
+          delegateeAddress: delegation.delegatee_address,
+          createdAt: delegation.created_at,
+          updatedAt: delegation.updated_at,
+        },
+      });
+    } catch (error) {
+      if (error instanceof ProposalRequestError) {
+        res.status(error.status).json({ data: null, error: error.message });
         return;
       }
       next(error);

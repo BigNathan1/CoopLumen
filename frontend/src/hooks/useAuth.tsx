@@ -6,12 +6,14 @@ import { setUnauthorizedHandler } from '@/lib/api';
 import { ReauthModal } from '@/components/auth/ReauthModal';
 
 export interface AuthContextType {
+  /** Connected and authenticated Stellar public address, or null if disconnected (Issue #361) */
+  publicKey: string | null;
+  /** The active authenticated Stellar public address, or null */
+  address: string | null;
   /** True when the user is connected and holds an active authenticated session */
   isAuthenticated: boolean;
   /** True while connecting to the wallet or completing challenge re-authentication */
   isLoading: boolean;
-  /** The active authenticated Stellar public address, or null */
-  address: string | null;
   /** Current authentication or connection error, if any */
   error: string | null;
   /** Connects Freighter wallet and exchanges a signed challenge for a backend session */
@@ -36,6 +38,8 @@ export interface AuthProviderProps {
   initialAuthenticated?: boolean;
   /** Optional initial address override (primarily for test harnesses) */
   initialAddress?: string | null;
+  /** Optional value override for testing */
+  value?: Partial<AuthContextType>;
 }
 
 /**
@@ -49,6 +53,7 @@ export function AuthProvider({
   children,
   initialAuthenticated,
   initialAddress,
+  value: overrideValue,
 }: AuthProviderProps) {
   const wallet = useWallet();
   const [isReauthOpen, setIsReauthOpen] = useState(false);
@@ -84,7 +89,7 @@ export function AuthProvider({
       if (!activeAddress) {
         await wallet.connect();
       } else {
-        await wallet.authenticate(activeAddress);
+        await (wallet as any).authenticate?.(activeAddress);
       }
       setIsReauthOpen(false);
     } catch (err) {
@@ -106,30 +111,39 @@ export function AuthProvider({
     closeReauthModal();
   }, [wallet, closeReauthModal]);
 
+  const activeAddress = initialAddress !== undefined ? initialAddress : wallet.publicKey;
   const isAuthenticated =
     initialAuthenticated !== undefined
       ? initialAuthenticated
       : wallet.connected && Boolean(wallet.publicKey);
 
-  const address = initialAddress !== undefined ? initialAddress : wallet.publicKey;
-  const isLoading = wallet.connecting || isReauthenticating;
-  const error = reauthError ?? wallet.error;
+  const address = overrideValue?.address ?? overrideValue?.publicKey ?? activeAddress;
+  const publicKey = overrideValue?.publicKey ?? overrideValue?.address ?? activeAddress;
+  const isLoading =
+    overrideValue?.isLoading !== undefined
+      ? overrideValue.isLoading
+      : wallet.connecting || isReauthenticating;
+  const error =
+    overrideValue?.error !== undefined ? overrideValue.error : (reauthError ?? wallet.error);
+  const isAuth =
+    overrideValue?.isAuthenticated !== undefined ? overrideValue.isAuthenticated : isAuthenticated;
 
-  const value: AuthContextType = {
-    isAuthenticated,
-    isLoading,
+  const contextValue: AuthContextType = {
+    publicKey,
     address,
+    isAuthenticated: isAuth,
+    isLoading,
     error,
-    login,
-    logout,
-    reauthenticate,
-    isReauthOpen,
-    openReauthModal,
-    closeReauthModal,
+    login: overrideValue?.login ?? login,
+    logout: overrideValue?.logout ?? logout,
+    reauthenticate: overrideValue?.reauthenticate ?? reauthenticate,
+    isReauthOpen: overrideValue?.isReauthOpen ?? isReauthOpen,
+    openReauthModal: overrideValue?.openReauthModal ?? openReauthModal,
+    closeReauthModal: overrideValue?.closeReauthModal ?? closeReauthModal,
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={contextValue}>
       {children}
       <ReauthModal
         isOpen={isReauthOpen}
@@ -144,6 +158,7 @@ export function AuthProvider({
 
 /**
  * Access the global authentication context.
+ * Returns `{ publicKey, address, isAuthenticated, login, logout, isLoading, error, ... }`.
  *
  * @throws {Error} If called outside of an {@link AuthProvider}.
  */

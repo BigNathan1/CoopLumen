@@ -13,6 +13,7 @@ const amount = z
   .refine((value) => Number(value) > 0, 'amount must be greater than zero');
 
 export const buildIssueTokenSchema = z.object({
+  communityId: z.string().uuid('communityId must be a valid UUID').optional(),
   issuerPublicKey: stellarPublicKey,
   assetCode,
   distributorPublicKey: stellarPublicKey,

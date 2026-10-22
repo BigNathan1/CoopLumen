@@ -29,8 +29,8 @@ const proposalId = '11111111-1111-4111-8111-111111111111';
 const communityId = '22222222-2222-4222-8222-222222222222';
 const proposer = Keypair.random().publicKey();
 
-function authHeader(): string {
-  return `Bearer ${createSessionToken(proposer).token}`;
+function authHeader(address = proposer): string {
+  return `Bearer ${createSessionToken(address).token}`;
 }
 
 const proposal = {
@@ -144,6 +144,7 @@ describe('governance proposal routes', () => {
     });
 
     it('rejects a caller who is not an active community member', async () => {
+      mockDb.query.mockResolvedValueOnce([{ exists: false }]);
       query.mockResolvedValueOnce([{ exists: false }]);
 
       const response = await request(app)
@@ -159,6 +160,7 @@ describe('governance proposal routes', () => {
     });
 
     it('creates an active proposal for an authenticated member', async () => {
+      mockDb.query
       query
         .mockResolvedValueOnce([{ exists: true }])
         .mockResolvedValueOnce([{ id: proposalId }])
@@ -171,10 +173,11 @@ describe('governance proposal routes', () => {
 
       expect(response.status).toBe(201);
       expect(response.body).toEqual({ data: proposal });
+      expect(mockDb.query.mock.calls[1][0]).toContain('INSERT INTO proposals');
     });
 
     it('returns the standard envelope for unexpected database errors', async () => {
-      query.mockRejectedValue(new Error('database unavailable'));
+      mockDb.query.mockRejectedValue(new Error('database unavailable'));
 
       const response = await request(app)
         .post('/api/v1/proposals')

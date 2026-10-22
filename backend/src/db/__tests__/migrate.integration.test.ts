@@ -264,6 +264,7 @@ describeIf('Migration integration', () => {
       'audit_log',
       'communities',
       'community_settings',
+      'compliance_transfers',
       'idempotency_keys',
       'kyc_records',
       'loan_events',

@@ -5,6 +5,7 @@ import { validateBody, validateParams } from '../middleware/validate';
 import { authChallengeParamsSchema, authChallengeSchema, authVerifySchema } from '../schemas/auth';
 import { createSessionToken } from '../utils/sessionToken';
 import { clearAuthCookie, setAuthCookie } from '../utils/authCookie';
+import { clearCsrfCookie, generateCsrfToken, setCsrfCookie } from '../utils/csrf';
 import {
   issueRefreshToken,
   consumeRefreshToken,
@@ -85,6 +86,54 @@ authRouter.post(
   }
 );
 
+export const MAX_FAILED_AUTH_ATTEMPTS = 10;
+export const FAILED_AUTH_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Tracks failed authentication timestamps per client IP.
+ */
+const failedAuthAttemptsByIp = new Map<string, number[]>();
+
+function getClientIp(req: Request): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string') {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.ip ?? req.socket?.remoteAddress ?? 'unknown';
+}
+
+function pruneFailedAttempts(ip: string): number[] {
+  const now = Date.now();
+  const attempts = failedAuthAttemptsByIp.get(ip) ?? [];
+  const valid = attempts.filter((timestamp) => now - timestamp < FAILED_AUTH_WINDOW_MS);
+  if (valid.length === 0) {
+    failedAuthAttemptsByIp.delete(ip);
+  } else {
+    failedAuthAttemptsByIp.set(ip, valid);
+  }
+  return valid;
+}
+
+export function isIpBlockedFromAuth(ip: string): boolean {
+  const recent = pruneFailedAttempts(ip);
+  return recent.length >= MAX_FAILED_AUTH_ATTEMPTS;
+}
+
+export function recordFailedAuthAttempt(ip: string): void {
+  const now = Date.now();
+  const recent = pruneFailedAttempts(ip);
+  recent.push(now);
+  failedAuthAttemptsByIp.set(ip, recent);
+}
+
+export function clearFailedAuthAttempts(ip: string): void {
+  failedAuthAttemptsByIp.delete(ip);
+}
+
+export function resetFailedAuthAttempts(): void {
+  failedAuthAttemptsByIp.clear();
+}
+
 /**
  * @route POST /api/v1/auth/verify
  * @access Public
@@ -94,13 +143,25 @@ authRouter.post(
  * that address. The token is set in an httpOnly, SameSite=Strict cookie (Secure
  * in production) so browser scripts cannot read it, and is also returned in the
  * body for non-browser clients that send it as a Bearer token.
+ * Tracks failed attempts per IP and blocks subsequent requests for 5 minutes
+ * after 10 failures.
  * @param {string} body.address - Stellar StrKey that signed the challenge.
  * @param {string} body.challenge - The exact challenge string returned by /challenge.
  * @param {string} body.signature - Base64-encoded Ed25519 signature over the challenge.
  * @returns {200} `{ data: { token, address, expiresAt } }` plus a `Set-Cookie` session cookie.
  * @returns {401} Challenge missing/expired/mismatched, or signature verification failed.
+ * @returns {429} Blocked after 10 failed authentication attempts within 5 minutes.
  */
 authRouter.post('/verify', validateBody(authVerifySchema), (req: Request, res: Response): void => {
+  const clientIp = getClientIp(req);
+  if (isIpBlockedFromAuth(clientIp)) {
+    res.status(429).json({
+      data: null,
+      error: 'Too many failed authentication attempts. Please try again later.',
+    });
+    return;
+  }
+
   pruneExpiredChallenges();
 
   const { address, challenge, signature } = req.body as {
@@ -111,6 +172,7 @@ authRouter.post('/verify', validateBody(authVerifySchema), (req: Request, res: R
 
   const pending = pendingChallenges.get(address);
   if (pending?.challenge !== challenge) {
+    recordFailedAuthAttempt(clientIp);
     res.status(401).json({
       data: null,
       error: 'No matching challenge for this address. Request a new one.',
@@ -133,15 +195,20 @@ authRouter.post('/verify', validateBody(authVerifySchema), (req: Request, res: R
   }
 
   if (!verified) {
+    recordFailedAuthAttempt(clientIp);
     res.status(401).json({ data: null, error: 'Signature verification failed' });
     return;
   }
+
+  clearFailedAuthAttempts(clientIp);
 
   const { token, expiresAt } = createSessionToken(address);
   setAuthCookie(res, token, expiresAt);
   const refresh = issueRefreshToken(address);
   setRefreshCookie(res, refresh.token, refresh.expiresAt);
-  res.json({ data: { token, address, expiresAt } });
+  const csrfToken = generateCsrfToken();
+  setCsrfCookie(res, csrfToken);
+  res.json({ data: { token, address, expiresAt, csrfToken } });
 });
 
 /**
@@ -151,7 +218,7 @@ authRouter.post('/verify', validateBody(authVerifySchema), (req: Request, res: R
  * wallet signature. Refresh tokens rotate: the presented one is invalidated and
  * a replacement is set, so a stolen token that was already used is useless.
  * The new session token is set in the session cookie and returned in the body.
- * @returns {200} `{ data: { token, address, expiresAt } }` plus `Set-Cookie` for the session and refresh cookies.
+ * @returns {200} `{ data: { token, address, expiresAt, csrfToken } }` plus `Set-Cookie` for the session and refresh cookies.
  * @returns {401} Refresh token missing, unknown, already used, or expired.
  */
 authRouter.post('/refresh', (req: Request, res: Response): void => {
@@ -168,7 +235,9 @@ authRouter.post('/refresh', (req: Request, res: Response): void => {
   const next = issueRefreshToken(address);
   setAuthCookie(res, token, expiresAt);
   setRefreshCookie(res, next.token, next.expiresAt);
-  res.json({ data: { token, address, expiresAt } });
+  const csrfToken = generateCsrfToken();
+  setCsrfCookie(res, csrfToken);
+  res.json({ data: { token, address, expiresAt, csrfToken } });
 });
 
 /**
@@ -183,5 +252,20 @@ authRouter.post('/refresh', (req: Request, res: Response): void => {
  */
 authRouter.post('/logout', (_req: Request, res: Response): void => {
   clearAuthCookie(res);
+  clearRefreshCookie(res);
+  clearCsrfCookie(res);
   res.json({ data: { loggedOut: true } });
+});
+
+/**
+ * @route GET /api/v1/auth/csrf
+ * @access Public
+ * @description Issues a fresh CSRF token for the double-submit cookie pattern.
+ * Sets the `cooplumen_csrf` cookie and returns the token in the response payload.
+ * @returns {200} `{ data: { csrfToken } }`
+ */
+authRouter.get('/csrf', (_req: Request, res: Response): void => {
+  const csrfToken = generateCsrfToken();
+  setCsrfCookie(res, csrfToken);
+  res.json({ data: { csrfToken } });
 });

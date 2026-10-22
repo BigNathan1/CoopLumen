@@ -3,6 +3,7 @@ import { PoolClient } from 'pg';
 import { db } from '../../db';
 import { requireAuth } from '../middleware/auth';
 import { validateBody, validateParams } from '../middleware/validate';
+import { kycStatusParamsSchema, initiateKycSchema, InitiateKycInput } from '../schemas/kyc';
 import { initiateKycSchema, InitiateKycInput, kycStatusParamsSchema } from '../schemas/kyc';
 
 export const kycRouter = Router();
@@ -16,6 +17,33 @@ function toPublicStatus(status: StoredKycStatus | undefined): PublicKycStatus {
   if (status === 'pending' || status === 'submitted') return 'pending';
   return 'rejected';
 }
+
+/** Returns the latest KYC outcome recorded for a Stellar account. */
+kycRouter.get(
+  '/status/:address',
+  validateParams(kycStatusParamsSchema),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const [record] = await db.query<{ status: StoredKycStatus }>(
+        `SELECT status
+           FROM kyc_records
+          WHERE stellar_address = $1
+          ORDER BY updated_at DESC, created_at DESC
+          LIMIT 1`,
+        [req.params.address]
+      );
+
+      res.json({
+        data: {
+          address: req.params.address,
+          status: toPublicStatus(record?.status),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 class KycInitiationError extends Error {
   constructor(

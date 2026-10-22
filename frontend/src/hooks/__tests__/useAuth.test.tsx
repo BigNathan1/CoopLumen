@@ -1,5 +1,4 @@
 import { render, screen, act, renderHook } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { AuthProvider, useAuth } from '../useAuth';
 import { useWallet } from '../useWallet';
 import { setUnauthorizedHandler } from '@/lib/api';
@@ -63,6 +62,22 @@ describe('useAuth & AuthProvider', () => {
     });
   });
 
+  describe('Interface & Return Shape (Issue #361)', () => {
+    it('exposes { publicKey, address, isAuthenticated, login, logout }', () => {
+      const { result } = renderHook(() => useAuth(), {
+        wrapper: ({ children }) => <AuthProvider>{children}</AuthProvider>,
+      });
+
+      expect(result.current).toHaveProperty('publicKey');
+      expect(result.current).toHaveProperty('address');
+      expect(result.current).toHaveProperty('isAuthenticated');
+      expect(result.current).toHaveProperty('login');
+      expect(result.current).toHaveProperty('logout');
+      expect(typeof result.current.login).toBe('function');
+      expect(typeof result.current.logout).toBe('function');
+    });
+  });
+
   describe('Authentication State', () => {
     it('provides unauthenticated state by default when wallet is disconnected', () => {
       const { result } = renderHook(() => useAuth(), {
@@ -71,6 +86,7 @@ describe('useAuth & AuthProvider', () => {
 
       expect(result.current.isAuthenticated).toBe(false);
       expect(result.current.isLoading).toBe(false);
+      expect(result.current.publicKey).toBeNull();
       expect(result.current.address).toBeNull();
       expect(result.current.isReauthOpen).toBe(false);
     });
@@ -97,6 +113,7 @@ describe('useAuth & AuthProvider', () => {
 
       expect(result.current.isAuthenticated).toBe(true);
       expect(result.current.isLoading).toBe(false);
+      expect(result.current.publicKey).toBe(TEST_PUBLIC_KEY);
       expect(result.current.address).toBe(TEST_PUBLIC_KEY);
     });
 
@@ -121,6 +138,7 @@ describe('useAuth & AuthProvider', () => {
       });
 
       expect(result.current.isLoading).toBe(true);
+      expect(result.current.isAuthenticated).toBe(false);
     });
   });
 
@@ -261,6 +279,65 @@ describe('useAuth & AuthProvider', () => {
       expect(result.current.error).toBe('Freighter user declined signature');
       expect(result.current.error).not.toMatch(/Bearer\s+/);
       expect(result.current.error).not.toMatch(/S[A-Z0-9]{55}/);
+    });
+  });
+
+  describe('AuthProvider Integration', () => {
+    it('provides shared authentication context when wrapped in AuthProvider', () => {
+      const { result } = renderHook(() => useAuth(), {
+        wrapper: ({ children }) => <AuthProvider>{children}</AuthProvider>,
+      });
+
+      expect(result.current.isAuthenticated).toBe(false);
+      expect(result.current.publicKey).toBeNull();
+      expect(result.current.address).toBeNull();
+    });
+
+    it('supports custom value override in AuthProvider for component testing', () => {
+      const { result } = renderHook(() => useAuth(), {
+        wrapper: ({ children }) => (
+          <AuthProvider
+            value={{
+              publicKey: 'GCUSTOM_TEST_KEY',
+              address: 'GCUSTOM_TEST_KEY',
+              isAuthenticated: true,
+            }}
+          >
+            {children}
+          </AuthProvider>
+        ),
+      });
+
+      expect(result.current.isAuthenticated).toBe(true);
+      expect(result.current.publicKey).toBe('GCUSTOM_TEST_KEY');
+      expect(result.current.address).toBe('GCUSTOM_TEST_KEY');
+    });
+  });
+
+  describe('Security & Secrets Hygiene', () => {
+    it('does not expose private keys, secrets, or bearer tokens in error states', () => {
+      mockUseWallet.mockReturnValue({
+        publicKey: null,
+        connected: false,
+        connecting: false,
+        error: 'Freighter signature declined',
+        network: null,
+        networkPassphrase: null,
+        expectedNetwork: 'TESTNET',
+        isCorrectNetwork: true,
+        networkMismatch: false,
+        connect: mockConnect,
+        disconnect: mockDisconnect,
+        authenticate: mockAuthenticate,
+      });
+
+      const { result } = renderHook(() => useAuth(), {
+        wrapper: ({ children }) => <AuthProvider>{children}</AuthProvider>,
+      });
+
+      expect(result.current.error).toBe('Freighter signature declined');
+      expect(result.current.error).not.toMatch(/S[A-Z0-9]{55}/);
+      expect(result.current.error).not.toMatch(/Bearer\s+/);
     });
   });
 
