@@ -206,7 +206,7 @@ jobs:
         run: cargo test --workspace
 
   test-governance-e2e:
-    name: Governance browser flow
+    name: Browser E2E (Playwright)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: github.event_name == 'pull_request'
@@ -233,7 +233,7 @@ jobs:
           exec -T -e DATABASE_URL=postgresql://cooplumen:cooplumen@db:5432/cooplumen
           backend npm run db:migrate
 
-      - name: Run governance browser test
+      - name: Run Playwright specs
         working-directory: frontend
         env:
           AUTH_SESSION_SECRET: governance-e2e-secret
@@ -289,6 +289,13 @@ jobs:
 
       - name: Build backend image
         run: docker build -t cooplumen-backend:ci ./backend
+
+      # The staging deploy migrates with this image, so the runner and the SQL it
+      # applies must both be in it. tsc alone would leave the .sql files behind.
+      - name: Check migrations ship in the backend image
+        run: >-
+          docker run --rm --entrypoint sh cooplumen-backend:ci -c
+          'test -f dist/db/migrate.js && test -f dist/db/migrations/001_schema_migrations.sql'
 
       - name: Build frontend image
         run: docker build -t cooplumen-frontend:ci ./frontend
@@ -366,8 +373,11 @@ jobs:
       - name: Test health-check polling (pass and fail paths)
         run: bash scripts/deploy/test-wait-for-health.sh
 
-      - name: Test blue/green deploy flow (switch, failure, rollback)
+      - name: Test blue/green deploy flow (switch, migrations, failure, rollback)
         run: bash scripts/deploy/test-deploy.sh
+
+      - name: Test chat notifications (payloads, skip and failure paths)
+        run: bash scripts/deploy/test-notify.sh
 
       - name: Validate production compose file
         run: |
@@ -461,3 +471,25 @@ jobs:
             echo "One or more required jobs failed."
             exit 1
           fi
+
+  # Tells the team when main goes red. Limited to pushes to main: that is the
+  # failure nobody is already looking at, and fork PRs cannot read the webhook
+  # secret anyway. Not part of `quality-gate`, so a chat outage never blocks a
+  # merge, and the step cannot turn this job red either.
+  notify-failure:
+    name: Notify on CI failure
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [quality-gate]
+    if: always() && needs.quality-gate.result == 'failure' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Send failure notification
+        continue-on-error: true
+        env:
+          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+          ACTOR: ${{ github.actor }}
+          SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash scripts/deploy/notify.sh failure "CI failed on main at ${SHA:0:7} (pushed by ${ACTOR})" "$RUN_URL"
