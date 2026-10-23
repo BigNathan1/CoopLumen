@@ -7,8 +7,8 @@ import {
   adminTokensQuerySchema,
 } from '../token';
 
-const KEY = `G${'A'.repeat(55)}`;
-const KEY2 = `G${'B'.repeat(55)}`;
+const KEY = 'GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR';
+const KEY2 = 'GCATS5YOVB6ROX2WUNKGNQ2MP3GMXDMKSG2O4N5CLX3A6W4PZGZZI55U';
 const UUID = '3f1a2b4c-5d6e-4f70-8192-a3b4c5d6e7f8';
 
 describe('buildIssueTokenSchema', () => {
@@ -28,7 +28,9 @@ describe('buildIssueTokenSchema', () => {
   });
 
   it('accepts an optional memo within 28 characters', () => {
-    expect(buildIssueTokenSchema.safeParse({ ...valid, memo: 'initial supply' }).success).toBe(true);
+    expect(buildIssueTokenSchema.safeParse({ ...valid, memo: 'initial supply' }).success).toBe(
+      true
+    );
   });
 
   it('rejects a memo longer than 28 characters', () => {
@@ -36,7 +38,9 @@ describe('buildIssueTokenSchema', () => {
   });
 
   it('rejects an invalid issuerPublicKey', () => {
-    expect(buildIssueTokenSchema.safeParse({ ...valid, issuerPublicKey: 'bad' }).success).toBe(false);
+    expect(buildIssueTokenSchema.safeParse({ ...valid, issuerPublicKey: 'bad' }).success).toBe(
+      false
+    );
   });
 
   it('rejects a zero amount', () => {
@@ -64,7 +68,9 @@ describe('buildTrustlineTokenSchema', () => {
   });
 
   it('rejects an invalid accountPublicKey', () => {
-    expect(buildTrustlineTokenSchema.safeParse({ ...valid, accountPublicKey: 'bad' }).success).toBe(false);
+    expect(buildTrustlineTokenSchema.safeParse({ ...valid, accountPublicKey: 'bad' }).success).toBe(
+      false
+    );
   });
 });
 
@@ -108,7 +114,9 @@ describe('buildBurnTokenSchema', () => {
   });
 
   it('rejects an invalid holderPublicKey', () => {
-    expect(buildBurnTokenSchema.safeParse({ ...valid, holderPublicKey: 'bad' }).success).toBe(false);
+    expect(buildBurnTokenSchema.safeParse({ ...valid, holderPublicKey: 'bad' }).success).toBe(
+      false
+    );
   });
 });
 

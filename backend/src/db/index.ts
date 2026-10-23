@@ -46,7 +46,12 @@ export const db = {
       await client.query('COMMIT');
       return result;
     } catch (err) {
-      await client.query('ROLLBACK');
+      // A failed ROLLBACK must not mask the error that caused it.
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackErr) {
+        logger.error('Transaction rollback failed', rollbackErr);
+      }
       throw err;
     } finally {
       client.release();

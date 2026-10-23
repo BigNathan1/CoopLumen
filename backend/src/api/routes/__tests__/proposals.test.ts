@@ -144,7 +144,6 @@ describe('governance proposal routes', () => {
     });
 
     it('rejects a caller who is not an active community member', async () => {
-      mockDb.query.mockResolvedValueOnce([{ exists: false }]);
       query.mockResolvedValueOnce([{ exists: false }]);
 
       const response = await request(app)
@@ -155,13 +154,12 @@ describe('governance proposal routes', () => {
       expect(response.status).toBe(403);
       expect(response.body).toEqual({
         data: null,
-        error: 'Active community membership required',
+        error: 'Only active community members can create proposals',
       });
     });
 
     it('creates an active proposal for an authenticated member', async () => {
       mockDb.query
-      query
         .mockResolvedValueOnce([{ exists: true }])
         .mockResolvedValueOnce([{ id: proposalId }])
         .mockResolvedValueOnce([proposal]);

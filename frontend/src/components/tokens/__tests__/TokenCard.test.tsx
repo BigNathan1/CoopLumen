@@ -15,6 +15,7 @@ const baseToken: Token = {
   name: 'Community Coop Token',
   description: 'A token for our community',
   decimals: 2,
+  icon_url: null,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
 };
@@ -98,7 +99,11 @@ describe('TokenCard', () => {
 
     it('does not shorten addresses that are already short', () => {
       const shortIssuer = 'GABCDEFGHIJ';
-      const shortToken = { ...baseToken, asset_issuer: shortIssuer, distributor_address: shortIssuer };
+      const shortToken = {
+        ...baseToken,
+        asset_issuer: shortIssuer,
+        distributor_address: shortIssuer,
+      };
       render(<TokenCard token={shortToken} />);
       // Should render twice - once for issuer, once for distributor
       expect(screen.getAllByText(shortIssuer)).toHaveLength(2);
@@ -135,7 +140,7 @@ describe('TokenCard', () => {
 
   describe('edge cases', () => {
     it('handles very large supply numbers', () => {
-      const largeSupplyToken = { ...baseToken, total_supply: '999999999999.1234567' };
+      const largeSupplyToken = { ...baseToken, total_supply: '999999999999.1234567', decimals: 7 };
       render(<TokenCard token={largeSupplyToken} />);
       expect(screen.getByText('999,999,999,999.1234567')).toBeInTheDocument();
     });

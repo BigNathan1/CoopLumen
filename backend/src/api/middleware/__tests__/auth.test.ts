@@ -270,10 +270,7 @@ describe('requireRole', () => {
 
     await requireRole(['admin'])(req, res, next);
 
-    expect(mockDb.query).toHaveBeenCalledWith(
-      expect.any(String),
-      [communityId, address]
-    );
+    expect(mockDb.query).toHaveBeenCalledWith(expect.any(String), [communityId, address]);
     expect(next).toHaveBeenCalled();
   });
 
@@ -289,10 +286,7 @@ describe('requireRole', () => {
 
     await requireRole(['admin'])(req, res, next);
 
-    expect(mockDb.query).toHaveBeenCalledWith(
-      expect.any(String),
-      [communityId, address]
-    );
+    expect(mockDb.query).toHaveBeenCalledWith(expect.any(String), [communityId, address]);
     expect(next).toHaveBeenCalled();
   });
 
@@ -311,16 +305,10 @@ describe('requireRole', () => {
 
     await requireRole(['admin'])(req, res, next);
 
-    expect(mockDb.query).toHaveBeenNthCalledWith(
-      1,
-      expect.stringContaining('issuer_public_key'),
-      [issuerKey]
-    );
-    expect(mockDb.query).toHaveBeenNthCalledWith(
-      2,
-      expect.any(String),
-      [communityId, address]
-    );
+    expect(mockDb.query).toHaveBeenNthCalledWith(1, expect.stringContaining('issuer_public_key'), [
+      issuerKey,
+    ]);
+    expect(mockDb.query).toHaveBeenNthCalledWith(2, expect.any(String), [communityId, address]);
     expect(next).toHaveBeenCalled();
   });
 
@@ -393,10 +381,10 @@ describe('requireRole', () => {
 
     await requireRole(['admin'])(req, res, next);
 
-    expect(mockDb.query).toHaveBeenCalledWith(
-      expect.stringContaining('deleted_at IS NULL'),
-      [communityId, address]
-    );
+    expect(mockDb.query).toHaveBeenCalledWith(expect.stringContaining('deleted_at IS NULL'), [
+      communityId,
+      address,
+    ]);
     expect(res.status).toHaveBeenCalledWith(403);
   });
 });

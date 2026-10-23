@@ -7,7 +7,13 @@
 import request from 'supertest';
 import { Pool, PoolClient } from 'pg';
 import app from '../../../app';
-import { makeTestPool, createCommunity, createMember, TEST_ISSUER_1, TEST_MEMBERS } from '../../../testing/fixtures';
+import {
+  makeTestPool,
+  createCommunity,
+  createMember,
+  TEST_ISSUER_1,
+  TEST_MEMBERS,
+} from '../../../testing/fixtures';
 import { createSessionToken } from '../../utils/sessionToken';
 
 const RUN = Boolean(process.env.DATABASE_URL);
@@ -52,10 +58,9 @@ describeIf('DELETE /api/v1/communities/:id integration', () => {
     });
 
     // Verify soft-delete: deleted_at should be set
-    const result = await client.query(
-      'SELECT deleted_at FROM communities WHERE id = $1',
-      [community.id]
-    );
+    const result = await client.query('SELECT deleted_at FROM communities WHERE id = $1', [
+      community.id,
+    ]);
     expect(result.rows[0].deleted_at).not.toBeNull();
   });
 
@@ -76,10 +81,7 @@ describeIf('DELETE /api/v1/communities/:id integration', () => {
     await createMember(client, community.id, TEST_ISSUER_1, 'admin');
 
     // Soft-delete the community
-    await client.query(
-      'UPDATE communities SET deleted_at = NOW() WHERE id = $1',
-      [community.id]
-    );
+    await client.query('UPDATE communities SET deleted_at = NOW() WHERE id = $1', [community.id]);
 
     const { token } = createSessionToken(TEST_ISSUER_1);
 
@@ -100,16 +102,13 @@ describeIf('DELETE /api/v1/communities/:id integration', () => {
 
     expect(response.status).toBe(400);
     expect(response.body.error).toBe('Validation failed');
-    expect(response.body.meta.errors).toEqual([
-      { path: 'id', message: 'id must be a valid UUID' },
-    ]);
+    expect(response.body.meta.errors).toEqual([{ path: 'id', message: 'id must be a valid UUID' }]);
   });
 
   it('requires authentication', async () => {
     const community = await createCommunity(client);
 
-    const response = await request(app)
-      .delete(`/api/v1/communities/${community.id}`);
+    const response = await request(app).delete(`/api/v1/communities/${community.id}`);
 
     expect(response.status).toBe(401);
     expect(response.body.error).toBe('Authentication required');
@@ -250,8 +249,7 @@ describeIf('DELETE /api/v1/communities/:id integration', () => {
       .set('Authorization', `Bearer ${token}`);
 
     // Attempt to retrieve the deleted community
-    const response = await request(app)
-      .get(`/api/v1/communities/${community.id}`);
+    const response = await request(app).get(`/api/v1/communities/${community.id}`);
 
     expect(response.status).toBe(404);
     expect(response.body.error).toBe('Community not found');
@@ -270,8 +268,7 @@ describeIf('DELETE /api/v1/communities/:id integration', () => {
       .set('Authorization', `Bearer ${token}`);
 
     // List communities
-    const response = await request(app)
-      .get('/api/v1/communities');
+    const response = await request(app).get('/api/v1/communities');
 
     expect(response.status).toBe(200);
     const communityIds = response.body.data.map((c: { id: string }) => c.id);

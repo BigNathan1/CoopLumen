@@ -8,7 +8,7 @@ import {
   getCommunitiesQuerySchema,
 } from '../community';
 
-const KEY = `G${'A'.repeat(55)}`;
+const KEY = 'GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR';
 const UUID = '3f1a2b4c-5d6e-4f70-8192-a3b4c5d6e7f8';
 
 const VALID_CREATE = {
@@ -24,7 +24,9 @@ describe('createCommunitySchema', () => {
   });
 
   it('accepts an optional description', () => {
-    expect(createCommunitySchema.safeParse({ ...VALID_CREATE, description: 'Eco coop' }).success).toBe(true);
+    expect(
+      createCommunitySchema.safeParse({ ...VALID_CREATE, description: 'Eco coop' }).success
+    ).toBe(true);
   });
 
   it('rejects a name shorter than 2 characters', () => {
@@ -32,23 +34,33 @@ describe('createCommunitySchema', () => {
   });
 
   it('rejects a name longer than 64 characters', () => {
-    expect(createCommunitySchema.safeParse({ ...VALID_CREATE, name: 'E'.repeat(65) }).success).toBe(false);
+    expect(createCommunitySchema.safeParse({ ...VALID_CREATE, name: 'E'.repeat(65) }).success).toBe(
+      false
+    );
   });
 
   it('rejects a description longer than 500 characters', () => {
-    expect(createCommunitySchema.safeParse({ ...VALID_CREATE, description: 'd'.repeat(501) }).success).toBe(false);
+    expect(
+      createCommunitySchema.safeParse({ ...VALID_CREATE, description: 'd'.repeat(501) }).success
+    ).toBe(false);
   });
 
   it('rejects a non-alphanumeric assetCode', () => {
-    expect(createCommunitySchema.safeParse({ ...VALID_CREATE, assetCode: 'EC-1' }).success).toBe(false);
+    expect(createCommunitySchema.safeParse({ ...VALID_CREATE, assetCode: 'EC-1' }).success).toBe(
+      false
+    );
   });
 
   it('rejects an invalid issuerPublicKey', () => {
-    expect(createCommunitySchema.safeParse({ ...VALID_CREATE, issuerPublicKey: 'bad' }).success).toBe(false);
+    expect(
+      createCommunitySchema.safeParse({ ...VALID_CREATE, issuerPublicKey: 'bad' }).success
+    ).toBe(false);
   });
 
   it('rejects an invalid assetIssuer', () => {
-    expect(createCommunitySchema.safeParse({ ...VALID_CREATE, assetIssuer: 'bad' }).success).toBe(false);
+    expect(createCommunitySchema.safeParse({ ...VALID_CREATE, assetIssuer: 'bad' }).success).toBe(
+      false
+    );
   });
 });
 
@@ -108,7 +120,9 @@ describe('updateMemberSchema', () => {
 
 describe('setAvatarSchema', () => {
   it('accepts a valid URL', () => {
-    expect(setAvatarSchema.safeParse({ avatarUrl: 'https://cdn.example.com/avatar.png' }).success).toBe(true);
+    expect(
+      setAvatarSchema.safeParse({ avatarUrl: 'https://cdn.example.com/avatar.png' }).success
+    ).toBe(true);
   });
 
   it('rejects a non-URL string', () => {
@@ -134,7 +148,13 @@ describe('communityIdParamsSchema', () => {
 describe('getCommunitiesQuerySchema', () => {
   it('applies defaults for an empty query', () => {
     const result = getCommunitiesQuerySchema.parse({});
-    expect(result).toMatchObject({ page: 1, limit: 20, search: '', sortBy: 'created_at', order: 'DESC' });
+    expect(result).toMatchObject({
+      page: 1,
+      limit: 20,
+      search: '',
+      sortBy: 'created_at',
+      order: 'DESC',
+    });
   });
 
   it('coerces numeric strings from URL params', () => {

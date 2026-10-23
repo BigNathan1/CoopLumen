@@ -4,10 +4,6 @@ import { db } from '../../db';
 import { requireAuth } from '../middleware/auth';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate';
 import {
-  castVoteSchema,
-  createProposalSchema,
-  proposalIdParamsSchema,
-  listProposalsQuerySchema,
   delegateProposalSchema,
   DelegateProposalInput,
   castVoteSchema,
@@ -207,14 +203,6 @@ proposalRouter.post(
     }
   }
 );
-
-const proposalSelect = `
-  SELECT p.*,
-         COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'for'), 0)::text AS votes_for,
-         COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'against'), 0)::text AS votes_against,
-         COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'abstain'), 0)::text AS votes_abstain
-    FROM proposals p
-    LEFT JOIN votes v ON v.proposal_id = p.id`;
 
 proposalRouter.get(
   '/',

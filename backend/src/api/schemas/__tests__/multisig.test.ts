@@ -34,19 +34,27 @@ describe('createMultiSigRequestSchema', () => {
   });
 
   it('rejects an unknown action', () => {
-    expect(createMultiSigRequestSchema.safeParse({ ...VALID_CREATE, action: 'delete' }).success).toBe(false);
+    expect(
+      createMultiSigRequestSchema.safeParse({ ...VALID_CREATE, action: 'delete' }).success
+    ).toBe(false);
   });
 
   it('rejects an empty title', () => {
-    expect(createMultiSigRequestSchema.safeParse({ ...VALID_CREATE, title: '' }).success).toBe(false);
+    expect(createMultiSigRequestSchema.safeParse({ ...VALID_CREATE, title: '' }).success).toBe(
+      false
+    );
   });
 
   it('rejects a title longer than 255 characters', () => {
-    expect(createMultiSigRequestSchema.safeParse({ ...VALID_CREATE, title: 't'.repeat(256) }).success).toBe(false);
+    expect(
+      createMultiSigRequestSchema.safeParse({ ...VALID_CREATE, title: 't'.repeat(256) }).success
+    ).toBe(false);
   });
 
   it('rejects required_signatures below 1', () => {
-    expect(createMultiSigRequestSchema.safeParse({ ...VALID_CREATE, required_signatures: 0 }).success).toBe(false);
+    expect(
+      createMultiSigRequestSchema.safeParse({ ...VALID_CREATE, required_signatures: 0 }).success
+    ).toBe(false);
   });
 
   it('accepts optional nullable fields as null', () => {
@@ -95,7 +103,9 @@ describe('rejectMultiSigRequestSchema', () => {
 
 describe('executeMultiSigRequestSchema', () => {
   it('accepts a valid stellar_tx_hash', () => {
-    expect(executeMultiSigRequestSchema.safeParse({ stellar_tx_hash: 'abc123' }).success).toBe(true);
+    expect(executeMultiSigRequestSchema.safeParse({ stellar_tx_hash: 'abc123' }).success).toBe(
+      true
+    );
   });
 
   it('rejects an empty hash', () => {

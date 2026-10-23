@@ -1,6 +1,6 @@
 import { accountParamsSchema } from '../account';
 
-const VALID_KEY = `G${'A'.repeat(55)}`;
+const VALID_KEY = 'GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR';
 
 describe('accountParamsSchema', () => {
   it('accepts a valid Stellar public key', () => {

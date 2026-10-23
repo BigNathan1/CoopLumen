@@ -201,7 +201,9 @@ describeIf('Member management endpoints (integration)', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.data.every((m: { role: string }) => m.role === 'treasurer')).toBe(true);
-      expect(res.body.data.some((m: { stellar_address: string }) => m.stellar_address === treasurer)).toBe(true);
+      expect(
+        res.body.data.some((m: { stellar_address: string }) => m.stellar_address === treasurer)
+      ).toBe(true);
     });
 
     it('filters members by admin role', async () => {
@@ -209,13 +211,13 @@ describeIf('Member management endpoints (integration)', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.data.every((m: { role: string }) => m.role === 'admin')).toBe(true);
-      expect(res.body.data.some((m: { stellar_address: string }) => m.stellar_address === admin)).toBe(true);
+      expect(
+        res.body.data.some((m: { stellar_address: string }) => m.stellar_address === admin)
+      ).toBe(true);
     });
 
     it('respects pagination limit', async () => {
-      const res = await request(app).get(
-        `/api/v1/communities/${communityId}/members?limit=2`
-      );
+      const res = await request(app).get(`/api/v1/communities/${communityId}/members?limit=2`);
 
       expect(res.status).toBe(200);
       expect(res.body.data.length).toBeLessThanOrEqual(2);
@@ -274,9 +276,7 @@ describeIf('Member management endpoints (integration)', () => {
 
   describe('GET /api/v1/communities/:id/members/:address - Get single member', () => {
     it('fetches a single member by address', async () => {
-      const res = await request(app).get(
-        `/api/v1/communities/${communityId}/members/${member1}`
-      );
+      const res = await request(app).get(`/api/v1/communities/${communityId}/members/${member1}`);
 
       expect(res.status).toBe(200);
       expect(res.body.data.stellar_address).toBe(member1);
@@ -293,9 +293,7 @@ describeIf('Member management endpoints (integration)', () => {
     });
 
     it('returns 404 for member not in community', async () => {
-      const res = await request(app).get(
-        `/api/v1/communities/${communityId}/members/${nonMember}`
-      );
+      const res = await request(app).get(`/api/v1/communities/${communityId}/members/${nonMember}`);
 
       expect(res.status).toBe(404);
       expect(res.body.data).toBeNull();
@@ -326,9 +324,7 @@ describeIf('Member management endpoints (integration)', () => {
         .set('Authorization', authHeader(removable));
 
       // Should not be found
-      const res = await request(app).get(
-        `/api/v1/communities/${communityId}/members/${removable}`
-      );
+      const res = await request(app).get(`/api/v1/communities/${communityId}/members/${removable}`);
 
       expect(res.status).toBe(404);
     });

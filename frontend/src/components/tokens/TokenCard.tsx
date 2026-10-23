@@ -12,13 +12,24 @@ function shortAddress(address: string): string {
   return address.length > 12 ? `${address.slice(0, 4)}…${address.slice(-4)}` : address;
 }
 
+/**
+ * Groups the integer part and rounds the fraction to `decimals` places, working
+ * in BigInt so large fixed-point supplies keep every digit (a JavaScript number
+ * cannot hold 999999999999.1234567 exactly).
+ */
 function formatSupply(value: string, decimals: number | null): string {
-  const parsed = parseFloat(value);
-  if (Number.isNaN(parsed)) return value;
-  return parsed.toLocaleString(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: decimals ?? 7,
-  });
+  const match = /^(\d+)(?:\.(\d+))?$/.exec(value.trim());
+  if (!match) return value;
+  const [, whole, fraction = ''] = match;
+  const places = decimals ?? 7;
+  const scale = BigInt(10) ** BigInt(places);
+  let units = BigInt(whole + fraction.slice(0, places).padEnd(places, '0'));
+  if ((fraction[places] ?? '0') >= '5') units += BigInt(1);
+
+  const grouped = (units / scale).toLocaleString();
+  const shown = (units % scale).toString().padStart(places, '0').replace(/0+$/, '');
+  const separator = (1.5).toLocaleString().charAt(1);
+  return shown ? `${grouped}${separator}${shown}` : grouped;
 }
 
 export function TokenCard({ token }: Props) {
