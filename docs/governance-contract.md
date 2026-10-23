@@ -35,6 +35,25 @@ All integer types below are Soroban integers. Every function returns a Soroban
 | `get_config`        | none                                                                                                         | `Config`          | Read-only; returns the singleton configuration.                                                                                                            |
 | `get_proposal`      | `proposal_id: u64`                                                                                           | `Proposal`        | Read-only proposal and live tally lookup.                                                                                                                  |
 | `get_vote`          | `proposal_id: u64`, `voter: Address`                                                                         | `Vote`            | Read-only lookup for one recorded ballot.                                                                                                                  |
+| `grant_role`        | `actor: Address`, `account: Address`, `role: GovernanceRole`                                               | `()`              | Requires `actor` authorization. The actor must be the contract admin or hold the `Upgrade` role.                                                           |
+| `revoke_role`       | `actor: Address`, `account: Address`, `role: GovernanceRole`                                               | `()`              | Requires `actor` authorization and the same authority as `grant_role`.                                                                                      |
+| `has_role`          | `account: Address`, `role: GovernanceRole`                                                                  | `bool`            | Read-only role lookup.                                                                                                                                     |
+| `propose_admin_transfer` | `actor: Address`, `proposed_admin: Address`                                                            | `()`              | Requires `actor` authorization and the actor must be the current admin. Only one transfer may be in flight.                                                  |
+| `accept_admin_transfer` | `actor: Address`                                                                                          | `()`              | Requires `actor` authorization; `actor` must be the proposed admin. Replaces `Config.admin`.                                                                |
+| `cancel_admin_transfer` | `actor: Address`                                                                                          | `()`              | Requires `actor` authorization and the actor must be the current admin.                                                                                     |
+| `sweep_expired_admin_transfer` | none                                                                                                    | `bool`            | Permissionless. Records a lapsed transfer as `Expired`.                                                                                                    |
+| `recover_admin`     | `actor: Address`, `new_admin: Address`                                                                     | `()`              | Requires `actor` authorization and the `Recovery` role. Restores admin control and records the takeover.                                                   |
+| `execute_pause`     | `actor: Address`, `scope: String`, `incident_commitment: Option<String>`                                  | `u64` sequence    | Requires `actor` authorization and the `Pause` role. Records the transition in the pause history.                                                           |
+| `execute_unpause`   | `actor: Address`, `scope: String`                                                                          | `u64` sequence    | Requires `actor` authorization and the `Pause` role. Records the transition in the pause history.                                                           |
+| `is_paused`         | `scope: String`                                                                                            | `bool`            | Read-only scope check.                                                                                                                                      |
+| `propose_upgrade`   | `actor: Address`, `proposal_id: String`, `target_hash: String`, `version: String`, `ttl: u64`                | `()`              | Requires `actor` authorization and the `Upgrade` role.                                                                                                     |
+| `approve_upgrade`   | `actor: Address`, `proposal_id: String`                                                                    | `u32` approvals   | Requires `actor` authorization and the `Upgrade` role. One approval per account.                                                                           |
+| `sweep_expired_upgrades` | none                                                                                                    | `u32` removed     | Permissionless. Removes expired pending upgrades.                                                                                                          |
+| `get_pending_upgrade` | `proposal_id: String`                                                                                      | `Option<PendingUpgradeApproval>` | Read-only lookup by proposal id.                                                                                               |
+| `get_pending_upgrade_by_hash` | `target_hash: String`                                                                               | `Option<PendingUpgradeApproval>` | Read-only lookup by target hash.                                                                                               |
+| `get_admin_transfer_history` | `start_after: Option<u64>`, `limit: Option<u32>`                                                     | `Vec<AdminTransferRecord>` | Bounded history query, oldest sequence first.                                                                                        |
+| `get_pause_history`  | `scope: Option<String>`, `start_after: Option<u64>`, `limit: Option<u32>`                                | `Vec<PauseTransitionRecord>` | Bounded history query, optionally narrowed to one scope.                                                                                  |
+| `get_pending_upgrades` | `start_after: Option<String>`, `limit: Option<u32>`                                                    | `Vec<PendingUpgradeApproval>` | Bounded query over the pending upgrades that have not expired.                                                                                             |
 
 ### Contract types
 
@@ -63,7 +82,47 @@ Proposal {
 Vote { voter: Address, choice: VoteChoice, weight: i128 }
 ProposalStatus = Active | Passed | Rejected | Executed
 VoteChoice = For | Against
+GovernanceRole = Pause | Schema | Issuer | Revocation | Upgrade | Recovery
+
+AdminTransferRecord {
+  sequence: u64,
+  old_admin: Address,
+  proposed_admin: Address,
+  actor: Address,
+  ledger_sequence: u32,
+  timestamp: u64,
+  terminal_reason: String
+}
+
+PauseTransitionRecord {
+  sequence: u64,
+  scope: String,
+  is_paused: bool,
+  actor: Address,
+  ledger_sequence: u32,
+  timestamp: u64,
+  incident_commitment: Option<String>
+}
+
+PendingUpgradeApproval {
+  proposal_id: String,
+  target_hash: String,
+  version: String,
+  expires_at: u64,
+  approval_count: u32
+}
+
+PendingAdminTransfer { proposed_admin: Address, expires_at: u64 }
 ```
+
+`ledger_sequence` is the Soroban counterpart of a block height: Stellar ledgers
+are sequenced rather than mined at a height. History records carry a monotonic
+`sequence` of their own, so the order of transitions is provable from the
+record alone. `terminal_reason` is `Accepted`, `Cancelled`, or `Expired`.
+
+Bounded queries take a `start_after` key that skips every record up to and
+including that key, and a `limit` that caps the number of returned rows. The
+default limit is 50 rows and the maximum is 200.
 
 `total_supply` is supplied at initialization because the standard Soroban
 token interface has no total-supply method. Quorum is calculated at execution
@@ -85,6 +144,21 @@ automatically change when tokens are minted or burned.
 | 9    | `Overflow`                | Checked counter, timestamp, tally, or quorum arithmetic overflowed. |
 | 10   | `InsufficientQuorum`      | Participation is below the configured threshold.                    |
 | 11   | `ProposalExecutionFailed` | The proposal is not in `Passed` state.                              |
+| 12   | `CannotDelegateToSelf`    | An account tries to delegate to itself.                             |
+| 13   | `InvalidDelegation`       | A delegation would create a chain or cycle.                         |
+| 14   | `VotingPowerDelegated`    | A delegator tries to vote before revoking.                          |
+| 15   | `NoDelegation`            | An account tries to revoke when it has no delegation.               |
+| 16   | `Unauthorized`            | The account lacks the governance role the operation requires.       |
+| 17   | `RoleAlreadyAssigned`     | The account already holds the role.                                 |
+| 18   | `RoleNotAssigned`         | The account does not hold the role that was to be revoked.          |
+| 19   | `AdminTransferNotFound`   | No admin transfer is pending.                                       |
+| 20   | `AdminTransferPending`    | An admin transfer is already pending.                               |
+| 21   | `AdminTransferExpired`    | The pending admin transfer expired.                                 |
+| 22   | `UpgradeNotFound`         | The referenced pending upgrade does not exist.                      |
+| 23   | `UpgradeAlreadyApproved`  | The account already approved this pending upgrade.                  |
+| 24   | `UpgradeExpired`          | The pending upgrade expired.                                        |
+| 25   | `ProtocolPaused`          | The operation is blocked by an active scoped pause.                 |
+| 26   | `UpgradeAlreadyPending`   | A pending upgrade already exists for this proposal id.              |
 
 ### Execution events
 
@@ -97,8 +171,20 @@ each action string:
 | `("exec_fail", proposal_id)` | empty action string     | Invalid action record |
 
 The current implementation does not parse actions or make cross-contract
-calls. An indexer or executor service must consume these events and perform the
-encoded work. An empty action does not revert execution.
+calls. An indexer or executor service must consume these events and perform
+the encoded work. An empty action does not revert execution.
+
+### Governance operations events
+
+| Topic                | Data                                                                    | Condition                                    |
+| -------------------- | ----------------------------------------------------------------------- | -------------------------------------------- |
+| `("role_granted")`   | `actor`, `account`, `role`                                             | A role was granted                            |
+| `("role_revoked")`   | `actor`, `account`, `role`                                             | A role was revoked                            |
+| `("admin_xfer")`     | `sequence`, `old_admin`, `proposed_admin`, `actor`, `terminal_reason`   | An admin transfer reached a terminal state    |
+| `("pause")`          | `sequence`, `scope`, `is_paused`, `actor`                              | A scope was paused or resumed                 |
+| `("upg_proposed")`   | `actor`, `proposal_id`, `target_hash`, `version`                        | An upgrade was proposed                       |
+| `("upg_approved")`   | `approver`, `proposal_id`, `approval_count`                            | A role holder approved an upgrade             |
+| `("upg_expired")`    | `proposal_id`                                                           | An expired upgrade was removed                |
 
 ## Deploy to testnet
 
