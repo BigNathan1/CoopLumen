@@ -120,7 +120,7 @@ describeIf('Member management endpoints (integration)', () => {
       // Remove member
       await request(app)
         .delete(`/api/v1/communities/${communityId}/members/${removable}`)
-        .set('Authorization', authHeader(removable));
+        .set('Authorization', authHeader(admin));
 
       // Re-add member
       const res = await request(app)
@@ -262,7 +262,7 @@ describeIf('Member management endpoints (integration)', () => {
 
       await request(app)
         .delete(`/api/v1/communities/${communityId}/members/${removable}`)
-        .set('Authorization', authHeader(removable));
+        .set('Authorization', authHeader(admin));
 
       // List should not include removed member
       const res = await request(app).get(`/api/v1/communities/${communityId}/members?limit=100`);
@@ -321,7 +321,7 @@ describeIf('Member management endpoints (integration)', () => {
 
       await request(app)
         .delete(`/api/v1/communities/${communityId}/members/${removable}`)
-        .set('Authorization', authHeader(removable));
+        .set('Authorization', authHeader(admin));
 
       // Should not be found
       const res = await request(app).get(`/api/v1/communities/${communityId}/members/${removable}`);
@@ -430,7 +430,7 @@ describeIf('Member management endpoints (integration)', () => {
 
       await request(app)
         .delete(`/api/v1/communities/${communityId}/members/${removable}`)
-        .set('Authorization', authHeader(removable));
+        .set('Authorization', authHeader(admin));
 
       const res = await request(app)
         .put(`/api/v1/communities/${communityId}/members/${removable}`)
@@ -450,14 +450,13 @@ describeIf('Member management endpoints (integration)', () => {
         .send({ stellarAddress: member2, role: 'member' });
     });
 
-    it('allows member to remove themselves', async () => {
+    it('requires the admin role even for self-removal', async () => {
       const res = await request(app)
         .delete(`/api/v1/communities/${communityId}/members/${member2}`)
         .set('Authorization', authHeader(member2));
 
-      expect(res.status).toBe(200);
-      expect(res.body.data.stellar_address).toBe(member2);
-      expect(res.body.data.removed).toBe(true);
+      expect(res.status).toBe(403);
+      expect(res.body.error).toContain('Requires community role: admin');
     });
 
     it('allows admin to remove another member', async () => {
@@ -485,7 +484,7 @@ describeIf('Member management endpoints (integration)', () => {
 
       await request(app)
         .delete(`/api/v1/communities/${communityId}/members/${testMember}`)
-        .set('Authorization', authHeader(testMember));
+        .set('Authorization', authHeader(admin));
 
       const res = await request(app).get(
         `/api/v1/communities/${communityId}/members/${testMember}`
@@ -515,7 +514,7 @@ describeIf('Member management endpoints (integration)', () => {
         .set('Authorization', authHeader(member1));
 
       expect(res.status).toBe(403);
-      expect(res.body.error).toContain('Only an admin can remove another member');
+      expect(res.body.error).toContain('Requires community role: admin');
     });
 
     it('returns 404 for non-existent member', async () => {
@@ -546,7 +545,7 @@ describeIf('Member management endpoints (integration)', () => {
 
       await request(app)
         .delete(`/api/v1/communities/${communityId}/members/${testMember}`)
-        .set('Authorization', authHeader(testMember));
+        .set('Authorization', authHeader(admin));
 
       // Try removing again
       const res = await request(app)

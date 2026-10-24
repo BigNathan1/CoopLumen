@@ -196,7 +196,7 @@ describe('requireRole', () => {
   });
 
   it('rejects when the caller has no membership row', async () => {
-    mockDb.query.mockResolvedValueOnce([]);
+    mockDb.query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: communityId }]);
     const req = { params: { id: communityId }, auth: { address } } as unknown as Request;
     const res = mockRes();
     const next = jest.fn();
@@ -374,7 +374,7 @@ describe('requireRole', () => {
   });
 
   it('filters out soft-deleted members', async () => {
-    mockDb.query.mockResolvedValueOnce([]);
+    mockDb.query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: communityId }]);
     const req = { params: { id: communityId }, auth: { address } } as unknown as Request;
     const res = mockRes();
     const next = jest.fn();
@@ -386,5 +386,28 @@ describe('requireRole', () => {
       address,
     ]);
     expect(res.status).toHaveBeenCalledWith(403);
+  });
+
+  it('returns 404 when the community does not exist', async () => {
+    mockDb.query.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    const req = { params: { id: communityId }, auth: { address } } as unknown as Request;
+    const res = mockRes();
+    const next = jest.fn();
+
+    await requireRole(['admin'])(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for a malformed community id without querying', async () => {
+    const req = { params: { id: 'not-a-uuid' }, auth: { address } } as unknown as Request;
+    const res = mockRes();
+    const next = jest.fn();
+
+    await requireRole(['admin'])(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(mockDb.query).not.toHaveBeenCalled();
   });
 });

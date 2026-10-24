@@ -9,6 +9,7 @@ import { Pool, PoolClient } from 'pg';
 import app from '../../../app';
 import {
   makeTestPool,
+  truncateAll,
   createCommunity,
   createMember,
   TEST_ISSUER_1,
@@ -31,13 +32,14 @@ describeIf('DELETE /api/v1/communities/:id integration', () => {
     await pool.end();
   });
 
+  // Fixtures are committed (not wrapped in a transaction) so the app's own
+  // pool can see them, then cleared after each test.
   beforeEach(async () => {
     client = await pool.connect();
-    await client.query('BEGIN');
   });
 
   afterEach(async () => {
-    await client.query('ROLLBACK');
+    await truncateAll(client);
     client.release();
   });
 
@@ -168,9 +170,9 @@ describeIf('DELETE /api/v1/communities/:id integration', () => {
 
     // Create a token for the community
     await client.query(
-      `INSERT INTO tokens (community_id, asset_code, asset_issuer, total_supply)
-       VALUES ($1, $2, $3, $4)`,
-      [community.id, 'TOKEN', TEST_ISSUER_1, '1000000']
+      `INSERT INTO tokens (community_id, asset_code, asset_issuer, distributor_address, total_supply)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [community.id, 'TOKEN', TEST_ISSUER_1, TEST_MEMBERS[0], '1000000']
     );
 
     const { token } = createSessionToken(TEST_ISSUER_1);

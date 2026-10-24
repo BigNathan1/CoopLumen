@@ -151,12 +151,12 @@ describeIf('Community CRUD (integration)', () => {
     expect(rows[0].actor_address).toBe(issuer);
   });
 
-  it('rejects the avatar endpoint on a non-existent community with 403 (no membership row exists)', async () => {
+  it('rejects the avatar endpoint on a non-existent community with 404', async () => {
     const res = await request(app)
       .post('/api/v1/communities/00000000-0000-0000-0000-000000000000/avatar')
       .set('Authorization', authHeader(issuer))
       .send({ avatarUrl: 'https://cdn.example.com/missing.png' });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
   });
 
   it('adds and lists a member', async () => {

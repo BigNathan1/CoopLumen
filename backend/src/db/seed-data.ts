@@ -81,7 +81,7 @@ async function upsertCommunity(
   const result = await client.query<SeededCommunityRecord>(
     `INSERT INTO communities (name, description, issuer_public_key, asset_code, asset_issuer)
      VALUES ($1, $2, $3, $4, $5)
-     ON CONFLICT (name) DO UPDATE
+     ON CONFLICT (LOWER(BTRIM(name))) WHERE deleted_at IS NULL DO UPDATE
      SET description = EXCLUDED.description,
          issuer_public_key = EXCLUDED.issuer_public_key,
          asset_code = EXCLUDED.asset_code,
