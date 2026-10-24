@@ -16,6 +16,9 @@ module.exports = {
       branches: 70,
       functions: 70,
       lines: 70,
+      lines: 70,
+      functions: 70,
+      branches: 70,
       statements: 70,
     },
   },
@@ -23,4 +26,8 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  // Detect async operations that prevent Jest from exiting cleanly
+  detectOpenHandles: true,
+  // Force exit after test completion to prevent hanging (use with detectOpenHandles)
+  forceExit: false,
 };
