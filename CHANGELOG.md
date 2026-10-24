@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Stellar testnet live Friendbot integration test covering account funding, loading, custom asset trustline creation, issuance, and payment error handling (`backend/src/contracts/__tests__/stellar.testnet.test.ts`) (#403, #325).
+- Playwright E2E browser test for viewing community transaction history with query filtering and empty states against the running stack (`frontend/e2e/transactions.spec.ts`) (#397, #319).
+- Playwright E2E browser test for responsive mobile layout on a 375px viewport checking navigation drawer toggle and layout bounds (`frontend/e2e/responsive-mobile.spec.ts`) (#398, #320).
+- CI test coverage threshold enforcement failing builds below 70% backend and 60% frontend coverage in Jest and GitHub Actions workflow (#409, #331).
+
 - Redis-backed `express-rate-limit` store (`rate-limit-redis`) with per-route limits: 300 requests/min API-wide, 20/min on `/api/v1/auth`, 30/min on `/api/v1/tokens`, and the existing 10/min write limit, so limits hold across backend instances. Falls back to an in-memory store without `REDIS_URL` and fails open, with a logged warning, when Redis is unreachable. New optional `TRUST_PROXY` setting so per-IP limits see the real client address behind a proxy. See `docs/rate-limiting.md` (#429, #351).
 - `express-slow-down` graduated slowdown ahead of each hard rate limit, backed by the same Redis store, so a client sending too much is delayed progressively before it is blocked with HTTP 429 (#430, #352).
 - SonarCloud analysis and quality gate in CI (`sonarcloud` job, `sonar-project.properties`), fed by backend and frontend lcov coverage and required by `quality-gate`. Needs the `SONAR_TOKEN` secret; skipped with a warning where secrets are unavailable, such as fork PRs (#426, #348).

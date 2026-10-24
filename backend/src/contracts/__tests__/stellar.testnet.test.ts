@@ -3,17 +3,18 @@
  * Exercises end-to-end flows for keypair funding, account creation, trustlines,
  * asset issuance, payments, balance verification, and error handling.
  *
- * Skipped unless STELLAR_TESTNET_E2E=1 or SKIP_TESTNET_TESTS is false/unset
- * and testnet is reachable.
+ * Runs when STELLAR_TESTNET_E2E=1 or in CI (unless SKIP_TESTNET_TESTS=true).
  */
 
 import { Keypair } from '@stellar/stellar-sdk';
-import { StellarService } from '../stellar';
+import { StellarService, UnfundedAccountError } from '../stellar';
 import { getAssetBalance, issueAsset } from '../assets';
 import { establishTrustline } from '../trustlines';
 import { submitPayment } from '../transactions';
 
-const RUN = process.env.STELLAR_TESTNET_E2E === '1';
+const RUN =
+  process.env.STELLAR_TESTNET_E2E === '1' ||
+  (process.env.CI !== undefined && process.env.SKIP_TESTNET_TESTS !== 'true');
 const describeIf = RUN ? describe : describe.skip;
 
 const FRIENDBOT_URL = process.env.STELLAR_FRIENDBOT_URL ?? 'https://friendbot.stellar.org';
@@ -46,6 +47,21 @@ describeIf('Stellar testnet integration with Friendbot-funded accounts', () => {
 
     expect(issuerAccount.account_id).toBe(issuer.publicKey());
     expect(holderAccount.account_id).toBe(holder.publicKey());
+    expect(issuerAccount.balances.length).toBeGreaterThanOrEqual(1);
+    expect(holderAccount.balances.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('correctly reports unfunded account error for freshly generated keypair', async () => {
+    const unfunded = Keypair.random();
+    await expect(StellarService.loadAccountSafe(unfunded.publicKey())).rejects.toThrow(
+      UnfundedAccountError
+    );
+  });
+
+  it('rejects an invalid public key string', async () => {
+    await expect(
+      StellarService.loadAccountSafe('not-a-valid-stellar-public-key')
+    ).rejects.toThrow();
   });
 
   it('establishes trustline for holder to accept custom asset', async () => {
@@ -89,5 +105,18 @@ describeIf('Stellar testnet integration with Friendbot-funded accounts', () => {
     });
 
     expect(txHash).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('fails payment when sender attempts to transfer an excessive amount', async () => {
+    await expect(
+      submitPayment({
+        senderSecret: issuer.secret(),
+        destinationPublicKey: holder.publicKey(),
+        assetCode: 'XLM',
+        assetIssuer: '',
+        amount: '999999999.0000000',
+        memo: { type: 'text', value: 'excessive payment' },
+      })
+    ).rejects.toThrow();
   });
 });
