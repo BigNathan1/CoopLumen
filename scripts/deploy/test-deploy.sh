@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Exercises deploy.sh end to end without Docker.
+# Exercises deploy.sh and rollback.sh end to end without Docker.
 #
 # A fake `docker` on PATH starts/stops small local HTTP servers in place of the
 # blue/green containers and the nginx proxy, so the real control flow of
@@ -98,8 +98,19 @@ stop() {
 
 case "$cmd" in
   pull|rm|logs) exit 0 ;;
+  run)
+    # `compose run --rm --no-deps -T <service> <command...>`: the migration step.
+    svc=""
+    for arg in "$@"; do
+      case "$arg" in backend-*) svc="$arg"; break ;; esac
+    done
+    if [[ "$svc" == "backend-blue" ]]; then image="$BLUE_IMAGE"; else image="$GREEN_IMAGE"; fi
+    echo "migrate ${svc} ${image}" >>"${FAKE_DIR}/events.log"
+    [[ "${FAKE_MIGRATE_FAIL:-0}" == "1" ]] && exit 1
+    exit 0 ;;
   up)
     svc="${@: -1}"
+    echo "up ${svc}" >>"${FAKE_DIR}/events.log"
     case "$svc" in
       backend-blue)  stop "$svc"; echo "$BLUE_IMAGE"  >"${FAKE_DIR}/${svc}.image"
                      start "$svc" "${js_dir}/slot.js" "$BLUE_PORT" "${FAKE_DIR}/${svc}.mode" ;;
@@ -134,6 +145,10 @@ running() { [[ -f "${FAKE_DIR}/$1.pid" ]]; }
 upstream_is() { grep -q "backend-$1:" "${STATE_DIR}/nginx/active.conf"; }
 proxy_ok() { [[ "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PROXY_PORT}/health")" == "200" ]]; }
 image_of() { cat "${FAKE_DIR}/$1.image"; }
+previous() { cat "${STATE_DIR}/previous_image"; }
+event_count() { grep -c "$1" "${FAKE_DIR}/events.log" || true; }
+rollback() { bash "${here}/rollback.sh" >"${work}/rollback.log" 2>&1; }
+touch "${FAKE_DIR}/events.log"
 
 # 1. First deploy lands on blue and starts the proxy.
 deploy app:v1 && ok=0 || ok=$?
@@ -185,6 +200,64 @@ deploy app:v6 && ok=0 || ok=$?
 check "deploy after failures succeeds" test "$ok" -eq 0
 check "deploy after failures activates blue" test "$(active)" = blue
 check "deploy after failures runs v6" test "$(image_of backend-blue)" = app:v6
+
+# 6b. Migrations are opt-in: none of the deploys above asked for them.
+check "migrations are skipped unless requested" test "$(event_count '^migrate')" -eq 0
+check "deploys record the image they retired" test "$(previous)" = app:v2
+
+# 8. RUN_MIGRATIONS=true migrates with the new image before the new slot starts.
+mark="$(wc -l <"${FAKE_DIR}/events.log")"
+RUN_MIGRATIONS=true deploy app:v7 && ok=0 || ok=$?
+new_events() { tail -n +"$((mark + 1))" "${FAKE_DIR}/events.log"; }
+check "deploy with migrations succeeds" test "$ok" -eq 0
+check "deploy with migrations activates green" test "$(active)" = green
+check "migrations run once, with the new image" test "$(new_events | grep -c '^migrate backend-green app:v7$')" -eq 1
+check "migrations run before the new slot starts" test "$(new_events | head -n 1)" = "migrate backend-green app:v7"
+check "deploy with migrations announces the step" grep -q "applying database migrations" "${work}/deploy.log"
+check "deploy with migrations serves through the proxy" proxy_ok
+
+# 9. A failing migration stops the deploy before anything changes.
+mark="$(wc -l <"${FAKE_DIR}/events.log")"
+FAKE_MIGRATE_FAIL=1 RUN_MIGRATIONS=true deploy app:v8 && ok=0 || ok=$?
+check "failed migration fails the deploy" test "$ok" -ne 0
+check "failed migration reports the reason" grep -q "database migration failed" "${work}/deploy.log"
+check "failed migration never starts the new slot" test "$(new_events | grep -c '^up ')" -eq 0
+check "failed migration keeps green active" test "$(active)" = green
+check "failed migration keeps the proxy on green" upstream_is green
+check "failed migration leaves green running" running backend-green
+check "failed migration keeps the image history" test "$(previous)" = app:v6
+check "failed migration never interrupts service" proxy_ok
+
+# 10. Rollback redeploys the retired image, without re-running migrations.
+mark="$(wc -l <"${FAKE_DIR}/events.log")"
+RUN_MIGRATIONS=true rollback && ok=0 || ok=$?
+check "rollback succeeds" test "$ok" -eq 0
+check "rollback announces the target image" grep -q "rolling back to app:v6" "${work}/rollback.log"
+check "rollback activates the other slot" test "$(active)" = blue
+check "rollback runs the previous image" test "$(image_of backend-blue)" = app:v6
+check "rollback points the proxy at the previous slot" upstream_is blue
+check "rollback retires the bad release" bash -c "! test -f '${FAKE_DIR}/backend-green.pid'"
+check "rollback does not run migrations" test "$(new_events | grep -c '^migrate')" -eq 0
+check "rollback records the release it replaced" test "$(previous)" = app:v7
+check "rollback serves through the proxy" proxy_ok
+
+# 11. Rollback to an image that is not healthy is refused; the live slot is untouched.
+echo unhealthy >"${FAKE_DIR}/backend-green.mode"
+rollback && ok=0 || ok=$?
+rm -f "${FAKE_DIR}/backend-green.mode"
+check "rollback to an unhealthy image fails" test "$ok" -ne 0
+check "rollback to an unhealthy image keeps blue active" test "$(active)" = blue
+check "rollback to an unhealthy image keeps the proxy on blue" upstream_is blue
+check "rollback to an unhealthy image never interrupts service" proxy_ok
+
+# 12. Rollback with no history has nothing to go back to.
+STATE_DIR="${work}/fresh-state" rollback && ok=0 || ok=$?
+check "rollback without history fails" test "$ok" -ne 0
+check "rollback without history says why" grep -q "nothing to roll back to" "${work}/rollback.log"
+mkdir -p "${work}/unset-state"
+echo "cooplumen-backend:unset" >"${work}/unset-state/previous_image"
+STATE_DIR="${work}/unset-state" rollback && ok=0 || ok=$?
+check "rollback to a never-started slot fails" test "$ok" -ne 0
 
 # 7. Usage error.
 bash "${here}/deploy.sh" >/dev/null 2>&1 && ok=0 || ok=$?

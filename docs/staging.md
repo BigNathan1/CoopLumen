@@ -35,14 +35,18 @@ The staging environment mirrors production while running against the Stellar Tes
 ## 2. Configuration Files
 
 ### `fly.staging.toml`
+
 The primary staging configuration is located in the repository root: `fly.staging.toml`.
+
 - **App name**: `cooplumen-staging-api` (or overridden via `FLY_STAGING_APP` variable).
 - **Target Dockerfile**: `backend/Dockerfile` (`production` stage).
 - **HTTP checks**: Configured against `/health` with a 15-second interval and 10-second grace period.
 - **Resources**: Dedicated shared CPU machine with 512MB RAM, autostop/autostart enabled.
 
 ### `railway.staging.json`
+
 An alternative staging definition for Railway deployment:
+
 - Builds using `backend/Dockerfile`.
 - Health check path `/health` with a 30-second timeout.
 
@@ -56,11 +60,11 @@ Staging requires two layers of configuration: GitHub Actions secrets/variables, 
 
 Configure in **Settings → Environments → staging**:
 
-| Name | Type | Description |
-| --- | --- | --- |
-| `FLY_API_TOKEN` | Secret | Fly.io deployment token generated with `fly tokens create deploy` |
-| `STAGING_ENABLED` | Variable | Set to `true` to enable automated deployment |
-| `STAGING_URL` | Variable | Staging base URL (e.g. `https://cooplumen-staging-api.fly.dev`) |
+| Name              | Type     | Description                                                            |
+| ----------------- | -------- | ---------------------------------------------------------------------- |
+| `FLY_API_TOKEN`   | Secret   | Fly.io deployment token generated with `fly tokens create deploy`      |
+| `STAGING_ENABLED` | Variable | Set to `true` to enable automated deployment                           |
+| `STAGING_URL`     | Variable | Staging base URL (e.g. `https://cooplumen-staging-api.fly.dev`)        |
 | `FLY_STAGING_APP` | Variable | (Optional) Custom Fly.io app name if different from `fly.staging.toml` |
 
 ### Fly.io Application Secrets
@@ -87,23 +91,27 @@ flyctl secrets set \
 Run these steps once to provision the staging infrastructure:
 
 1. **Install flyctl and authenticate**:
+
    ```bash
    curl -L https://fly.io/install.sh | sh
    fly auth login
    ```
 
 2. **Create the staging app**:
+
    ```bash
    fly apps create cooplumen-staging-api
    ```
 
 3. **Create and attach Staging PostgreSQL**:
+
    ```bash
    fly postgres create --name cooplumen-staging-db --vm-size shared-cpu-1x --initial-cluster-size 1
    fly postgres attach cooplumen-staging-db --app cooplumen-staging-api
    ```
 
 4. **Create Staging Redis**:
+
    ```bash
    fly redis create --name cooplumen-staging-redis
    ```
