@@ -1,41 +1,35 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from './support/fixtures';
+import { E2E_WALLET_ADDRESS, installFreighter } from './support/freighter';
 
-const MOCK_PUBLIC_KEY = 'GABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890ABCDEFGHIJKLMNOPQ';
+/** How the wallet header shortens an address: first six, last four. */
+const SHORT_ADDRESS = `${E2E_WALLET_ADDRESS.slice(0, 6)}…${E2E_WALLET_ADDRESS.slice(-4)}`;
 
-test.describe('Wallet Connection Flow', () => {
+test.describe('Wallet connection flow', () => {
   test.beforeEach(async ({ page }) => {
-    // Inject a mock Freighter extension into the window object before the page loads.
-    // This satisfies the frontend's checks for the extension and simulates user approval.
-    await page.addInitScript((publicKey) => {
-      const mockFreighter = {
-        isConnected: async () => true,
-        getPublicKey: async () => publicKey,
-        signTransaction: async (xdr: string) => xdr, // Mock passthrough
-        signAuthEntry: async (entry: string) => entry,
-      };
-      
-      (window as any).freighter = mockFreighter;
-      (window as any).freighterApi = mockFreighter;
-    }, MOCK_PUBLIC_KEY);
+    await installFreighter(page);
   });
 
-  test('successfully connects wallet and updates UI', async ({ page }) => {
-    // 1. Navigate to the main application entry point
-    await page.goto('/');
+  test('successfully connects the wallet, signs in and updates the UI', async ({ page }) => {
+    await page.goto('/dashboard');
 
-    // 2. Locate the "Connect Wallet" button
-    const connectButton = page.getByRole('button', { name: /connect wallet/i });
+    const connectButton = page.getByRole('button', { name: 'Connect Freighter' });
     await expect(connectButton).toBeVisible();
 
-    // 3. Initiate the connection flow
-    await connectButton.click();
+    // Connecting signs the backend's challenge with the wallet key; the
+    // backend only issues a session when the signature verifies.
+    const [verified] = await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/api/v1/auth/verify') && response.request().method() === 'POST'
+      ),
+      connectButton.click(),
+    ]);
+    expect(verified.status()).toBe(200);
 
-    // 4. Verify the UI updates to reflect the connected state.
-    // Typically, apps show the truncated public key (e.g., GABC...OPQ) or a Disconnect button.
-    const truncatedKey = `${MOCK_PUBLIC_KEY.slice(0, 4)}...${MOCK_PUBLIC_KEY.slice(-4)}`;
-    const addressDisplay = page.getByText(truncatedKey);
-    
-    await expect(addressDisplay).toBeVisible();
-    await expect(page.getByRole('button', { name: /disconnect/i })).toBeVisible();
+    await expect(page.getByText('Connected', { exact: true })).toBeVisible();
+    await expect(page.getByText(SHORT_ADDRESS)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Disconnect' }).click();
+    await expect(connectButton).toBeVisible();
   });
 });
