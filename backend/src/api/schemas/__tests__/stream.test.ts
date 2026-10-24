@@ -1,6 +1,6 @@
 import { streamPaymentsQuerySchema } from '../stream';
 
-const KEY = `G${'A'.repeat(55)}`;
+const KEY = 'GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR';
 
 describe('streamPaymentsQuerySchema', () => {
   it('accepts a valid public key with default cursor', () => {

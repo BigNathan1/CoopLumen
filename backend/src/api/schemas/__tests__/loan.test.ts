@@ -1,12 +1,7 @@
-import {
-  createLoanSchema,
-  disburseLoanSchema,
-  repayLoanSchema,
-  defaultLoanSchema,
-} from '../loan';
+import { createLoanSchema, disburseLoanSchema, repayLoanSchema, defaultLoanSchema } from '../loan';
 
-const KEY = `G${'A'.repeat(55)}`;
-const KEY2 = `G${'B'.repeat(55)}`;
+const KEY = 'GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR';
+const KEY2 = 'GCATS5YOVB6ROX2WUNKGNQ2MP3GMXDMKSG2O4N5CLX3A6W4PZGZZI55U';
 const UUID = '3f1a2b4c-5d6e-4f70-8192-a3b4c5d6e7f8';
 
 const VALID_LOAN = {
@@ -38,7 +33,9 @@ describe('createLoanSchema', () => {
   });
 
   it('rejects an invalid borrowerAddress', () => {
-    expect(createLoanSchema.safeParse({ ...VALID_LOAN, borrowerAddress: 'bad' }).success).toBe(false);
+    expect(createLoanSchema.safeParse({ ...VALID_LOAN, borrowerAddress: 'bad' }).success).toBe(
+      false
+    );
   });
 
   it('rejects an invalid lenderAddress', () => {
@@ -50,7 +47,9 @@ describe('createLoanSchema', () => {
   });
 
   it('rejects a purpose longer than 280 characters', () => {
-    expect(createLoanSchema.safeParse({ ...VALID_LOAN, purpose: 'p'.repeat(281) }).success).toBe(false);
+    expect(createLoanSchema.safeParse({ ...VALID_LOAN, purpose: 'p'.repeat(281) }).success).toBe(
+      false
+    );
   });
 
   it('rejects an interestRate above 1000', () => {

@@ -1,6 +1,6 @@
 import { authChallengeSchema, authChallengeParamsSchema, authVerifySchema } from '../auth';
 
-const VALID_KEY = `G${'A'.repeat(55)}`;
+const VALID_KEY = 'GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR';
 
 describe('authChallengeSchema', () => {
   it('accepts a valid Stellar address', () => {
@@ -61,9 +61,9 @@ describe('authVerifySchema', () => {
   });
 
   it('rejects a signature longer than 2000 characters', () => {
-    expect(
-      authVerifySchema.safeParse({ ...valid, signature: 's'.repeat(2001) }).success
-    ).toBe(false);
+    expect(authVerifySchema.safeParse({ ...valid, signature: 's'.repeat(2001) }).success).toBe(
+      false
+    );
   });
 
   it('rejects an empty challenge', () => {

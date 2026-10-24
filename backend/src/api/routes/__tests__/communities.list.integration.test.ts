@@ -97,7 +97,7 @@ describeIf('GET /api/v1/communities (pagination, search, sort)', () => {
       expect(res.body.meta).toHaveProperty('total');
       expect(res.body.meta).toHaveProperty('page');
       expect(res.body.meta).toHaveProperty('limit');
-      expect(res.body.meta).toHaveProperty('totalPages');
+      expect(res.body.meta).toHaveProperty('pages');
       expect(res.body.meta.total).toBeGreaterThanOrEqual(4);
     });
 
@@ -127,10 +127,10 @@ describeIf('GET /api/v1/communities (pagination, search, sort)', () => {
       expect(withPage.body.data[0].id).toBe(withOffset.body.data[0].id);
     });
 
-    it('calculates totalPages correctly in pagination meta', async () => {
+    it('calculates pages correctly in pagination meta', async () => {
       const res = await request(app).get('/api/v1/communities?limit=2');
       expect(res.status).toBe(200);
-      expect(res.body.meta.totalPages).toBe(Math.ceil(res.body.meta.total / 2));
+      expect(res.body.meta.pages).toBe(Math.ceil(res.body.meta.total / 2));
     });
   });
 
@@ -145,12 +145,8 @@ describeIf('GET /api/v1/communities (pagination, search, sort)', () => {
       const res = await request(app).get('/api/v1/communities?search=searching');
       expect(res.status).toBe(200);
       expect(res.body.data.length).toBeGreaterThanOrEqual(2);
-      expect(
-        res.body.data.some((c: { name: string }) => c.name === 'Alpha Community')
-      ).toBe(true);
-      expect(
-        res.body.data.some((c: { name: string }) => c.name === 'Delta Community')
-      ).toBe(true);
+      expect(res.body.data.some((c: { name: string }) => c.name === 'Alpha Community')).toBe(true);
+      expect(res.body.data.some((c: { name: string }) => c.name === 'Delta Community')).toBe(true);
     });
 
     it('returns empty array when search matches no communities', async () => {
@@ -193,7 +189,9 @@ describeIf('GET /api/v1/communities (pagination, search, sort)', () => {
     });
 
     it('sorts by created_at ascending when order=asc', async () => {
-      const res = await request(app).get('/api/v1/communities?sortBy=created_at&order=asc&limit=10');
+      const res = await request(app).get(
+        '/api/v1/communities?sortBy=created_at&order=asc&limit=10'
+      );
       expect(res.status).toBe(200);
       expect(res.body.data.length).toBeGreaterThan(1);
 
@@ -226,7 +224,9 @@ describeIf('GET /api/v1/communities (pagination, search, sort)', () => {
     });
 
     it('sorts by updated_at descending', async () => {
-      const res = await request(app).get('/api/v1/communities?sortBy=updated_at&order=desc&limit=10');
+      const res = await request(app).get(
+        '/api/v1/communities?sortBy=updated_at&order=desc&limit=10'
+      );
       expect(res.status).toBe(200);
       expect(res.body.data.length).toBeGreaterThan(1);
 
@@ -278,7 +278,8 @@ describeIf('GET /api/v1/communities (pagination, search, sort)', () => {
 
   describe('Edge cases', () => {
     it('handles limit exceeding total records', async () => {
-      const res = await request(app).get('/api/v1/communities?limit=1000');
+      // 100 is the documented maximum page size; larger values are rejected.
+      const res = await request(app).get('/api/v1/communities?limit=100');
       expect(res.status).toBe(200);
       expect(res.body.data.length).toBe(res.body.meta.total);
     });

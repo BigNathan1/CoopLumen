@@ -5,8 +5,8 @@ import {
   parseCsvSchema,
 } from '../batch';
 
-const VALID_KEY = `G${'A'.repeat(55)}`;
-const VALID_SECRET = `S${'A'.repeat(55)}`;
+const VALID_KEY = 'GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR';
+const VALID_SECRET = 'SAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC5MY';
 
 const VALID_ENTRY = {
   destinationPublicKey: VALID_KEY,
@@ -45,9 +45,7 @@ describe('batchPaymentEntrySchema', () => {
   });
 
   it('rejects a negative amount', () => {
-    expect(batchPaymentEntrySchema.safeParse({ ...VALID_ENTRY, amount: '-5' }).success).toBe(
-      false
-    );
+    expect(batchPaymentEntrySchema.safeParse({ ...VALID_ENTRY, amount: '-5' }).success).toBe(false);
   });
 
   it('rejects an assetCode longer than 12 characters', () => {
@@ -57,9 +55,9 @@ describe('batchPaymentEntrySchema', () => {
   });
 
   it('rejects a non-alphanumeric assetCode', () => {
-    expect(
-      batchPaymentEntrySchema.safeParse({ ...VALID_ENTRY, assetCode: 'ECO-1' }).success
-    ).toBe(false);
+    expect(batchPaymentEntrySchema.safeParse({ ...VALID_ENTRY, assetCode: 'ECO-1' }).success).toBe(
+      false
+    );
   });
 
   it('rejects an invalid destination key', () => {
@@ -133,9 +131,9 @@ describe('batchPreviewSchema', () => {
   });
 
   it('rejects an empty payments array', () => {
-    expect(
-      batchPreviewSchema.safeParse({ senderPublicKey: VALID_KEY, payments: [] }).success
-    ).toBe(false);
+    expect(batchPreviewSchema.safeParse({ senderPublicKey: VALID_KEY, payments: [] }).success).toBe(
+      false
+    );
   });
 });
 
@@ -150,15 +148,13 @@ describe('parseCsvSchema', () => {
   });
 
   it('accepts a custom defaultAssetCode', () => {
-    expect(
-      parseCsvSchema.safeParse({ csv: 'data', defaultAssetCode: 'ECO' }).success
-    ).toBe(true);
+    expect(parseCsvSchema.safeParse({ csv: 'data', defaultAssetCode: 'ECO' }).success).toBe(true);
   });
 
   it('accepts an optional defaultAssetIssuer', () => {
-    expect(
-      parseCsvSchema.safeParse({ csv: 'data', defaultAssetIssuer: VALID_KEY }).success
-    ).toBe(true);
+    expect(parseCsvSchema.safeParse({ csv: 'data', defaultAssetIssuer: VALID_KEY }).success).toBe(
+      true
+    );
   });
 
   it('rejects an empty csv string', () => {
@@ -166,8 +162,8 @@ describe('parseCsvSchema', () => {
   });
 
   it('rejects an invalid defaultAssetIssuer', () => {
-    expect(
-      parseCsvSchema.safeParse({ csv: 'data', defaultAssetIssuer: 'bad' }).success
-    ).toBe(false);
+    expect(parseCsvSchema.safeParse({ csv: 'data', defaultAssetIssuer: 'bad' }).success).toBe(
+      false
+    );
   });
 });

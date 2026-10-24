@@ -15,6 +15,7 @@ import { setupTestDatabase } from '../../../test/setup';
 import { teardownTestSuite } from '../../../test/teardown';
 import { AUTH_COOKIE_NAME } from '../../utils/authCookie';
 import { REFRESH_COOKIE_NAME } from '../../utils/refreshToken';
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '../../utils/csrf';
 
 const RUN_INTEGRATION = Boolean(process.env.DATABASE_URL);
 const describeIntegration = RUN_INTEGRATION ? describe : describe.skip;
@@ -53,7 +54,7 @@ describeIntegration('Auth flow end-to-end (integration)', () => {
 
   async function loginAs(
     keypair: Keypair
-  ): Promise<{ token: string; sessionCookie: string; refreshCookie: string }> {
+  ): Promise<{ token: string; sessionCookie: string; refreshCookie: string; csrfCookie: string }> {
     const address = keypair.publicKey();
 
     // 1. Request challenge
@@ -80,11 +81,13 @@ describeIntegration('Auth flow end-to-end (integration)', () => {
     const cookies = verifyRes.headers['set-cookie'] as unknown as string[];
     const sessionCookie = cookies?.find((c) => c.startsWith(`${AUTH_COOKIE_NAME}=`)) ?? '';
     const refreshCookie = cookies?.find((c) => c.startsWith(`${REFRESH_COOKIE_NAME}=`)) ?? '';
+    const csrfCookie = cookies?.find((c) => c.startsWith(`${CSRF_COOKIE_NAME}=`)) ?? '';
 
     return {
       token: verifyRes.body.data.token as string,
       sessionCookie,
       refreshCookie,
+      csrfCookie,
     };
   }
 
@@ -113,13 +116,34 @@ describeIntegration('Auth flow end-to-end (integration)', () => {
       expect(res.body.data.name).toContain('AuthDAO');
     });
 
-    it('allows access to protected endpoint using session cookie', async () => {
+    it('rejects a cookie-authenticated write without the CSRF token', async () => {
       const { sessionCookie } = await loginAs(adminKeypair);
-      const cookieValue = sessionCookie.split(';')[0];
 
       const res = await request(app)
         .post('/api/v1/communities')
-        .set('Cookie', cookieValue)
+        .set('Cookie', sessionCookie.split(';')[0])
+        .send({
+          name: `NoCsrfDAO-${Date.now()}`,
+          issuerPublicKey: adminKeypair.publicKey(),
+          assetCode: 'NCSR',
+          assetIssuer: adminKeypair.publicKey(),
+        });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toBe('Invalid or missing CSRF token');
+    });
+
+    it('allows access to protected endpoint using session cookie', async () => {
+      const { sessionCookie, csrfCookie } = await loginAs(adminKeypair);
+      const cookieValue = sessionCookie.split(';')[0];
+      const csrfPair = csrfCookie.split(';')[0];
+      const csrfToken = decodeURIComponent(csrfPair.slice(csrfPair.indexOf('=') + 1));
+
+      // Cookie auth needs the double-submit CSRF token: cookie plus header.
+      const res = await request(app)
+        .post('/api/v1/communities')
+        .set('Cookie', [cookieValue, csrfPair])
+        .set(CSRF_HEADER_NAME, csrfToken)
         .send({
           name: `CookieDAO-${Date.now()}`,
           description: 'Protected community with cookie',

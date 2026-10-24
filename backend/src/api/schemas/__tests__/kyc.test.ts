@@ -1,6 +1,6 @@
 import { kycStatusParamsSchema, initiateKycSchema } from '../kyc';
 
-const KEY = `G${'A'.repeat(55)}`;
+const KEY = 'GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR';
 const UUID = '3f1a2b4c-5d6e-4f70-8192-a3b4c5d6e7f8';
 
 describe('kycStatusParamsSchema', () => {
@@ -48,7 +48,9 @@ describe('initiateKycSchema', () => {
   });
 
   it('rejects a provider exceeding 100 characters', () => {
-    expect(initiateKycSchema.safeParse({ ...valid, provider: 'p'.repeat(101) }).success).toBe(false);
+    expect(initiateKycSchema.safeParse({ ...valid, provider: 'p'.repeat(101) }).success).toBe(
+      false
+    );
   });
 
   it('rejects an empty provider', () => {

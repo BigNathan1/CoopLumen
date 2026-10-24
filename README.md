@@ -118,7 +118,7 @@ cooplumen/
 ### 1. Clone
 
 ```bash
-git clone https://github.com/yourname/cooplumen.git
+git clone https://github.com/BigNathan1/CoopLumen.git
 cd cooplumen
 ```
 
@@ -288,7 +288,7 @@ The end-to-end suite drives a browser against the whole stack. See
 
 ## Community
 
-- GitHub Discussions: [github.com/yourname/cooplumen/discussions](https://github.com/yourname/cooplumen/discussions)
+- GitHub Discussions: [github.com/BigNathan1/CoopLumen/discussions](https://github.com/BigNathan1/CoopLumen/discussions)
 - Discord: _coming soon_
 - Stellar Developers: [discord.gg/stellar](https://discord.gg/stellar)
 

@@ -1,4 +1,9 @@
-import { BREAKPOINTS, BREAKPOINT_NAMES, minWidthQuery, getActiveBreakpoint } from '@/lib/breakpoints';
+import {
+  BREAKPOINTS,
+  BREAKPOINT_NAMES,
+  minWidthQuery,
+  getActiveBreakpoint,
+} from '@/lib/breakpoints';
 
 describe('breakpoints', () => {
   describe('BREAKPOINTS', () => {
@@ -27,7 +32,7 @@ describe('breakpoints', () => {
     });
 
     it('maintains the correct order for mobile-first approach', () => {
-      const breakpointValues = BREAKPOINT_NAMES.map(name => BREAKPOINTS[name]);
+      const breakpointValues = BREAKPOINT_NAMES.map((name) => BREAKPOINTS[name]);
       const sortedValues = [...breakpointValues].sort((a, b) => a - b);
       expect(breakpointValues).toEqual(sortedValues);
     });

@@ -6,31 +6,28 @@
 import { Pool, PoolClient, QueryResult } from 'pg';
 import { logger } from '../../utils/logger';
 
-// Mock the logger before importing db
+// Shared instances: the tests call jest.resetModules() and re-require ../index,
+// which re-runs these factories, so they must hand back the same objects the
+// assertions below inspect.
+const mockLogger = {
+  info: jest.fn(),
+  error: jest.fn(),
+  warn: jest.fn(),
+};
+const mockPoolInstance = {
+  query: jest.fn(),
+  connect: jest.fn(),
+  end: jest.fn(),
+  on: jest.fn(),
+};
+
+// A getter, because the top-level logger import is hoisted above mockLogger.
 jest.mock('../../utils/logger', () => ({
-  logger: {
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn(),
+  get logger() {
+    return mockLogger;
   },
 }));
-
-// Mock pg Pool
-jest.mock('pg', () => {
-  const mockClient = {
-    query: jest.fn(),
-    release: jest.fn(),
-  };
-  const mockPool = {
-    query: jest.fn(),
-    connect: jest.fn().mockResolvedValue(mockClient),
-    end: jest.fn(),
-    on: jest.fn(),
-  };
-  return {
-    Pool: jest.fn(() => mockPool),
-  };
-});
+jest.mock('pg', () => ({ Pool: jest.fn(() => mockPoolInstance) }));
 
 describe('db helpers', () => {
   let mockPool: jest.Mocked<Pool>;
@@ -39,7 +36,7 @@ describe('db helpers', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Create a fresh mock pool for each test
-    mockPool = new Pool() as jest.Mocked<Pool>;
+    mockPool = mockPoolInstance as unknown as jest.Mocked<Pool>;
     mockClient = {
       query: jest.fn(),
       release: jest.fn(),
@@ -52,7 +49,7 @@ describe('db helpers', () => {
 
   describe('query()', () => {
     it('executes a query and returns rows', async () => {
-      const { db } = require('../index');
+      const { db } = require('../index') as typeof import('../index');
       const mockRows = [{ id: 1, name: 'Test' }];
       const mockResult: QueryResult = {
         rows: mockRows,
@@ -67,14 +64,17 @@ describe('db helpers', () => {
 
       expect(result).toEqual(mockRows);
       expect(mockPool.query).toHaveBeenCalledWith('SELECT * FROM test WHERE id = $1', [1]);
-      expect(logger.info).toHaveBeenCalledWith('Query executed', expect.objectContaining({
-        duration: expect.any(Number),
-        rows: 1,
-      }));
+      expect(logger.info).toHaveBeenCalledWith(
+        'Query executed',
+        expect.objectContaining({
+          duration: expect.any(Number),
+          rows: 1,
+        })
+      );
     });
 
     it('executes a query without parameters', async () => {
-      const { db } = require('../index');
+      const { db } = require('../index') as typeof import('../index');
       const mockResult: QueryResult = {
         rows: [],
         rowCount: 0,
@@ -91,7 +91,7 @@ describe('db helpers', () => {
     });
 
     it('logs query duration', async () => {
-      const { db } = require('../index');
+      const { db } = require('../index') as typeof import('../index');
       const mockResult: QueryResult = {
         rows: [{ id: 1 }],
         rowCount: 1,
@@ -112,7 +112,7 @@ describe('db helpers', () => {
     });
 
     it('propagates query errors', async () => {
-      const { db } = require('../index');
+      const { db } = require('../index') as typeof import('../index');
       const error = new Error('Connection failed');
       (mockPool.query as jest.Mock).mockRejectedValue(error);
 
@@ -120,13 +120,16 @@ describe('db helpers', () => {
     });
 
     it('returns typed results', async () => {
-      const { db } = require('../index');
+      const { db } = require('../index') as typeof import('../index');
       interface User {
         id: number;
         name: string;
       }
       const mockResult: QueryResult<User> = {
-        rows: [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }],
+        rows: [
+          { id: 1, name: 'Alice' },
+          { id: 2, name: 'Bob' },
+        ],
         rowCount: 2,
         command: 'SELECT',
         oid: 0,
@@ -144,10 +147,10 @@ describe('db helpers', () => {
 
   describe('transaction()', () => {
     it('commits a successful transaction', async () => {
-      const { db } = require('../index');
+      const { db } = require('../index') as typeof import('../index');
       const mockResult = { success: true };
-      
-      const result = await db.transaction(async (client: PoolClient) => {
+
+      const result = await db.transaction(async (_client: PoolClient) => {
         return mockResult;
       });
 
@@ -159,12 +162,14 @@ describe('db helpers', () => {
     });
 
     it('rolls back a failed transaction', async () => {
-      const { db } = require('../index');
+      const { db } = require('../index') as typeof import('../index');
       const error = new Error('Transaction failed');
 
-      await expect(db.transaction(async (client: PoolClient) => {
-        throw error;
-      })).rejects.toThrow('Transaction failed');
+      await expect(
+        db.transaction(async (_client: PoolClient) => {
+          throw error;
+        })
+      ).rejects.toThrow('Transaction failed');
 
       expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
       expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
@@ -173,27 +178,31 @@ describe('db helpers', () => {
     });
 
     it('releases the client even when BEGIN fails', async () => {
-      const { db } = require('../index');
+      const { db } = require('../index') as typeof import('../index');
       const error = new Error('BEGIN failed');
       (mockClient.query as jest.Mock).mockRejectedValueOnce(error);
 
-      await expect(db.transaction(async (client: PoolClient) => {
-        return 'should not reach here';
-      })).rejects.toThrow('BEGIN failed');
+      await expect(
+        db.transaction(async (_client: PoolClient) => {
+          return 'should not reach here';
+        })
+      ).rejects.toThrow('BEGIN failed');
 
       expect(mockClient.release).toHaveBeenCalledTimes(1);
     });
 
     it('releases the client even when COMMIT fails', async () => {
-      const { db } = require('../index');
+      const { db } = require('../index') as typeof import('../index');
       const error = new Error('COMMIT failed');
       (mockClient.query as jest.Mock)
         .mockResolvedValueOnce(undefined) // BEGIN
         .mockRejectedValueOnce(error); // COMMIT
 
-      await expect(db.transaction(async (client: PoolClient) => {
-        return 'done';
-      })).rejects.toThrow('COMMIT failed');
+      await expect(
+        db.transaction(async (_client: PoolClient) => {
+          return 'done';
+        })
+      ).rejects.toThrow('COMMIT failed');
 
       expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
       expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
@@ -201,16 +210,18 @@ describe('db helpers', () => {
     });
 
     it('releases the client even when ROLLBACK fails', async () => {
-      const { db } = require('../index');
+      const { db } = require('../index') as typeof import('../index');
       const txError = new Error('Transaction error');
       const rollbackError = new Error('ROLLBACK failed');
       (mockClient.query as jest.Mock)
         .mockResolvedValueOnce(undefined) // BEGIN
         .mockRejectedValueOnce(rollbackError); // ROLLBACK
 
-      await expect(db.transaction(async (client: PoolClient) => {
-        throw txError;
-      })).rejects.toThrow('Transaction error');
+      await expect(
+        db.transaction(async (_client: PoolClient) => {
+          throw txError;
+        })
+      ).rejects.toThrow('Transaction error');
 
       expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
       expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
@@ -218,7 +229,7 @@ describe('db helpers', () => {
     });
 
     it('executes queries within the transaction context', async () => {
-      const { db } = require('../index');
+      const { db } = require('../index') as typeof import('../index');
       const insertResult = { rows: [{ id: 1 }], rowCount: 1 };
       (mockClient.query as jest.Mock)
         .mockResolvedValueOnce(undefined) // BEGIN
@@ -226,18 +237,23 @@ describe('db helpers', () => {
         .mockResolvedValueOnce(undefined); // COMMIT
 
       const result = await db.transaction(async (client: PoolClient) => {
-        const res = await client.query('INSERT INTO test (name) VALUES ($1) RETURNING id', ['Test']);
+        const res = await client.query('INSERT INTO test (name) VALUES ($1) RETURNING id', [
+          'Test',
+        ]);
         return res.rows[0].id;
       });
 
       expect(result).toBe(1);
       expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
-      expect(mockClient.query).toHaveBeenCalledWith('INSERT INTO test (name) VALUES ($1) RETURNING id', ['Test']);
+      expect(mockClient.query).toHaveBeenCalledWith(
+        'INSERT INTO test (name) VALUES ($1) RETURNING id',
+        ['Test']
+      );
       expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
     });
 
     it('supports nested queries in transaction', async () => {
-      const { db } = require('../index');
+      const { db } = require('../index') as typeof import('../index');
       (mockClient.query as jest.Mock)
         .mockResolvedValueOnce(undefined) // BEGIN
         .mockResolvedValueOnce({ rows: [{ id: 1 }] }) // First query
@@ -253,7 +269,7 @@ describe('db helpers', () => {
     });
 
     it('returns typed results from transaction', async () => {
-      const { db } = require('../index');
+      const { db } = require('../index') as typeof import('../index');
       interface Community {
         id: string;
         name: string;
@@ -265,7 +281,9 @@ describe('db helpers', () => {
         .mockResolvedValueOnce(undefined); // COMMIT
 
       const result = await db.transaction<Community>(async (client: PoolClient) => {
-        const res = await client.query('INSERT INTO communities (name) VALUES ($1) RETURNING *', ['TestDAO']);
+        const res = await client.query('INSERT INTO communities (name) VALUES ($1) RETURNING *', [
+          'TestDAO',
+        ]);
         return res.rows[0];
       });
 
@@ -277,21 +295,24 @@ describe('db helpers', () => {
 
   describe('connect()', () => {
     it('establishes a connection and logs success', async () => {
-      const { db } = require('../index');
+      const { db } = require('../index') as typeof import('../index');
 
       await db.connect();
 
       expect(mockPool.connect).toHaveBeenCalled();
       expect(mockClient.release).toHaveBeenCalled();
-      expect(logger.info).toHaveBeenCalledWith('Database pool initialised', expect.objectContaining({
-        maxConnections: expect.any(Number),
-        idleTimeoutMs: expect.any(Number),
-        connectionTimeoutMs: expect.any(Number),
-      }));
+      expect(logger.info).toHaveBeenCalledWith(
+        'Database pool initialised',
+        expect.objectContaining({
+          maxConnections: expect.any(Number),
+          idleTimeoutMs: expect.any(Number),
+          connectionTimeoutMs: expect.any(Number),
+        })
+      );
     });
 
     it('propagates connection errors', async () => {
-      const { db } = require('../index');
+      const { db } = require('../index') as typeof import('../index');
       const error = new Error('Connection refused');
       (mockPool.connect as jest.Mock).mockRejectedValue(error);
 
@@ -301,7 +322,7 @@ describe('db helpers', () => {
 
   describe('ping()', () => {
     it('returns true when database is reachable', async () => {
-      const { db } = require('../index');
+      const { db } = require('../index') as typeof import('../index');
       (mockPool.query as jest.Mock).mockResolvedValue({ rows: [{ '?column?': 1 }] });
 
       const result = await db.ping();
@@ -311,7 +332,7 @@ describe('db helpers', () => {
     });
 
     it('returns false when database is unreachable', async () => {
-      const { db } = require('../index');
+      const { db } = require('../index') as typeof import('../index');
       (mockPool.query as jest.Mock).mockRejectedValue(new Error('Connection failed'));
 
       const result = await db.ping();
@@ -322,7 +343,7 @@ describe('db helpers', () => {
 
   describe('end()', () => {
     it('drains the connection pool', async () => {
-      const { db } = require('../index');
+      const { db } = require('../index') as typeof import('../index');
 
       await db.end();
 
@@ -333,16 +354,16 @@ describe('db helpers', () => {
   describe('pool error handling', () => {
     it('registers an error handler on the pool', () => {
       // Import db to trigger pool initialization
-      require('../index');
+      require('../index') as typeof import('../index');
 
       expect(mockPool.on).toHaveBeenCalledWith('error', expect.any(Function));
     });
 
     it('logs unexpected pool errors', () => {
-      require('../index');
+      require('../index') as typeof import('../index');
 
       const errorHandler = (mockPool.on as jest.Mock).mock.calls.find(
-        call => call[0] === 'error'
+        (call) => call[0] === 'error'
       )?.[1];
 
       expect(errorHandler).toBeDefined();

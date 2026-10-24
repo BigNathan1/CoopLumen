@@ -63,9 +63,11 @@ test.describe('Community transaction history flow', () => {
     const historySection = page.getByRole('region', { name: 'Transaction history' });
     await expect(historySection).toBeVisible();
 
-    // Empty state should be rendered when no transactions are recorded yet
+    // Creating a community records it in the history, so the new community's
+    // only entry is its creation; nothing has happened on-chain yet.
+    await expect(historySection.getByRole('row', { name: /Community created/ })).toBeVisible();
     await expect(
-      page.getByText('No transactions yet. Activity in this community will appear here.')
+      historySection.getByRole('cell', { name: 'No on-chain transaction' })
     ).toBeVisible();
   });
 
@@ -100,8 +102,6 @@ test.describe('Community transaction history flow', () => {
     // Page 1 should load without error
     await page.goto(`/communities/${communityId}/transactions?page=1`);
     await expect(page.getByRole('heading', { level: 1, name: 'Transactions' })).toBeVisible();
-    await expect(
-      page.getByText('No transactions yet. Activity in this community will appear here.')
-    ).toBeVisible();
+    await expect(page.getByRole('row', { name: /Community created/ })).toBeVisible();
   });
 });

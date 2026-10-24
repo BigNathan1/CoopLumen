@@ -45,7 +45,7 @@ git clone https://github.com/YOUR_USERNAME/cooplumen.git
 cd cooplumen
 
 # 3. Add upstream remote
-git remote add upstream https://github.com/yourname/cooplumen.git
+git remote add upstream https://github.com/BigNathan1/CoopLumen.git
 ```
 
 ### Set Up the Dev Environment

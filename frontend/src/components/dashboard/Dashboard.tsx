@@ -93,7 +93,7 @@ export function Dashboard() {
                 message="Create the first community to get started."
                 action={
                   <a
-                    href="https://github.com/yourname/cooplumen#quickstart"
+                    href="https://github.com/BigNathan1/CoopLumen#quick-start"
                     target="_blank"
                     rel="noopener noreferrer"
                   >

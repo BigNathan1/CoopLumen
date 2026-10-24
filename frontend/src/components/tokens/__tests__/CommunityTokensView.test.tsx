@@ -13,7 +13,12 @@ const mockCommunity = {
 };
 
 // Mock the useCommunity hook
-let mockCommunityData = { data: mockCommunity, error: null, isLoading: false };
+interface MockCommunityResult {
+  data: (Omit<typeof mockCommunity, 'name'> & { name: string | null }) | null;
+  error: Error | null;
+  isLoading: boolean;
+}
+let mockCommunityData: MockCommunityResult = { data: mockCommunity, error: null, isLoading: false };
 jest.mock('@/hooks/useCommunities', () => ({
   useCommunity: () => mockCommunityData,
 }));

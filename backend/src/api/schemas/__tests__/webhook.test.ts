@@ -1,6 +1,6 @@
 import { stellarWebhookSchema, kycWebhookSchema } from '../webhook';
 
-const KEY = `G${'A'.repeat(55)}`;
+const KEY = 'GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR';
 const UUID = '3f1a2b4c-5d6e-4f70-8192-a3b4c5d6e7f8';
 const ISO_DATE = '2026-01-15T10:30:00.000Z';
 

@@ -82,6 +82,8 @@ export function authenticateJWT(req: Request, res: Response, next: NextFunction)
  * Responses use the `{ data, error }` envelope: 401 when unauthenticated and
  * 403 when the caller is not an active member or holds a role outside `roles`. An empty `roles` list matches nobody, so it fails closed.
  */
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function requireRole(roles: readonly MemberRole[]) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     if (!req.auth) {
@@ -94,6 +96,17 @@ export function requireRole(roles: readonly MemberRole[]) {
         req.params?.id ??
         (req.params as Record<string, string> | undefined)?.communityId ??
         (req.body as Record<string, unknown> | undefined)?.communityId;
+
+      // Reject a caller-supplied id that is not a UUID before it reaches a uuid
+      // column, where Postgres would raise and surface as a 500.
+      if (communityId && !UUID_PATTERN.test(String(communityId))) {
+        res.status(400).json({
+          data: null,
+          error: 'Validation failed',
+          meta: { errors: [{ path: 'id', message: 'id must be a valid UUID' }] },
+        });
+        return;
+      }
 
       if (!communityId && (req.body as Record<string, unknown> | undefined)?.issuerPublicKey) {
         const issuerKey = (req.body as Record<string, unknown>).issuerPublicKey;
@@ -116,6 +129,20 @@ export function requireRole(roles: readonly MemberRole[]) {
           [communityId, req.auth.address]
         )) ?? [];
       const member = members[0];
+
+      if (!member) {
+        // Only look the community up on the rejection path, so an unknown
+        // community reads as 404 rather than a misleading 403.
+        const [community] =
+          (await db.query<{ id: string }>(
+            'SELECT id FROM communities WHERE id = $1 AND deleted_at IS NULL',
+            [communityId]
+          )) ?? [];
+        if (!community) {
+          res.status(404).json({ data: null, error: 'Community not found' });
+          return;
+        }
+      }
 
       if (!member || !(roles as readonly string[]).includes(member.role)) {
         res.status(403).json({

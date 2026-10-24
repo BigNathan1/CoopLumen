@@ -390,13 +390,13 @@ describeIf('PUT /api/v1/communities/:id (update, not found, unauthorized)', () =
       expect(res.body.data).toBeNull();
     });
 
-    it('accepts empty update body (no changes)', async () => {
+    it('rejects an update body with no updatable fields', async () => {
       const res = await request(app)
         .put(`/api/v1/communities/${testCommunityId}`)
         .set('Authorization', authHeader(adminIssuer))
         .send({});
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(400);
     });
 
     it('ignores immutable fields in update request', async () => {
@@ -404,6 +404,7 @@ describeIf('PUT /api/v1/communities/:id (update, not found, unauthorized)', () =
         .put(`/api/v1/communities/${testCommunityId}`)
         .set('Authorization', authHeader(adminIssuer))
         .send({
+          description: 'Updated alongside immutable fields',
           issuerPublicKey: 'GBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
           assetCode: 'HACK',
           assetIssuer: 'GCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC',

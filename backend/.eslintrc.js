@@ -12,7 +12,10 @@ module.exports = {
   ],
   rules: {
     '@typescript-eslint/explicit-function-return-type': 'warn',
-    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      { argsIgnorePattern: '^_', ignoreRestSiblings: true },
+    ],
     '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/prefer-nullish-coalescing': 'error',
     '@typescript-eslint/prefer-optional-chain': 'error',
@@ -45,6 +48,8 @@ module.exports = {
         '@typescript-eslint/unbound-method': 'off',
         '@typescript-eslint/require-await': 'off',
         '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+        // jest.isolateModules / resetModules need require() to reload a module.
+        '@typescript-eslint/no-require-imports': 'off',
       },
     },
     {

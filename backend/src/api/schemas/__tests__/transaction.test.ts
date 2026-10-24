@@ -5,8 +5,8 @@ import {
   communityTransactionsQuerySchema,
 } from '../transaction';
 
-const KEY = `G${'A'.repeat(55)}`;
-const KEY2 = `G${'B'.repeat(55)}`;
+const KEY = 'GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR';
+const KEY2 = 'GCATS5YOVB6ROX2WUNKGNQ2MP3GMXDMKSG2O4N5CLX3A6W4PZGZZI55U';
 const VALID_HASH = 'a'.repeat(64);
 
 const VALID_PAYMENT = {
@@ -150,14 +150,12 @@ describe('communityTransactionsQuerySchema', () => {
   });
 
   it('accepts a valid transaction type filter', () => {
-    expect(
-      communityTransactionsQuerySchema.safeParse({ type: 'payment_sent' }).success
-    ).toBe(true);
+    expect(communityTransactionsQuerySchema.safeParse({ type: 'payment_sent' }).success).toBe(true);
   });
 
   it('rejects an unknown type', () => {
-    expect(
-      communityTransactionsQuerySchema.safeParse({ type: 'unknown_action' }).success
-    ).toBe(false);
+    expect(communityTransactionsQuerySchema.safeParse({ type: 'unknown_action' }).success).toBe(
+      false
+    );
   });
 });
