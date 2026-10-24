@@ -11,6 +11,23 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Playwright end-to-end suite for the frontend (`frontend/e2e/`): shared fixtures that sign the browser's API requests, a gateway that serves the app and the API from one origin, and specs covering the public pages, community registration and the governance flow (#389, #311).
+- Playwright configuration (`frontend/playwright.config.ts`) with an HTML report, failure traces and screenshots, plus an `e2e` CI job that boots the Docker Compose stack, runs the suite on every pull request and uploads the report as an artifact (#389, #311).
+- `docs/testing.md` describing the three test layers, how to run the end-to-end suite locally and how to write a spec (#389, #311).
+- Automated branch protection configuration script `scripts/ci/configure-branch-protection.js` enforcing passing `Quality gate` CI check and at least one approving review on `main` (#412).
+- Trivy container scanning job in `.github/workflows/ci.yml` scanning backend and frontend production images for high and critical vulnerabilities and gating PRs in `quality-gate` (#415).
+- Automated GitHub release publication workflow (`.github/workflows/release.yml`) using `semantic-release` configured via `release.config.js` to publish versioned GitHub releases on merge to `main` (#416).
+- Automated container image publishing workflow (`.github/workflows/publish-docker.yml`) building and pushing multi-stage backend and frontend container images to GitHub Container Registry (GHCR) on merge to `main` (#417).
+
+- Playwright E2E test suite for the custom 404 page (`frontend/e2e/not-found.spec.ts`) verifying HTTP 404 status, page metadata, heading, and recovery links across unknown top-level and nested routes against the Docker Compose stack (#400, #322).
+- Playwright HTML report output (`frontend/playwright-report/`) and CI artifact upload (`playwright-report`) in `.github/workflows/ci.yml` so E2E reports and failure traces are preserved on every run (#401, #323).
+- Codecov test coverage badge in `README.md` and coverage upload steps in `.github/workflows/ci.yml` (#402, #324).
+- Dedicated `e2e` job in `.github/workflows/ci.yml` booting the Docker Compose stack (`docker-compose.yml` + `docker-compose.e2e.yml`), running database migrations, executing the Playwright E2E suite, and gating `quality-gate` (#411, #333).
+- Stellar testnet live Friendbot integration test covering account funding, loading, custom asset trustline creation, issuance, and payment error handling (`backend/src/contracts/__tests__/stellar.testnet.test.ts`) (#403, #325).
+- Playwright E2E browser test for viewing community transaction history with query filtering and empty states against the running stack (`frontend/e2e/transactions.spec.ts`) (#397, #319).
+- Playwright E2E browser test for responsive mobile layout on a 375px viewport checking navigation drawer toggle and layout bounds (`frontend/e2e/responsive-mobile.spec.ts`) (#398, #320).
+- CI test coverage threshold enforcement failing builds below 70% backend and 60% frontend coverage in Jest and GitHub Actions workflow (#409, #331).
+
 - Redis-backed `express-rate-limit` store (`rate-limit-redis`) with per-route limits: 300 requests/min API-wide, 20/min on `/api/v1/auth`, 30/min on `/api/v1/tokens`, and the existing 10/min write limit, so limits hold across backend instances. Falls back to an in-memory store without `REDIS_URL` and fails open, with a logged warning, when Redis is unreachable. New optional `TRUST_PROXY` setting so per-IP limits see the real client address behind a proxy. See `docs/rate-limiting.md` (#429, #351).
 - `express-slow-down` graduated slowdown ahead of each hard rate limit, backed by the same Redis store, so a client sending too much is delayed progressively before it is blocked with HTTP 429 (#430, #352).
 - SonarCloud analysis and quality gate in CI (`sonarcloud` job, `sonar-project.properties`), fed by backend and frontend lcov coverage and required by `quality-gate`. Needs the `SONAR_TOKEN` secret; skipped with a warning where secrets are unavailable, such as fork PRs (#426, #348).

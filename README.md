@@ -4,6 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![codecov](https://codecov.io/gh/BigNathan1/CoopLumen/branch/main/graph/badge.svg)](https://codecov.io/gh/BigNathan1/CoopLumen)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-green)](https://nodejs.org)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org)
 [![Stellar](https://img.shields.io/badge/Stellar-Testnet%2FMainnet-blueviolet)](https://stellar.org)
@@ -263,7 +264,14 @@ cd backend && npm run test:coverage
 
 # Frontend
 cd frontend && npm test
+
+# End-to-end (Playwright, needs the Docker Compose stack)
+docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d --build --wait
+cd frontend && npm run test:e2e
 ```
+
+The end-to-end suite drives a browser against the whole stack. See
+[Testing](docs/testing.md) for how to run it and how to write a spec.
 
 ---
 
@@ -272,6 +280,7 @@ cd frontend && npm test
 - [Product Requirements Document](PRD.md) — goals, roadmap, user stories
 - [Contributing Guide](CONTRIBUTING.md) — branch model, conventions, code review
 - [Wallet Authentication Flow](docs/auth-flow.md) — wallet challenge/verify flow, session tokens, RBAC, 401 handling, and sequence diagram
+- [Testing](docs/testing.md) — unit, component and Playwright end-to-end suites, and how to write a spec
 - [Governance Guide](docs/governance.md) - Soroban proposals, token-weighted voting, quorum, and execution
 - [Multi-Signature & Batch Operations Guide](docs/multisig.md) — multi-sig treasury governance, signing lifecycle, batch payments
 - [Governance Contract ABI and Deployment](docs/governance-contract.md) — contract types, functions, errors, events, and deployment procedure

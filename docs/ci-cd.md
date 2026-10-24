@@ -20,6 +20,25 @@ the runtime is a one-line change.
 
 ### Jobs
 
+| Job              | What it checks                                                                                                                                                                                             | Timeout |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `lint`           | ESLint + Prettier `--check` for `backend/`, `frontend/`, and the repo root (root covers `scripts/`, `docs/`, and config files that per-workspace runs left unexamined)                                     | 20 min  |
+| `typecheck`      | `tsc --noEmit` for both packages                                                                                                                                                                           | 20 min  |
+| `test-backend`   | Jest against real Postgres 16 and Redis 7 service containers; migrations run first; tests run serially (`--runInBand`) to avoid race conditions on a shared DB                                             | 20 min  |
+| `test-frontend`  | Jest (jsdom) for components and hooks                                                                                                                                                                      | 20 min  |
+| `e2e`            | Playwright against the full Docker Compose stack (`docker-compose.yml` + `docker-compose.e2e.yml`); migrations run first, then the browser suite                                                           | 30 min  |
+| `test-backend`   | Jest against real Postgres 16 and Redis 7 service containers; migrations run first; tests run serially (`--runInBand --coverage`) to avoid race conditions on a shared DB and upload coverage to Codecov   | 20 min  |
+| `test-frontend`  | Jest (jsdom) for components and hooks (`--runInBand --coverage`), with coverage uploaded to Codecov when `CODECOV_TOKEN` is configured                                                                     | 20 min  |
+| `test-contracts` | `cargo test --workspace` for the Soroban governance smart contract crate                                                                                                                                   | 20 min  |
+| `e2e`            | Boots the full Docker Compose stack (`docker-compose.yml` + `docker-compose.e2e.yml`), runs migrations, executes the Playwright E2E suite (`npm run test:e2e`), and uploads `playwright-report` artifacts  | 30 min  |
+| `build`          | `npm run build` for both packages — catches build-only breakage that `tsc --noEmit` alone misses (e.g. Next.js server/client boundary errors)                                                              | —       |
+| `docker-build`   | `docker build` for both `Dockerfile`s — catches breakage in the production image path specifically                                                                                                         | —       |
+| `trivy-scan`     | Aqua Security Trivy container scan for backend and frontend production images, failing on high or critical unfixed vulnerabilities                                                                         | —       |
+| `security-audit` | `npm audit --omit=dev --audit-level=high` for both packages fails the job on a high-severity advisory in a production dependency. A full audit including dev tooling is reported but does not fail the job | —       |
+| `commitlint`     | Every commit in the PR against `commitlint.config.js` (Conventional Commits). PR-only (skipped on direct pushes). Requires `fetch-depth: 0` so the full commit range is available                          | —       |
+| `quality-gate`   | Aggregates `lint`, `typecheck`, `test-backend`, `test-frontend`, `e2e`, `build`, `docker-build`, and `commitlint` into one pass/fail. Point branch protection at this single job                           | —       |
+| `quality-gate`   | Aggregates `lint`, `typecheck`, `test-backend`, `test-frontend`, `test-contracts`, `test-governance-e2e`, `build`, `docker-build`, `trivy-scan`, and `commitlint` into one pass/fail                       | —       |
+| `quality-gate`   | Aggregates `lint`, `typecheck`, `test-backend`, `test-frontend`, `test-contracts`, `e2e`, `build`, `docker-build`, and `commitlint` into one pass/fail. Point branch protection at this single job         | —       |
 | Job              | What it checks                                                                                                                                                                                                           | Timeout |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
 | `lint`           | ESLint + Prettier `--check` for `backend/`, `frontend/`, and the repo root (root covers `scripts/`, `docs/`, and config files that per-workspace runs left unexamined)                                                   | 20 min  |
@@ -54,6 +73,22 @@ Both services must be healthy before the job's steps begin. The job injects
 `DATABASE_URL`, `REDIS_URL`, `STELLAR_NETWORK`, and `STELLAR_HORIZON_URL` as
 environment variables so the test suite connects without any secrets.
 
+#### `e2e` stack
+
+The end-to-end job boots the whole product instead of a database: it starts
+`docker-compose.yml` together with `docker-compose.e2e.yml`, applies the
+migrations, and runs the Playwright suite in `frontend/e2e/` against the
+running frontend and backend.
+
+`docker-compose.e2e.yml` overrides the stack for the run: it builds the
+development images, pins the session secret the suite signs its tokens with,
+and points the app at the origin the suite's gateway serves, so the page and
+the API answer under one origin. The suite uploads its HTML report and the
+traces of any failed spec as the `playwright-report` artifact.
+
+See [Testing](testing.md) for how the suite reaches the app and how to write a
+spec.
+
 #### `build` dummy environment variables
 
 `next build` requires the public env vars to be present at build time even
@@ -67,9 +102,43 @@ NEXT_PUBLIC_STELLAR_NETWORK=TESTNET
 These are placeholder values — they let the build job run without secrets and
 are overwritten by the real deployment environment at runtime.
 
-**Branch protection**: set `main` to require the `quality-gate` check and at
-least one approving review before merge (Settings → Branches → Branch
-protection rules). This is a repo setting, not workflow configuration.
+**Branch protection**: `main` requires the `quality-gate` status check and at
+least one approving review before merge. This rule enforces:
+
+- Required status checks: `strict: true` (branch must be up-to-date) and contexts: `["Quality gate"]`.
+- Required pull request reviews: `required_approving_review_count: 1`, `dismiss_stale_reviews: true`.
+- Protection can be configured via GitHub Settings or automated via:
+  ```bash
+  npm run ci:branch-protection
+  # Or verify compliance without mutating:
+  npm run ci:branch-protection -- --verify
+  ```
+
+---
+
+## `release.yml` — automated semantic releases
+
+Automatically triggered on merge to `main` (and callable via `workflow_dispatch`).
+Uses `semantic-release` (configured in `release.config.js`) to:
+
+1. Analyze conventional commit history since the last release tag.
+2. Determine next semver increment (`feat` -> minor, `fix` -> patch, `BREAKING CHANGE` -> major).
+3. Generate structured release notes.
+4. Publish a GitHub release and push the corresponding git tag.
+
+Runs with `contents: write`, `issues: write`, and `pull-requests: write` permissions.
+
+---
+
+## `publish-docker.yml` — publishing container images to GHCR
+
+Triggered on push to `main` (and callable via `workflow_dispatch`).
+Builds and pushes production multi-stage Docker images to GitHub Container Registry (`ghcr.io`):
+
+- `ghcr.io/<owner>/cooplumen/backend`
+- `ghcr.io/<owner>/cooplumen/frontend`
+
+Tagged with `latest`, short commit SHA (`sha-<short-sha>`), branch ref, and semver tag when applicable.
 
 ### SonarCloud quality gate
 
@@ -192,6 +261,10 @@ GitHub Actions versions.
 
 ## What's intentionally not here yet
 
+The backlog (`issue.md`, CI/CD category) tracks future pipeline enhancements that
+haven't been built yet: staging/production deploy workflows, SonarCloud, and
+coverage-threshold enforcement. These need real infrastructure (a hosting target,
+secrets, deploy targets) decided first.
 The backlog (`issue.md`, CI/CD category) tracks the rest of the pipeline that
 hasn't been built yet: a staging environment, semantic-release, Trivy
 container scanning, and coverage-threshold enforcement. These need real

@@ -4,13 +4,13 @@ import { db } from '../../db';
 import { requireAuth } from '../middleware/auth';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate';
 import {
-  delegateProposalSchema,
-  DelegateProposalInput,
   castVoteSchema,
   createProposalSchema,
   CreateProposalInput,
-  listProposalsQuerySchema,
   proposalIdParamsSchema,
+  listProposalsQuerySchema,
+  delegateProposalSchema,
+  DelegateProposalInput,
 } from '../schemas/proposal';
 
 export const proposalRouter: Router = Router();
@@ -265,7 +265,7 @@ proposalRouter.post(
       if (!(await isActiveMember(communityId, req.auth!.address))) {
         res.status(403).json({
           data: null,
-          error: 'Only active community members can create proposals',
+          error: 'Active community membership required',
         });
         return;
       }
