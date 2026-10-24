@@ -6,15 +6,11 @@ import { validateBody, validateParams, validateQuery } from '../middleware/valid
 import {
   castVoteSchema,
   createProposalSchema,
+  CreateProposalInput,
   proposalIdParamsSchema,
   listProposalsQuerySchema,
   delegateProposalSchema,
   DelegateProposalInput,
-  castVoteSchema,
-  createProposalSchema,
-  CreateProposalInput,
-  listProposalsQuerySchema,
-  proposalIdParamsSchema,
 } from '../schemas/proposal';
 
 export const proposalRouter: Router = Router();
@@ -208,14 +204,6 @@ proposalRouter.post(
   }
 );
 
-const proposalSelect = `
-  SELECT p.*,
-         COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'for'), 0)::text AS votes_for,
-         COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'against'), 0)::text AS votes_against,
-         COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'abstain'), 0)::text AS votes_abstain
-    FROM proposals p
-    LEFT JOIN votes v ON v.proposal_id = p.id`;
-
 proposalRouter.get(
   '/',
   validateQuery(listProposalsQuerySchema),
@@ -277,7 +265,7 @@ proposalRouter.post(
       if (!(await isActiveMember(communityId, req.auth!.address))) {
         res.status(403).json({
           data: null,
-          error: 'Only active community members can create proposals',
+          error: 'Active community membership required',
         });
         return;
       }

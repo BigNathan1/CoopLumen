@@ -4,6 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![codecov](https://codecov.io/gh/BigNathan1/CoopLumen/branch/main/graph/badge.svg)](https://codecov.io/gh/BigNathan1/CoopLumen)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-green)](https://nodejs.org)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org)
 [![Stellar](https://img.shields.io/badge/Stellar-Testnet%2FMainnet-blueviolet)](https://stellar.org)

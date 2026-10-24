@@ -1,0 +1,18 @@
+-- Dark mode designs done
+
+What are done include these issues
+#877 — Why Stellar
+Design a focused section explaining the value of Stellar to CoopLumen, using a clear content hierarchy and accessible presentation.
+
+#868 — Header Navigation Bar
+Create a consistent navigation header with clear branding, intuitive links, and a layout that adapts to smaller screens.
+
+#879 — Architecture Transparency
+Present the platform's architecture in an understandable visual structure that helps users explore its components and relationships.
+
+#880 — Community Token Issuance
+Design an approachable interface for explaining community token issuance, with organized information and clear visual emphasis.
+
+
+
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&t=38U5cG6K9v31VXzP-0
