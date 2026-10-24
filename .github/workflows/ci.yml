@@ -138,27 +138,17 @@ jobs:
         working-directory: backend
         run: npm run test:coverage -- --runInBand
 
-      - name: Upload backend coverage report
+      # Coverage is collected in the single test run above: the sonarcloud job
+      # needs the lcov report, and re-running the suite just to produce it
+      # would double the slowest job (and upload the artifact name twice).
+      - name: Upload backend coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: backend-coverage
           path: backend/coverage/
-          retention-days: 14
-      # Coverage is collected here rather than in a second test run: the
-      # sonarcloud job needs the lcov report, and re-running the suite just to
-      # produce it would double the slowest job.
-      - name: Run tests (unit + integration)
-        working-directory: backend
-        run: npm test -- --runInBand --coverage
-
-      - name: Upload backend coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-coverage
-          path: backend/coverage/lcov.info
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14
 
   test-frontend:
     name: Frontend tests
