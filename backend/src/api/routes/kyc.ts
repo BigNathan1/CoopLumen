@@ -4,7 +4,6 @@ import { db } from '../../db';
 import { requireAuth } from '../middleware/auth';
 import { validateBody, validateParams } from '../middleware/validate';
 import { kycStatusParamsSchema, initiateKycSchema, InitiateKycInput } from '../schemas/kyc';
-import { initiateKycSchema, InitiateKycInput, kycStatusParamsSchema } from '../schemas/kyc';
 
 export const kycRouter = Router();
 

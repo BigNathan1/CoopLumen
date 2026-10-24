@@ -1,0 +1,10 @@
+-- Light mode designs done
+
+What are done include these issues
+— Asset & Trustline Explorer: Design an intuitive explorer for browsing assets and trustlines with a clear, accessible interface.
+— Built for These Communities: Present the communities CoopLumen serves through a structured and visually engaging layout.
+— Community Stories & Case Studies: Showcase community experiences, project outcomes, and practical use cases.
+— Public Roadmap Timeline: Display development milestones and planned improvements in an easy-to-follow timeline.
+
+
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&t=38U5cG6K9v31VXzP-0

@@ -585,6 +585,7 @@ impl GovernanceContract {
         // Failures are surfaced as individual TOPIC_EXECUTION_FAILED events;
         // they do not revert the Executed status (preventing indefinite retry
         // loops on a permanently-failing action).
+        #[allow(deprecated)]
         for action in proposal.actions.iter() {
             // Validate the action string is non-empty before recording it.
             if action.is_empty() {

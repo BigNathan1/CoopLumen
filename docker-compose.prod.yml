@@ -1,0 +1,64 @@
+# Production topology for blue/green, zero-downtime deploys of the API.
+#
+# Two interchangeable backend slots sit behind an nginx proxy. Only one slot
+# receives traffic at a time. scripts/deploy/deploy.sh starts the idle slot on
+# the new image, waits for it to pass health checks, repoints the proxy with a
+# graceful reload, and only then stops the old slot, so the proxy never routes
+# to a container that is not ready. Do not run `docker compose up` on this file
+# directly for a release; use the script, which owns slot selection and
+# rollback.
+#
+# Required on the host: .env.production (see backend/.env.example) next to this
+# file. BLUE_IMAGE, GREEN_IMAGE and STATE_DIR are supplied by the deploy script.
+
+services:
+  proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - '${PROXY_PORT:-80}:80'
+    volumes:
+      - ./deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      # Holds active.conf, rewritten by the deploy script to switch slots.
+      - ${STATE_DIR:-./.deploy}/nginx:/etc/nginx/upstream:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1/nginx-health || exit 1']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  backend-blue:
+    image: ${BLUE_IMAGE:-cooplumen-backend:unset}
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+    ports:
+      # Loopback only: lets the deploy script probe a slot before it takes
+      # traffic. Public traffic goes through the proxy.
+      - '127.0.0.1:${BLUE_PORT:-4001}:4000'
+    stop_grace_period: 30s
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:4000/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  backend-green:
+    image: ${GREEN_IMAGE:-cooplumen-backend:unset}
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+    ports:
+      - '127.0.0.1:${GREEN_PORT:-4002}:4000'
+    stop_grace_period: 30s
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:4000/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s

@@ -1,0 +1,14 @@
+-- Dark mode designs done
+
+What are done include these issues
+#773 — Contact Page (Light Mode): Organize contact information and communication pathways into an approachable, easy-to-navigate page.
+
+#878 — Comparison Matrix (Dark Mode): Present competing features or available options in a structured matrix that supports quick, clear comparisons.
+
+#774 — Product Page (Light Mode): Communicate the product's key capabilities and value through a well-organized page layout.
+
+#775 — Pricing & Community Plans Page (Light Mode): Explain pricing and community plan options with clear content grouping and visual hierarchy.
+
+
+
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&t=38U5cG6K9v31VXzP-0
