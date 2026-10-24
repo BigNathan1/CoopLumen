@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Automated branch protection configuration script `scripts/ci/configure-branch-protection.js` enforcing passing `Quality gate` CI check and at least one approving review on `main` (#412).
+- Trivy container scanning job in `.github/workflows/ci.yml` scanning backend and frontend production images for high and critical vulnerabilities and gating PRs in `quality-gate` (#415).
+- Automated GitHub release publication workflow (`.github/workflows/release.yml`) using `semantic-release` configured via `release.config.js` to publish versioned GitHub releases on merge to `main` (#416).
+- Automated container image publishing workflow (`.github/workflows/publish-docker.yml`) building and pushing multi-stage backend and frontend container images to GitHub Container Registry (GHCR) on merge to `main` (#417).
+
 - Playwright E2E test suite for the custom 404 page (`frontend/e2e/not-found.spec.ts`) verifying HTTP 404 status, page metadata, heading, and recovery links across unknown top-level and nested routes against the Docker Compose stack (#400, #322).
 - Playwright HTML report output (`frontend/playwright-report/`) and CI artifact upload (`playwright-report`) in `.github/workflows/ci.yml` so E2E reports and failure traces are preserved on every run (#401, #323).
 - Codecov test coverage badge in `README.md` and coverage upload steps in `.github/workflows/ci.yml` (#402, #324).

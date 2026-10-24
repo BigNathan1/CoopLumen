@@ -5,6 +5,7 @@
   "description": "Decentralized community finance on the Stellar blockchain",
   "scripts": {
     "build": "npm run build --prefix backend && npm run build --prefix frontend",
+    "ci:branch-protection": "node scripts/ci/configure-branch-protection.js",
     "db:migrate": "npm run db:migrate --prefix backend",
     "dev": "docker-compose up",
     "dev:backend": "npm run dev --prefix backend",
@@ -14,6 +15,7 @@
     "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend",
     "lint": "npm run lint --prefix backend && npm run lint --prefix frontend",
     "prepare": "husky",
+    "release": "semantic-release",
     "test": "npm test --prefix backend && npm test --prefix frontend",
     "test:coverage": "npm run test:coverage --prefix backend && npm run test:coverage --prefix frontend",
     "type-check": "npm run type-check --prefix backend && npm run type-check --prefix frontend"
@@ -47,6 +49,7 @@
     "@commitlint/config-conventional": "^21.0.2",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.7",
-    "prettier": "^3.8.4"
+    "prettier": "^3.8.4",
+    "semantic-release": "^25.0.9"
   }
 }

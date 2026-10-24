@@ -518,6 +518,7 @@ impl GovernanceContract {
     /// The `executor` address must authorise the call (`require_auth`). Any
     /// address may execute a passed, quorate proposal — the contract does not
     /// restrict execution to the admin or proposer.
+    #[allow(deprecated)]
     pub fn execute_proposal(
         env: Env,
         proposal_id: u64,
