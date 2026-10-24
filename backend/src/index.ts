@@ -58,8 +58,10 @@ async function main(): Promise<void> {
       await db.end();
       logger.info('Database pool closed');
 
+      clearTimeout(forceExit);
       process.exit(0);
     } catch (err) {
+      clearTimeout(forceExit);
       logger.error('Error during graceful shutdown', err);
       process.exit(1);
     }
