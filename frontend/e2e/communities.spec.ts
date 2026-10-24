@@ -21,8 +21,7 @@ test.describe('creating a community', () => {
     const [created] = await Promise.all([
       page.waitForResponse(
         (response) =>
-          response.url().includes('/api/v1/communities') &&
-          response.request().method() === 'POST'
+          response.url().includes('/api/v1/communities') && response.request().method() === 'POST'
       ),
       page.getByRole('button', { name: 'Create community' }).click(),
     ]);

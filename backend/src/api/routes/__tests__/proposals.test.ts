@@ -154,7 +154,7 @@ describe('governance proposal routes', () => {
       expect(response.status).toBe(403);
       expect(response.body).toEqual({
         data: null,
-        error: 'Only active community members can create proposals',
+        error: 'Active community membership required',
       });
     });
 
