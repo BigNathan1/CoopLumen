@@ -34,6 +34,10 @@ coverage/
 playwright-report/
 test-results/
 
+# Playwright
+playwright-report/
+test-results/
+
 # Editor and assistant tooling
 .vscode/
 .idea/

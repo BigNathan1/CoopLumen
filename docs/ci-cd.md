@@ -24,6 +24,9 @@ the runtime is a one-line change.
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
 | `lint`           | ESLint + Prettier `--check` for `backend/`, `frontend/`, and the repo root (root covers `scripts/`, `docs/`, and config files that per-workspace runs left unexamined)                                     | 20 min  |
 | `typecheck`      | `tsc --noEmit` for both packages                                                                                                                                                                           | 20 min  |
+| `test-backend`   | Jest against real Postgres 16 and Redis 7 service containers; migrations run first; tests run serially (`--runInBand`) to avoid race conditions on a shared DB                                             | 20 min  |
+| `test-frontend`  | Jest (jsdom) for components and hooks                                                                                                                                                                      | 20 min  |
+| `e2e`            | Playwright against the full Docker Compose stack (`docker-compose.yml` + `docker-compose.e2e.yml`); migrations run first, then the browser suite                                                           | 30 min  |
 | `test-backend`   | Jest against real Postgres 16 and Redis 7 service containers; migrations run first; tests run serially (`--runInBand --coverage`) to avoid race conditions on a shared DB and upload coverage to Codecov   | 20 min  |
 | `test-frontend`  | Jest (jsdom) for components and hooks (`--runInBand --coverage`), with coverage uploaded to Codecov when `CODECOV_TOKEN` is configured                                                                     | 20 min  |
 | `test-contracts` | `cargo test --workspace` for the Soroban governance smart contract crate                                                                                                                                   | 20 min  |
@@ -33,6 +36,7 @@ the runtime is a one-line change.
 | `trivy-scan`     | Aqua Security Trivy container scan for backend and frontend production images, failing on high or critical unfixed vulnerabilities                                                                         | —       |
 | `security-audit` | `npm audit --omit=dev --audit-level=high` for both packages fails the job on a high-severity advisory in a production dependency. A full audit including dev tooling is reported but does not fail the job | —       |
 | `commitlint`     | Every commit in the PR against `commitlint.config.js` (Conventional Commits). PR-only (skipped on direct pushes). Requires `fetch-depth: 0` so the full commit range is available                          | —       |
+| `quality-gate`   | Aggregates `lint`, `typecheck`, `test-backend`, `test-frontend`, `e2e`, `build`, `docker-build`, and `commitlint` into one pass/fail. Point branch protection at this single job                           | —       |
 | `quality-gate`   | Aggregates `lint`, `typecheck`, `test-backend`, `test-frontend`, `test-contracts`, `test-governance-e2e`, `build`, `docker-build`, `trivy-scan`, and `commitlint` into one pass/fail                       | —       |
 | `quality-gate`   | Aggregates `lint`, `typecheck`, `test-backend`, `test-frontend`, `test-contracts`, `e2e`, `build`, `docker-build`, and `commitlint` into one pass/fail. Point branch protection at this single job         | —       |
 | Job              | What it checks                                                                                                                                                                                                           | Timeout |
@@ -68,6 +72,22 @@ The backend test job spins up two Docker services before running tests:
 Both services must be healthy before the job's steps begin. The job injects
 `DATABASE_URL`, `REDIS_URL`, `STELLAR_NETWORK`, and `STELLAR_HORIZON_URL` as
 environment variables so the test suite connects without any secrets.
+
+#### `e2e` stack
+
+The end-to-end job boots the whole product instead of a database: it starts
+`docker-compose.yml` together with `docker-compose.e2e.yml`, applies the
+migrations, and runs the Playwright suite in `frontend/e2e/` against the
+running frontend and backend.
+
+`docker-compose.e2e.yml` overrides the stack for the run: it builds the
+development images, pins the session secret the suite signs its tokens with,
+and points the app at the origin the suite's gateway serves, so the page and
+the API answer under one origin. The suite uploads its HTML report and the
+traces of any failed spec as the `playwright-report` artifact.
+
+See [Testing](testing.md) for how the suite reaches the app and how to write a
+spec.
 
 #### `build` dummy environment variables
 

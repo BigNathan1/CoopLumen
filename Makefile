@@ -21,6 +21,7 @@ help:
 	@echo "  $(CYAN)make test$(RESET)         Run all tests (backend + frontend)"
 	@echo "  $(CYAN)make test-backend$(RESET) Run backend tests only"
 	@echo "  $(CYAN)make test-frontend$(RESET)Run frontend tests only"
+	@echo "  $(CYAN)make test-e2e$(RESET)    Run the Playwright E2E suite (needs the Docker Compose stack)"
 	@echo "  $(CYAN)make coverage$(RESET)     Run tests with coverage reports"
 	@echo "  $(CYAN)make migrate$(RESET)      Run pending database migrations"
 	@echo "  $(CYAN)make seed$(RESET)         Seed the database with development data"
@@ -99,6 +100,10 @@ test-backend:
 .PHONY: test-frontend
 test-frontend:
 	cd frontend && npm test
+
+.PHONY: test-e2e
+test-e2e:
+	cd frontend && npm run test:e2e
 
 .PHONY: coverage
 coverage:
