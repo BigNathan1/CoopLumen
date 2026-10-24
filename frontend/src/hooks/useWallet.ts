@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WatchWalletChanges } from '@stellar/freighter-api';
-import { api, setAuthToken } from '@/lib/api';
+import { api, setAuthToken, setCsrfToken } from '@/lib/api';
 
 export interface WalletState {
   publicKey: string | null;
@@ -19,6 +19,8 @@ interface VerifyResponse {
   token: string;
   address: string;
   expiresAt: string;
+  /** Double-submit token the backend expects on state-changing requests. */
+  csrfToken?: string;
 }
 
 const INITIAL_STATE: WalletState = {
@@ -84,6 +86,7 @@ export function useWallet() {
       { auth: false }
     );
     setAuthToken(verified.token);
+    setCsrfToken(verified.csrfToken ?? null);
   }, []);
 
   /** Reads the current network and authenticates `publicKey`, then commits both as connected state. Shared by `connect()` and the auto-reconnect-on-mount effect so the two cannot drift. */
@@ -142,6 +145,7 @@ export function useWallet() {
 
   const disconnect = useCallback(() => {
     setAuthToken(null);
+    setCsrfToken(null);
     setState(INITIAL_STATE);
   }, []);
 

@@ -47,12 +47,14 @@ jest.mock('@stellar/freighter-api', () => ({
 }));
 
 jest.mock('@/lib/api', () => ({
-  api: { post: jest.fn().mockResolvedValue({ token: 'session-token' }) },
+  api: { post: jest.fn().mockResolvedValue({ token: 'session-token', csrfToken: 'csrf-token' }) },
   setAuthToken: jest.fn(),
+  setCsrfToken: jest.fn(),
 }));
 
 // Imported after the mocks above so useWallet's dynamic imports resolve to them.
 import { useWallet, EXPECTED_NETWORK } from '../useWallet';
+import { setAuthToken, setCsrfToken } from '@/lib/api';
 
 const PUBLIC_KEY = 'G' + 'A'.repeat(55);
 const OTHER_PUBLIC_KEY = 'G' + 'B'.repeat(55);
@@ -129,6 +131,20 @@ describe('useWallet network validation', () => {
     expect(result.current.connected).toBe(false);
     expect(result.current.isCorrectNetwork).toBe(true);
     expect(result.current.networkMismatch).toBe(false);
+  });
+
+  it('stores the session and CSRF tokens from sign-in and clears both on disconnect', async () => {
+    const result = await connectOnNetwork(EXPECTED_NETWORK);
+
+    expect(setAuthToken).toHaveBeenLastCalledWith('session-token');
+    expect(setCsrfToken).toHaveBeenLastCalledWith('csrf-token');
+
+    act(() => {
+      result.current.disconnect();
+    });
+
+    expect(setAuthToken).toHaveBeenLastCalledWith(null);
+    expect(setCsrfToken).toHaveBeenLastCalledWith(null);
   });
 
   it('surfaces a connection error and does not mark the network incorrect', async () => {
