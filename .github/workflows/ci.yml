@@ -136,26 +136,22 @@ jobs:
         working-directory: backend
         run: npm run db:migrate
 
+      # One run covers unit, integration and the opt-in testnet suites, and
+      # its coverage feeds both SonarCloud (via the artifact) and Codecov.
+      # Re-running the suite just to produce coverage would double the
+      # slowest job and upload the artifact name twice.
       - name: Run tests with coverage (unit + integration + testnet)
         working-directory: backend
         run: npm run test:coverage -- --runInBand
-      - name: Run tests with coverage
-        working-directory: backend
-        run: npm run test:coverage -- --runInBand
 
-      - name: Upload backend coverage report
+      - name: Upload backend coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: backend-coverage
           path: backend/coverage/
+          if-no-files-found: error
           retention-days: 14
-      # Coverage is collected here rather than in a second test run: the
-      # sonarcloud job needs the lcov report, and re-running the suite just to
-      # produce it would double the slowest job.
-      - name: Run tests (unit + integration)
-        working-directory: backend
-        run: npm test -- --runInBand --coverage
 
       - name: Upload backend coverage to Codecov
         if: env.CODECOV_TOKEN != ''
@@ -165,13 +161,6 @@ jobs:
           files: ./backend/coverage/lcov.info
           flags: backend
           fail_ci_if_error: false
-      - name: Upload backend coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-coverage
-          path: backend/coverage/lcov.info
-          if-no-files-found: error
-          retention-days: 7
 
   test-frontend:
     name: Frontend tests
@@ -206,8 +195,6 @@ jobs:
           files: ./frontend/coverage/lcov.info
           flags: frontend
           fail_ci_if_error: false
-        run: npm run test:coverage -- --runInBand
-        run: npm test -- --runInBand --coverage
 
       - name: Upload frontend coverage
         uses: actions/upload-artifact@v4
@@ -231,8 +218,6 @@ jobs:
 
   e2e:
     name: E2E tests (Playwright)
-  test-governance-e2e:
-    name: Governance and browser flows E2E
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -258,7 +243,6 @@ jobs:
           backend npm run db:migrate
 
       - name: Run Playwright E2E tests
-      - name: Run E2E browser tests (governance, transactions, mobile)
         working-directory: frontend
         env:
           AUTH_SESSION_SECRET: governance-e2e-secret
@@ -343,7 +327,7 @@ jobs:
         run: docker build -t cooplumen-frontend:ci ./frontend
 
       - name: Run Trivy scanner on backend image
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: 'cooplumen-backend:ci'
           format: 'table'
@@ -353,7 +337,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Run Trivy scanner on frontend image
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: 'cooplumen-frontend:ci'
           format: 'table'

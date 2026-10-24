@@ -307,7 +307,7 @@ describe('TransferTokenForm', () => {
         expect(post).not.toHaveBeenCalled();
       });
 
-      it('rejects a negative amount', async () => {
+      it('drops a minus sign typed into the amount', async () => {
         const user = userEvent.setup();
         renderForm();
 
@@ -315,15 +315,18 @@ describe('TransferTokenForm', () => {
         await user.click(screen.getByRole('combobox', { name: /asset/i }));
         await user.click(screen.getByRole('option', { name: 'XLM' }));
         await user.type(screen.getByLabelText(/amount/i), '-10');
+        expect(screen.getByLabelText(/amount/i)).toHaveValue('10');
         await user.click(screen.getByRole('button', { name: /^send$/i }));
 
-        expect(
-          await screen.findByText('Enter a positive amount with up to 7 decimal places')
-        ).toBeInTheDocument();
-        expect(post).not.toHaveBeenCalled();
+        await waitFor(() =>
+          expect(post).toHaveBeenCalledWith(
+            '/api/v1/transactions/unsigned',
+            expect.objectContaining({ amount: '10' })
+          )
+        );
       });
 
-      it('rejects an amount with more than 7 decimal places', async () => {
+      it('stops accepting digits past 7 decimal places', async () => {
         const user = userEvent.setup();
         renderForm();
 
@@ -331,12 +334,15 @@ describe('TransferTokenForm', () => {
         await user.click(screen.getByRole('combobox', { name: /asset/i }));
         await user.click(screen.getByRole('option', { name: 'XLM' }));
         await user.type(screen.getByLabelText(/amount/i), '1.12345678');
+        expect(screen.getByLabelText(/amount/i)).toHaveValue('1.1234567');
         await user.click(screen.getByRole('button', { name: /^send$/i }));
 
-        expect(
-          await screen.findByText('Enter a positive amount with up to 7 decimal places')
-        ).toBeInTheDocument();
-        expect(post).not.toHaveBeenCalled();
+        await waitFor(() =>
+          expect(post).toHaveBeenCalledWith(
+            '/api/v1/transactions/unsigned',
+            expect.objectContaining({ amount: '1.1234567' })
+          )
+        );
       });
 
       it('accepts an amount with exactly 7 decimal places', async () => {
@@ -375,7 +381,7 @@ describe('TransferTokenForm', () => {
         );
       });
 
-      it('rejects an amount with non-numeric characters', async () => {
+      it('drops non-numeric characters typed into the amount', async () => {
         const user = userEvent.setup();
         renderForm();
 
@@ -383,12 +389,15 @@ describe('TransferTokenForm', () => {
         await user.click(screen.getByRole('combobox', { name: /asset/i }));
         await user.click(screen.getByRole('option', { name: 'XLM' }));
         await user.type(screen.getByLabelText(/amount/i), '10abc');
+        expect(screen.getByLabelText(/amount/i)).toHaveValue('10');
         await user.click(screen.getByRole('button', { name: /^send$/i }));
 
-        expect(
-          await screen.findByText('Enter a positive amount with up to 7 decimal places')
-        ).toBeInTheDocument();
-        expect(post).not.toHaveBeenCalled();
+        await waitFor(() =>
+          expect(post).toHaveBeenCalledWith(
+            '/api/v1/transactions/unsigned',
+            expect.objectContaining({ amount: '10' })
+          )
+        );
       });
 
       it('trims whitespace from the amount', async () => {
@@ -430,15 +439,13 @@ describe('TransferTokenForm', () => {
         renderForm();
 
         await user.type(screen.getByLabelText(/recipient/i), 'invalid');
-        await user.type(screen.getByLabelText(/amount/i), '-5');
+        await user.type(screen.getByLabelText(/amount/i), '0');
         await user.click(screen.getByRole('button', { name: /^send$/i }));
 
         expect(
           await screen.findByText('Enter a valid Stellar public key (starts with G, 56 characters)')
         ).toBeInTheDocument();
-        expect(
-          screen.getByText('Enter a positive amount with up to 7 decimal places')
-        ).toBeInTheDocument();
+        expect(screen.getByText('Amount must be greater than zero')).toBeInTheDocument();
         expect(screen.getByText('Select an asset to send')).toBeInTheDocument();
         expect(post).not.toHaveBeenCalled();
       });

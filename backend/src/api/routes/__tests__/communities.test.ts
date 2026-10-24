@@ -36,7 +36,7 @@ describe('GET /api/v1/communities', () => {
 
   it('returns communities with pagination meta', async () => {
     const community = {
-      id: 'uuid-1',
+      id: '11111111-1111-4111-8111-111111111111',
       name: 'TestDAO',
       asset_code: 'TDAO',
       asset_issuer: validKey,
@@ -87,7 +87,7 @@ describe('GET /api/v1/communities/search', () => {
 
   it('returns matching communities with pagination meta', async () => {
     const community = {
-      id: 'uuid-1',
+      id: '11111111-1111-4111-8111-111111111111',
       name: 'EcoDAO',
       asset_code: 'ECO',
       asset_issuer: validKey,
@@ -214,7 +214,11 @@ describe('POST /api/v1/communities', () => {
   });
 
   it('creates a community with a valid payload', async () => {
-    const community = { id: 'uuid-1', name: 'EcoDAO', asset_code: 'ECO' };
+    const community = {
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'EcoDAO',
+      asset_code: 'ECO',
+    };
     mockDb.query.mockResolvedValueOnce([]); // name uniqueness
     mockDb.transaction.mockResolvedValueOnce(community);
 
@@ -235,7 +239,11 @@ describe('POST /api/v1/communities', () => {
   });
 
   it('records a community_created transactions_log entry in the same transaction as the insert', async () => {
-    const community = { id: 'uuid-1', name: 'EcoDAO', asset_code: 'ECO' };
+    const community = {
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'EcoDAO',
+      asset_code: 'ECO',
+    };
     mockDb.query.mockResolvedValueOnce([]); // name uniqueness check
 
     const clientQuery = jest
@@ -340,7 +348,9 @@ describe('PUT /api/v1/communities/:id', () => {
   });
 
   it('rejects a caller without an admin/treasurer role', async () => {
-    mockDb.query.mockResolvedValueOnce([]); // no membership row
+    mockDb.query
+      .mockResolvedValueOnce([]) // no membership row
+      .mockResolvedValueOnce([{ id: '11111111-1111-4111-8111-111111111111' }]); // community exists
     const res = await request(app)
       .put('/api/v1/communities/11111111-1111-4111-8111-111111111111')
       .set('Authorization', authHeader(validKey))
@@ -390,9 +400,15 @@ describe('PUT /api/v1/communities/:id', () => {
   it('updates the community name', async () => {
     mockDb.query
       .mockResolvedValueOnce([{ role: 'admin' }]) // role check
-      .mockResolvedValueOnce([{ id: 'uuid-1', name: 'Old', settings: {} }]) // exists
+      .mockResolvedValueOnce([
+        { id: '11111111-1111-4111-8111-111111111111', name: 'Old', settings: {} },
+      ]) // exists
       .mockResolvedValueOnce([]); // duplicate-name check
-    mockDb.transaction.mockResolvedValueOnce({ id: 'uuid-1', name: 'New Name', settings: {} });
+    mockDb.transaction.mockResolvedValueOnce({
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'New Name',
+      settings: {},
+    });
     const res = await request(app)
       .put('/api/v1/communities/11111111-1111-4111-8111-111111111111')
       .set('Authorization', authHeader(validKey))
@@ -404,9 +420,11 @@ describe('PUT /api/v1/communities/:id', () => {
   it('updates the community description', async () => {
     mockDb.query
       .mockResolvedValueOnce([{ role: 'treasurer' }])
-      .mockResolvedValueOnce([{ id: 'uuid-1', name: 'Old', settings: {} }]);
+      .mockResolvedValueOnce([
+        { id: '11111111-1111-4111-8111-111111111111', name: 'Old', settings: {} },
+      ]);
     mockDb.transaction.mockResolvedValueOnce({
-      id: 'uuid-1',
+      id: '11111111-1111-4111-8111-111111111111',
       name: 'Old',
       description: 'Updated description',
       settings: {},
@@ -425,9 +443,11 @@ describe('PUT /api/v1/communities/:id', () => {
     const settings = { loanLimit: 1500, quorum: 0.75 };
     mockDb.query
       .mockResolvedValueOnce([{ role: 'admin' }])
-      .mockResolvedValueOnce([{ id: 'uuid-1', name: 'Old', settings: { quorum: 0.6 } }]);
+      .mockResolvedValueOnce([
+        { id: '11111111-1111-4111-8111-111111111111', name: 'Old', settings: { quorum: 0.6 } },
+      ]);
     mockDb.transaction.mockResolvedValueOnce({
-      id: 'uuid-1',
+      id: '11111111-1111-4111-8111-111111111111',
       name: 'Old',
       description: 'Desc',
       settings,
@@ -445,7 +465,9 @@ describe('PUT /api/v1/communities/:id', () => {
   it('returns 409 when updating to a duplicate name', async () => {
     mockDb.query
       .mockResolvedValueOnce([{ role: 'admin' }])
-      .mockResolvedValueOnce([{ id: 'uuid-1', name: 'Old', settings: {} }])
+      .mockResolvedValueOnce([
+        { id: '11111111-1111-4111-8111-111111111111', name: 'Old', settings: {} },
+      ])
       .mockResolvedValueOnce([{ id: 'uuid-2' }]);
 
     const res = await request(app)
@@ -511,16 +533,20 @@ describe('members', () => {
     mockDb.query
       .mockResolvedValueOnce([{ count: 1 }])
       .mockResolvedValueOnce([{ stellar_address: validKey, role: 'member', joined_at: 'now' }]);
-    const res = await request(app).get('/api/v1/communities/uuid-1/members');
+    const res = await request(app).get(
+      '/api/v1/communities/11111111-1111-4111-8111-111111111111/members'
+    );
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
     expect(res.body.meta.total).toBe(1);
   });
 
   it('rejects adding a member without an admin role', async () => {
-    mockDb.query.mockResolvedValueOnce([]); // no membership row
+    mockDb.query
+      .mockResolvedValueOnce([]) // no membership row
+      .mockResolvedValueOnce([{ id: '11111111-1111-4111-8111-111111111111' }]); // community exists
     const res = await request(app)
-      .post('/api/v1/communities/uuid-1/members')
+      .post('/api/v1/communities/11111111-1111-4111-8111-111111111111/members')
       .set('Authorization', authHeader(validKey))
       .send({ stellarAddress: validKey, role: 'treasurer' });
     expect(res.status).toBe(403);
@@ -529,7 +555,7 @@ describe('members', () => {
   it('rejects an invalid Stellar address on add', async () => {
     mockDb.query.mockResolvedValueOnce([{ role: 'admin' }]);
     const res = await request(app)
-      .post('/api/v1/communities/uuid-1/members')
+      .post('/api/v1/communities/11111111-1111-4111-8111-111111111111/members')
       .set('Authorization', authHeader(validKey))
       .send({ stellarAddress: 'bad' });
     expect(res.status).toBe(400);
@@ -538,12 +564,12 @@ describe('members', () => {
   it('adds a valid member', async () => {
     mockDb.query
       .mockResolvedValueOnce([{ role: 'admin' }]) // role check
-      .mockResolvedValueOnce([{ id: 'uuid-1' }]) // community exists
+      .mockResolvedValueOnce([{ id: '11111111-1111-4111-8111-111111111111' }]) // community exists
       .mockResolvedValueOnce([
         { stellar_address: validKey, role: 'treasurer', joined_at: '2024-01-01T00:00:00Z' },
       ]); // insert
     const res = await request(app)
-      .post('/api/v1/communities/uuid-1/members')
+      .post('/api/v1/communities/11111111-1111-4111-8111-111111111111/members')
       .set('Authorization', authHeader(validKey))
       .send({ stellarAddress: validKey, role: 'treasurer' });
     expect(res.status).toBe(201);
@@ -552,9 +578,11 @@ describe('members', () => {
   });
 
   it('rejects a role change without an admin role', async () => {
-    mockDb.query.mockResolvedValueOnce([]);
+    mockDb.query
+      .mockResolvedValueOnce([]) // not a member
+      .mockResolvedValueOnce([{ id: '11111111-1111-4111-8111-111111111111' }]); // community exists
     const res = await request(app)
-      .put(`/api/v1/communities/uuid-1/members/${validKey}`)
+      .put(`/api/v1/communities/11111111-1111-4111-8111-111111111111/members/${validKey}`)
       .set('Authorization', authHeader(validKey))
       .send({ role: 'admin' });
     expect(res.status).toBe(403);
@@ -567,7 +595,7 @@ describe('members', () => {
         { stellar_address: validKey, role: 'admin', joined_at: '2024-01-01T00:00:00Z' },
       ]);
     const res = await request(app)
-      .put(`/api/v1/communities/uuid-1/members/${validKey}`)
+      .put(`/api/v1/communities/11111111-1111-4111-8111-111111111111/members/${validKey}`)
       .set('Authorization', authHeader(validKey))
       .send({ role: 'admin' });
     expect(res.status).toBe(200);
@@ -578,7 +606,7 @@ describe('members', () => {
   it('rejects an invalid Stellar address in path parameter for update', async () => {
     mockDb.query.mockResolvedValueOnce([{ role: 'admin' }]);
     const res = await request(app)
-      .put('/api/v1/communities/uuid-1/members/invalid-address')
+      .put('/api/v1/communities/11111111-1111-4111-8111-111111111111/members/invalid-address')
       .set('Authorization', authHeader(validKey))
       .send({ role: 'admin' });
     expect(res.status).toBe(400);
@@ -589,7 +617,7 @@ describe('members', () => {
       .mockResolvedValueOnce([{ role: 'admin' }])
       .mockResolvedValueOnce([{ stellar_address: validKey }]);
     const res = await request(app)
-      .delete(`/api/v1/communities/uuid-1/members/${validKey}`)
+      .delete(`/api/v1/communities/11111111-1111-4111-8111-111111111111/members/${validKey}`)
       .set('Authorization', authHeader(validKey));
     expect(res.status).toBe(200);
     expect(res.body.data.removed).toBe(true);
@@ -597,9 +625,11 @@ describe('members', () => {
 
   it('rejects removing another member without an admin role', async () => {
     const other = Keypair.random().publicKey();
-    mockDb.query.mockResolvedValueOnce([]); // caller's role lookup: not a member
+    mockDb.query
+      .mockResolvedValueOnce([]) // not a member
+      .mockResolvedValueOnce([{ id: '11111111-1111-4111-8111-111111111111' }]); // community exists
     const res = await request(app)
-      .delete(`/api/v1/communities/uuid-1/members/${other}`)
+      .delete(`/api/v1/communities/11111111-1111-4111-8111-111111111111/members/${other}`)
       .set('Authorization', authHeader(validKey));
     expect(res.status).toBe(403);
   });
@@ -610,7 +640,7 @@ describe('members', () => {
       .mockResolvedValueOnce([{ role: 'admin' }]) // caller's role lookup
       .mockResolvedValueOnce([{ stellar_address: other }]);
     const res = await request(app)
-      .delete(`/api/v1/communities/uuid-1/members/${other}`)
+      .delete(`/api/v1/communities/11111111-1111-4111-8111-111111111111/members/${other}`)
       .set('Authorization', authHeader(validKey));
     expect(res.status).toBe(200);
     expect(res.body.data.removed).toBe(true);
@@ -619,13 +649,15 @@ describe('members', () => {
   it('rejects an invalid Stellar address in path parameter for delete', async () => {
     mockDb.query.mockResolvedValueOnce([{ role: 'admin' }]);
     const res = await request(app)
-      .delete('/api/v1/communities/uuid-1/members/invalid-address')
+      .delete('/api/v1/communities/11111111-1111-4111-8111-111111111111/members/invalid-address')
       .set('Authorization', authHeader(validKey));
     expect(res.status).toBe(400);
   });
 
   it('rejects an invalid Stellar address in path parameter for get', async () => {
-    const res = await request(app).get('/api/v1/communities/uuid-1/members/invalid-address');
+    const res = await request(app).get(
+      '/api/v1/communities/11111111-1111-4111-8111-111111111111/members/invalid-address'
+    );
     expect(res.status).toBe(400);
   });
 });
@@ -633,15 +665,17 @@ describe('members', () => {
 describe('POST /api/v1/communities/:id/avatar', () => {
   it('rejects an unauthenticated request', async () => {
     const res = await request(app)
-      .post('/api/v1/communities/uuid-1/avatar')
+      .post('/api/v1/communities/11111111-1111-4111-8111-111111111111/avatar')
       .send({ avatarUrl: 'https://cdn.example.com/eco.png' });
     expect(res.status).toBe(401);
   });
 
   it('rejects a caller without an admin/treasurer role', async () => {
-    mockDb.query.mockResolvedValueOnce([]);
+    mockDb.query
+      .mockResolvedValueOnce([]) // not a member
+      .mockResolvedValueOnce([{ id: '11111111-1111-4111-8111-111111111111' }]); // community exists
     const res = await request(app)
-      .post('/api/v1/communities/uuid-1/avatar')
+      .post('/api/v1/communities/11111111-1111-4111-8111-111111111111/avatar')
       .set('Authorization', authHeader(validKey))
       .send({ avatarUrl: 'https://cdn.example.com/eco.png' });
     expect(res.status).toBe(403);
@@ -650,7 +684,7 @@ describe('POST /api/v1/communities/:id/avatar', () => {
   it('rejects an invalid avatar URL', async () => {
     mockDb.query.mockResolvedValueOnce([{ role: 'admin' }]);
     const res = await request(app)
-      .post('/api/v1/communities/uuid-1/avatar')
+      .post('/api/v1/communities/11111111-1111-4111-8111-111111111111/avatar')
       .set('Authorization', authHeader(validKey))
       .send({ avatarUrl: 'not-a-url' });
     expect(res.status).toBe(400);
@@ -660,9 +694,11 @@ describe('POST /api/v1/communities/:id/avatar', () => {
     const avatarUrl = 'https://cdn.example.com/eco.png';
     mockDb.query
       .mockResolvedValueOnce([{ role: 'admin' }])
-      .mockResolvedValueOnce([{ id: 'uuid-1', avatar_url: avatarUrl }]);
+      .mockResolvedValueOnce([
+        { id: '11111111-1111-4111-8111-111111111111', avatar_url: avatarUrl },
+      ]);
     const res = await request(app)
-      .post('/api/v1/communities/uuid-1/avatar')
+      .post('/api/v1/communities/11111111-1111-4111-8111-111111111111/avatar')
       .set('Authorization', authHeader(validKey))
       .send({ avatarUrl });
     expect(res.status).toBe(200);
@@ -672,7 +708,7 @@ describe('POST /api/v1/communities/:id/avatar', () => {
   it('returns 404 when the community does not exist', async () => {
     mockDb.query.mockResolvedValueOnce([{ role: 'admin' }]).mockResolvedValueOnce([]);
     const res = await request(app)
-      .post('/api/v1/communities/uuid-x/avatar')
+      .post('/api/v1/communities/22222222-2222-4222-8222-222222222222/avatar')
       .set('Authorization', authHeader(validKey))
       .send({ avatarUrl: 'https://cdn.example.com/x.png' });
     expect(res.status).toBe(404);

@@ -24,9 +24,7 @@ describe('EmptyState', () => {
   });
 
   it('marks the icon container as aria-hidden', () => {
-    const { container } = render(
-      <EmptyState message="No items" icon={<span>📦</span>} />
-    );
+    const { container } = render(<EmptyState message="No items" icon={<span>📦</span>} />);
     const iconContainer = container.querySelector('.empty-state-icon');
     expect(iconContainer).toHaveAttribute('aria-hidden', 'true');
   });
@@ -38,12 +36,7 @@ describe('EmptyState', () => {
   });
 
   it('renders an action element when provided', () => {
-    render(
-      <EmptyState
-        message="No items"
-        action={<button>Add item</button>}
-      />
-    );
+    render(<EmptyState message="No items" action={<button>Add item</button>} />);
     expect(screen.getByRole('button', { name: 'Add item' })).toBeInTheDocument();
   });
 

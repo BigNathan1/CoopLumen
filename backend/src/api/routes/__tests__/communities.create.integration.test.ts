@@ -165,15 +165,12 @@ describeIf('POST /api/v1/communities (success, duplicate name, invalid key)', ()
   describe('Duplicate name handling', () => {
     beforeAll(async () => {
       // Create a reference community
-      await request(app)
-        .post('/api/v1/communities')
-        .set('Authorization', authHeader(issuer))
-        .send({
-          name: 'Duplicate Test DAO',
-          issuerPublicKey: issuer,
-          assetCode: 'DUP',
-          assetIssuer: issuer,
-        });
+      await request(app).post('/api/v1/communities').set('Authorization', authHeader(issuer)).send({
+        name: 'Duplicate Test DAO',
+        issuerPublicKey: issuer,
+        assetCode: 'DUP',
+        assetIssuer: issuer,
+      });
     });
 
     it('rejects duplicate community name with 409 status', async () => {
@@ -324,14 +321,12 @@ describeIf('POST /api/v1/communities (success, duplicate name, invalid key)', ()
     });
 
     it('requires authentication', async () => {
-      const res = await request(app)
-        .post('/api/v1/communities')
-        .send({
-          name: 'Unauthenticated DAO',
-          issuerPublicKey: issuer,
-          assetCode: 'UNA',
-          assetIssuer: issuer,
-        });
+      const res = await request(app).post('/api/v1/communities').send({
+        name: 'Unauthenticated DAO',
+        issuerPublicKey: issuer,
+        assetCode: 'UNA',
+        assetIssuer: issuer,
+      });
 
       expect(res.status).toBe(401);
     });

@@ -42,4 +42,14 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
+  // Brings up the full Docker Compose stack when nothing answers yet, so a
+  // local run needs no separate `docker compose up`. CI starts the stack (and
+  // runs migrations) before the suite, so the running stack is reused there.
+  webServer: {
+    command: 'docker compose -f docker-compose.yml -f docker-compose.e2e.yml up --build',
+    cwd: '..',
+    url: `${process.env.PLAYWRIGHT_APP_URL ?? 'http://127.0.0.1:3000'}/api/health`,
+    reuseExistingServer: true,
+    timeout: 180_000,
+  },
 });

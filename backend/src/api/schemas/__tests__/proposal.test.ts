@@ -14,7 +14,7 @@ import {
   listProposalsQuerySchema,
 } from '../proposal';
 
-const KEY = `G${'A'.repeat(55)}`;
+const KEY = 'GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR';
 const UUID = '3f1a2b4c-5d6e-4f70-8192-a3b4c5d6e7f8';
 
 const FUTURE_DATE = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -75,11 +75,15 @@ describe('createProposalSchema', () => {
   });
 
   it('rejects an unknown type', () => {
-    expect(createProposalSchema.safeParse({ ...VALID_PROPOSAL, type: 'admin_action' }).success).toBe(false);
+    expect(
+      createProposalSchema.safeParse({ ...VALID_PROPOSAL, type: 'admin_action' }).success
+    ).toBe(false);
   });
 
   it('rejects a non-UUID communityId', () => {
-    expect(createProposalSchema.safeParse({ ...VALID_PROPOSAL, communityId: 'bad' }).success).toBe(false);
+    expect(createProposalSchema.safeParse({ ...VALID_PROPOSAL, communityId: 'bad' }).success).toBe(
+      false
+    );
   });
 
   it('rejects an empty title', () => {
@@ -87,15 +91,21 @@ describe('createProposalSchema', () => {
   });
 
   it('rejects a title longer than 200 characters', () => {
-    expect(createProposalSchema.safeParse({ ...VALID_PROPOSAL, title: 't'.repeat(201) }).success).toBe(false);
+    expect(
+      createProposalSchema.safeParse({ ...VALID_PROPOSAL, title: 't'.repeat(201) }).success
+    ).toBe(false);
   });
 
   it('rejects a quorumPercent below 0', () => {
-    expect(createProposalSchema.safeParse({ ...VALID_PROPOSAL, quorumPercent: -1 }).success).toBe(false);
+    expect(createProposalSchema.safeParse({ ...VALID_PROPOSAL, quorumPercent: -1 }).success).toBe(
+      false
+    );
   });
 
   it('rejects a quorumPercent above 100', () => {
-    expect(createProposalSchema.safeParse({ ...VALID_PROPOSAL, quorumPercent: 101 }).success).toBe(false);
+    expect(createProposalSchema.safeParse({ ...VALID_PROPOSAL, quorumPercent: 101 }).success).toBe(
+      false
+    );
   });
 
   it('accepts a future votingEndsAt', () => {
@@ -133,9 +143,9 @@ describe('castVoteSchema', () => {
   });
 
   it('rejects a reason longer than 2000 characters', () => {
-    expect(
-      castVoteSchema.safeParse({ choice: 'for', reason: 'r'.repeat(2001) }).success
-    ).toBe(false);
+    expect(castVoteSchema.safeParse({ choice: 'for', reason: 'r'.repeat(2001) }).success).toBe(
+      false
+    );
   });
 });
 

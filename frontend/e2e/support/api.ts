@@ -66,6 +66,7 @@ export async function getCommunity(
     );
   }
 
-  const envelope = (await response.json()) as Envelope<CommunityRecord>;
-  return envelope.data;
+  // The detail route nests the record beside its statistics.
+  const envelope = (await response.json()) as Envelope<{ community: CommunityRecord }>;
+  return envelope.data.community;
 }

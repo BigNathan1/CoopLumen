@@ -18,21 +18,24 @@ test.use({ viewport: { width: 375, height: 667 } });
 
 test.describe('Responsive mobile layout (375px viewport)', () => {
   test('header collapses navigation into hamburger menu on 375px viewport', async ({ page }) => {
-    await page.goto('/');
+    // The app header (not the landing page's) owns the collapsible menu.
+    await page.goto('/communities');
 
     // Desktop inline navigation links should not be present in the header bar
     const desktopNav = page.locator('header nav[aria-label="Primary"]:not(#header-mobile-menu *)');
     await expect(desktopNav).toHaveCount(0);
 
-    // Mobile menu toggle button should be visible
-    const menuButton = page.getByRole('button', { name: 'Open menu' });
+    // The toggle's accessible name flips between "Open menu" and "Close menu",
+    // so it is located by the menu it controls.
+    const menuButton = page.locator('button[aria-controls="header-mobile-menu"]');
     await expect(menuButton).toBeVisible();
+    await expect(menuButton).toHaveAccessibleName('Open menu');
     await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
 
     // Click menu toggle to expand mobile menu
     await menuButton.click();
     await expect(menuButton).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.getByRole('button', { name: 'Close menu' })).toBeVisible();
+    await expect(menuButton).toHaveAccessibleName('Close menu');
 
     // Mobile navigation container should be rendered with primary navigation links
     const mobileMenu = page.locator('#header-mobile-menu');
@@ -41,9 +44,9 @@ test.describe('Responsive mobile layout (375px viewport)', () => {
     await expect(mobileMenu.getByRole('link', { name: 'Communities' })).toBeVisible();
 
     // Clicking close menu should collapse the menu
-    await page.getByRole('button', { name: 'Close menu' }).click();
-    await expect(page.getByRole('button', { name: 'Open menu' })).toBeVisible();
-    await expect(page.locator('#header-mobile-menu')).not.toBeAttached();
+    await menuButton.click();
+    await expect(menuButton).toHaveAccessibleName('Open menu');
+    await expect(mobileMenu).not.toBeAttached();
   });
 
   test('landing page fits within 375px viewport without horizontal overflow', async ({ page }) => {

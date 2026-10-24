@@ -1,7 +1,7 @@
 import { buildTrustlineSchema } from '../trustline';
 
-const KEY = `G${'A'.repeat(55)}`;
-const KEY2 = `G${'B'.repeat(55)}`;
+const KEY = 'GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR';
+const KEY2 = 'GCATS5YOVB6ROX2WUNKGNQ2MP3GMXDMKSG2O4N5CLX3A6W4PZGZZI55U';
 
 const VALID = {
   accountPublicKey: KEY,
@@ -31,7 +31,9 @@ describe('buildTrustlineSchema', () => {
   });
 
   it('rejects an invalid accountPublicKey', () => {
-    expect(buildTrustlineSchema.safeParse({ ...VALID, accountPublicKey: 'bad' }).success).toBe(false);
+    expect(buildTrustlineSchema.safeParse({ ...VALID, accountPublicKey: 'bad' }).success).toBe(
+      false
+    );
   });
 
   it('rejects an invalid assetIssuer', () => {
@@ -43,7 +45,9 @@ describe('buildTrustlineSchema', () => {
   });
 
   it('rejects an assetCode longer than 12 characters', () => {
-    expect(buildTrustlineSchema.safeParse({ ...VALID, assetCode: 'TOOLONGCODE12' }).success).toBe(false);
+    expect(buildTrustlineSchema.safeParse({ ...VALID, assetCode: 'TOOLONGCODE12' }).success).toBe(
+      false
+    );
   });
 
   it('rejects a non-alphanumeric assetCode', () => {
