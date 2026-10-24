@@ -16,6 +16,20 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Automated GitHub release publication workflow (`.github/workflows/release.yml`) using `semantic-release` configured via `release.config.js` to publish versioned GitHub releases on merge to `main` (#416).
 - Automated container image publishing workflow (`.github/workflows/publish-docker.yml`) building and pushing multi-stage backend and frontend container images to GitHub Container Registry (GHCR) on merge to `main` (#417).
 
+- Playwright E2E test suite for the custom 404 page (`frontend/e2e/not-found.spec.ts`) verifying HTTP 404 status, page metadata, heading, and recovery links across unknown top-level and nested routes against the Docker Compose stack (#400, #322).
+- Playwright HTML report output (`frontend/playwright-report/`) and CI artifact upload (`playwright-report`) in `.github/workflows/ci.yml` so E2E reports and failure traces are preserved on every run (#401, #323).
+- Codecov test coverage badge in `README.md` and coverage upload steps in `.github/workflows/ci.yml` (#402, #324).
+- Dedicated `e2e` job in `.github/workflows/ci.yml` booting the Docker Compose stack (`docker-compose.yml` + `docker-compose.e2e.yml`), running database migrations, executing the Playwright E2E suite, and gating `quality-gate` (#411, #333).
+- Stellar testnet live Friendbot integration test covering account funding, loading, custom asset trustline creation, issuance, and payment error handling (`backend/src/contracts/__tests__/stellar.testnet.test.ts`) (#403, #325).
+- Playwright E2E browser test for viewing community transaction history with query filtering and empty states against the running stack (`frontend/e2e/transactions.spec.ts`) (#397, #319).
+- Playwright E2E browser test for responsive mobile layout on a 375px viewport checking navigation drawer toggle and layout bounds (`frontend/e2e/responsive-mobile.spec.ts`) (#398, #320).
+- CI test coverage threshold enforcement failing builds below 70% backend and 60% frontend coverage in Jest and GitHub Actions workflow (#409, #331).
+
+- Redis-backed `express-rate-limit` store (`rate-limit-redis`) with per-route limits: 300 requests/min API-wide, 20/min on `/api/v1/auth`, 30/min on `/api/v1/tokens`, and the existing 10/min write limit, so limits hold across backend instances. Falls back to an in-memory store without `REDIS_URL` and fails open, with a logged warning, when Redis is unreachable. New optional `TRUST_PROXY` setting so per-IP limits see the real client address behind a proxy. See `docs/rate-limiting.md` (#429, #351).
+- `express-slow-down` graduated slowdown ahead of each hard rate limit, backed by the same Redis store, so a client sending too much is delayed progressively before it is blocked with HTTP 429 (#430, #352).
+- SonarCloud analysis and quality gate in CI (`sonarcloud` job, `sonar-project.properties`), fed by backend and frontend lcov coverage and required by `quality-gate`. Needs the `SONAR_TOKEN` secret; skipped with a warning where secrets are unavailable, such as fork PRs (#426, #348).
+- Zero-downtime blue/green deployment of the API: `docker-compose.prod.yml` with an nginx proxy and two backend slots, `scripts/deploy/deploy.sh` and `wait-for-health.sh` (health-check polling with automatic rollback), a `deploy.yml` workflow that stays inactive until `DEPLOY_ENABLED` and the deploy secrets are configured, a `deploy-scripts` CI job covering the pass, failed-health-check and rollback paths, and documentation in `docs/ci-cd.md` (#425, #347).
+- The API drains in-flight requests on `SIGTERM`/`SIGINT` before exiting, so retiring a container does not drop requests (#425, #347).
 - Double-submit cookie CSRF protection (`csrfProtection` middleware) guarding state-changing routes under `/api/v1`, with `GET /api/v1/auth/csrf` endpoint, `cooplumen_csrf` cookie management, and OpenAPI documentation (#359, #281).
 - Community write endpoints (`POST /api/v1/communities`, `PUT /:id`, `DELETE /:id`, `POST /:id/members`, `PUT /:id/members/:address`, `DELETE /:id/members/:address`, `POST /:id/avatar`) guarded with `authenticateJWT` (#356, #278).
 - Community member removal (`DELETE /api/v1/communities/:id/members/:address`) guarded with `requireRole(['admin'])` (#358, #280).
@@ -270,6 +284,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - New `reputation_scores` rows now start at the neutral score `50` instead of `0`, matching the midpoint the scoring formula converges on for a member with no borrowing history
 - Migration 001 is now the single source of truth for the `schema_migrations` table: the runner bootstraps by executing that file instead of an inlined copy of the DDL, and records it as applied so it is never replayed
 - `schema_migrations` gained an `applied_at` index and table/column comments
+
+### Fixed
+
+- JSON request bodies are now limited to 10kb in `backend/src/app.ts`. Oversized payloads are rejected with `413` before they are fully buffered, closing a memory-exhaustion vector on every JSON endpoint. `POST /api/v1/tokens/transfer` keeps a 100kb limit because its `signedXdr` can exceed 10kb (#431).
 - Restored `backend/src/api/routes/transactions.ts`, `backend/src/api/schemas/transaction.ts`, `backend/src/contracts/stellar.ts`, `backend/src/api/middleware/rateLimit.ts`, and `backend/src/api/routes/tokens.ts` after three PRs generated against a stale base were merged directly and left `main` unable to compile — each duplicated functionality already added in a prior PR (transaction-hash lookup, CSV export, and token-issuance rate limiting), and GitHub's merge produced garbled, duplicated code in the process. Also removed two stray `pnpm-lock.yaml` files (this is an npm-only monorepo).
 - `frontend/src/hooks/useToast.tsx` is now marked `'use client'`. It uses `useState`/`useEffect` and is rendered from the root layout, so without the directive `npm run build` failed with a Server Component error (#260).
 - Restored `backend/src/contracts/transactions.ts` (`buildUnsignedPayment`), which a prior cleanup commit deleted as unused dead code without also removing its only caller, `POST /api/v1/transactions/unsigned` — leaving the backend unable to compile or run its test suite.

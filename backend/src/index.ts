@@ -20,14 +20,64 @@ function validateEnv(): void {
 
 const PORT = process.env.PORT ?? 4000;
 
+let isShuttingDown = false;
+
 async function main(): Promise<void> {
   validateEnv();
 
   await db.connect();
   logger.info('Database connected');
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     logger.info(`CoopLumen API running on port ${PORT}`);
+  });
+
+  // Blue/green deploys retire the old container with SIGTERM after traffic has
+  // moved. Stop accepting connections but let in-flight requests finish, so the
+  // switch drops nothing. The timer is a backstop below the compose
+  // stop_grace_period (30s) so a hung connection cannot block the stop.
+  const shutdown = (signal: string): void => {
+    logger.info(`${signal} received; draining connections`);
+    const forceExit = setTimeout(() => {
+      logger.warn('Drain timed out; exiting');
+      process.exit(1);
+    }, 25_000);
+    forceExit.unref();
+    server.close(() => {
+      process.exit(0);
+    });
+    server.closeIdleConnections();
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  // Graceful shutdown handler for SIGTERM
+  process.on('SIGTERM', async () => {
+    if (isShuttingDown) {
+      return;
+    }
+    isShuttingDown = true;
+
+    logger.info('SIGTERM received, starting graceful shutdown');
+
+    try {
+      // Close HTTP server first (stops accepting new connections)
+      await new Promise<void>((resolve, reject) => {
+        server.close((err?: Error) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+      logger.info('HTTP server closed');
+
+      // Close database pool
+      await db.end();
+      logger.info('Database pool closed');
+
+      process.exit(0);
+    } catch (err) {
+      logger.error('Error during graceful shutdown', err);
+      process.exit(1);
+    }
   });
 }
 

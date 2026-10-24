@@ -145,7 +145,6 @@ describe('governance proposal routes', () => {
 
     it('rejects a caller who is not an active community member', async () => {
       mockDb.query.mockResolvedValueOnce([{ exists: false }]);
-      query.mockResolvedValueOnce([{ exists: false }]);
 
       const response = await request(app)
         .post('/api/v1/proposals')
