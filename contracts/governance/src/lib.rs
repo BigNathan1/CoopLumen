@@ -589,6 +589,7 @@ impl GovernanceContract {
         for action in proposal.actions.iter() {
             // Validate the action string is non-empty before recording it.
             if action.is_empty() {
+                #[allow(deprecated)]
                 env.events()
                     .publish((TOPIC_EXECUTION_FAILED, proposal_id), action.clone());
                 continue;
@@ -597,6 +598,7 @@ impl GovernanceContract {
             // Emit the action for off-chain executors / indexers.
             // In a production contract this is where cross-contract calls or
             // sub-invocations keyed on the action prefix would be dispatched.
+            #[allow(deprecated)]
             env.events()
                 .publish((TOPIC_PROPOSAL_EXECUTED, proposal_id), action.clone());
         }

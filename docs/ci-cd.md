@@ -20,6 +20,19 @@ the runtime is a one-line change.
 
 ### Jobs
 
+| Job              | What it checks                                                                                                                                                                                             | Timeout |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `lint`           | ESLint + Prettier `--check` for `backend/`, `frontend/`, and the repo root (root covers `scripts/`, `docs/`, and config files that per-workspace runs left unexamined)                                     | 20 min  |
+| `typecheck`      | `tsc --noEmit` for both packages                                                                                                                                                                           | 20 min  |
+| `test-backend`   | Jest against real Postgres 16 and Redis 7 service containers; migrations run first; tests run serially (`--runInBand --coverage`) to avoid race conditions on a shared DB and upload coverage to Codecov   | 20 min  |
+| `test-frontend`  | Jest (jsdom) for components and hooks (`--runInBand --coverage`), with coverage uploaded to Codecov when `CODECOV_TOKEN` is configured                                                                     | 20 min  |
+| `test-contracts` | `cargo test --workspace` for the Soroban governance smart contract crate                                                                                                                                   | 20 min  |
+| `e2e`            | Boots the full Docker Compose stack (`docker-compose.yml` + `docker-compose.e2e.yml`), runs migrations, executes the Playwright E2E suite (`npm run test:e2e`), and uploads `playwright-report` artifacts  | 30 min  |
+| `build`          | `npm run build` for both packages — catches build-only breakage that `tsc --noEmit` alone misses (e.g. Next.js server/client boundary errors)                                                              | —       |
+| `docker-build`   | `docker build` for both `Dockerfile`s — catches breakage in the production image path specifically                                                                                                         | —       |
+| `security-audit` | `npm audit --omit=dev --audit-level=high` for both packages fails the job on a high-severity advisory in a production dependency. A full audit including dev tooling is reported but does not fail the job | —       |
+| `commitlint`     | Every commit in the PR against `commitlint.config.js` (Conventional Commits). PR-only (skipped on direct pushes). Requires `fetch-depth: 0` so the full commit range is available                          | —       |
+| `quality-gate`   | Aggregates `lint`, `typecheck`, `test-backend`, `test-frontend`, `test-contracts`, `e2e`, `build`, `docker-build`, and `commitlint` into one pass/fail. Point branch protection at this single job         | —       |
 | Job              | What it checks                                                                                                                                                                                                           | Timeout |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
 | `lint`           | ESLint + Prettier `--check` for `backend/`, `frontend/`, and the repo root (root covers `scripts/`, `docs/`, and config files that per-workspace runs left unexamined)                                                   | 20 min  |

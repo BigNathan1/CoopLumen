@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Playwright E2E test suite for the custom 404 page (`frontend/e2e/not-found.spec.ts`) verifying HTTP 404 status, page metadata, heading, and recovery links across unknown top-level and nested routes against the Docker Compose stack (#400, #322).
+- Playwright HTML report output (`frontend/playwright-report/`) and CI artifact upload (`playwright-report`) in `.github/workflows/ci.yml` so E2E reports and failure traces are preserved on every run (#401, #323).
+- Codecov test coverage badge in `README.md` and coverage upload steps in `.github/workflows/ci.yml` (#402, #324).
+- Dedicated `e2e` job in `.github/workflows/ci.yml` booting the Docker Compose stack (`docker-compose.yml` + `docker-compose.e2e.yml`), running database migrations, executing the Playwright E2E suite, and gating `quality-gate` (#411, #333).
 - Stellar testnet live Friendbot integration test covering account funding, loading, custom asset trustline creation, issuance, and payment error handling (`backend/src/contracts/__tests__/stellar.testnet.test.ts`) (#403, #325).
 - Playwright E2E browser test for viewing community transaction history with query filtering and empty states against the running stack (`frontend/e2e/transactions.spec.ts`) (#397, #319).
 - Playwright E2E browser test for responsive mobile layout on a 375px viewport checking navigation drawer toggle and layout bounds (`frontend/e2e/responsive-mobile.spec.ts`) (#398, #320).
