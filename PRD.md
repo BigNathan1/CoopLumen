@@ -53,7 +53,7 @@ CoopLumen is an open-source, decentralized community finance network built on th
 
 ## 3. Solution Overview
 
-CoopLumen leverages Stellar's strengths — near-zero fees, 3–5 second finality, built-in asset primitives — to give any community a sovereign financial layer:
+CoopLumen uses Stellar's strengths — near-zero fees, 3–5 second finality, built-in asset primitives — to give any community a sovereign financial layer:
 
 1. **Community tokens** — Any group issues its own asset (e.g., `ECOLGS` for Eco Lagos), redeemable within the community
 2. **Shared treasury** — Multi-sig distributor accounts hold and disburse community funds transparently

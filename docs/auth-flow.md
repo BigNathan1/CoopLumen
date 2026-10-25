@@ -132,7 +132,7 @@ sequenceDiagram
     Frontend->>API: POST /api/v1/auth/verify { address, challenge, signature }
     API-->>Frontend: 200 OK + new session token & cookies
     Frontend->>Frontend: Update setAuthToken & close ReauthModal
-    Frontend->>User: Session restored seamlessly
+    Frontend->>User: Session restored
 ```
 
 ---
