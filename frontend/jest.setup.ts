@@ -16,30 +16,11 @@ import '@testing-library/jest-dom';
 
 // Mock WatchWalletChanges class for observing wallet state changes
 class MockWatchWalletChanges {
-  private callback:
-    | ((params: {
-        address: string;
-        network: string;
-        networkPassphrase: string;
-        error?: { code: number; message: string };
-      }) => void)
-    | null = null;
-
-  watch(
-    cb: (params: {
-      address: string;
-      network: string;
-      networkPassphrase: string;
-      error?: { code: number; message: string };
-    }) => void
-  ) {
-    this.callback = cb;
+  watch(): Record<string, never> {
     return {};
   }
 
-  stop() {
-    this.callback = null;
-  }
+  stop(): void {}
 }
 
 // Default mock implementations for all Freighter API functions

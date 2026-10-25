@@ -6,7 +6,7 @@ const mockMutate = jest.fn();
 
 jest.mock('swr', () => ({
   __esModule: true,
-  default: (key: string | null, fetcher: (url: string) => Promise<unknown>) => {
+  default: (key: string | null, _fetcher: (url: string) => Promise<unknown>) => {
     if (!key) {
       return { data: undefined, error: undefined, isLoading: false, mutate: mockMutate };
     }

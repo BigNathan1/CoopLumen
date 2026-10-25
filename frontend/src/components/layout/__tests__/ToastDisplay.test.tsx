@@ -1,7 +1,6 @@
-import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { useToast, ToastProvider } from '@/hooks/useToast';
 import { ToastDisplay } from '../ToastDisplay';
-import userEvent from '@testing-library/user-event';
 
 /**
  * Test component that allows us to trigger toasts from tests.
@@ -323,28 +322,20 @@ describe('Toast System', () => {
       expect(screen.queryByLabelText('Dismiss notification')).not.toBeInTheDocument();
     });
 
-    it('can dismiss via API method', async () => {
+    it('dismisses every toast through dismissAll', async () => {
       let toastApi: ReturnType<typeof useToast>;
-      let toastId: string | undefined;
 
       renderWithToast(null, (api) => {
         toastApi = api;
       });
 
       act(() => {
-        // Store toast id from internal state if possible
         toastApi!.success('Message');
       });
 
       expect(screen.getByText('Message')).toBeInTheDocument();
 
-      // Access the toast id through the displayed toast
-      const toast = screen.getByText('Message').closest('[role="status"]');
-      const toastContent = toast?.textContent;
-
-      // Simulate manual dismiss via context
       act(() => {
-        // We'll test dismissAll instead since we don't have direct id access
         toastApi!.dismissAll();
       });
 

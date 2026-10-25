@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Table, type TableColumn, type SortDirection } from '@/components/ui/Table';
+import { Table, type TableColumn } from '@/components/ui/Table';
 
 interface TestRow extends Record<string, unknown> {
   name: string;

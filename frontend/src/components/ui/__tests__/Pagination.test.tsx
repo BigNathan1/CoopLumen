@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { PaginationInner, type PaginationInnerProps } from '@/components/ui/Pagination';
+import { PaginationInner } from '@/components/ui/Pagination';
 
 /**
  * A mock pagination state that simulates the hook's interface without touching

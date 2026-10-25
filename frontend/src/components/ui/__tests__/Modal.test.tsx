@@ -327,7 +327,7 @@ describe('Modal', () => {
     });
 
     it('handles modals with only non-focusable content', async () => {
-      const { container } = render(
+      render(
         <Modal isOpen={true} onClose={jest.fn()} title="Test Modal">
           <div>
             <p>Some text</p>

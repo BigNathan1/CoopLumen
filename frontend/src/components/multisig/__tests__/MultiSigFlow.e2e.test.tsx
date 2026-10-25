@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MultiSigProposalDetail } from '../MultiSigProposalDetail';
 import { MultiSigProposalList, MultiSigProposal } from '../MultiSigProposalList';
@@ -15,7 +15,7 @@ function MultiSigWorkflowDashboard({
   currentUserAddress: string;
 }) {
   const [requests, setRequests] = useState<MultiSigRequest[]>(initialRequests);
-  const [selectedId, setSelectedId] = useState<string | null>(initialRequests[0]?.id ?? null);
+  const [selectedId] = useState<string | null>(initialRequests[0]?.id ?? null);
 
   const selectedRequest = requests.find((r) => r.id === selectedId);
 

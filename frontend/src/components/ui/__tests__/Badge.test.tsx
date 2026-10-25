@@ -29,7 +29,7 @@ describe('Badge', () => {
   });
 
   it('shows a dot indicator when dot is true', () => {
-    const { container } = render(<Badge dot>Live</Badge>);
+    render(<Badge dot>Live</Badge>);
     const badge = screen.getByText('Live');
     const hiddenSpans = badge.querySelectorAll('[aria-hidden="true"]');
     expect(hiddenSpans.length).toBe(1);
