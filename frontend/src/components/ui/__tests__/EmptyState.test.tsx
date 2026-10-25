@@ -19,12 +19,12 @@ describe('EmptyState', () => {
   });
 
   it('renders an icon when provided', () => {
-    render(<EmptyState message="No items" icon={<span data-testid="test-icon">📦</span>} />);
+    render(<EmptyState message="No items" icon={<svg data-testid="test-icon" />} />);
     expect(screen.getByTestId('test-icon')).toBeInTheDocument();
   });
 
   it('marks the icon container as aria-hidden', () => {
-    const { container } = render(<EmptyState message="No items" icon={<span>📦</span>} />);
+    const { container } = render(<EmptyState message="No items" icon={<svg />} />);
     const iconContainer = container.querySelector('.empty-state-icon');
     expect(iconContainer).toHaveAttribute('aria-hidden', 'true');
   });
@@ -117,7 +117,7 @@ describe('EmptyState', () => {
         <EmptyState
           title="No communities yet"
           message="Create your first community to get started"
-          icon={<span data-testid="icon">🏘️</span>}
+          icon={<svg data-testid="icon" />}
           action={<button>Create community</button>}
           className="communities-empty"
         />

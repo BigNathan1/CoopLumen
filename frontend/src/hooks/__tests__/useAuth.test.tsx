@@ -63,7 +63,7 @@ describe('useAuth & AuthProvider', () => {
     });
   });
 
-  describe('Interface & Return Shape (Issue #361)', () => {
+  describe('Interface & Return Shape', () => {
     it('exposes { publicKey, address, isAuthenticated, login, logout }', () => {
       const { result } = renderHook(() => useAuth(), {
         wrapper: ({ children }) => <AuthProvider>{children}</AuthProvider>,

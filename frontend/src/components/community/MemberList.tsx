@@ -8,6 +8,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Badge, type BadgeVariant } from '@/components/ui/Badge';
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 import { Alert } from '@/components/ui/Alert';
+import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PaginationInner } from '@/components/ui/Pagination';
 import styles from './MemberList.module.css';
@@ -319,6 +320,12 @@ export function MemberList({
         <Alert variant="error" title="Could not load members">
           {effectiveError.message}
         </Alert>
+        {/* Only a load this component made itself can be retried here. */}
+        {!error && (
+          <Button variant="secondary" size="sm" onClick={() => setRetry((count) => count + 1)}>
+            Try again
+          </Button>
+        )}
       </section>
     );
   }

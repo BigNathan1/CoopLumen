@@ -127,7 +127,7 @@ describe('logger', () => {
   });
 
   describe('non-production format', () => {
-    it.each([{ NODE_ENV: 'development' }, { NODE_ENV: 'test' }, {}])(
+    it.each([{ NODE_ENV: 'development' }, { NODE_ENV: 'test', LOG_LEVEL: 'info' }, {}])(
       'pretty-prints instead of emitting JSON (%j)',
       (env) => {
         const { logger, lines } = loadLogger(env);
@@ -140,5 +140,12 @@ describe('logger', () => {
         expect(lines[0]).toEqual(expect.stringContaining('timestamp'));
       }
     );
+  });
+
+  describe('under Jest', () => {
+    it('stays silent unless LOG_LEVEL is set', () => {
+      expect(loadLogger({ NODE_ENV: 'test' }).logger.silent).toBe(true);
+      expect(loadLogger({ NODE_ENV: 'test', LOG_LEVEL: 'debug' }).logger.silent).toBe(false);
+    });
   });
 });

@@ -188,5 +188,31 @@ describe('MemberList', () => {
 
       raw.mockRestore();
     });
+
+    it('retries a failed load when asked', async () => {
+      const raw = jest
+        .spyOn(api, 'raw')
+        .mockRejectedValueOnce(new Error('Network failure'))
+        .mockResolvedValueOnce({
+          data: [remoteMember(1)],
+          meta: { total: 1, page: 1, limit: 10, pages: 1, offset: 0 },
+        });
+
+      render(<MemberList communityId="community-1" />);
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+
+      await waitFor(() =>
+        expect(screen.getByTitle(remoteMember(1).stellar_address)).toBeInTheDocument()
+      );
+      expect(raw).toHaveBeenCalledTimes(2);
+
+      raw.mockRestore();
+    });
+
+    it('offers no retry for an error passed in by the parent', () => {
+      render(<MemberList members={undefined} isLoading={false} error={new Error('oops')} />);
+      expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+    });
   });
 });

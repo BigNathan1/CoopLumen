@@ -13,9 +13,7 @@
 
 import { z } from 'zod';
 
-/* -------------------------------------------------------------------------- */
-/* Primitives                                                                 */
-/* -------------------------------------------------------------------------- */
+// Primitives
 
 /**
  * A Stellar account address: `G` followed by 55 base32 characters.
@@ -105,9 +103,7 @@ export const memoSchema = z.union([
   z.object({ type: z.literal('hash'), value: hashMemoSchema }),
 ]);
 
-/* -------------------------------------------------------------------------- */
-/* Communities                                                                */
-/* -------------------------------------------------------------------------- */
+// Communities
 
 export const createCommunitySchema = z.object({
   name: z
@@ -155,9 +151,7 @@ export const setAvatarSchema = z.object({
     .refine((value) => value.startsWith('https://'), 'Avatar URL must use https'),
 });
 
-/* -------------------------------------------------------------------------- */
-/* Members                                                                    */
-/* -------------------------------------------------------------------------- */
+// Members
 
 export const addMemberSchema = z.object({
   stellarAddress: stellarPublicKeySchema,
@@ -168,9 +162,7 @@ export const updateMemberSchema = z.object({
   role: memberRoleSchema,
 });
 
-/* -------------------------------------------------------------------------- */
-/* Stellar operations                                                         */
-/* -------------------------------------------------------------------------- */
+// Stellar operations
 
 export const buildTrustlineSchema = z.object({
   accountPublicKey: stellarPublicKeySchema,
@@ -209,9 +201,7 @@ export const createLoanSchema = z.object({
   dueAt: z.coerce.date().optional(),
 });
 
-/* -------------------------------------------------------------------------- */
-/* Query parameters                                                           */
-/* -------------------------------------------------------------------------- */
+// Query parameters
 
 /** List query for paginated endpoints; values are coerced from the URL. */
 export const listQuerySchema = z.object({
@@ -227,9 +217,7 @@ export const listQuerySchema = z.object({
   order: z.enum(['ASC', 'DESC']).default('DESC'),
 });
 
-/* -------------------------------------------------------------------------- */
-/* Inferred types                                                             */
-/* -------------------------------------------------------------------------- */
+// Inferred types
 
 export type StellarPublicKey = z.infer<typeof stellarPublicKeySchema>;
 export type MemberRole = z.infer<typeof memberRoleSchema>;
@@ -244,9 +232,7 @@ export type PaymentInput = z.infer<typeof paymentSchema>;
 export type CreateLoanInput = z.infer<typeof createLoanSchema>;
 export type ListQueryInput = z.infer<typeof listQuerySchema>;
 
-/* -------------------------------------------------------------------------- */
-/* Helpers                                                                    */
-/* -------------------------------------------------------------------------- */
+// Helpers
 
 /**
  * Flattens a `ZodError` into a `field -> message` map keyed by dotted path,

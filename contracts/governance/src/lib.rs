@@ -1014,9 +1014,7 @@ impl GovernanceContract {
             .unwrap_or(Vec::new(&env))
     }
 
-    // -----------------------------------------------------------------------
     // Operation-scoped roles, admin handover, scoped pause, and upgrades
-    // -----------------------------------------------------------------------
 
     /// Grant an operation-scoped governance role to an account.
     ///

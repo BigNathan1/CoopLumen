@@ -6,7 +6,7 @@ import { setUnauthorizedHandler } from '@/lib/api';
 import { ReauthModal } from '@/components/auth/ReauthModal';
 
 export interface AuthContextType {
-  /** Connected and authenticated Stellar public address, or null if disconnected (Issue #361) */
+  /** Connected and authenticated Stellar public address, or null if disconnected */
   publicKey: string | null;
   /** The active authenticated Stellar public address, or null */
   address: string | null;

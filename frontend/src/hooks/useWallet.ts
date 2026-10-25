@@ -46,15 +46,10 @@ export const EXPECTED_NETWORK = (
  * subsequent API requests are authenticated as the connected address.
  * Freighter injects into the browser; SSR calls are safely no-ops.
  *
- * Auto-reconnects on mount if the site is already allowed (issue #251):
- * Freighter remembers a prior grant itself, so re-asking the user to click
- * Connect again on every page load/reload would be a needless extra step.
- * While connected, `WatchWalletChanges` (native to `@stellar/freighter-api`
- * v6+, added after this hook's `^2.0.0` had no change-subscription API at
- * all) watches for the user switching accounts or networks *inside*
- * Freighter itself and reacts to either. It still polls internally -- there
- * is no real push event from the extension -- so the 5s interval passed to
- * it below matches the cadence this hook polled manually before v6.
+ * Reconnects on mount when the site is already allowed, since Freighter
+ * remembers the grant. While connected, `WatchWalletChanges` follows account
+ * and network switches made inside Freighter; it polls, as the extension has
+ * no push events, every 5s.
  */
 export function useWallet() {
   const [state, setState] = useState<WalletState>(INITIAL_STATE);
@@ -164,7 +159,7 @@ export function useWallet() {
     setState(INITIAL_STATE);
   }, []);
 
-  // Auto-reconnect on page load/reload (issue #251). `isConnected()` is not
+  // Auto-reconnect on page load/reload. `isConnected()` is not
   // the right check here -- it only reports whether the extension itself is
   // present, true even for a site it has never been asked about. `isAllowed()`
   // is the actual per-site grant check: true only once the user has approved
@@ -208,11 +203,8 @@ export function useWallet() {
 
       watcher = new WatchWalletChanges(5_000);
       watcher.watch(({ address, network, networkPassphrase, error }) => {
-        // On a transient error, `WatchWalletChanges` can still invoke the
-        // callback again right after with blank fields (its internal
-        // "changed" check compares against the real last-known values) --
-        // both are ignored the same way the old poll's catch block ignored
-        // transient errors.
+        // A transient error can be followed by a callback with blank fields;
+        // both are ignored.
         if (cancelled || error || !address) return;
 
         setState((s) => {

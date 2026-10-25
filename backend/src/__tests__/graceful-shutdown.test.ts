@@ -1,6 +1,6 @@
 /**
  * Graceful shutdown — SIGTERM/SIGINT drain the HTTP server, then close the DB pool.
- * Issue #383. Exercises the real handlers registered by src/index.ts.
+ * Exercises the real handlers registered by src/index.ts.
  */
 
 type Handler = () => void;

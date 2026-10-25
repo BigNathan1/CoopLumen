@@ -1,6 +1,6 @@
 /**
  * Unit tests for db/index.ts query() and transaction() helpers
- * Issue #377 - Tests the database wrapper functions with mocked pg Pool
+ * Exercises the database wrapper functions against a mocked pg Pool.
  */
 
 import { Pool, PoolClient, QueryResult } from 'pg';

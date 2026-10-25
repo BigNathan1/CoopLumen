@@ -33,7 +33,6 @@ export function CommunityCard({ community, onJoin }: Props): React.JSX.Element {
 
   return (
     <article className={styles.card}>
-      {/* AC: Navigate to community detail page on click (#297) */}
       <Link
         href={`/communities/${communityId}`}
         className={styles.linkOverlay}
@@ -53,7 +52,6 @@ export function CommunityCard({ community, onJoin }: Props): React.JSX.Element {
           <span>Created {createdDate}</span>
         </div>
 
-        {/* AC: Member count and token count (#296) */}
         <div className={styles.metrics}>
           <div className={styles.metric}>
             <span className={styles.metricValue}>{community.member_count ?? 0}</span>
@@ -66,7 +64,6 @@ export function CommunityCard({ community, onJoin }: Props): React.JSX.Element {
         </div>
       </div>
 
-      {/* AC: Join button (#296) */}
       <div className={styles.actions}>
         <button
           onClick={handleJoinClick}

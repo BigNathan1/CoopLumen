@@ -8,25 +8,29 @@ RESET := \033[0m
 .PHONY: help
 help:
 	@echo ""
-	@echo "  $(CYAN)CoopLumen — available commands$(RESET)"
+	@echo "  $(CYAN)CoopLumen$(RESET)"
 	@echo ""
-	@echo "  $(CYAN)make install$(RESET)      Install all dependencies (root + backend + frontend)"
-	@echo "  $(CYAN)make dev$(RESET)          Start all services via Docker Compose"
-	@echo "  $(CYAN)make dev-local$(RESET)    Start backend and frontend without Docker"
-	@echo "  $(CYAN)make build$(RESET)        Build backend and frontend for production"
-	@echo "  $(CYAN)make lint$(RESET)         Run ESLint on backend and frontend"
-	@echo "  $(CYAN)make format$(RESET)       Format all source files with Prettier"
-	@echo "  $(CYAN)make format-check$(RESET) Check formatting without writing"
-	@echo "  $(CYAN)make type-check$(RESET)   Run TypeScript type checks"
-	@echo "  $(CYAN)make test$(RESET)         Run all tests (backend + frontend)"
-	@echo "  $(CYAN)make test-backend$(RESET) Run backend tests only"
-	@echo "  $(CYAN)make test-frontend$(RESET)Run frontend tests only"
-	@echo "  $(CYAN)make test-e2e$(RESET)    Run the Playwright E2E suite (needs the Docker Compose stack)"
-	@echo "  $(CYAN)make coverage$(RESET)     Run tests with coverage reports"
-	@echo "  $(CYAN)make migrate$(RESET)      Run pending database migrations"
-	@echo "  $(CYAN)make seed$(RESET)         Seed the database with development data"
-	@echo "  $(CYAN)make db-status$(RESET)    Show applied vs pending migrations"
-	@echo "  $(CYAN)make clean$(RESET)        Remove build artefacts and coverage reports"
+	@echo "  $(CYAN)make install      $(RESET)  Install all dependencies (root, backend, frontend)"
+	@echo "  $(CYAN)make dev          $(RESET)  Start all services with Docker Compose"
+	@echo "  $(CYAN)make dev-detach   $(RESET)  Start all services in the background"
+	@echo "  $(CYAN)make stop         $(RESET)  Stop the Docker Compose services"
+	@echo "  $(CYAN)make dev-local    $(RESET)  Start backend and frontend without Docker"
+	@echo "  $(CYAN)make build        $(RESET)  Build backend and frontend for production"
+	@echo "  $(CYAN)make lint         $(RESET)  Run ESLint on backend and frontend"
+	@echo "  $(CYAN)make lint-fix     $(RESET)  Run ESLint and apply automatic fixes"
+	@echo "  $(CYAN)make format       $(RESET)  Format all files with Prettier"
+	@echo "  $(CYAN)make format-check $(RESET)  Check formatting without writing"
+	@echo "  $(CYAN)make type-check   $(RESET)  Run TypeScript type checks"
+	@echo "  $(CYAN)make check        $(RESET)  Run lint, type-check and format-check"
+	@echo "  $(CYAN)make test         $(RESET)  Run backend and frontend tests"
+	@echo "  $(CYAN)make test-backend $(RESET)  Run backend tests only"
+	@echo "  $(CYAN)make test-frontend$(RESET)  Run frontend tests only"
+	@echo "  $(CYAN)make test-e2e     $(RESET)  Run the Playwright suite (needs the Docker Compose stack)"
+	@echo "  $(CYAN)make coverage     $(RESET)  Run tests with coverage reports"
+	@echo "  $(CYAN)make migrate      $(RESET)  Apply pending database migrations"
+	@echo "  $(CYAN)make seed         $(RESET)  Seed the database with development data"
+	@echo "  $(CYAN)make db-status    $(RESET)  Show applied and pending migrations"
+	@echo "  $(CYAN)make clean        $(RESET)  Remove build output and coverage reports"
 	@echo ""
 
 # Dependencies
@@ -39,11 +43,11 @@ install:
 # Development
 .PHONY: dev
 dev:
-	docker-compose up
+	docker compose up
 
 .PHONY: dev-detach
 dev-detach:
-	docker-compose up -d
+	docker compose up -d
 
 .PHONY: dev-local
 dev-local:
@@ -52,7 +56,7 @@ dev-local:
 
 .PHONY: stop
 stop:
-	docker-compose down
+	docker compose down
 
 # Build
 .PHONY: build

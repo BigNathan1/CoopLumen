@@ -60,26 +60,26 @@ cooplumen/
 │   ├── scripts/                # Manual testnet verification scripts
 │   ├── src/
 │   │   ├── api/
-│   │   │   ├── middleware/     # Auth, validation, rate limiting, errors
-│   │   │   ├── routes/         # communities, tokens, balances, loans, reputation
-│   │   │   └── schemas/        # Zod request schemas
+│   │   │   ├── middleware/     # Auth, CSRF, validation, rate limiting, errors
+│   │   │   ├── routes/         # One router per resource
+│   │   │   ├── schemas/        # Zod request schemas
+│   │   │   └── utils/          # Session tokens, cookies, pagination, Horizon errors
 │   │   ├── cache/              # Redis and in-process caches
-│   │   ├── contracts/          # Stellar SDK wrappers
-│   │   │   ├── assets.ts       # Asset issuance and distribution
-│   │   │   ├── trustlines.ts   # Trustline management
-│   │   │   ├── transactions.ts # Payment building and submission
-│   │   │   └── stellar.ts      # Horizon server singleton
+│   │   ├── contracts/          # Stellar SDK layer: assets, trustlines, payments
 │   │   ├── services/           # Non-Stellar integrations (market price feed)
-│   │   ├── db/                 # PostgreSQL pool and migrations
+│   │   ├── db/                 # PostgreSQL pool, migrations and seed data
+│   │   ├── testing/            # Shared test setup, teardown and fixtures
 │   │   └── utils/              # Logger
 │   ├── Dockerfile
 │   └── package.json
 ├── frontend/                   # Next.js (App Router)
+│   ├── e2e/                    # Playwright end-to-end suite and its support code
 │   ├── src/
 │   │   ├── app/                # Routes, layout, global CSS
 │   │   ├── components/
 │   │   │   ├── ui/             # Design-system primitives
 │   │   │   ├── layout/         # Header, footer, sidebar, navigation, theme and locale
+│   │   │   ├── auth/           # Protected routes and re-authentication
 │   │   │   ├── community/      # Community and member forms and lists
 │   │   │   ├── dashboard/      # Dashboard view
 │   │   │   ├── landing/        # Marketing landing page
@@ -95,14 +95,16 @@ cooplumen/
 │   │   └── lib/                # API client, SWR config, schemas, design tokens
 │   ├── Dockerfile
 │   └── package.json
-├── docs/                       # Architecture, database, CI/CD, OpenAPI spec
+├── contracts/governance/       # Soroban governance contract (Rust)
+├── deploy/                     # nginx config for blue/green production deploys
+├── docs/                       # Guides, design and the OpenAPI spec
 ├── scripts/
+│   ├── ci/                     # Branch protection setup
 │   ├── db/                     # Backup and constraint-validation scripts
+│   ├── deploy/                 # Deploy, rollback, smoke-test and notify scripts
 │   └── issues/                 # Backlog tooling
-├── docker-compose.yml
-├── README.md
-├── PRD.md
-└── CONTRIBUTING.md
+├── .github/                    # CI, release, publish and deploy workflows
+└── docker-compose*.yml         # Local, test, E2E and production stacks
 ```
 
 ---
@@ -137,7 +139,7 @@ Edit `backend/.env` to set your Stellar keys and network preference.
 ### 3. Start with Docker (recommended)
 
 ```bash
-docker-compose up
+docker compose up
 ```
 
 This starts:
@@ -149,7 +151,7 @@ This starts:
 ### 4. Run database migrations
 
 ```bash
-docker-compose exec backend npm run db:migrate
+docker compose exec backend npm run db:migrate
 ```
 
 ### 5. Open the app
@@ -275,16 +277,24 @@ The end-to-end suite drives a browser against the whole stack. See
 
 ---
 
-## Links
+## Documentation
 
 - [Product Requirements Document](PRD.md) — goals, roadmap, user stories
 - [Contributing Guide](CONTRIBUTING.md) — branch model, conventions, code review
-- [Wallet Authentication Flow](docs/auth-flow.md) — wallet challenge/verify flow, session tokens, RBAC, 401 handling, and sequence diagram
-- [Testing](docs/testing.md) — unit, component and Playwright end-to-end suites, and how to write a spec
-- [Governance Guide](docs/governance.md) - Soroban proposals, token-weighted voting, quorum, and execution
-- [Multi-Signature & Batch Operations Guide](docs/multisig.md) — multi-sig treasury governance, signing lifecycle, batch payments
-- [Governance Contract ABI and Deployment](docs/governance-contract.md) — contract types, functions, errors, events, and deployment procedure
-- [SEP-12 KYC Requirements](docs/kyc.md) — provider integration, status mapping, privacy, and security requirements
+- [Architecture](docs/architecture.md) — how the frontend, API, database and Stellar fit together
+- [Database](docs/database.md) — schema, conventions and migrations
+- [API reference](docs/openapi.yaml) — OpenAPI specification for every endpoint
+- [Wallet authentication](docs/auth-flow.md) — challenge and verify, session tokens, RBAC and 401 handling
+- [Rate limiting](docs/rate-limiting.md) — per-route limits and graduated slowdown
+- [Governance](docs/governance.md) — Soroban proposals, token-weighted voting, quorum and execution
+- [Governance contract](docs/governance-contract.md) — contract types, functions, errors, events and deployment
+- [Multi-signature and batch operations](docs/multisig.md) — treasury signing lifecycle and batch payments
+- [SEP-12 KYC](docs/kyc.md) — provider integration, status mapping, privacy and security
+- [Testing](docs/testing.md) — unit, component and Playwright end-to-end suites
+- [CI/CD](docs/ci-cd.md) — the CI jobs, quality gate, releases and deploy workflows
+- [Staging](docs/staging.md) — the staging environment and its configuration
+- [Running PostgreSQL](docs/database-operations.md) — connections, pooling, backups and production sizing
+- [Design](docs/design.md) — the Figma file and the screens designed in it
 
 ## Community
 

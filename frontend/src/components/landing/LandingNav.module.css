@@ -103,9 +103,7 @@
   transform: translateY(1px);
 }
 
-/* ---------------------------------------------------------------------------
- * Narrow-screen disclosure
- * ------------------------------------------------------------------------ */
+/* Narrow-screen disclosure */
 
 .menuButton {
   display: inline-flex;

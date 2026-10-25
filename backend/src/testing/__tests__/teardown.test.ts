@@ -11,7 +11,7 @@ import { setupTestDatabase } from '../setup';
 const RUN_INTEGRATION = Boolean(process.env.DATABASE_URL);
 const describeIntegration = RUN_INTEGRATION ? describe : describe.skip;
 
-describe('backend/src/test/teardown.ts (unit)', () => {
+describe('testing/teardown (unit)', () => {
   it('exports required teardown utilities and defaults', () => {
     expect(typeof truncateTables).toBe('function');
     expect(typeof teardownTestSuite).toBe('function');
@@ -57,7 +57,7 @@ describe('backend/src/test/teardown.ts (unit)', () => {
   });
 });
 
-describeIntegration('backend/src/test/teardown.ts (integration)', () => {
+describeIntegration('testing/teardown (integration)', () => {
   let pool: Pool;
 
   beforeAll(() => {

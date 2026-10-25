@@ -10,13 +10,13 @@
  * The animation is disabled entirely for users who have asked for reduced
  * motion; the page still renders — it just appears immediately.
  */
-/* ---------------------------------------------------------------------------
+/*
  * Keyframe — enter
  *
  * Opacity fade-in combined with a vertical translate so the page appears to
  * rise into position. Both properties are on the compositor and cannot trigger
  * layout.
- * ------------------------------------------------------------------------ */
+ */
 @keyframes page-enter {
   from {
     opacity: 0;
@@ -29,9 +29,7 @@
   }
 }
 
-/* ---------------------------------------------------------------------------
- * Wrapper element
- * ------------------------------------------------------------------------ */
+/* Wrapper element */
 .wrapper {
   /*
    * `animation-fill-mode: both` keeps the from-state applied before the

@@ -9,7 +9,7 @@ import { db } from '../../db';
 import { invalidateBalanceCache } from '../../cache/balances';
 import { StellarService } from '../../contracts/stellar';
 import { validateBody } from '../middleware/validate';
-import { requireAdmin, requireAuth, authenticateJWT, requireRole } from '../middleware/auth';
+import { requireAdmin, requireAuth, requireRole } from '../middleware/auth';
 import {
   buildAirdropSchema,
   buildBurnTokenSchema,
@@ -157,7 +157,7 @@ tokenRouter.get(
  */
 tokenRouter.post(
   '/build-issue',
-  authenticateJWT,
+  requireAuth,
   validateBody(buildIssueTokenSchema),
   requireRole(['admin', 'treasurer']),
   async (req: Request, res: Response, next: NextFunction) => {

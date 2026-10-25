@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { requireAuth, requireRole, requireCommunityRole, authenticateJWT } from '../auth';
+import { requireAuth, requireRole } from '../auth';
 import { AUTH_COOKIE_NAME } from '../../utils/authCookie';
 import { createSessionToken } from '../../utils/sessionToken';
 import { db } from '../../../db';
@@ -25,7 +25,7 @@ beforeEach(() => {
   jest.resetAllMocks();
 });
 
-describe('authenticateJWT', () => {
+describe('requireAuth (session cookie)', () => {
   const address = 'GABC';
 
   it('rejects a request with neither cookie nor Authorization header', () => {
@@ -33,7 +33,7 @@ describe('authenticateJWT', () => {
     const res = mockRes();
     const next = jest.fn();
 
-    authenticateJWT(req, res, next);
+    requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({ data: null, error: 'Authentication required' });
@@ -46,7 +46,7 @@ describe('authenticateJWT', () => {
     const res = mockRes();
     const next = jest.fn();
 
-    authenticateJWT(req, res, next);
+    requireAuth(req, res, next);
 
     expect(next).toHaveBeenCalledTimes(1);
     expect(req.auth).toEqual({ address });
@@ -59,7 +59,7 @@ describe('authenticateJWT', () => {
     const res = mockRes();
     const next = jest.fn();
 
-    authenticateJWT(req, res, next);
+    requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({
@@ -76,7 +76,7 @@ describe('authenticateJWT', () => {
     const res = mockRes();
     const next = jest.fn();
 
-    authenticateJWT(req, res, next);
+    requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
@@ -87,7 +87,7 @@ describe('authenticateJWT', () => {
     const res = mockRes();
     const next = jest.fn();
 
-    authenticateJWT(req, res, next);
+    requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
@@ -99,7 +99,7 @@ describe('authenticateJWT', () => {
     const res = mockRes();
     const next = jest.fn();
 
-    authenticateJWT(req, res, next);
+    requireAuth(req, res, next);
 
     expect(next).toHaveBeenCalledTimes(1);
     expect(req.auth).toEqual({ address });
@@ -113,14 +113,14 @@ describe('authenticateJWT', () => {
     const res = mockRes();
     const next = jest.fn();
 
-    authenticateJWT(req, res, next);
+    requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
   });
 });
 
-describe('requireAuth', () => {
+describe('requireAuth (Bearer token)', () => {
   it('rejects a request with no Authorization header', () => {
     const req = { headers: {} } as Request;
     const res = mockRes();
@@ -253,10 +253,6 @@ describe('requireRole', () => {
 
     expect(next).toHaveBeenCalledWith(failure);
     expect(res.json).not.toHaveBeenCalled();
-  });
-
-  it('keeps requireCommunityRole as an alias of requireRole', () => {
-    expect(requireCommunityRole).toBe(requireRole);
   });
 
   it('extracts community ID from params.communityId when params.id is not set', async () => {

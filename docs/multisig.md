@@ -1,9 +1,5 @@
 # Multi-Signature Treasury Controls & Batch Operations
 
-> **Comprehensive guide to multi-signature treasury management, collaborative transaction signing, and atomic batch disbursements in CoopLumen.**
-
----
-
 ## 1. Overview
 
 CoopLumen provides cooperative communities, NGOs, and shared treasuries with decentralized fund management on the Stellar blockchain. When a community outgrows a single trusted administrator, **Multi-Signature (Multi-Sig)** controls allow $N$-of-$M$ signers to co-govern treasury funds without intermediaries.

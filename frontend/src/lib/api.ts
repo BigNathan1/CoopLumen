@@ -282,7 +282,7 @@ async function buildHeaders(
     if (config.getAuthToken) {
       token = await config.getAuthToken();
     }
-    // Fall back to reading JWT from session cookie (Issue #364)
+    // Fall back to the session token in the cookie when one is readable.
     if (!token) {
       token = readCookie(AUTH_COOKIE_NAME);
     }

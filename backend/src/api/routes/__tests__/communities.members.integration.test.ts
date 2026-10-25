@@ -1,7 +1,6 @@
 /**
  * Integration tests for member management endpoints
  * Tests GET, POST, PUT, DELETE operations on /api/v1/communities/:id/members
- * Issue #376 [#298]
  */
 
 import request from 'supertest';

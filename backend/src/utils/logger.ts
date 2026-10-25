@@ -8,4 +8,7 @@ export const logger = winston.createLogger({
     process.env.NODE_ENV === 'production' ? winston.format.json() : winston.format.prettyPrint()
   ),
   transports: [new winston.transports.Console()],
+  // Quiet under Jest so failures are not buried in request logs; set
+  // LOG_LEVEL to see them while debugging a test.
+  silent: process.env.NODE_ENV === 'test' && !process.env.LOG_LEVEL,
 });

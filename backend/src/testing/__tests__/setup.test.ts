@@ -4,7 +4,7 @@ import { setupTestDatabase, runMigrations, runSeeds, setup } from '../setup';
 const RUN_INTEGRATION = Boolean(process.env.DATABASE_URL);
 const describeIntegration = RUN_INTEGRATION ? describe : describe.skip;
 
-describe('backend/src/test/setup.ts (unit)', () => {
+describe('testing/setup (unit)', () => {
   it('exports required setup utilities and defaults', () => {
     expect(typeof setupTestDatabase).toBe('function');
     expect(typeof runMigrations).toBe('function');
@@ -48,7 +48,7 @@ describe('backend/src/test/setup.ts (unit)', () => {
   });
 });
 
-describeIntegration('backend/src/test/setup.ts (integration)', () => {
+describeIntegration('testing/setup (integration)', () => {
   let pool: Pool;
 
   beforeAll(() => {
