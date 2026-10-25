@@ -39,5 +39,15 @@ export function useCommunities(filters: CommunitiesFilters = {}) {
  * fetch".
  */
 export function useCommunity(id: string) {
-  return useSWR<Community>(id ? `/api/v1/communities/${id}` : null, fetcher);
+  return useSWR<Community>(id ? `/api/v1/communities/${id}` : null, fetchCommunityDetail);
+}
+
+/**
+ * The detail route returns `{ community, statistics }` rather than the bare
+ * record, so the record is unwrapped here and every caller keeps reading a
+ * plain {@link Community}.
+ */
+async function fetchCommunityDetail(path: string): Promise<Community> {
+  const detail = await fetcher<{ community: Community }>(path);
+  return detail.community;
 }
