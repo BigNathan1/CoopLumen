@@ -1,0 +1,231 @@
+name: Staging
+
+# Deploys every green push to main to the staging host before anyone promotes it,
+# applying pending database migrations first. It uses the same blue/green script
+# as production (scripts/deploy/deploy.sh) with RUN_MIGRATIONS=true, so a failed
+# migration or an unhealthy new version stops the deploy and the version already
+# on staging keeps serving. See docs/ci-cd.md.
+#
+# STAGING_PLATFORM picks the host. Unset (or 'ssh'), the image is built, pushed
+# to GHCR and deployed over SSH as above. 'fly' deploys with fly.staging.toml to
+# Fly.io instead. Either way the smoke tests in scripts/deploy/smoke-test.sh run
+# against STAGING_URL afterwards.
+#
+# Nothing here runs until a staging host exists: set the repository variable
+# STAGING_ENABLED=true and the secrets listed in docs/ci-cd.md. Until then every
+# job is skipped, so merging this workflow cannot fail or deploy anything.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref (branch, tag or SHA) to deploy to staging; defaults to main'
+        required: false
+        default: main
+
+# Staging deploys queue rather than overlap or cancel one another mid-switch.
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: cooplumen-backend
+
+jobs:
+  build:
+    name: Build and push staging image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Only a green CI run on a push to main deploys automatically; a manual run
+    # deploys whatever ref the operator names.
+    if: >-
+      vars.STAGING_PLATFORM != 'fly' &&
+      vars.STAGING_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'))
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
+
+      - name: Compute image reference
+        id: meta
+        run: |
+          owner="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
+          sha="$(git rev-parse --short=12 HEAD)"
+          echo "image=ghcr.io/${owner}/${IMAGE_NAME}:sha-${sha}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          target: production
+          push: true
+          tags: ${{ steps.meta.outputs.image }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-ssh:
+    name: Migrate and deploy to staging (SSH)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: build
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_URL }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
+
+      - name: Configure SSH
+        env:
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          STAGING_KNOWN_HOSTS: ${{ secrets.STAGING_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$STAGING_SSH_KEY" > ~/.ssh/id_staging
+          chmod 600 ~/.ssh/id_staging
+          # Pinned host key, never trust-on-first-use.
+          printf '%s\n' "$STAGING_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Sync deploy files
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+          STAGING_PATH: ${{ secrets.STAGING_PATH }}
+        run: |
+          ssh -i ~/.ssh/id_staging "${STAGING_USER}@${STAGING_HOST}" \
+            "mkdir -p '${STAGING_PATH}/scripts' '${STAGING_PATH}/deploy'"
+          scp -i ~/.ssh/id_staging docker-compose.prod.yml \
+            "${STAGING_USER}@${STAGING_HOST}:${STAGING_PATH}/"
+          scp -r -i ~/.ssh/id_staging deploy/nginx \
+            "${STAGING_USER}@${STAGING_HOST}:${STAGING_PATH}/deploy/"
+          scp -r -i ~/.ssh/id_staging scripts/deploy \
+            "${STAGING_USER}@${STAGING_HOST}:${STAGING_PATH}/scripts/"
+
+      # deploy.sh applies pending migrations with the new image before the new
+      # slot starts. If they fail, the step fails here with staging untouched.
+      - name: Migrate and deploy
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+          STAGING_PATH: ${{ secrets.STAGING_PATH }}
+          IMAGE: ${{ needs.build.outputs.image }}
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # The token is sent on stdin, not on the command line, so it never
+          # appears in the remote process list or the job log.
+          printf '%s' "$REGISTRY_TOKEN" | ssh -i ~/.ssh/id_staging \
+            "${STAGING_USER}@${STAGING_HOST}" \
+            "docker login ghcr.io -u '${REGISTRY_USER}' --password-stdin \
+             && cd '${STAGING_PATH}' \
+             && RUN_MIGRATIONS=true bash scripts/deploy/deploy.sh '${IMAGE}'"
+
+      - name: Remove SSH credentials
+        if: always()
+        run: rm -f ~/.ssh/id_staging ~/.ssh/known_hosts
+
+  deploy-fly:
+    name: Deploy to staging (Fly.io)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: >-
+      vars.STAGING_PLATFORM == 'fly' &&
+      vars.STAGING_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'))
+    environment:
+      name: staging
+      url: ${{ steps.url.outputs.staging_url }}
+    outputs:
+      staging_url: ${{ steps.url.outputs.staging_url }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
+
+      - name: Resolve Staging URL
+        id: url
+        run: |
+          target_url="${{ vars.STAGING_URL || 'https://cooplumen-staging-api.fly.dev' }}"
+          echo "staging_url=${target_url}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@1.5
+
+      - name: Deploy to Fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_APP_NAME: ${{ vars.FLY_STAGING_APP || 'cooplumen-staging-api' }}
+        run: |
+          flyctl deploy --config fly.staging.toml --app "$FLY_APP_NAME" --remote-only
+
+  smoke-tests:
+    name: Staging smoke tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [deploy-ssh, deploy-fly]
+    # Runs after whichever platform deployed; the other one was skipped.
+    if: >-
+      !cancelled() &&
+      (needs.deploy-ssh.result == 'success' || needs.deploy-fly.result == 'success')
+    environment:
+      name: staging
+      url: ${{ needs.deploy-fly.outputs.staging_url || vars.STAGING_URL }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
+
+      - name: Run smoke tests
+        env:
+          STAGING_URL: ${{ needs.deploy-fly.outputs.staging_url || vars.STAGING_URL }}
+        run: |
+          if [[ -n "$STAGING_URL" ]]; then
+            bash scripts/deploy/smoke-test.sh "${STAGING_URL}" 90 2
+          else
+            echo "STAGING_URL not configured; skipping staging smoke test."
+          fi
+  notify:
+    name: Notify staging deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [build, deploy-ssh, deploy-fly, smoke-tests]
+    if: >-
+      !cancelled() &&
+      (needs.deploy-ssh.result == 'success' || needs.deploy-fly.result == 'success') &&
+      needs.smoke-tests.result != 'failure'
+    steps:
+      - uses: actions/checkout@v7
+
+      # A chat outage must not turn a finished deploy red.
+      - name: Send deployment notification
+        continue-on-error: true
+        env:
+          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+          IMAGE: ${{ needs.build.outputs.image }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash scripts/deploy/notify.sh success "Staging deployed ${IMAGE:+${IMAGE##*/} }(${{ vars.STAGING_PLATFORM || 'ssh' }})" "$RUN_URL"

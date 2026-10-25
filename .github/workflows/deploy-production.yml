@@ -1,0 +1,235 @@
+name: Deploy Production
+
+# Deploys the CoopLumen backend to production with zero downtime. Runs on
+# manual dispatch and waits on the 'production' environment's protection rules
+# (required reviewers) before the deploy job starts. See docs/ci-cd.md.
+#
+# scripts/deploy/deploy.sh rolls the image out blue/green behind nginx, gated on
+# health checks, with automatic rollback. After the switch the deployed version
+# is verified independently and, if that fails, rolled back to the previous
+# image with scripts/deploy/rollback.sh.
+# Post-deployment smoke tests run last.
+#
+# Inactive until configured: set the repository variable DEPLOY_ENABLED=true
+# (or PRODUCTION_DEPLOY_ENABLED=true) and configure the production environment secrets.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref (branch, tag or SHA) to deploy; defaults to main'
+        required: false
+        default: main
+      skip_smoke_tests:
+        description: 'Skip post-deployment smoke tests (true/false)'
+        required: false
+        default: 'false'
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: cooplumen-backend
+
+jobs:
+  build:
+    name: Build and push image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: vars.DEPLOY_ENABLED == 'true' || vars.PRODUCTION_DEPLOY_ENABLED == 'true'
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Compute image reference
+        id: meta
+        run: |
+          owner="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
+          sha="$(git rev-parse --short=12 HEAD)"
+          echo "image=ghcr.io/${owner}/${IMAGE_NAME}:sha-${sha}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          target: production
+          push: true
+          tags: ${{ steps.meta.outputs.image }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Zero-downtime deploy (Manual approval gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: build
+    # Environment protection rules enforce manual reviewer approval before this step runs
+    environment:
+      name: production
+      url: ${{ steps.url.outputs.production_url }}
+    outputs:
+      production_url: ${{ steps.url.outputs.production_url }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Configure SSH
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # Pinned host key, never trust-on-first-use: a deploy key must only
+          # ever authenticate to the host it was issued for.
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Sync deploy files
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/id_deploy "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "mkdir -p '${DEPLOY_PATH}/scripts' '${DEPLOY_PATH}/deploy'"
+          scp -i ~/.ssh/id_deploy docker-compose.prod.yml \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
+          scp -r -i ~/.ssh/id_deploy deploy/nginx \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/deploy/"
+          scp -r -i ~/.ssh/id_deploy scripts/deploy \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/scripts/"
+
+      - name: Deploy
+        id: deploy
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          IMAGE: ${{ needs.build.outputs.image }}
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # The token is sent on stdin, not on the command line, so it never
+          # appears in the remote process list or the job log.
+          printf '%s' "$REGISTRY_TOKEN" | ssh -i ~/.ssh/id_deploy \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "docker login ghcr.io -u '${REGISTRY_USER}' --password-stdin \
+             && cd '${DEPLOY_PATH}' && bash scripts/deploy/deploy.sh '${IMAGE}'"
+
+      - name: Resolve Production URL
+        id: url
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          PROXY_PORT: ${{ vars.DEPLOY_PROXY_PORT || '80' }}
+        run: |
+          if [[ -n "${{ vars.PRODUCTION_URL }}" ]]; then
+            echo "production_url=${{ vars.PRODUCTION_URL }}" >> "$GITHUB_OUTPUT"
+          elif [[ "$PROXY_PORT" == "80" || "$PROXY_PORT" == "443" ]]; then
+            echo "production_url=http://${DEPLOY_HOST}" >> "$GITHUB_OUTPUT"
+          else
+            echo "production_url=http://${DEPLOY_HOST}:${PROXY_PORT}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # deploy.sh already confirms health through the proxy before it commits.
+      # This is a second, independent look a little later, to catch a release
+      # that starts cleanly and then falls over.
+      - name: Verify deployment
+        id: verify
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          PROXY_PORT: ${{ vars.DEPLOY_PROXY_PORT || '80' }}
+        run: |
+          ssh -i ~/.ssh/id_deploy "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "cd '${DEPLOY_PATH}' && bash scripts/deploy/wait-for-health.sh \
+             'http://127.0.0.1:${PROXY_PORT}/health' 60 2 5"
+
+      # Only after a deploy that committed. If the Deploy step itself failed,
+      # deploy.sh has already restored the previous version, and rolling back
+      # again would go one release too far.
+      - name: Roll back
+        id: rollback
+        if: failure() && steps.deploy.outcome == 'success' && steps.verify.outcome == 'failure'
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | ssh -i ~/.ssh/id_deploy \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "docker login ghcr.io -u '${REGISTRY_USER}' --password-stdin \
+             && cd '${DEPLOY_PATH}' && bash scripts/deploy/rollback.sh"
+
+      - name: Remove SSH credentials
+        if: always()
+        run: rm -f ~/.ssh/id_deploy ~/.ssh/known_hosts
+
+  smoke-tests:
+    name: Production smoke tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: deploy
+    if: inputs.skip_smoke_tests != 'true'
+    environment:
+      name: production
+      url: ${{ needs.deploy.outputs.production_url }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Run post-deploy smoke tests
+        env:
+          PRODUCTION_URL: ${{ needs.deploy.outputs.production_url || vars.PRODUCTION_URL }}
+        run: |
+          if [[ -n "$PRODUCTION_URL" ]]; then
+            bash scripts/deploy/smoke-test.sh "${PRODUCTION_URL}" 90 2
+          else
+            echo "PRODUCTION_URL not configured; skipping production smoke test."
+          fi
+
+  notify:
+    name: Notify deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [build, deploy, smoke-tests]
+    # The deploy job fails when verification fails, even after a successful
+    # rollback, so only a deploy that stayed live, and passed its smoke tests
+    # when they ran, is announced.
+    if: >-
+      !cancelled() &&
+      needs.deploy.result == 'success' &&
+      needs.smoke-tests.result != 'failure'
+    steps:
+      - uses: actions/checkout@v7
+
+      # A chat outage must not turn a finished deploy red.
+      - name: Send deployment notification
+        continue-on-error: true
+        env:
+          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+          IMAGE: ${{ needs.build.outputs.image }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash scripts/deploy/notify.sh success "Production deployed ${IMAGE##*/}" "$RUN_URL"

@@ -20,38 +20,22 @@ the runtime is a one-line change.
 
 ### Jobs
 
-| Job              | What it checks                                                                                                                                                                                                           | Timeout |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
-| `lint`           | ESLint + Prettier `--check` for `backend/`, `frontend/`, and the repo root (root covers `scripts/`, `docs/`, and config files that per-workspace runs left unexamined)                                                   | 20 min  |
-| `typecheck`      | `tsc --noEmit` for both packages                                                                                                                                                                                         | 20 min  |
-| `test-backend`   | Jest against real Postgres 16 and Redis 7 service containers; migrations run first; tests run serially (`--runInBand`) to avoid race conditions on a shared DB                                                           | 20 min  |
-| `test-frontend`  | Jest (jsdom) for components and hooks                                                                                                                                                                                    | 20 min  |
-| `e2e`            | Playwright against the full Docker Compose stack (`docker-compose.yml` + `docker-compose.e2e.yml`); migrations run first, then the browser suite                                                                         | 30 min  |
-| `test-backend`   | Jest against real Postgres 16 and Redis 7 service containers; migrations run first; tests run serially (`--runInBand --coverage`) to avoid race conditions on a shared DB and upload coverage to Codecov                 | 20 min  |
-| `test-frontend`  | Jest (jsdom) for components and hooks (`--runInBand --coverage`), with coverage uploaded to Codecov when `CODECOV_TOKEN` is configured                                                                                   | 20 min  |
-| `test-contracts` | `cargo test --workspace` for the Soroban governance smart contract crate                                                                                                                                                 | 20 min  |
-| `e2e`            | Boots the full Docker Compose stack (`docker-compose.yml` + `docker-compose.e2e.yml`), runs migrations, executes the Playwright E2E suite (`npm run test:e2e`), and uploads `playwright-report` artifacts                | 30 min  |
-| `build`          | `npm run build` for both packages — catches build-only breakage that `tsc --noEmit` alone misses (e.g. Next.js server/client boundary errors)                                                                            | —       |
-| `docker-build`   | `docker build` for both `Dockerfile`s — catches breakage in the production image path specifically                                                                                                                       | —       |
-| `trivy-scan`     | Aqua Security Trivy container scan for backend and frontend production images, failing on high or critical unfixed vulnerabilities                                                                                       | —       |
-| `security-audit` | `npm audit --omit=dev --audit-level=high` for both packages fails the job on a high-severity advisory in a production dependency. A full audit including dev tooling is reported but does not fail the job               | —       |
-| `commitlint`     | Every commit in the PR against `commitlint.config.js` (Conventional Commits). PR-only (skipped on direct pushes). Requires `fetch-depth: 0` so the full commit range is available                                        | —       |
-| `quality-gate`   | Aggregates `lint`, `typecheck`, `test-backend`, `test-frontend`, `e2e`, `build`, `docker-build`, and `commitlint` into one pass/fail. Point branch protection at this single job                                         | —       |
-| `quality-gate`   | Aggregates `lint`, `typecheck`, `test-backend`, `test-frontend`, `test-contracts`, `test-governance-e2e`, `build`, `docker-build`, `trivy-scan`, and `commitlint` into one pass/fail                                     | —       |
-| `quality-gate`   | Aggregates `lint`, `typecheck`, `test-backend`, `test-frontend`, `test-contracts`, `e2e`, `build`, `docker-build`, and `commitlint` into one pass/fail. Point branch protection at this single job                       | —       |
-| Job              | What it checks                                                                                                                                                                                                           | Timeout |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
-| `lint`           | ESLint + Prettier `--check` for `backend/`, `frontend/`, and the repo root (root covers `scripts/`, `docs/`, and config files that per-workspace runs left unexamined)                                                   | 20 min  |
-| `typecheck`      | `tsc --noEmit` for both packages                                                                                                                                                                                         | 20 min  |
-| `test-backend`   | Jest against real Postgres 16 and Redis 7 service containers; migrations run first; tests run serially (`--runInBand`) to avoid race conditions on a shared DB                                                           | 20 min  |
-| `test-frontend`  | Jest (jsdom) for components and hooks                                                                                                                                                                                    | 20 min  |
-| `build`          | `npm run build` for both packages — catches build-only breakage that `tsc --noEmit` alone misses (e.g. Next.js server/client boundary errors)                                                                            | —       |
-| `docker-build`   | `docker build` for both `Dockerfile`s — catches breakage in the production image path specifically                                                                                                                       | —       |
-| `security-audit` | `npm audit --omit=dev --audit-level=high` for both packages fails the job on a high-severity advisory in a production dependency. A full audit including dev tooling is reported but does not fail the job               | —       |
-| `commitlint`     | Every commit in the PR against `commitlint.config.js` (Conventional Commits). PR-only (skipped on direct pushes). Requires `fetch-depth: 0` so the full commit range is available                                        | —       |
-| `deploy-scripts` | Lints `scripts/deploy/*.sh` with ShellCheck, runs the health-check poller and blue/green deploy tests (pass, failed health check, failed reload, rollback), and validates `docker-compose.prod.yml` and the nginx config | 15 min  |
-| `sonarcloud`     | SonarCloud analysis and quality gate on the backend and frontend, using the lcov reports from the test jobs. Skipped with a warning when `SONAR_TOKEN` is unavailable (see below)                                        | 20 min  |
-| `quality-gate`   | Aggregates `lint`, `typecheck`, `test-backend`, `test-frontend`, `build`, `docker-build`, `deploy-scripts`, `sonarcloud`, and `commitlint` into one pass/fail. Point branch protection at this single job                | —       |
+| Job              | What it checks                                                                                                                                                                                                                                   | Timeout |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| `lint`           | ESLint + Prettier `--check` for `backend/`, `frontend/`, and the repo root (root covers `scripts/`, `docs/`, and config files that per-workspace runs left unexamined)                                                                           | 20 min  |
+| `typecheck`      | `tsc --noEmit` for both packages                                                                                                                                                                                                                 | 20 min  |
+| `test-backend`   | Jest against real Postgres 16 and Redis 7 service containers; migrations run first; tests run serially (`--runInBand --coverage`) to avoid race conditions on a shared DB. Coverage goes to SonarCloud and, when `CODECOV_TOKEN` is set, Codecov | 20 min  |
+| `test-frontend`  | Jest (jsdom) for components and hooks (`--runInBand --coverage`), with coverage uploaded to Codecov when `CODECOV_TOKEN` is set                                                                                                                  | 20 min  |
+| `test-contracts` | `cargo test --workspace` for the Soroban governance contract crate                                                                                                                                                                               | 20 min  |
+| `e2e`            | Boots the full Docker Compose stack (`docker-compose.yml` + `docker-compose.e2e.yml`), runs migrations, executes the Playwright suite (`npm run test:e2e`) and uploads the `playwright-report` artifact                                          | 30 min  |
+| `build`          | `npm run build` for both packages — catches build-only breakage that `tsc --noEmit` alone misses (e.g. Next.js server/client boundary errors)                                                                                                    | —       |
+| `docker-build`   | `docker build` for both `Dockerfile`s (the production image path); also checks the backend image ships the migration runner and its `.sql` files                                                                                                 | —       |
+| `trivy-scan`     | Trivy scan of the backend and frontend images, failing on high or critical vulnerabilities that have a fix                                                                                                                                       | —       |
+| `security-audit` | `npm audit --omit=dev --audit-level=high` for both packages fails the job on a high-severity advisory in a production dependency. A full audit including dev tooling is reported but does not fail the job                                       | —       |
+| `commitlint`     | Every commit in the PR against `commitlint.config.js` (Conventional Commits). PR-only (skipped on direct pushes). Requires `fetch-depth: 0` so the full commit range is available                                                                | —       |
+| `deploy-scripts` | ShellCheck on `scripts/deploy/*.sh`; tests for health polling, blue/green deploy (migrations, failure, rollback), smoke tests and chat notifications; validates the prod compose and nginx config                                                | 15 min  |
+| `sonarcloud`     | SonarCloud analysis and quality gate on the backend and frontend, using the lcov reports from the test jobs. Skipped with a warning when `SONAR_TOKEN` is unavailable (see below)                                                                | 20 min  |
+| `quality-gate`   | Aggregates `lint`, `typecheck`, `test-backend`, `test-frontend`, `test-contracts`, `e2e`, `build`, `docker-build`, `trivy-scan`, `deploy-scripts`, `sonarcloud` and `commitlint` into one pass/fail. Point branch protection at this single job  | —       |
 
 > **Why `security-audit` is not in `quality-gate`:** A new upstream CVE would
 > immediately block every open PR without giving the team time to triage or
@@ -59,6 +43,33 @@ the runtime is a one-line change.
 > is not blocked. Dev tooling is only reported, because some of its advisories
 > have no patched release (`braces`, via `ts-node-dev` and `eslint-config-next`)
 > and that code never ships.
+
+#### `test-governance-e2e` — browser E2E
+
+Runs on pull requests only. It builds the Docker Compose stack
+(`docker-compose.yml` + `docker-compose.e2e.yml`), migrates the database, and
+runs `npm run test:e2e` in `frontend/`, which executes **every** `*.spec.ts` in
+`frontend/e2e/` against the real frontend and backend containers (no mocked
+API). A new spec dropped into that folder therefore runs on every PR with no
+workflow change. Current specs:
+
+| Spec              | What it proves                                                                                                                                                                                                                                       |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `governance.spec` | A member creates a proposal and casts a vote through the real stack                                                                                                                                                                                  |
+| `dark-mode.spec`  | The theme toggle's choice (stored in `localStorage` as `cooplumen-theme`) survives client-side navigation, browser history, a reload and a new tab; an explicit light choice wins over a dark OS preference; and it is applied before React hydrates |
+
+To run one locally: start the stack as the job does, then
+`cd frontend && npx playwright test dark-mode`. To see a spec fail for the right
+reason, break the behaviour it guards (for example, comment out the
+`localStorage.setItem` call in `storeTheme` in `frontend/src/lib/theme.ts`) and
+re-run it.
+
+#### `notify-failure` — chat alert when main goes red
+
+Runs after `quality-gate` and posts to the configured Slack or Discord webhook
+when `quality-gate` fails on a push to `main`. It is deliberately not part of
+`quality-gate`'s `needs`, and its step is `continue-on-error`, so a chat outage
+can never block a merge. See [Notifications](#notifications).
 
 #### `test-backend` service containers
 
@@ -167,17 +178,52 @@ maintainer should treat a fork PR's skipped SonarCloud job as "not yet analysed"
 
 ---
 
-## `deploy.yml` — zero-downtime deploys
+## `deploy-staging.yml` — auto-deploy `main` to staging
 
-Runs after `CI` succeeds on a push to `main`, or manually (`workflow_dispatch`
-with an optional `ref`). It builds the backend `production` image, pushes it to
-GHCR tagged `sha-<12 chars>`, then runs `scripts/deploy/deploy.sh` on the
-deploy host over SSH. Deploys are serialized by a concurrency group and never
-cancelled part-way.
+Runs automatically after `CI` succeeds on a push to `main`, or on manual
+`workflow_dispatch`. The repository variable `STAGING_PLATFORM` picks the host:
+
+- unset or `ssh`: builds and pushes the backend `production` image, then runs
+  `RUN_MIGRATIONS=true scripts/deploy/deploy.sh` on the staging host over SSH
+  (see [the SSH path](#staging-over-ssh) below);
+- `fly`: deploys with `fly.staging.toml` to Fly.io (see [staging.md](staging.md)).
+
+Either path is followed by the smoke tests below and a chat notification.
+Deploys are serialized by `concurrency: deploy-staging`.
+
+**Disabled until configured.** The workflow is skipped unless the repository
+variable `STAGING_ENABLED` is `true`. See [staging.md](staging.md) for full setup
+instructions, required Fly.io app secrets, and GitHub environment configuration.
+
+### Post-staging deployment smoke tests
+
+Immediately following staging deployment, the `smoke-tests` job runs
+`scripts/deploy/smoke-test.sh` against the deployed staging URL (`STAGING_URL`).
+The suite validates:
+
+1. Health endpoint (`/health`) returns HTTP 200 with JSON payload `{"status":"ok"}`
+   confirming database and Stellar connectivity.
+2. Core API endpoints (`/api/communities`) respond with HTTP 200.
+3. Unmatched routes respond cleanly with HTTP 404 without internal server errors.
+
+---
+
+## `deploy-production.yml` — production deploys with manual approval
+
+Triggered by manual approval via `workflow_dispatch` (with an optional `ref`).
+The deployment job targets the `production` GitHub Environment, allowing
+repository maintainers to enforce Environment Protection Rules (required
+reviewers) before any rollout begins.
+
+It builds the backend `production` image, pushes it to GHCR tagged `sha-<12 chars>`,
+then runs `scripts/deploy/deploy.sh` on the deploy host over SSH (blue/green behind
+nginx with zero downtime and automatic rollback). After deployment, post-deploy
+smoke tests run to verify the live production service. Deploys are serialized by
+`concurrency: deploy-production` and never cancelled mid-flight.
 
 **Disabled until configured.** Both jobs are skipped unless the repository
-variable `DEPLOY_ENABLED` is `true`, so the workflow is inert until a host
-exists. Configure the `production` environment with these secrets:
+variable `DEPLOY_ENABLED` (or `PRODUCTION_DEPLOY_ENABLED`) is `true`. Configure
+the `production` environment with these secrets:
 
 | Secret               | Purpose                                                                 |
 | -------------------- | ----------------------------------------------------------------------- |
@@ -231,6 +277,126 @@ happen on real infrastructure.
 Only the backend is covered. The frontend image is not deployed by this
 workflow.
 
+### Post-deploy verification and rollback
+
+`deploy.sh` rolls back on its own while it is switching: a new slot that never
+becomes healthy, a failed proxy reload, or an unhealthy proxy after the switch
+all leave the previous version serving. Two further steps in `deploy-production.yml` cover
+a release that passes all of that and then misbehaves:
+
+1. **Verify deployment** polls `/health` through the proxy on the host
+   (`wait-for-health.sh`, five consecutive `200`s within 60s). Set the
+   repository variable `DEPLOY_PROXY_PORT` if the proxy does not listen on 80.
+2. **Roll back** runs only when the Deploy step succeeded and Verify failed. It
+   runs `scripts/deploy/rollback.sh`, which redeploys the image that was live
+   before this release. The job still ends red, so the failure is visible even
+   though production is back on the previous version.
+
+After every successful deploy `deploy.sh` writes the image it retired to
+`<STATE_DIR>/previous_image` (default `.deploy/previous_image` in `DEPLOY_PATH`).
+`rollback.sh` reads that file and deploys the image through `deploy.sh`, so a
+rollback gets the same blue/green switch and health gating as a normal deploy:
+if the previous image is no longer healthy it is refused and the live version
+keeps serving. `RUN_MIGRATIONS` is forced off for a rollback.
+
+| Situation                                     | Result                                                                           |
+| --------------------------------------------- | -------------------------------------------------------------------------------- |
+| Verify passes                                 | Nothing further runs; the release stays live                                     |
+| Verify fails                                  | Previous image is redeployed, job fails                                          |
+| Previous image is unhealthy or never recorded | Rollback refuses, the live version is untouched, job fails                       |
+| Deploy step itself fails                      | `deploy.sh` has already restored the previous version; no second rollback is run |
+| First ever deploy fails Verify                | Nothing to roll back to; job fails, retry the deploy                             |
+
+To roll back by hand, run `bash scripts/deploy/rollback.sh` in `DEPLOY_PATH` on
+the host. Running it again swaps back, because each rollback records the release
+it replaced. Rollback moves the application, not the database: migrations only go
+forward, so every migration must stay compatible with the release before it (add
+columns and tables first, remove them in a later release).
+
+---
+
+## Staging over SSH
+
+The default path of `deploy-staging.yml` builds and pushes the same backend
+`production` image as `deploy-production.yml`, then runs
+`RUN_MIGRATIONS=true scripts/deploy/deploy.sh` on the staging host over SSH. It
+is independent of production: staging follows every green `main`, while
+production waits for a manual dispatch and approval.
+
+**Disabled until configured.** Every job is skipped unless the repository
+variable `STAGING_ENABLED` is `true`. Configure the `staging` environment with:
+
+| Secret                | Purpose                                                                 |
+| --------------------- | ----------------------------------------------------------------------- |
+| `STAGING_HOST`        | Hostname or IP of the staging Docker host                               |
+| `STAGING_USER`        | SSH user, which must be able to run `docker`                            |
+| `STAGING_PATH`        | Directory on the host that holds the compose file and `.env.production` |
+| `STAGING_SSH_KEY`     | Private key for `STAGING_USER`                                          |
+| `STAGING_KNOWN_HOSTS` | Pinned host key line(s) from `ssh-keyscan`                              |
+
+The host needs the same setup as production (Docker with the Compose plugin and
+a `.env.production` in `STAGING_PATH`), with `DATABASE_URL` pointing at the
+staging database.
+
+### How the migration step works
+
+With `RUN_MIGRATIONS=true`, `deploy.sh` runs `node dist/db/migrate.js` in a
+one-off container of the **new** image (`docker compose run --rm`) before the
+idle slot is started:
+
+- Migrations apply while the previous version is still serving, so they must be
+  backward compatible with it. Add before you remove.
+- If the migration fails, the deploy aborts right there: the new slot is never
+  started, the proxy is not touched, the job fails, and the migration runner's
+  output is in the job log. Each migration runs in its own transaction, so a
+  failing file leaves no partial change behind.
+- The runner takes a Postgres advisory lock, so two overlapping runs cannot
+  apply the same file twice.
+- The backend `production` image now includes `dist/db/migrations`: `tsc` does
+  not emit `.sql` files, so the `Dockerfile` copies them in, and the
+  `docker-build` job fails if the runner or the SQL is missing from the image.
+
+Production (`deploy-production.yml`) does not run migrations yet; opt in later by setting
+`RUN_MIGRATIONS=true` in its Deploy step once staging has proven the flow.
+
+---
+
+## Notifications
+
+`scripts/deploy/notify.sh <success|failure> <message> [link]` posts to a Slack or
+Discord incoming webhook. It is used for:
+
+| Event                           | Where                                   |
+| ------------------------------- | --------------------------------------- |
+| `main` fails CI                 | `notify-failure` job in `ci.yml`        |
+| Production deployed and healthy | `notify` job in `deploy-production.yml` |
+| Staging deployed and migrated   | `notify` job in `deploy-staging.yml`    |
+
+Setup: create an incoming webhook in Slack (Apps, Incoming Webhooks) or Discord
+(Channel settings, Integrations, Webhooks) and store its URL as the repository
+secret `NOTIFY_WEBHOOK_URL`. The provider is detected from the URL
+(`hooks.slack.com`, `discord.com/api/webhooks`); set `NOTIFY_PROVIDER` to
+`slack` or `discord` for anything else, such as a proxy.
+
+Behaviour worth knowing:
+
+- No secret, no message: with `NOTIFY_WEBHOOK_URL` unset (forks, or before setup)
+  the script warns and exits 0, so it never fails a pipeline that has not opted
+  in.
+- A webhook that rejects the message or cannot be reached makes the script exit
+  1 without printing the URL. The workflow steps are `continue-on-error`, so a
+  chat outage shows as a warning annotation and never turns a deploy or a merge
+  red.
+- Messages are sent as JSON built by `node`, never interpolated into a shell
+  command. Slack control characters (`&`, `<`, `>`) are escaped, Discord mentions
+  are disabled, and text is cut to 1900 characters.
+- Deployment failures are not announced; the failed run is the signal, and a
+  verify-and-rollback shows as a red `deploy` job.
+
+`scripts/deploy/test-notify.sh` runs in the `deploy-scripts` job against a local
+fake webhook, covering both payloads, the skip when unconfigured, a rejected
+message, an unreachable webhook and bad usage.
+
 ---
 
 ## `claude-review.yml` — automated first-pass PR review
@@ -261,14 +427,8 @@ GitHub Actions versions.
 
 ## What's intentionally not here yet
 
-The backlog (`issue.md`, CI/CD category) tracks future pipeline enhancements that
-haven't been built yet: staging/production deploy workflows, SonarCloud, and
-coverage-threshold enforcement. These need real infrastructure (a hosting target,
-secrets, deploy targets) decided first.
-The backlog (`issue.md`, CI/CD category) tracks the rest of the pipeline that
-hasn't been built yet: a staging environment, semantic-release, Trivy
-container scanning, and coverage-threshold enforcement. These need real
-infrastructure (a hosting target, secrets, a release strategy) decided first —
-adding the workflow YAML before that groundwork exists would just be dead
-configuration. Production deploys and SonarCloud are described above and are
-inert until their secrets and variables are configured.
+Every stage in the backlog's CI/CD category now has a workflow: staging and
+production deploys with smoke tests, semantic-release, Trivy container scanning,
+SonarCloud and coverage thresholds. The deploy, release-publishing and analysis
+steps stay inert until their secrets and variables are configured, so none of
+them can deploy or fail on a repository that has not set them up.

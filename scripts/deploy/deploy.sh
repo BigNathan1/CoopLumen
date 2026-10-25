@@ -6,16 +6,20 @@
 #   e.g. deploy.sh ghcr.io/bignathan1/cooplumen-backend:sha-1a2b3c4
 #
 # Flow:
+#   0. Optionally apply database migrations with the new image (RUN_MIGRATIONS).
 #   1. Start the idle slot on the new image. The live slot is untouched.
 #   2. Poll the idle slot's /health until it passes (wait-for-health.sh).
 #   3. Repoint the proxy at it with a graceful nginx reload.
 #   4. Poll /health through the proxy to confirm the switch.
 #   5. Stop the previous slot, giving in-flight requests stop_grace_period.
 #
-# Failure handling: if the new slot never becomes healthy, or the proxy check
-# fails after the switch, the proxy is returned to the previous slot, the new
-# slot is stopped, and the script exits non-zero. The previous slot keeps
-# serving throughout, so a failed deploy costs no availability.
+# Failure handling: if a migration fails, the new slot never becomes healthy, or
+# the proxy check fails after the switch, the proxy is returned to the previous
+# slot, the new slot is stopped, and the script exits non-zero. The previous
+# slot keeps serving throughout, so a failed deploy costs no availability.
+#
+# After a successful deploy the image that was live before it is recorded in
+# <STATE_DIR>/previous_image, which rollback.sh redeploys.
 #
 # Environment (all optional):
 #   COMPOSE_FILE        compose file         (default docker-compose.prod.yml)
@@ -26,6 +30,8 @@
 #   HEALTH_TIMEOUT      seconds for a slot to become healthy (default 90)
 #   HEALTH_INTERVAL     seconds between polls               (default 2)
 #   PROXY_HEALTH_TIMEOUT seconds to confirm health via proxy (default 30)
+#   RUN_MIGRATIONS      "true" applies pending database migrations before the new
+#                       slot starts; any other value skips them (default false)
 set -euo pipefail
 
 if [[ $# -ne 1 || -z "$1" ]]; then
@@ -47,6 +53,7 @@ export GREEN_PORT="${GREEN_PORT:-4002}"
 health_timeout="${HEALTH_TIMEOUT:-90}"
 health_interval="${HEALTH_INTERVAL:-2}"
 proxy_health_timeout="${PROXY_HEALTH_TIMEOUT:-30}"
+run_migrations="${RUN_MIGRATIONS:-false}"
 
 compose() { docker compose -f "$compose_file" "$@"; }
 
@@ -54,6 +61,7 @@ mkdir -p "${state_dir}/nginx"
 active_file="${state_dir}/active_slot"
 upstream_file="${state_dir}/nginx/active.conf"
 images_file="${state_dir}/images.env"
+previous_file="${state_dir}/previous_image"
 
 port_of() { if [[ "$1" == "blue" ]]; then echo "$BLUE_PORT"; else echo "$GREEN_PORT"; fi; }
 other_of() { if [[ "$1" == "blue" ]]; then echo "green"; else echo "blue"; fi; }
@@ -107,6 +115,16 @@ abort_deploy() {
   exit 1
 }
 
+# 0. Apply pending migrations with the new image before it can serve traffic. A
+#    failed migration aborts here, with the live slot untouched and the idle slot
+#    never started. Migrations run while the old version is still live, so they
+#    must be backward compatible (add before you remove); see docs/ci-cd.md.
+if [[ "$run_migrations" == "true" ]]; then
+  echo "applying database migrations with ${new_image}"
+  compose run --rm --no-deps -T "$target_service" node dist/db/migrate.js ||
+    abort_deploy "database migration failed; ${active} keeps serving"
+fi
+
 # 1. Bring up the idle slot. The proxy is created on the first deploy only; on
 #    later deploys `up` leaves the running proxy and live slot alone.
 if [[ "$first_deploy" == true ]]; then
@@ -144,7 +162,15 @@ if ! bash "${here}/wait-for-health.sh" "http://127.0.0.1:${proxy_port}/health" \
   abort_deploy "proxy not healthy after switching to ${target}"
 fi
 
-# 5. Commit the new state, then retire the previous slot.
+# 5. Commit the new state, then retire the previous slot. The image being
+#    retired is remembered so rollback.sh can put it back.
+if [[ "$first_deploy" == false ]]; then
+  if [[ "$active" == "blue" ]]; then
+    echo "$BLUE_IMAGE" >"$previous_file"
+  else
+    echo "$GREEN_IMAGE" >"$previous_file"
+  fi
+fi
 echo "$target" >"$active_file"
 persist_images
 if [[ "$first_deploy" == false ]]; then
