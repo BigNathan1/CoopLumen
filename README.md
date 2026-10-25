@@ -60,26 +60,26 @@ cooplumen/
 │   ├── scripts/                # Manual testnet verification scripts
 │   ├── src/
 │   │   ├── api/
-│   │   │   ├── middleware/     # Auth, validation, rate limiting, errors
-│   │   │   ├── routes/         # communities, tokens, balances, loans, reputation
-│   │   │   └── schemas/        # Zod request schemas
+│   │   │   ├── middleware/     # Auth, CSRF, validation, rate limiting, errors
+│   │   │   ├── routes/         # One router per resource
+│   │   │   ├── schemas/        # Zod request schemas
+│   │   │   └── utils/          # Session tokens, cookies, pagination, Horizon errors
 │   │   ├── cache/              # Redis and in-process caches
-│   │   ├── contracts/          # Stellar SDK wrappers
-│   │   │   ├── assets.ts       # Asset issuance and distribution
-│   │   │   ├── trustlines.ts   # Trustline management
-│   │   │   ├── transactions.ts # Payment building and submission
-│   │   │   └── stellar.ts      # Horizon server singleton
+│   │   ├── contracts/          # Stellar SDK layer: assets, trustlines, payments
 │   │   ├── services/           # Non-Stellar integrations (market price feed)
-│   │   ├── db/                 # PostgreSQL pool and migrations
+│   │   ├── db/                 # PostgreSQL pool, migrations and seed data
+│   │   ├── testing/            # Shared test setup, teardown and fixtures
 │   │   └── utils/              # Logger
 │   ├── Dockerfile
 │   └── package.json
 ├── frontend/                   # Next.js (App Router)
+│   ├── e2e/                    # Playwright end-to-end suite and its support code
 │   ├── src/
 │   │   ├── app/                # Routes, layout, global CSS
 │   │   ├── components/
 │   │   │   ├── ui/             # Design-system primitives
 │   │   │   ├── layout/         # Header, footer, sidebar, navigation, theme and locale
+│   │   │   ├── auth/           # Protected routes and re-authentication
 │   │   │   ├── community/      # Community and member forms and lists
 │   │   │   ├── dashboard/      # Dashboard view
 │   │   │   ├── landing/        # Marketing landing page
@@ -95,14 +95,16 @@ cooplumen/
 │   │   └── lib/                # API client, SWR config, schemas, design tokens
 │   ├── Dockerfile
 │   └── package.json
-├── docs/                       # Architecture, database, CI/CD, OpenAPI spec
+├── contracts/governance/       # Soroban governance contract (Rust)
+├── deploy/                     # nginx config for blue/green production deploys
+├── docs/                       # Guides, design and the OpenAPI spec
 ├── scripts/
+│   ├── ci/                     # Branch protection setup
 │   ├── db/                     # Backup and constraint-validation scripts
+│   ├── deploy/                 # Deploy, rollback, smoke-test and notify scripts
 │   └── issues/                 # Backlog tooling
-├── docker-compose.yml
-├── README.md
-├── PRD.md
-└── CONTRIBUTING.md
+├── .github/                    # CI, release, publish and deploy workflows
+└── docker-compose*.yml         # Local, test, E2E and production stacks
 ```
 
 ---
