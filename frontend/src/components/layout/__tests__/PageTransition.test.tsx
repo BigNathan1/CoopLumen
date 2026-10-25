@@ -19,9 +19,7 @@ describe('PageTransition', () => {
     jest.resetAllMocks();
   });
 
-  /* ---------------------------------------------------------------------- */
-  /* Rendering                                                                */
-  /* ---------------------------------------------------------------------- */
+  // Rendering
 
   describe('Rendering', () => {
     it('renders a wrapper element with the expected test id', () => {
@@ -66,9 +64,7 @@ describe('PageTransition', () => {
     });
   });
 
-  /* ---------------------------------------------------------------------- */
-  /* Accessibility                                                            */
-  /* ---------------------------------------------------------------------- */
+  // Accessibility
 
   describe('Accessibility', () => {
     it('does not carry an aria-live attribute (screen readers handle navigation)', () => {
@@ -113,9 +109,7 @@ describe('PageTransition', () => {
     });
   });
 
-  /* ---------------------------------------------------------------------- */
-  /* Route change re-trigger                                                  */
-  /* ---------------------------------------------------------------------- */
+  // Route change re-trigger
 
   describe('Route change behaviour', () => {
     it('still renders after the pathname changes', () => {
@@ -160,9 +154,7 @@ describe('PageTransition', () => {
     });
   });
 
-  /* ---------------------------------------------------------------------- */
-  /* className merging                                                        */
-  /* ---------------------------------------------------------------------- */
+  // className merging
 
   describe('className merging', () => {
     it('does not include a trailing empty string when no className is given', () => {
