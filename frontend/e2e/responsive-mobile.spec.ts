@@ -8,7 +8,7 @@ test.describe('Responsive mobile layout (375px viewport)', () => {
     // The app header (not the landing page's) owns the collapsible menu.
     await page.goto('/communities');
 
-    // Desktop inline navigation links should not be present in the header bar
+    // At this width the inline navigation is replaced by the menu.
     const desktopNav = page.locator('header nav[aria-label="Primary"]:not(#header-mobile-menu *)');
     await expect(desktopNav).toHaveCount(0);
 
@@ -19,18 +19,15 @@ test.describe('Responsive mobile layout (375px viewport)', () => {
     await expect(menuButton).toHaveAccessibleName('Open menu');
     await expect(menuButton).toHaveAttribute('aria-expanded', 'false');
 
-    // Click menu toggle to expand mobile menu
     await menuButton.click();
     await expect(menuButton).toHaveAttribute('aria-expanded', 'true');
     await expect(menuButton).toHaveAccessibleName('Close menu');
 
-    // Mobile navigation container should be rendered with primary navigation links
     const mobileMenu = page.locator('#header-mobile-menu');
     await expect(mobileMenu).toBeVisible();
     await expect(mobileMenu.getByRole('link', { name: 'Dashboard' })).toBeVisible();
     await expect(mobileMenu.getByRole('link', { name: 'Communities' })).toBeVisible();
 
-    // Clicking close menu should collapse the menu
     await menuButton.click();
     await expect(menuButton).toHaveAccessibleName('Open menu');
     await expect(mobileMenu).not.toBeAttached();
@@ -39,7 +36,6 @@ test.describe('Responsive mobile layout (375px viewport)', () => {
   test('landing page fits within 375px viewport without horizontal overflow', async ({ page }) => {
     await page.goto('/');
 
-    // Ensure the page body and document root do not exceed viewport width
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     const clientWidth = await page.evaluate(() => document.documentElement.clientWidth);
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1); // Allow sub-pixel rounding

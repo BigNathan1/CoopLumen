@@ -33,7 +33,6 @@ describeTestnet('distributeAsset - testnet integration', () => {
    * Skip if testnet is not available.
    */
   beforeAll(async () => {
-    // Verify we're on testnet
     const network = StellarService.getNetwork();
     if (network !== (Networks.TESTNET as string)) {
       throw new Error(`Tests require testnet; configured network is: ${network}`);
@@ -43,7 +42,6 @@ describeTestnet('distributeAsset - testnet integration', () => {
     issuerKeypair = Keypair.random();
     distributorKeypair = Keypair.random();
 
-    // Verify Horizon connectivity
     const isHealthy = await StellarService.ping();
     if (!isHealthy) {
       throw new Error('Horizon testnet is not responding; skipping testnet integration test');

@@ -262,7 +262,6 @@ describe('Modal', () => {
       const btn1 = screen.getByText('Button 1');
       const btn2 = screen.getByText('Button 2');
 
-      // Wait for initial focus
       await waitFor(() => expect(btn1).toHaveFocus());
 
       // Tab should move to next button
@@ -289,7 +288,6 @@ describe('Modal', () => {
       const btn1 = screen.getByText('Button 1');
       const btn2 = screen.getByText('Button 2');
 
-      // Wait for initial focus on btn1
       await waitFor(() => expect(btn1).toHaveFocus());
 
       // Shift+Tab from first wraps to the last element (the close button)
@@ -314,7 +312,6 @@ describe('Modal', () => {
       const closeButton = screen.getByLabelText('Close modal');
       const contentButton = screen.getByText('Content Button');
 
-      // Wait for initial focus
       await waitFor(() => expect(contentButton).toHaveFocus());
 
       // Tab through close button

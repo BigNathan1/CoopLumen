@@ -43,14 +43,12 @@ describeIf('rollback', () => {
       // Run the pending-migrations step to apply the dummy migration
       await runPending(client, false);
 
-      // Check that the table was created
       let result = await client.query("SELECT to_regclass('public.dummy_table') as table_exists;");
       expect(result.rows[0].table_exists).toBe('dummy_table');
 
       // Run rollback
       await rollback(client, 1, false);
 
-      // Check that the table was dropped
       result = await client.query("SELECT to_regclass('public.dummy_table') as table_exists;");
       expect(result.rows[0].table_exists).toBeNull();
     } finally {

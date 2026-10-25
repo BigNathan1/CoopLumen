@@ -52,7 +52,6 @@ async function getCommunityMultiSigRequests(req: Request, res: Response): Promis
   const { limit, offset } = pagination;
   const status = req.query.status as string | undefined;
 
-  // Verify community exists
   const communityRows = await db.query<{ id: string }>(
     'SELECT id FROM communities WHERE id = $1 AND deleted_at IS NULL',
     [communityId]

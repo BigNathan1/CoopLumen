@@ -379,7 +379,6 @@ describe('Toast System', () => {
       const closeButtons = screen.getAllByLabelText('Dismiss notification');
       expect(closeButtons).toHaveLength(2);
 
-      // Click first close button
       fireEvent.click(closeButtons[0]);
 
       await waitFor(() => {
