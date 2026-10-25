@@ -293,7 +293,7 @@ The end-to-end suite drives a browser against the whole stack. See
 - [Testing](docs/testing.md) — unit, component and Playwright end-to-end suites
 - [CI/CD](docs/ci-cd.md) — the CI jobs, quality gate, releases and deploy workflows
 - [Staging](docs/staging.md) — the staging environment and its configuration
-- [PostgreSQL hardening](docs/infrastructure-hardening.md) — connection pooling and production database settings
+- [Running PostgreSQL](docs/database-operations.md) — connections, pooling, backups and production sizing
 - [Design](docs/design.md) — the Figma file and the screens designed in it
 
 ## Community
