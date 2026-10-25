@@ -19,9 +19,12 @@ declare global {
 }
 
 /**
- * Requires a valid `Authorization: Bearer <token>` or session cookie, minted by
- * POST /api/v1/auth/verify after the caller signed a Freighter challenge.
- * On success, `req.auth.address` is the authenticated Stellar address.
+ * Requires a session token minted by POST /api/v1/auth/verify after the caller
+ * signed a Freighter challenge. The httpOnly `cooplumen_session` cookie is read
+ * first; without one, an `Authorization: Bearer` token is accepted so API
+ * clients keep working. A cookie is never combined with the header, and the
+ * token is never echoed. On success, `req.auth.address` is the authenticated
+ * Stellar address.
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const cookieToken = readAuthCookie(req);
@@ -46,33 +49,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 /** Roles a member can hold in a community (the `members_role_check` values). */
 export type MemberRole = 'admin' | 'treasurer' | 'member' | 'observer';
 
-/**
- * Cookie-based counterpart of {@link requireAuth} for browser sessions. Validates
- * the httpOnly `cooplumen_session` cookie set by POST /api/v1/auth/verify
- * (signature and expiry) and sets `req.auth.address`. When no cookie is present
- * it falls back to an `Authorization: Bearer` token so API clients keep working;
- * a cookie, when present, takes precedence and is never combined with the header.
- * Rejects with the standard 401 envelope and never echoes the token.
- */
-export function authenticateJWT(req: Request, res: Response, next: NextFunction): void {
-  const cookieToken = readAuthCookie(req);
-  const header = req.headers.authorization;
-  const token = cookieToken ?? (header?.startsWith('Bearer ') ? header.slice(7) : null);
-
-  if (!token) {
-    res.status(401).json({ data: null, error: 'Authentication required' });
-    return;
-  }
-
-  const payload = verifySessionToken(token);
-  if (!payload) {
-    res.status(401).json({ data: null, error: 'Invalid or expired session token' });
-    return;
-  }
-
-  req.auth = { address: payload.address };
-  next();
-}
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * RBAC guard. Requires the authenticated address (set by {@link requireAuth},
@@ -82,8 +59,6 @@ export function authenticateJWT(req: Request, res: Response, next: NextFunction)
  * Responses use the `{ data, error }` envelope: 401 when unauthenticated and
  * 403 when the caller is not an active member or holds a role outside `roles`. An empty `roles` list matches nobody, so it fails closed.
  */
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export function requireRole(roles: readonly MemberRole[]) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     if (!req.auth) {
@@ -158,9 +133,6 @@ export function requireRole(roles: readonly MemberRole[]) {
     }
   };
 }
-
-/** Former name of {@link requireRole}, kept so existing imports keep working. */
-export const requireCommunityRole = requireRole;
 
 /**
  * Addresses allowed to call operator-only routes, read once at startup from

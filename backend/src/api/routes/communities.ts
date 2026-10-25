@@ -5,7 +5,7 @@ import { StellarService } from '../../contracts/stellar';
 import { logger } from '../../utils/logger';
 import { parsePagination, pageMeta, parseSort, queryString } from '../utils/http';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate';
-import { authenticateJWT, requireRole } from '../middleware/auth';
+import { requireAuth, requireRole } from '../middleware/auth';
 import { writeLimiter } from '../middleware/rateLimit';
 import { isValidStellarPublicKey } from '../utils/stellar';
 import { mapHorizonError } from '../utils/horizonError';
@@ -324,7 +324,7 @@ communityRouter.get('/:id', validateParams(communityIdParamsSchema), async (req,
  */
 communityRouter.post(
   '/',
-  authenticateJWT,
+  requireAuth,
   writeLimiter,
   validateBody(createCommunitySchema),
   async (req: Request, res: Response) => {
@@ -405,7 +405,7 @@ communityRouter.post(
  */
 communityRouter.put(
   '/:id',
-  authenticateJWT,
+  requireAuth,
   requireRole(['admin', 'treasurer']),
   writeLimiter,
   validateParams(communityIdParamsSchema),
@@ -493,7 +493,7 @@ communityRouter.put(
  */
 communityRouter.delete(
   '/:id',
-  authenticateJWT,
+  requireAuth,
   writeLimiter,
   requireRole(['admin']),
   async (req, res, next) => {
@@ -590,7 +590,7 @@ communityRouter.get('/:id/members', async (req, res, next) => {
  */
 communityRouter.post(
   '/:id/members',
-  authenticateJWT,
+  requireAuth,
   requireRole(['admin']),
   writeLimiter,
   validateBody(addMemberSchema),
@@ -669,7 +669,7 @@ communityRouter.get('/:id/members/:address', async (req, res, next) => {
  */
 communityRouter.put(
   '/:id/members/:address',
-  authenticateJWT,
+  requireAuth,
   requireRole(['admin']),
   writeLimiter,
   validateBody(updateMemberSchema),
@@ -711,7 +711,7 @@ communityRouter.put(
  */
 communityRouter.delete(
   '/:id/members/:address',
-  authenticateJWT,
+  requireAuth,
   requireRole(['admin']),
   writeLimiter,
   async (req, res, next) => {
@@ -787,7 +787,7 @@ communityRouter.get(
  */
 communityRouter.post(
   '/:id/avatar',
-  authenticateJWT,
+  requireAuth,
   requireRole(['admin', 'treasurer']),
   writeLimiter,
   validateBody(setAvatarSchema),
