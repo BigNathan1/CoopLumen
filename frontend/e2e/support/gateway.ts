@@ -1,5 +1,5 @@
 import { createServer, request, type IncomingMessage } from 'node:http';
-import type { Socket } from 'node:net';
+import { connect, type Socket } from 'node:net';
 
 /** Where the gateway forwards each kind of request. */
 export interface GatewayOptions {
@@ -72,9 +72,26 @@ export async function startGateway(options: GatewayOptions): Promise<Gateway> {
     req.pipe(upstream);
   });
 
-  // The dev server opens a websocket for hot reload. The suite does not need
-  // it, and an upgrade nobody answers would keep the socket open forever.
-  server.on('upgrade', (_req: IncomingMessage, socket: Socket) => socket.destroy());
+  // The dev server's client opens a websocket (`/_next/hmr`) and, from Next 16,
+  // waits on it before the page finishes loading, so upgrades are tunnelled to
+  // the app rather than dropped. Either side closing tears the tunnel down.
+  server.on('upgrade', (req: IncomingMessage, socket: Socket, head: Buffer) => {
+    const upstream = connect(Number(appTarget.port || 80), appTarget.hostname, () => {
+      const headers = Object.entries({ ...req.headers, host: appTarget.host })
+        .flatMap(([name, value]) =>
+          (Array.isArray(value) ? value : [value]).map((v) => `${name}: ${v ?? ''}`)
+        )
+        .join('\r\n');
+      upstream.write(`${req.method} ${req.url} HTTP/1.1\r\n${headers}\r\n\r\n`);
+      if (head.length > 0) upstream.write(head);
+      upstream.pipe(socket);
+      socket.pipe(upstream);
+    });
+    upstream.on('error', () => socket.destroy());
+    socket.on('error', () => upstream.destroy());
+    upstream.on('close', () => socket.destroy());
+    socket.on('close', () => upstream.destroy());
+  });
 
   await new Promise<void>((resolve, reject) => {
     const onError = (error: Error) => reject(error);
