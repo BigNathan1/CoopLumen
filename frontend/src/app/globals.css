@@ -22,9 +22,7 @@
  * declared once below and re-resolve on their own when the palette changes.
  */
 :root {
-  /* ---------------------------------------------------------------------
-   * Raw palette - light
-   * ------------------------------------------------------------------ */
+  /* Raw palette - light */
   --palette-light-primary: #5b4bd6;
   --palette-light-secondary: #0a7d63;
   --palette-light-bg: #eeeef5;
@@ -40,9 +38,7 @@
   --palette-light-info: #175fbf;
   --palette-light-warning: #8a6100;
 
-  /* ---------------------------------------------------------------------
-   * Raw palette - dark
-   * ------------------------------------------------------------------ */
+  /* Raw palette - dark */
   --palette-dark-primary: #6c5ce7;
   --palette-dark-secondary: #00b894;
   --palette-dark-bg: #0f0f1a;
@@ -58,13 +54,13 @@
   --palette-dark-info: #74b9ff;
   --palette-dark-warning: #fdcb6e;
 
-  /* ---------------------------------------------------------------------
+  /*
    * Derived colors
    *
    * `--color-emphasis-mix` is the direction interactive states move in: light
    * themes darken on hover, dark themes lighten. Each theme sets it, so these
    * derivations are written once and stay correct in both.
-   * ------------------------------------------------------------------ */
+   */
   --color-primary-hover: color-mix(in srgb, var(--color-primary) 88%, var(--color-emphasis-mix));
   --color-primary-active: color-mix(in srgb, var(--color-primary) 76%, var(--color-emphasis-mix));
   --color-primary-subtle: color-mix(in srgb, var(--color-primary) 16%, transparent);
@@ -107,11 +103,11 @@
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
 
-  /* ---------------------------------------------------------------------
+  /*
    * Spacing - a 4px base scale. The number is the multiplier, so `--space-4`
    * is 4 x 4px = 1rem. Non-linear steps are omitted deliberately to keep
    * layouts on the grid.
-   * ------------------------------------------------------------------ */
+   */
   --space-0: 0;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -126,9 +122,7 @@
   --space-20: 5rem;
   --space-24: 6rem;
 
-  /* ---------------------------------------------------------------------
-   * Radii
-   * ------------------------------------------------------------------ */
+  /* Radii */
   --radius-none: 0;
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -144,13 +138,13 @@
    */
   --radius: var(--radius-md);
 
-  /* ---------------------------------------------------------------------
+  /*
    * Responsive breakpoints
    *
    * Mobile-first min-widths. A media query condition cannot read a custom
    * property, so `globals.css` and `lib/breakpoints.ts` both repeat these
    * numbers; `designTokens.test.ts` fails if the three ever drift apart.
-   * ------------------------------------------------------------------ */
+   */
   --breakpoint-sm: 640px;
   --breakpoint-md: 768px;
   --breakpoint-lg: 1024px;
@@ -169,7 +163,7 @@
   --grid-min-column: 280px;
   --grid-columns-base: 1;
 
-  /* ---------------------------------------------------------------------
+  /*
    * Landing page
    *
    * Presentation choices that belong to the marketing page at `/` rather than
@@ -179,7 +173,7 @@
    *
    * The hairlines lean on `--color-text` rather than `--color-border`, which is
    * close to invisible against the landing page's tinted bands.
-   * ------------------------------------------------------------------ */
+   */
   --landing-max: 1120px;
   --landing-gutter: var(--space-5);
   --landing-section-y: clamp(4rem, 9vw, 7.5rem);
