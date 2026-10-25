@@ -27,7 +27,7 @@ services:
       retries: 10
 
   test-redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     container_name: cooplumen-test-redis
     restart: 'no'
     ports:
