@@ -2,7 +2,7 @@
 
 use soroban_sdk::{
     contract, contracterror, contractevent, contractimpl, contracttype, symbol_short, token,
-    Address, Env, String, Symbol, Vec,
+    Address, Env, Map, String, Symbol, Vec,
 };
 
 /// Errors returned by the CoopLumen Governance contract.
@@ -31,6 +31,28 @@ pub enum GovernanceError {
     VotingPowerDelegated = 14,
     /// The account has no active delegation to revoke.
     NoDelegation = 15,
+    /// The account does not hold the governance role the operation requires.
+    Unauthorized = 16,
+    /// The account already holds the governance role.
+    RoleAlreadyAssigned = 17,
+    /// The account does not hold the governance role that was to be revoked.
+    RoleNotAssigned = 18,
+    /// No admin transfer is pending.
+    AdminTransferNotFound = 19,
+    /// An admin transfer is already pending.
+    AdminTransferPending = 20,
+    /// The pending admin transfer expired before it was accepted.
+    AdminTransferExpired = 21,
+    /// The referenced pending upgrade does not exist.
+    UpgradeNotFound = 22,
+    /// The account already approved this pending upgrade.
+    UpgradeAlreadyApproved = 23,
+    /// The pending upgrade expired before it was approved.
+    UpgradeExpired = 24,
+    /// The operation is blocked by an active scoped pause.
+    ProtocolPaused = 25,
+    /// A pending upgrade already exists for this proposal id.
+    UpgradeAlreadyPending = 26,
 }
 
 /// Lifecycle status of an on-chain proposal.
@@ -109,6 +131,107 @@ pub struct GovernanceAnalytics {
     pub proposal_pass_rate_bps: u32,
 }
 
+/// Operation-scoped governance roles.
+///
+/// A role gates exactly one family of protocol operations, so an account can
+/// hold the authority it needs without becoming a full administrator. Roles are
+/// assigned by the contract admin or by an account holding the `Upgrade` role
+/// and are always checked through the same centralized guard.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum GovernanceRole {
+    /// Pause and resume scoped protocol operations.
+    Pause,
+    /// Change schema-affecting protocol configuration.
+    Schema,
+    /// Register and update issuers.
+    Issuer,
+    /// Revoke issued credentials.
+    Revocation,
+    /// Propose and approve protocol upgrades.
+    Upgrade,
+    /// Restore admin control when the admin key is lost.
+    Recovery,
+}
+
+/// Audit record of a terminal admin-transfer transition.
+///
+/// Every admin transfer ends in exactly one terminal state, so the history
+/// holds one record per attempt and `terminal_reason` states which one:
+/// `Accepted`, `Cancelled`, or `Expired`.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AdminTransferRecord {
+    /// Monotonic sequence number of the record.
+    pub sequence: u64,
+    /// The admin in control before the transition.
+    pub old_admin: Address,
+    /// The account that was proposed to take over.
+    pub proposed_admin: Address,
+    /// The account that performed the terminal transition. For an expiry this
+    /// is the outgoing admin whose transfer lapsed.
+    pub actor: Address,
+    /// Ledger sequence the transition was recorded in.
+    pub ledger_sequence: u32,
+    /// Ledger timestamp of the transition.
+    pub timestamp: u64,
+    /// Why the transfer ended: `Accepted`, `Cancelled`, or `Expired`.
+    pub terminal_reason: String,
+}
+
+/// Audit record of a scoped pause state transition.
+///
+/// Scopes are open-ended strings (`Global`, `IssuerRegistry`, ...). The
+/// sequence numbers are monotonic, so the order of incident responses can be
+/// proven from the history alone.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PauseTransitionRecord {
+    /// Monotonic sequence number of the record.
+    pub sequence: u64,
+    /// The scope whose state changed.
+    pub scope: String,
+    /// Whether the scope is paused after the transition.
+    pub is_paused: bool,
+    /// The account that performed the transition.
+    pub actor: Address,
+    /// Ledger sequence the transition was recorded in.
+    pub ledger_sequence: u32,
+    /// Ledger timestamp of the transition.
+    pub timestamp: u64,
+    /// Optional commitment to the incident that triggered the pause.
+    pub incident_commitment: Option<String>,
+}
+
+/// A protocol upgrade that role holders still have to approve.
+///
+/// The record is removed once it expires or is superseded, and the upgrade
+/// hash index makes it possible to find a pending upgrade by its target hash.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PendingUpgradeApproval {
+    /// Identifier of the upgrade proposal.
+    pub proposal_id: String,
+    /// Hash of the build the upgrade points at.
+    pub target_hash: String,
+    /// Version label of the build.
+    pub version: String,
+    /// Ledger timestamp after which the upgrade can no longer be approved.
+    pub expires_at: u64,
+    /// Number of distinct accounts that approved the upgrade.
+    pub approval_count: u32,
+}
+
+/// The admin transfer that is currently awaiting acceptance.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PendingAdminTransfer {
+    /// The account proposed to take over as admin.
+    pub proposed_admin: Address,
+    /// Ledger timestamp after which the transfer can no longer be accepted.
+    pub expires_at: u64,
+}
+
 /// Contract storage keys.
 #[contracttype]
 pub enum DataKey {
@@ -119,6 +242,26 @@ pub enum DataKey {
     Delegation(Address),
     Delegators(Address),
     ProposalCount,
+    /// Role assignment of one account, addressed by account and role.
+    GovernanceRole(Address, GovernanceRole),
+    /// Monotonic sequence of the admin-transfer history.
+    AdminHistorySeq,
+    /// Admin-transfer history, addressed by its monotonic sequence.
+    AdminTransferHistory,
+    /// The admin transfer that is awaiting acceptance.
+    PendingAdminTransfer,
+    /// Monotonic sequence of the pause-transition history.
+    PauseHistorySeq,
+    /// Pause-transition history, addressed by its monotonic sequence.
+    PauseHistory,
+    /// Whether one scope is currently paused.
+    PauseScope(String),
+    /// Pending upgrades, addressed by proposal id.
+    PendingUpgrades,
+    /// Index from an upgrade target hash to its proposal id.
+    PendingUpgradeHashes,
+    /// The accounts that approved one pending upgrade.
+    UpgradeApprovals(String),
 }
 
 // Event topic symbols
@@ -146,7 +289,96 @@ pub struct VotingPowerDelegatedEvent {
 pub struct VotingPowerUndelegatedEvent {
     #[topic]
     pub delegator: Address,
+    #[topic]
     pub former_delegatee: Address,
+}
+
+/// Scope that pauses the whole protocol.
+const GLOBAL_SCOPE: &str = "Global";
+
+/// Lifetime of a pending admin transfer, in seconds.
+const ADMIN_TRANSFER_TTL: u64 = 86_400;
+
+/// Terminal reason of an admin transfer that was accepted.
+const REASON_ACCEPTED: &str = "Accepted";
+
+/// Terminal reason of an admin transfer the admin withdrew.
+const REASON_CANCELLED: &str = "Cancelled";
+
+/// Terminal reason of an admin transfer that lapsed.
+const REASON_EXPIRED: &str = "Expired";
+
+/// Number of rows a bounded query returns when no limit is given.
+const DEFAULT_QUERY_LIMIT: u32 = 50;
+
+/// Largest number of rows a bounded query returns.
+const MAX_QUERY_LIMIT: u32 = 200;
+
+/// Emitted when an account is granted an operation-scoped governance role.
+#[contractevent(topics = ["role_granted"])]
+pub struct RoleGrantedEvent {
+    #[topic]
+    pub actor: Address,
+    #[topic]
+    pub account: Address,
+    pub role: GovernanceRole,
+}
+
+/// Emitted when an account loses an operation-scoped governance role.
+#[contractevent(topics = ["role_revoked"])]
+pub struct RoleRevokedEvent {
+    #[topic]
+    pub actor: Address,
+    #[topic]
+    pub account: Address,
+    pub role: GovernanceRole,
+}
+
+/// Emitted when an admin transfer reaches a terminal state.
+#[contractevent(topics = ["admin_xfer"])]
+pub struct AdminTransferEvent {
+    #[topic]
+    pub sequence: u64,
+    pub old_admin: Address,
+    pub proposed_admin: Address,
+    pub actor: Address,
+    pub terminal_reason: String,
+}
+
+/// Emitted when a scope is paused or resumed.
+#[contractevent(topics = ["pause"])]
+pub struct PauseTransitionEvent {
+    #[topic]
+    pub sequence: u64,
+    pub scope: String,
+    pub is_paused: bool,
+    pub actor: Address,
+}
+
+/// Emitted when a protocol upgrade is proposed.
+#[contractevent(topics = ["upg_proposed"])]
+pub struct UpgradeProposedEvent {
+    #[topic]
+    pub actor: Address,
+    pub proposal_id: String,
+    pub target_hash: String,
+    pub version: String,
+}
+
+/// Emitted when a role holder approves a pending upgrade.
+#[contractevent(topics = ["upg_approved"])]
+pub struct UpgradeApprovedEvent {
+    #[topic]
+    pub approver: Address,
+    pub proposal_id: String,
+    pub approval_count: u32,
+}
+
+/// Emitted when a pending upgrade is removed after it expired.
+#[contractevent(topics = ["upg_expired"])]
+pub struct UpgradeExpiredEvent {
+    #[topic]
+    pub proposal_id: String,
 }
 
 /// On-chain Governance smart contract for CoopLumen.
@@ -172,13 +404,23 @@ impl GovernanceContract {
         }
 
         let config = Config {
-            admin,
+            admin: admin.clone(),
             governance_token,
             voting_period,
             quorum_bps,
             total_supply,
         };
         env.storage().instance().set(&DataKey::Config, &config);
+
+        // The admin starts with every operation-scoped role so the contract is
+        // operable from the first block, and roles can be handed out later
+        // without a separate bootstrap step.
+        for role in all_roles(&env) {
+            env.storage()
+                .instance()
+                .set(&DataKey::GovernanceRole(admin.clone(), role), &true);
+        }
+
         Ok(())
     }
 
@@ -197,6 +439,8 @@ impl GovernanceContract {
             .instance()
             .get(&DataKey::Config)
             .ok_or(GovernanceError::NotInitialized)?;
+
+        assert_not_paused(&env, GLOBAL_SCOPE)?;
 
         if title.is_empty() {
             return Err(GovernanceError::InvalidInput);
@@ -355,6 +599,8 @@ impl GovernanceContract {
             .instance()
             .get(&DataKey::Config)
             .ok_or(GovernanceError::NotInitialized)?;
+
+        assert_not_paused(&env, GLOBAL_SCOPE)?;
 
         if env
             .storage()
@@ -767,6 +1013,701 @@ impl GovernanceContract {
             .get(&DataKey::Delegators(delegatee))
             .unwrap_or(Vec::new(&env))
     }
+
+    // -----------------------------------------------------------------------
+    // Operation-scoped roles, admin handover, scoped pause, and upgrades
+    // -----------------------------------------------------------------------
+
+    /// Grant an operation-scoped governance role to an account.
+    ///
+    /// Requires `actor` authorization. The actor must hold the `Upgrade` role
+    /// or be the contract admin, so role management can be delegated without
+    /// surrendering admin control.
+    pub fn grant_role(
+        env: Env,
+        actor: Address,
+        account: Address,
+        role: GovernanceRole,
+    ) -> Result<(), GovernanceError> {
+        actor.require_auth();
+        assert_can_manage_role(&env, &actor, &role)?;
+
+        if account_has_role(&env, &account, &role) {
+            return Err(GovernanceError::RoleAlreadyAssigned);
+        }
+
+        env.storage().instance().set(
+            &DataKey::GovernanceRole(account.clone(), role.clone()),
+            &true,
+        );
+
+        RoleGrantedEvent {
+            actor,
+            account,
+            role,
+        }
+        .publish(&env);
+
+        Ok(())
+    }
+
+    /// Revoke an operation-scoped governance role from an account.
+    ///
+    /// Requires `actor` authorization and the same authority as
+    /// [`grant_role`]. Revoking a role the account never held fails with
+    /// `RoleNotAssigned`, so the history of role assignments cannot drift.
+    pub fn revoke_role(
+        env: Env,
+        actor: Address,
+        account: Address,
+        role: GovernanceRole,
+    ) -> Result<(), GovernanceError> {
+        actor.require_auth();
+        assert_can_manage_role(&env, &actor, &role)?;
+
+        if !account_has_role(&env, &account, &role) {
+            return Err(GovernanceError::RoleNotAssigned);
+        }
+
+        env.storage()
+            .instance()
+            .remove(&DataKey::GovernanceRole(account.clone(), role.clone()));
+
+        RoleRevokedEvent {
+            actor,
+            account,
+            role,
+        }
+        .publish(&env);
+
+        Ok(())
+    }
+
+    /// Check whether an account holds an operation-scoped governance role.
+    pub fn has_role(env: Env, account: Address, role: GovernanceRole) -> bool {
+        account_has_role(&env, &account, &role)
+    }
+
+    /// Propose a new contract admin.
+    ///
+    /// Requires `actor` authorization and the actor must be the current admin.
+    /// Only one transfer may be in flight at a time, and it expires
+    /// `ADMIN_TRANSFER_TTL` seconds after it was proposed.
+    pub fn propose_admin_transfer(
+        env: Env,
+        actor: Address,
+        proposed_admin: Address,
+    ) -> Result<(), GovernanceError> {
+        actor.require_auth();
+        let config = load_config(&env)?;
+
+        if actor != config.admin {
+            return Err(GovernanceError::Unauthorized);
+        }
+        if proposed_admin == config.admin {
+            return Err(GovernanceError::InvalidInput);
+        }
+        if env.storage().instance().has(&DataKey::PendingAdminTransfer) {
+            return Err(GovernanceError::AdminTransferPending);
+        }
+
+        let expires_at = env
+            .ledger()
+            .timestamp()
+            .checked_add(ADMIN_TRANSFER_TTL)
+            .ok_or(GovernanceError::Overflow)?;
+
+        env.storage().instance().set(
+            &DataKey::PendingAdminTransfer,
+            &PendingAdminTransfer {
+                proposed_admin,
+                expires_at,
+            },
+        );
+
+        Ok(())
+    }
+
+    /// Accept a pending admin transfer.
+    ///
+    /// Requires `actor` authorization and `actor` must be the proposed admin.
+    /// On acceptance the pending transfer is cleared, `Config.admin` is
+    /// replaced, and an `Accepted` record is appended to the admin-transfer
+    /// history. A transfer that already expired fails with
+    /// `AdminTransferExpired` and leaves the pending transfer untouched so it
+    /// can still be swept.
+    pub fn accept_admin_transfer(env: Env, actor: Address) -> Result<(), GovernanceError> {
+        actor.require_auth();
+        let config = load_config(&env)?;
+
+        let pending: PendingAdminTransfer = env
+            .storage()
+            .instance()
+            .get(&DataKey::PendingAdminTransfer)
+            .ok_or(GovernanceError::AdminTransferNotFound)?;
+
+        if actor != pending.proposed_admin {
+            return Err(GovernanceError::Unauthorized);
+        }
+        if env.ledger().timestamp() > pending.expires_at {
+            return Err(GovernanceError::AdminTransferExpired);
+        }
+
+        env.storage()
+            .instance()
+            .remove(&DataKey::PendingAdminTransfer);
+
+        let mut updated = config.clone();
+        updated.admin = pending.proposed_admin.clone();
+        env.storage().instance().set(&DataKey::Config, &updated);
+
+        // The new admin inherits the role set of the admin it replaces.
+        inherit_admin_roles(&env, &config.admin, &pending.proposed_admin);
+
+        append_admin_transfer(
+            &env,
+            &config.admin,
+            &pending.proposed_admin,
+            &actor,
+            REASON_ACCEPTED,
+        )?;
+
+        Ok(())
+    }
+
+    /// Cancel a pending admin transfer.
+    ///
+    /// Requires `actor` authorization and the actor must be the current admin.
+    /// The cancelled attempt is recorded in the admin-transfer history with the
+    /// terminal reason `Cancelled`.
+    pub fn cancel_admin_transfer(env: Env, actor: Address) -> Result<(), GovernanceError> {
+        actor.require_auth();
+        let config = load_config(&env)?;
+
+        if actor != config.admin {
+            return Err(GovernanceError::Unauthorized);
+        }
+
+        let pending: PendingAdminTransfer = env
+            .storage()
+            .instance()
+            .get(&DataKey::PendingAdminTransfer)
+            .ok_or(GovernanceError::AdminTransferNotFound)?;
+
+        env.storage()
+            .instance()
+            .remove(&DataKey::PendingAdminTransfer);
+
+        append_admin_transfer(
+            &env,
+            &config.admin,
+            &pending.proposed_admin,
+            &actor,
+            REASON_CANCELLED,
+        )?;
+
+        Ok(())
+    }
+
+    /// Record the expiry of a lapsed admin transfer.
+    ///
+    /// Permissionless: anyone may sweep a transfer that ran out of time. The
+    /// record's actor is the outgoing admin whose transfer expired. Returns
+    /// whether an expired transfer was found.
+    pub fn sweep_expired_admin_transfer(env: Env) -> Result<bool, GovernanceError> {
+        let config = load_config(&env)?;
+
+        let pending: Option<PendingAdminTransfer> =
+            env.storage().instance().get(&DataKey::PendingAdminTransfer);
+
+        let pending = match pending {
+            Some(pending) => pending,
+            None => return Ok(false),
+        };
+
+        if env.ledger().timestamp() <= pending.expires_at {
+            return Ok(false);
+        }
+
+        env.storage()
+            .instance()
+            .remove(&DataKey::PendingAdminTransfer);
+
+        append_admin_transfer(
+            &env,
+            &config.admin,
+            &pending.proposed_admin,
+            &config.admin,
+            REASON_EXPIRED,
+        )?;
+
+        Ok(true)
+    }
+
+    /// Restore admin control through the recovery hierarchy.
+    ///
+    /// Requires `actor` authorization and the `Recovery` role. The current
+    /// admin is replaced by `new_admin`, the new admin inherits the role set
+    /// of the old admin, and the takeover is recorded in the admin-transfer
+    /// history with the terminal reason `Accepted`. A pending transfer is
+    /// superseded and recorded as `Cancelled`.
+    pub fn recover_admin(
+        env: Env,
+        actor: Address,
+        new_admin: Address,
+    ) -> Result<(), GovernanceError> {
+        actor.require_auth();
+        assert_role(&env, &actor, &GovernanceRole::Recovery)?;
+
+        let config = load_config(&env)?;
+        if new_admin == config.admin {
+            return Err(GovernanceError::InvalidInput);
+        }
+
+        let pending: Option<PendingAdminTransfer> =
+            env.storage().instance().get(&DataKey::PendingAdminTransfer);
+        if let Some(pending) = pending {
+            env.storage()
+                .instance()
+                .remove(&DataKey::PendingAdminTransfer);
+            append_admin_transfer(
+                &env,
+                &config.admin,
+                &pending.proposed_admin,
+                &actor,
+                REASON_CANCELLED,
+            )?;
+        }
+
+        let mut updated = config.clone();
+        updated.admin = new_admin.clone();
+        env.storage().instance().set(&DataKey::Config, &updated);
+
+        // The new admin inherits the role set of the admin it replaces.
+        inherit_admin_roles(&env, &config.admin, &new_admin);
+
+        append_admin_transfer(&env, &config.admin, &new_admin, &actor, REASON_ACCEPTED)?;
+
+        Ok(())
+    }
+
+    /// Pause one scope of the protocol.
+    ///
+    /// Requires `actor` authorization and the `Pause` role. The transition is
+    /// appended to the pause history under a monotonic sequence number, so the
+    /// order of incident responses can be proven from the history alone. The
+    /// `Global` scope blocks proposal creation and voting while it is paused.
+    pub fn execute_pause(
+        env: Env,
+        actor: Address,
+        scope: String,
+        incident_commitment: Option<String>,
+    ) -> Result<u64, GovernanceError> {
+        actor.require_auth();
+        assert_role(&env, &actor, &GovernanceRole::Pause)?;
+
+        if scope.is_empty() {
+            return Err(GovernanceError::InvalidInput);
+        }
+
+        env.storage()
+            .instance()
+            .set(&DataKey::PauseScope(scope.clone()), &true);
+
+        let record = append_pause_transition(&env, &scope, true, &actor, incident_commitment)?;
+
+        PauseTransitionEvent {
+            sequence: record.sequence,
+            scope,
+            is_paused: true,
+            actor,
+        }
+        .publish(&env);
+
+        Ok(record.sequence)
+    }
+
+    /// Resume one scope of the protocol.
+    ///
+    /// Requires `actor` authorization and the `Pause` role. The transition is
+    /// appended to the pause history with `is_paused` set to false.
+    pub fn execute_unpause(
+        env: Env,
+        actor: Address,
+        scope: String,
+    ) -> Result<u64, GovernanceError> {
+        actor.require_auth();
+        assert_role(&env, &actor, &GovernanceRole::Pause)?;
+
+        if scope.is_empty() {
+            return Err(GovernanceError::InvalidInput);
+        }
+
+        env.storage()
+            .instance()
+            .set(&DataKey::PauseScope(scope.clone()), &false);
+
+        let record = append_pause_transition(&env, &scope, false, &actor, None)?;
+
+        PauseTransitionEvent {
+            sequence: record.sequence,
+            scope,
+            is_paused: false,
+            actor,
+        }
+        .publish(&env);
+
+        Ok(record.sequence)
+    }
+
+    /// Check whether one scope is currently paused.
+    pub fn is_paused(env: Env, scope: String) -> bool {
+        env.storage()
+            .instance()
+            .get(&DataKey::PauseScope(scope))
+            .unwrap_or(false)
+    }
+
+    /// Propose a protocol upgrade that role holders can approve.
+    ///
+    /// Requires `actor` authorization and the `Upgrade` role. The upgrade is
+    /// pending until it expires, and it is indexed by its target hash so it
+    /// can be found without knowing the proposal id.
+    pub fn propose_upgrade(
+        env: Env,
+        actor: Address,
+        proposal_id: String,
+        target_hash: String,
+        version: String,
+        ttl: u64,
+    ) -> Result<(), GovernanceError> {
+        actor.require_auth();
+        assert_role(&env, &actor, &GovernanceRole::Upgrade)?;
+
+        if proposal_id.is_empty() || target_hash.is_empty() {
+            return Err(GovernanceError::InvalidInput);
+        }
+
+        let mut pending: Map<String, PendingUpgradeApproval> = env
+            .storage()
+            .instance()
+            .get(&DataKey::PendingUpgrades)
+            .unwrap_or(Map::new(&env));
+
+        if pending.contains_key(proposal_id.clone()) {
+            return Err(GovernanceError::UpgradeAlreadyPending);
+        }
+
+        let expires_at = env
+            .ledger()
+            .timestamp()
+            .checked_add(ttl)
+            .ok_or(GovernanceError::Overflow)?;
+
+        pending.set(
+            proposal_id.clone(),
+            PendingUpgradeApproval {
+                proposal_id: proposal_id.clone(),
+                target_hash: target_hash.clone(),
+                version: version.clone(),
+                expires_at,
+                approval_count: 0,
+            },
+        );
+        env.storage()
+            .instance()
+            .set(&DataKey::PendingUpgrades, &pending);
+
+        let mut hashes: Map<String, String> = env
+            .storage()
+            .instance()
+            .get(&DataKey::PendingUpgradeHashes)
+            .unwrap_or(Map::new(&env));
+        hashes.set(target_hash.clone(), proposal_id.clone());
+        env.storage()
+            .instance()
+            .set(&DataKey::PendingUpgradeHashes, &hashes);
+
+        UpgradeProposedEvent {
+            actor,
+            proposal_id,
+            target_hash,
+            version,
+        }
+        .publish(&env);
+
+        Ok(())
+    }
+
+    /// Approve a pending upgrade.
+    ///
+    /// Requires `actor` authorization and the `Upgrade` role. Every account
+    /// counts once, so an account cannot inflate the approval count by
+    /// approving twice. Returns the new approval count.
+    pub fn approve_upgrade(
+        env: Env,
+        actor: Address,
+        proposal_id: String,
+    ) -> Result<u32, GovernanceError> {
+        actor.require_auth();
+        assert_role(&env, &actor, &GovernanceRole::Upgrade)?;
+
+        let mut pending: Map<String, PendingUpgradeApproval> = env
+            .storage()
+            .instance()
+            .get(&DataKey::PendingUpgrades)
+            .unwrap_or(Map::new(&env));
+
+        let mut record = pending
+            .get(proposal_id.clone())
+            .ok_or(GovernanceError::UpgradeNotFound)?;
+
+        if env.ledger().timestamp() > record.expires_at {
+            return Err(GovernanceError::UpgradeExpired);
+        }
+
+        let mut approvers: Vec<Address> = env
+            .storage()
+            .instance()
+            .get(&DataKey::UpgradeApprovals(proposal_id.clone()))
+            .unwrap_or(Vec::new(&env));
+
+        if approvers.iter().any(|approver| approver == actor) {
+            return Err(GovernanceError::UpgradeAlreadyApproved);
+        }
+
+        approvers.push_back(actor.clone());
+        env.storage()
+            .instance()
+            .set(&DataKey::UpgradeApprovals(proposal_id.clone()), &approvers);
+
+        record.approval_count = record
+            .approval_count
+            .checked_add(1)
+            .ok_or(GovernanceError::Overflow)?;
+
+        pending.set(proposal_id.clone(), record.clone());
+        env.storage()
+            .instance()
+            .set(&DataKey::PendingUpgrades, &pending);
+
+        UpgradeApprovedEvent {
+            approver: actor,
+            proposal_id,
+            approval_count: record.approval_count,
+        }
+        .publish(&env);
+
+        Ok(record.approval_count)
+    }
+
+    /// Remove pending upgrades that expired.
+    ///
+    /// Permissionless. Returns the number of expired upgrades that were
+    /// removed so the caller can observe the cleanup.
+    pub fn sweep_expired_upgrades(env: Env) -> Result<u32, GovernanceError> {
+        let mut pending: Map<String, PendingUpgradeApproval> = env
+            .storage()
+            .instance()
+            .get(&DataKey::PendingUpgrades)
+            .unwrap_or(Map::new(&env));
+
+        if pending.is_empty() {
+            return Ok(0);
+        }
+
+        let now = env.ledger().timestamp();
+        let mut expired: Vec<String> = Vec::new(&env);
+        for (proposal_id, record) in pending.iter() {
+            if now > record.expires_at {
+                expired.push_back(proposal_id);
+            }
+        }
+
+        if expired.is_empty() {
+            return Ok(0);
+        }
+
+        let mut hashes: Map<String, String> = env
+            .storage()
+            .instance()
+            .get(&DataKey::PendingUpgradeHashes)
+            .unwrap_or(Map::new(&env));
+
+        let mut removed = 0_u32;
+        for proposal_id in expired.iter() {
+            let record = match pending.get(proposal_id.clone()) {
+                Some(record) => record,
+                None => continue,
+            };
+
+            pending.remove(proposal_id.clone());
+            hashes.remove(record.target_hash);
+            env.storage()
+                .instance()
+                .remove(&DataKey::UpgradeApprovals(proposal_id.clone()));
+            removed += 1;
+
+            UpgradeExpiredEvent {
+                proposal_id: proposal_id.clone(),
+            }
+            .publish(&env);
+        }
+
+        env.storage()
+            .instance()
+            .set(&DataKey::PendingUpgrades, &pending);
+        env.storage()
+            .instance()
+            .set(&DataKey::PendingUpgradeHashes, &hashes);
+
+        Ok(removed)
+    }
+
+    /// Read one pending upgrade by its proposal id.
+    pub fn get_pending_upgrade(env: Env, proposal_id: String) -> Option<PendingUpgradeApproval> {
+        let pending: Map<String, PendingUpgradeApproval> = env
+            .storage()
+            .instance()
+            .get(&DataKey::PendingUpgrades)
+            .unwrap_or(Map::new(&env));
+
+        pending.get(proposal_id)
+    }
+
+    /// Read one pending upgrade by the hash of its target build.
+    pub fn get_pending_upgrade_by_hash(
+        env: Env,
+        target_hash: String,
+    ) -> Option<PendingUpgradeApproval> {
+        let hashes: Map<String, String> = env
+            .storage()
+            .instance()
+            .get(&DataKey::PendingUpgradeHashes)
+            .unwrap_or(Map::new(&env));
+
+        let proposal_id = hashes.get(target_hash)?;
+
+        let pending: Map<String, PendingUpgradeApproval> = env
+            .storage()
+            .instance()
+            .get(&DataKey::PendingUpgrades)
+            .unwrap_or(Map::new(&env));
+
+        pending.get(proposal_id)
+    }
+
+    /// Read the admin-transfer history, oldest sequence first.
+    ///
+    /// Bounded query: `start_after` skips every record up to and including the
+    /// given sequence, and `limit` caps the number of returned records.
+    pub fn get_admin_transfer_history(
+        env: Env,
+        start_after: Option<u64>,
+        limit: Option<u32>,
+    ) -> Vec<AdminTransferRecord> {
+        let history: Map<u64, AdminTransferRecord> = env
+            .storage()
+            .instance()
+            .get(&DataKey::AdminTransferHistory)
+            .unwrap_or(Map::new(&env));
+
+        let limit = bounded_limit(limit);
+        let mut result = Vec::new(&env);
+
+        for (sequence, record) in history.iter() {
+            if let Some(start) = start_after {
+                if sequence <= start {
+                    continue;
+                }
+            }
+            result.push_back(record);
+            if result.len() >= limit {
+                break;
+            }
+        }
+
+        result
+    }
+
+    /// Read the scoped pause-transition history, oldest sequence first.
+    ///
+    /// Bounded query: `scope` restricts the result to one scope, `start_after`
+    /// skips every record up to and including the given sequence, and `limit`
+    /// caps the number of returned records.
+    pub fn get_pause_history(
+        env: Env,
+        scope: Option<String>,
+        start_after: Option<u64>,
+        limit: Option<u32>,
+    ) -> Vec<PauseTransitionRecord> {
+        let history: Map<u64, PauseTransitionRecord> = env
+            .storage()
+            .instance()
+            .get(&DataKey::PauseHistory)
+            .unwrap_or(Map::new(&env));
+
+        let limit = bounded_limit(limit);
+        let filter = scope.clone();
+        let mut result = Vec::new(&env);
+
+        for (sequence, record) in history.iter() {
+            if let Some(scope) = filter.clone() {
+                if record.scope != scope {
+                    continue;
+                }
+            }
+            if let Some(start) = start_after {
+                if sequence <= start {
+                    continue;
+                }
+            }
+            result.push_back(record);
+            if result.len() >= limit {
+                break;
+            }
+        }
+
+        result
+    }
+
+    /// Read the pending upgrades that have not expired, ordered by proposal id.
+    ///
+    /// Bounded query: `start_after` skips every proposal up to and including
+    /// the given proposal id, and `limit` caps the number of returned records.
+    pub fn get_pending_upgrades(
+        env: Env,
+        start_after: Option<String>,
+        limit: Option<u32>,
+    ) -> Vec<PendingUpgradeApproval> {
+        let pending: Map<String, PendingUpgradeApproval> = env
+            .storage()
+            .instance()
+            .get(&DataKey::PendingUpgrades)
+            .unwrap_or(Map::new(&env));
+
+        let limit = bounded_limit(limit);
+        let now = env.ledger().timestamp();
+        let start = start_after.clone();
+        let mut result = Vec::new(&env);
+
+        for (proposal_id, record) in pending.iter() {
+            if now > record.expires_at {
+                continue;
+            }
+            if let Some(start) = start.clone() {
+                if proposal_id <= start {
+                    continue;
+                }
+            }
+            result.push_back(record);
+            if result.len() >= limit {
+                break;
+            }
+        }
+
+        result
+    }
 }
 
 fn remove_delegator(env: &Env, delegatee: &Address, delegator: &Address) {
@@ -811,6 +1752,223 @@ fn participation_basis_points(
     } else {
         basis_points as u32
     })
+}
+
+/// Load the singleton configuration.
+fn load_config(env: &Env) -> Result<Config, GovernanceError> {
+    env.storage()
+        .instance()
+        .get(&DataKey::Config)
+        .ok_or(GovernanceError::NotInitialized)
+}
+
+/// Every operation-scoped governance role.
+fn all_roles(env: &Env) -> Vec<GovernanceRole> {
+    let mut roles = Vec::new(env);
+    roles.push_back(GovernanceRole::Pause);
+    roles.push_back(GovernanceRole::Schema);
+    roles.push_back(GovernanceRole::Issuer);
+    roles.push_back(GovernanceRole::Revocation);
+    roles.push_back(GovernanceRole::Upgrade);
+    roles.push_back(GovernanceRole::Recovery);
+    roles
+}
+
+/// Whether an account holds a governance role.
+fn account_has_role(env: &Env, account: &Address, role: &GovernanceRole) -> bool {
+    env.storage()
+        .instance()
+        .has(&DataKey::GovernanceRole(account.clone(), role.clone()))
+}
+
+/// Centralized role authorization guard.
+///
+/// Every role-gated operation funnels through this check, so the role set is
+/// the single source of truth for what an account may do.
+pub fn assert_role(
+    env: &Env,
+    account: &Address,
+    role: &GovernanceRole,
+) -> Result<(), GovernanceError> {
+    if account_has_role(env, account, role) {
+        Ok(())
+    } else {
+        Err(GovernanceError::Unauthorized)
+    }
+}
+
+/// Copy the role set of one admin onto its successor.
+/// Moves the outgoing admin's roles to the new admin.
+///
+/// The roles leave the old address rather than being copied: after a recovery
+/// the old key may be the compromised one, and a lingering `Recovery` role
+/// would let it take the seat straight back.
+fn inherit_admin_roles(env: &Env, old_admin: &Address, new_admin: &Address) {
+    if old_admin == new_admin {
+        return;
+    }
+    for role in all_roles(env) {
+        if account_has_role(env, old_admin, &role) {
+            env.storage()
+                .instance()
+                .remove(&DataKey::GovernanceRole(old_admin.clone(), role.clone()));
+            env.storage()
+                .instance()
+                .set(&DataKey::GovernanceRole(new_admin.clone(), role), &true);
+        }
+    }
+}
+
+/// Guard for role management: the contract admin or an `Upgrade` role holder.
+/// Who may grant or revoke `role`.
+///
+/// `Upgrade` and `Recovery` control the contract itself: an account that could
+/// hand them out could grant itself `Recovery` and take the admin seat through
+/// [`GovernanceContract::recover_admin`]. Only the admin manages those two; the
+/// admin or an `Upgrade` holder manages the operational roles.
+fn assert_can_manage_role(
+    env: &Env,
+    actor: &Address,
+    role: &GovernanceRole,
+) -> Result<(), GovernanceError> {
+    match role {
+        GovernanceRole::Upgrade | GovernanceRole::Recovery => {
+            if actor == &load_config(env)?.admin {
+                Ok(())
+            } else {
+                Err(GovernanceError::Unauthorized)
+            }
+        }
+        _ => assert_admin_or_upgrader(env, actor),
+    }
+}
+
+fn assert_admin_or_upgrader(env: &Env, account: &Address) -> Result<(), GovernanceError> {
+    if account_has_role(env, account, &GovernanceRole::Upgrade) {
+        return Ok(());
+    }
+
+    let config = load_config(env)?;
+    if account == &config.admin {
+        return Ok(());
+    }
+
+    Err(GovernanceError::Unauthorized)
+}
+
+/// Guard for operations that a scoped pause blocks.
+fn assert_not_paused(env: &Env, scope: &str) -> Result<(), GovernanceError> {
+    let paused: bool = env
+        .storage()
+        .instance()
+        .get(&DataKey::PauseScope(String::from_str(env, scope)))
+        .unwrap_or(false);
+
+    if paused {
+        Err(GovernanceError::ProtocolPaused)
+    } else {
+        Ok(())
+    }
+}
+
+/// Append a terminal admin-transfer record to the history.
+fn append_admin_transfer(
+    env: &Env,
+    old_admin: &Address,
+    proposed_admin: &Address,
+    actor: &Address,
+    terminal_reason: &str,
+) -> Result<u64, GovernanceError> {
+    let mut sequence: u64 = env
+        .storage()
+        .instance()
+        .get(&DataKey::AdminHistorySeq)
+        .unwrap_or(0);
+    sequence = sequence.checked_add(1).ok_or(GovernanceError::Overflow)?;
+
+    let record = AdminTransferRecord {
+        sequence,
+        old_admin: old_admin.clone(),
+        proposed_admin: proposed_admin.clone(),
+        actor: actor.clone(),
+        ledger_sequence: env.ledger().sequence(),
+        timestamp: env.ledger().timestamp(),
+        terminal_reason: String::from_str(env, terminal_reason),
+    };
+
+    let mut history: Map<u64, AdminTransferRecord> = env
+        .storage()
+        .instance()
+        .get(&DataKey::AdminTransferHistory)
+        .unwrap_or(Map::new(env));
+    history.set(sequence, record.clone());
+    env.storage()
+        .instance()
+        .set(&DataKey::AdminTransferHistory, &history);
+    env.storage()
+        .instance()
+        .set(&DataKey::AdminHistorySeq, &sequence);
+
+    AdminTransferEvent {
+        sequence,
+        old_admin: old_admin.clone(),
+        proposed_admin: proposed_admin.clone(),
+        actor: actor.clone(),
+        terminal_reason: record.terminal_reason.clone(),
+    }
+    .publish(env);
+
+    Ok(sequence)
+}
+
+/// Append a pause-transition record to the history.
+fn append_pause_transition(
+    env: &Env,
+    scope: &String,
+    is_paused: bool,
+    actor: &Address,
+    incident_commitment: Option<String>,
+) -> Result<PauseTransitionRecord, GovernanceError> {
+    let mut sequence: u64 = env
+        .storage()
+        .instance()
+        .get(&DataKey::PauseHistorySeq)
+        .unwrap_or(0);
+    sequence = sequence.checked_add(1).ok_or(GovernanceError::Overflow)?;
+
+    let record = PauseTransitionRecord {
+        sequence,
+        scope: scope.clone(),
+        is_paused,
+        actor: actor.clone(),
+        ledger_sequence: env.ledger().sequence(),
+        timestamp: env.ledger().timestamp(),
+        incident_commitment,
+    };
+
+    let mut history: Map<u64, PauseTransitionRecord> = env
+        .storage()
+        .instance()
+        .get(&DataKey::PauseHistory)
+        .unwrap_or(Map::new(env));
+    history.set(sequence, record.clone());
+    env.storage()
+        .instance()
+        .set(&DataKey::PauseHistory, &history);
+    env.storage()
+        .instance()
+        .set(&DataKey::PauseHistorySeq, &sequence);
+
+    Ok(record)
+}
+
+/// Clamp a requested query limit to the supported range.
+fn bounded_limit(limit: Option<u32>) -> u32 {
+    match limit {
+        Some(value) if value > MAX_QUERY_LIMIT => MAX_QUERY_LIMIT,
+        Some(value) => value,
+        None => DEFAULT_QUERY_LIMIT,
+    }
 }
 
 #[cfg(test)]
@@ -1593,5 +2751,374 @@ mod test {
         assert_eq!(analytics.executed_proposals, 1);
         assert_eq!(analytics.average_quorum_bps, 6_000);
         assert_eq!(analytics.proposal_pass_rate_bps, 10_000);
+    }
+
+    // Operation-scoped roles, admin handover, scoped pause, and upgrades
+
+    #[test]
+    fn test_initialize_grants_every_role_to_the_admin() {
+        let (env, admin, _token_admin, _token, client) = setup_test();
+
+        for role in [
+            GovernanceRole::Pause,
+            GovernanceRole::Schema,
+            GovernanceRole::Issuer,
+            GovernanceRole::Revocation,
+            GovernanceRole::Upgrade,
+            GovernanceRole::Recovery,
+        ] {
+            assert!(client.has_role(&admin, &role));
+        }
+
+        let stranger = Address::generate(&env);
+        assert!(!client.has_role(&stranger, &GovernanceRole::Pause));
+    }
+
+    #[test]
+    fn test_upgrader_cannot_grant_itself_control_roles() {
+        let (env, admin, _token_admin, _token, client) = setup_test();
+        let upgrader = Address::generate(&env);
+        let operator = Address::generate(&env);
+        client.grant_role(&admin, &upgrader, &GovernanceRole::Upgrade);
+
+        // Operational roles are delegated to upgraders...
+        client.grant_role(&upgrader, &operator, &GovernanceRole::Pause);
+        assert!(client.has_role(&operator, &GovernanceRole::Pause));
+
+        // ...but Recovery and Upgrade would hand over the contract itself.
+        for role in [GovernanceRole::Recovery, GovernanceRole::Upgrade] {
+            assert_eq!(
+                client
+                    .try_grant_role(&upgrader, &upgrader, &role)
+                    .unwrap_err()
+                    .unwrap(),
+                GovernanceError::Unauthorized
+            );
+        }
+        assert_eq!(
+            client
+                .try_revoke_role(&upgrader, &admin, &GovernanceRole::Recovery)
+                .unwrap_err()
+                .unwrap(),
+            GovernanceError::Unauthorized
+        );
+        assert!(!client.has_role(&upgrader, &GovernanceRole::Recovery));
+    }
+
+    #[test]
+    fn test_grant_and_revoke_role() {
+        let (env, admin, _token_admin, _token, client) = setup_test();
+        let operator = Address::generate(&env);
+
+        // Role management needs admin or upgrade authority.
+        assert_eq!(
+            client
+                .try_grant_role(&operator, &operator, &GovernanceRole::Pause)
+                .unwrap_err()
+                .unwrap(),
+            GovernanceError::Unauthorized
+        );
+
+        client.grant_role(&admin, &operator, &GovernanceRole::Pause);
+        assert!(client.has_role(&operator, &GovernanceRole::Pause));
+
+        assert_eq!(
+            client
+                .try_grant_role(&admin, &operator, &GovernanceRole::Pause)
+                .unwrap_err()
+                .unwrap(),
+            GovernanceError::RoleAlreadyAssigned
+        );
+
+        client.revoke_role(&admin, &operator, &GovernanceRole::Pause);
+        assert!(!client.has_role(&operator, &GovernanceRole::Pause));
+
+        assert_eq!(
+            client
+                .try_revoke_role(&admin, &operator, &GovernanceRole::Pause)
+                .unwrap_err()
+                .unwrap(),
+            GovernanceError::RoleNotAssigned
+        );
+    }
+
+    #[test]
+    fn test_execute_pause_requires_the_pause_role() {
+        let (env, _admin, _token_admin, _token, client) = setup_test();
+        let stranger = Address::generate(&env);
+        let scope = String::from_str(&env, "Global");
+
+        assert_eq!(
+            client
+                .try_execute_pause(&stranger, &scope, &None)
+                .unwrap_err()
+                .unwrap(),
+            GovernanceError::Unauthorized
+        );
+    }
+
+    #[test]
+    fn test_pause_history_records_ordered_transitions() {
+        let (env, admin, _token_admin, _token, client) = setup_test();
+        let global = String::from_str(&env, "Global");
+        let registry = String::from_str(&env, "IssuerRegistry");
+        let commitment = Some(String::from_str(&env, "incident:42"));
+
+        let first = client.execute_pause(&admin, &global, &commitment);
+        let second = client.execute_unpause(&admin, &global);
+        let third = client.execute_pause(&admin, &registry, &None);
+
+        assert_eq!(first, 1);
+        assert_eq!(second, 2);
+        assert_eq!(third, 3);
+
+        let history = client.get_pause_history(&None, &None, &None);
+        assert_eq!(history.len(), 3);
+        assert_eq!(history.get(0).unwrap().sequence, 1);
+        assert!(history.get(0).unwrap().is_paused);
+        assert_eq!(history.get(0).unwrap().incident_commitment, commitment);
+        assert!(!history.get(1).unwrap().is_paused);
+        assert_eq!(history.get(2).unwrap().scope, registry);
+
+        // The scope filter narrows the history to one scope.
+        let global_history = client.get_pause_history(&Some(global.clone()), &None, &None);
+        assert_eq!(global_history.len(), 2);
+
+        // Bounded queries skip up to `start_after` and cap the row count.
+        let after_first = client.get_pause_history(&None, &Some(1), &None);
+        assert_eq!(after_first.len(), 2);
+        assert_eq!(after_first.get(0).unwrap().sequence, 2);
+
+        let limited = client.get_pause_history(&None, &None, &Some(1));
+        assert_eq!(limited.len(), 1);
+        assert_eq!(limited.get(0).unwrap().sequence, 1);
+
+        assert!(client.is_paused(&registry));
+        assert!(!client.is_paused(&global));
+    }
+
+    #[test]
+    fn test_global_pause_blocks_proposals_and_votes() {
+        let (env, admin, _token_admin, _token, client) = setup_test();
+        let global = String::from_str(&env, "Global");
+        let proposer = Address::generate(&env);
+        let title = String::from_str(&env, "Community Grant");
+        let description = String::from_str(&env, "Fund the water project");
+
+        client.execute_pause(&admin, &global, &None);
+
+        assert_eq!(
+            client
+                .try_create_proposal(&proposer, &title, &description, &vec![&env])
+                .unwrap_err()
+                .unwrap(),
+            GovernanceError::ProtocolPaused
+        );
+
+        client.execute_unpause(&admin, &global);
+
+        let proposal_id = client.create_proposal(&proposer, &title, &description, &vec![&env]);
+        assert_eq!(proposal_id, 1);
+    }
+
+    #[test]
+    fn test_admin_transfer_accepted_updates_admin_and_history() {
+        let (env, admin, _token_admin, _token, client) = setup_test();
+        let successor = Address::generate(&env);
+
+        client.propose_admin_transfer(&admin, &successor);
+
+        // Only one transfer may be in flight at a time.
+        assert_eq!(
+            client
+                .try_propose_admin_transfer(&admin, &Address::generate(&env))
+                .unwrap_err()
+                .unwrap(),
+            GovernanceError::AdminTransferPending
+        );
+
+        client.accept_admin_transfer(&successor);
+        assert_eq!(client.get_config().admin, successor);
+
+        let history = client.get_admin_transfer_history(&None, &None);
+        assert_eq!(history.len(), 1);
+
+        let record = history.get(0).unwrap();
+        assert_eq!(record.sequence, 1);
+        assert_eq!(record.old_admin, admin);
+        assert_eq!(record.proposed_admin, successor);
+        assert_eq!(record.actor, successor);
+        assert_eq!(record.terminal_reason, String::from_str(&env, "Accepted"));
+    }
+
+    #[test]
+    fn test_admin_transfer_cancelled_and_expired() {
+        let (env, admin, _token_admin, _token, client) = setup_test();
+        let successor = Address::generate(&env);
+
+        client.propose_admin_transfer(&admin, &successor);
+        client.cancel_admin_transfer(&admin);
+
+        let cancelled = client.get_admin_transfer_history(&None, &None);
+        assert_eq!(cancelled.len(), 1);
+        assert_eq!(
+            cancelled.get(0).unwrap().terminal_reason,
+            String::from_str(&env, "Cancelled")
+        );
+
+        // A transfer that lapses is swept and recorded as expired.
+        client.propose_admin_transfer(&admin, &successor);
+        env.ledger()
+            .set_timestamp(1_000_000 + ADMIN_TRANSFER_TTL + 1);
+        assert!(client.sweep_expired_admin_transfer());
+        assert!(!client.sweep_expired_admin_transfer());
+
+        let history = client.get_admin_transfer_history(&None, &None);
+        assert_eq!(history.len(), 2);
+        assert_eq!(history.get(1).unwrap().sequence, 2);
+        assert_eq!(
+            history.get(1).unwrap().terminal_reason,
+            String::from_str(&env, "Expired")
+        );
+
+        // The expired transfer is the only one after the first record.
+        let after_first = client.get_admin_transfer_history(&Some(1), &None);
+        assert_eq!(after_first.len(), 1);
+        assert_eq!(after_first.get(0).unwrap().sequence, 2);
+    }
+
+    #[test]
+    fn test_expired_admin_transfer_cannot_be_accepted() {
+        let (env, admin, _token_admin, _token, client) = setup_test();
+        let successor = Address::generate(&env);
+
+        client.propose_admin_transfer(&admin, &successor);
+        env.ledger()
+            .set_timestamp(1_000_000 + ADMIN_TRANSFER_TTL + 1);
+
+        assert_eq!(
+            client
+                .try_accept_admin_transfer(&successor)
+                .unwrap_err()
+                .unwrap(),
+            GovernanceError::AdminTransferExpired
+        );
+        assert_eq!(client.get_config().admin, admin);
+    }
+
+    #[test]
+    fn test_recover_admin_requires_recovery_role_and_moves_control() {
+        let (env, admin, _token_admin, _token, client) = setup_test();
+        let rescuer = Address::generate(&env);
+        let new_admin = Address::generate(&env);
+
+        assert_eq!(
+            client
+                .try_recover_admin(&rescuer, &new_admin)
+                .unwrap_err()
+                .unwrap(),
+            GovernanceError::Unauthorized
+        );
+
+        client.grant_role(&admin, &rescuer, &GovernanceRole::Recovery);
+        client.recover_admin(&rescuer, &new_admin);
+
+        assert_eq!(client.get_config().admin, new_admin);
+
+        // The new admin inherits the role set of the admin it replaces, and
+        // the replaced key keeps none of it.
+        assert!(client.has_role(&new_admin, &GovernanceRole::Pause));
+        assert!(client.has_role(&new_admin, &GovernanceRole::Recovery));
+        assert!(!client.has_role(&admin, &GovernanceRole::Pause));
+        assert!(!client.has_role(&admin, &GovernanceRole::Recovery));
+        assert_eq!(
+            client
+                .try_recover_admin(&admin, &admin)
+                .unwrap_err()
+                .unwrap(),
+            GovernanceError::Unauthorized
+        );
+
+        let history = client.get_admin_transfer_history(&None, &None);
+        assert_eq!(history.len(), 1);
+        assert_eq!(history.get(0).unwrap().actor, rescuer);
+        assert_eq!(
+            history.get(0).unwrap().terminal_reason,
+            String::from_str(&env, "Accepted")
+        );
+    }
+
+    #[test]
+    fn test_pending_upgrade_approvals_and_expiry_cleanup() {
+        let (env, admin, _token_admin, _token, client) = setup_test();
+        let approver = Address::generate(&env);
+        let proposal_id = String::from_str(&env, "upgrade-1");
+        let target_hash = String::from_str(&env, "sha256:abc");
+        let version = String::from_str(&env, "1.2.0");
+
+        client.propose_upgrade(&admin, &proposal_id, &target_hash, &version, &3600);
+
+        let pending = client.get_pending_upgrade(&proposal_id).unwrap();
+        assert_eq!(pending.approval_count, 0);
+        assert_eq!(pending.version, version);
+        assert_eq!(
+            client
+                .get_pending_upgrade_by_hash(&target_hash)
+                .unwrap()
+                .proposal_id,
+            proposal_id
+        );
+
+        client.grant_role(&admin, &approver, &GovernanceRole::Upgrade);
+        assert_eq!(client.approve_upgrade(&approver, &proposal_id), 1);
+
+        // One approval per account.
+        assert_eq!(
+            client
+                .try_approve_upgrade(&approver, &proposal_id)
+                .unwrap_err()
+                .unwrap(),
+            GovernanceError::UpgradeAlreadyApproved
+        );
+
+        assert_eq!(client.approve_upgrade(&admin, &proposal_id), 2);
+
+        // Expired upgrades are swept and stop being returned.
+        env.ledger().set_timestamp(1_000_000 + 3601);
+        assert_eq!(client.sweep_expired_upgrades(), 1);
+        assert!(client.get_pending_upgrade(&proposal_id).is_none());
+        assert!(client.get_pending_upgrade_by_hash(&target_hash).is_none());
+    }
+
+    #[test]
+    fn test_pending_upgrade_query_is_bounded_and_ordered() {
+        let (env, admin, _token_admin, _token, client) = setup_test();
+
+        for id in ["a-1", "b-2", "c-3"] {
+            client.propose_upgrade(
+                &admin,
+                &String::from_str(&env, id),
+                &String::from_str(&env, id),
+                &String::from_str(&env, "1.0.0"),
+                &3600,
+            );
+        }
+
+        let all = client.get_pending_upgrades(&None, &None);
+        assert_eq!(all.len(), 3);
+        assert_eq!(
+            all.get(0).unwrap().proposal_id,
+            String::from_str(&env, "a-1")
+        );
+
+        let after = client.get_pending_upgrades(&Some(String::from_str(&env, "a-1")), &None);
+        assert_eq!(after.len(), 2);
+        assert_eq!(
+            after.get(0).unwrap().proposal_id,
+            String::from_str(&env, "b-2")
+        );
+
+        let limited = client.get_pending_upgrades(&None, &Some(2));
+        assert_eq!(limited.len(), 2);
     }
 }
