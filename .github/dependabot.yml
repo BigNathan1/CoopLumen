@@ -51,6 +51,13 @@ updates:
     schedule:
       interval: 'quarterly'
 
+  # Images pinned in the Compose files (Postgres, Redis, PgBouncer, nginx,
+  # pgAdmin) are kept current here.
+  - package-ecosystem: 'docker-compose'
+    directory: '/'
+    schedule:
+      interval: 'quarterly'
+
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
