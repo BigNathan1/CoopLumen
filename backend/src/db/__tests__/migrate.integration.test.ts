@@ -34,7 +34,8 @@ describeIf('Migration integration', () => {
   function runMigrations(): string {
     return execFileSync(process.execPath, ['-r', 'ts-node/register', 'src/db/migrate.ts'], {
       cwd: process.cwd(),
-      env: { ...process.env, DATABASE_URL: testDatabaseUrl },
+      // The assertions read the CLI's log, which is silent under Jest by default.
+      env: { ...process.env, DATABASE_URL: testDatabaseUrl, LOG_LEVEL: 'info' },
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
