@@ -159,7 +159,7 @@ describe('governance proposal routes', () => {
     });
 
     it('creates an active proposal for an authenticated member', async () => {
-      mockDb.query
+      query
         .mockResolvedValueOnce([{ exists: true }])
         .mockResolvedValueOnce([{ id: proposalId }])
         .mockResolvedValueOnce([proposal]);
@@ -171,11 +171,11 @@ describe('governance proposal routes', () => {
 
       expect(response.status).toBe(201);
       expect(response.body).toEqual({ data: proposal });
-      expect(mockDb.query.mock.calls[1][0]).toContain('INSERT INTO proposals');
+      expect(query.mock.calls[1][0]).toContain('INSERT INTO proposals');
     });
 
     it('returns the standard envelope for unexpected database errors', async () => {
-      mockDb.query.mockRejectedValue(new Error('database unavailable'));
+      query.mockRejectedValue(new Error('database unavailable'));
 
       const response = await request(app)
         .post('/api/v1/proposals')
@@ -204,7 +204,7 @@ describe('governance proposal routes', () => {
         .mockResolvedValueOnce({ rows: [] });
       const client = { query: clientQuery } as unknown as PoolClient;
       mockDb.transaction.mockImplementation(async (handler) => handler(client));
-      mockDb.query.mockResolvedValueOnce([
+      query.mockResolvedValueOnce([
         { ...proposal, votes_for: '1.0000000', total_weight: '1.0000000' },
       ]);
 
