@@ -59,6 +59,47 @@ example daily at 02:00:
 0 2 * * * /path/to/cooplumen/scripts/db/backup-db.sh /backup/storage
 ```
 
+## Upgrading a local database from PostgreSQL 16 to 18
+
+The Compose stack runs PostgreSQL 18. A major version cannot open a data
+directory written by an older one, so the stack keeps 18's data in a new
+volume, `pg18_data`, and leaves the old `pg_data` volume untouched. Moving
+existing data across is a dump and restore. On a fresh checkout there is
+nothing to move.
+
+1. Before pulling the upgrade, with the old stack still running, dump
+   everything:
+
+   ```bash
+   docker compose exec -T db pg_dumpall -U cooplumen > cooplumen-pg16.sql
+   ```
+
+   If you have already pulled it, check out the previous commit, start only
+   the database (`docker compose up -d db`), dump, then return to `main`.
+
+2. Start PostgreSQL 18; it initialises the empty `pg18_data` volume:
+
+   ```bash
+   docker compose up -d db
+   ```
+
+3. Restore the dump into it:
+
+   ```bash
+   docker compose exec -T db psql -U cooplumen -d postgres < cooplumen-pg16.sql
+   ```
+
+4. Start the rest of the stack and check the data. Once satisfied, remove the
+   old volume (`docker volume ls` shows its full name, such as
+   `cooplumen_pg_data`):
+
+   ```bash
+   docker volume rm cooplumen_pg_data
+   ```
+
+Production databases are not part of the Compose stack; upgrade them with the
+hosting provider's major-version upgrade, after a backup.
+
 ## Sizing for production
 
 Raise the pool and PgBouncer limits together with traffic:
