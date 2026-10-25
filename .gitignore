@@ -28,13 +28,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Coverage and test reports
+# Coverage and test reports (Jest, Playwright)
 coverage/
 .nyc_output/
-playwright-report/
-test-results/
-
-# Playwright
 playwright-report/
 test-results/
 
