@@ -17,7 +17,7 @@ const proposerAddress = 'GB7QUZ7Z4C6C7DYXU4EB3OG4GLH5HSZX75QW2IQ3YSNKMGHWEJ5FCF6
 const cosigner1 = 'GCATS5YOVB6ROX2WUNKGNQ2MP3GMXDMKSG2O4N5CLX3A6W4PZGZZI55U';
 const cosigner2 = 'GDFR34N5CLX3A6W4PZGZZI55UGB7QUZ7Z4C6C7DYXU4EB3OG4GLH5HSZX';
 
-describe('Multi-Sig Proposal -> Sign -> Execute Lifecycle Integration (Issue #418 / #496)', () => {
+describe('Multi-Sig Proposal -> Sign -> Execute Lifecycle Integration', () => {
   beforeEach(() => {
     jest.resetAllMocks();
   });

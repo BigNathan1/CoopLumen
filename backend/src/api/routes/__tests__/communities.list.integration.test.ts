@@ -1,7 +1,6 @@
 /**
  * Integration tests for GET /api/v1/communities
  * Tests pagination, search, and sort functionality
- * Issue #372 [#294]
  */
 
 import request from 'supertest';

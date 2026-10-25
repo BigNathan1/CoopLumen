@@ -19,7 +19,7 @@ beforeEach(() => {
   jest.resetAllMocks();
 });
 
-describe('MultiSig Endpoint Handlers (Issue #417 / #495)', () => {
+describe('MultiSig Endpoint Handlers', () => {
   describe('GET /api/v1/multisig/community/:communityId', () => {
     it('returns 400 when :communityId is not a valid UUID', async () => {
       const res = await request(app).get('/api/v1/multisig/community/invalid-uuid');

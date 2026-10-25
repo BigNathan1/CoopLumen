@@ -1,7 +1,6 @@
 /**
  * Integration tests for POST /api/v1/communities
  * Tests success scenarios, duplicate name handling, and invalid key validation
- * Issue #373 [#295]
  */
 
 import request from 'supertest';

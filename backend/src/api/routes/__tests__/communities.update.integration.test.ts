@@ -1,7 +1,6 @@
 /**
  * Integration tests for PUT /api/v1/communities/:id
  * Tests update scenarios, not found handling, and unauthorized access
- * Issue #374 [#296]
  */
 
 import request from 'supertest';

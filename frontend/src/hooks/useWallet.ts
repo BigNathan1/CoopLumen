@@ -46,7 +46,7 @@ export const EXPECTED_NETWORK = (
  * subsequent API requests are authenticated as the connected address.
  * Freighter injects into the browser; SSR calls are safely no-ops.
  *
- * Auto-reconnects on mount if the site is already allowed (issue #251):
+ * Auto-reconnects on mount if the site is already allowed:
  * Freighter remembers a prior grant itself, so re-asking the user to click
  * Connect again on every page load/reload would be a needless extra step.
  * While connected, `WatchWalletChanges` (native to `@stellar/freighter-api`
@@ -164,7 +164,7 @@ export function useWallet() {
     setState(INITIAL_STATE);
   }, []);
 
-  // Auto-reconnect on page load/reload (issue #251). `isConnected()` is not
+  // Auto-reconnect on page load/reload. `isConnected()` is not
   // the right check here -- it only reports whether the extension itself is
   // present, true even for a site it has never been asked about. `isAllowed()`
   // is the actual per-site grant check: true only once the user has approved

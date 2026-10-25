@@ -1,6 +1,6 @@
 /**
  * Integration test: DELETE /api/v1/communities/:id (soft delete, cascade check)
- * Issue #375 - Verifies soft-deletion behavior and cascade effects on related data
+ * Verifies soft-deletion behavior and cascade effects on related data.
  * Runs against a real PostgreSQL instance.
  */
 

@@ -108,7 +108,7 @@ function MultiSigWorkflowDashboard({
   );
 }
 
-describe('E2E: MultiSig Proposal -> Co-Sign -> Execute Flow (Issue #419 / #497)', () => {
+describe('E2E: MultiSig Proposal -> Co-Sign -> Execute Flow', () => {
   const proposer = 'GA' + '1'.repeat(54);
   const cosigner = 'GB' + '2'.repeat(54);
 
