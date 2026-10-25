@@ -23,11 +23,26 @@ module.exports = {
     'type-enum': [
       2,
       'always',
-      ['feat', 'fix', 'docs', 'style', 'refactor', 'test', 'chore', 'perf', 'revert', 'ci'],
+      // `build` is the type Dependabot gives every dependency update.
+      [
+        'feat',
+        'fix',
+        'docs',
+        'style',
+        'refactor',
+        'test',
+        'chore',
+        'perf',
+        'revert',
+        'ci',
+        'build',
+      ],
     ],
     'scope-case': [2, 'always', 'lower-case'],
     'subject-case': [2, 'never', ['start-case', 'pascal-case', 'upper-case']],
     'subject-max-length': [2, 'always', 100],
-    'body-max-line-length': [2, 'always', 120],
+    // A warning, not an error: one long line (a URL, a pasted log) in an
+    // otherwise conventional commit should not block a contributor's PR.
+    'body-max-line-length': [1, 'always', 120],
   },
 };
