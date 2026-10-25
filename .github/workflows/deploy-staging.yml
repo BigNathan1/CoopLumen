@@ -57,7 +57,7 @@ jobs:
     outputs:
       image: ${{ steps.meta.outputs.image }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
 
@@ -68,15 +68,15 @@ jobs:
           sha="$(git rev-parse --short=12 HEAD)"
           echo "image=ghcr.io/${owner}/${IMAGE_NAME}:sha-${sha}" >> "$GITHUB_OUTPUT"
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: ./backend
           target: production
@@ -94,7 +94,7 @@ jobs:
       name: staging
       url: ${{ vars.STAGING_URL }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
 
@@ -163,7 +163,7 @@ jobs:
     outputs:
       staging_url: ${{ steps.url.outputs.staging_url }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
 
@@ -174,7 +174,7 @@ jobs:
           echo "staging_url=${target_url}" >> "$GITHUB_OUTPUT"
 
       - name: Setup Flyctl
-        uses: superfly/flyctl-actions/setup-flyctl@1.5
+        uses: superfly/flyctl-actions/setup-flyctl@fc53c09e1bc3be6f54706524e3b82c4f462f77be # 1.5
 
       - name: Deploy to Fly.io
         env:
@@ -196,7 +196,7 @@ jobs:
       name: staging
       url: ${{ needs.deploy-fly.outputs.staging_url || vars.STAGING_URL }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
 
@@ -219,7 +219,7 @@ jobs:
       (needs.deploy-ssh.result == 'success' || needs.deploy-fly.result == 'success') &&
       needs.smoke-tests.result != 'failure'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # A chat outage must not turn a finished deploy red.
       - name: Send deployment notification
