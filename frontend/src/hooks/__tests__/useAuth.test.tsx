@@ -7,6 +7,7 @@ jest.mock('../useWallet');
 jest.mock('@/lib/api', () => ({
   setUnauthorizedHandler: jest.fn(),
   setAuthToken: jest.fn(),
+  setCsrfToken: jest.fn(),
   api: {
     post: jest.fn(),
   },

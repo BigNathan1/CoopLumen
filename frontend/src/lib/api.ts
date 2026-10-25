@@ -128,6 +128,7 @@ export function resetApiConfig(): void {
   delete config.timeoutMs;
   delete config.getAuthToken;
   delete config.onUnauthorized;
+  csrfToken = null;
 }
 
 /**
@@ -153,6 +154,28 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): voi
 
 /** Name of the httpOnly cookie carrying the authenticated session token. */
 export const AUTH_COOKIE_NAME = 'cooplumen_session';
+
+/** Cookie the backend sets for the double-submit CSRF check. */
+export const CSRF_COOKIE_NAME = 'cooplumen_csrf';
+
+/** Header the backend compares against {@link CSRF_COOKIE_NAME}. */
+export const CSRF_HEADER_NAME = 'X-CSRF-Token';
+
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/** The CSRF token issued with the current session, held in memory. */
+let csrfToken: string | null = null;
+
+/**
+ * Stores the CSRF token `POST /api/v1/auth/verify` returns alongside the
+ * session. Once the session cookie is set, the backend rejects every
+ * state-changing request that does not echo this token in
+ * {@link CSRF_HEADER_NAME}. Keeping it in memory covers deployments where the
+ * API's cookie is not readable from the app's origin.
+ */
+export function setCsrfToken(token: string | null): void {
+  csrfToken = token;
+}
 
 /**
  * Extracts a cookie value by name from a cookie string or the browser's `document.cookie`.
@@ -238,12 +261,20 @@ function isJsonSerialisable(body: unknown): boolean {
 async function buildHeaders(
   init: HeadersInit | undefined,
   jsonBody: boolean,
-  auth: boolean
+  auth: boolean,
+  method: HttpMethod
 ): Promise<Headers> {
   const headers = new Headers(init);
   headers.set('Accept', 'application/json');
   if (jsonBody && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
+  }
+
+  if (!SAFE_METHODS.has(method.toUpperCase()) && !headers.has(CSRF_HEADER_NAME)) {
+    const token = csrfToken ?? readCookie(CSRF_COOKIE_NAME);
+    if (token) {
+      headers.set(CSRF_HEADER_NAME, token);
+    }
   }
 
   if (auth && !headers.has('Authorization')) {
@@ -332,7 +363,7 @@ export async function requestRaw<T>(
   const { query, body, timeoutMs, auth = true, headers: headerInit, signal, ...rest } = options;
 
   const jsonBody = isJsonSerialisable(body);
-  const headers = await buildHeaders(headerInit, jsonBody, auth);
+  const headers = await buildHeaders(headerInit, jsonBody, auth, method);
   const timeout = timeoutMs ?? config.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
   const controller = new AbortController();

@@ -24,6 +24,7 @@ jest.mock('@stellar/freighter-api', () => ({
 jest.mock('@/lib/api', () => ({
   api: { post: jest.fn() },
   setAuthToken: jest.fn(),
+  setCsrfToken: jest.fn(),
 }));
 
 jest.mock('@/hooks/useBalances');
