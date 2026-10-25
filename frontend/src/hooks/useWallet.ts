@@ -32,6 +32,9 @@ const INITIAL_STATE: WalletState = {
   networkPassphrase: null,
 };
 
+/** Sign-ins in flight, by address, shared across hook instances. */
+const pendingSignIns = new Map<string, Promise<void>>();
+
 /** The network CoopLumen expects Freighter to be connected to. */
 export const EXPECTED_NETWORK = (
   process.env.NEXT_PUBLIC_STELLAR_NETWORK ?? 'TESTNET'
@@ -65,28 +68,40 @@ export function useWallet() {
     };
   }, []);
 
-  const authenticate = useCallback(async (publicKey: string) => {
-    const { signMessage } = await import('@stellar/freighter-api');
+  const authenticate = useCallback((publicKey: string): Promise<void> => {
+    // The backend keeps one live challenge per address, so a second sign-in
+    // started before the first finishes would invalidate it. Concurrent calls
+    // for the same address (React runs mount effects twice in development)
+    // share one attempt instead.
+    const pending = pendingSignIns.get(publicKey);
+    if (pending) return pending;
 
-    const { challenge } = await api.post<ChallengeResponse>(
-      '/api/v1/auth/challenge',
-      { address: publicKey },
-      { auth: false }
-    );
-    const { signedMessage, error } = await signMessage(challenge, { address: publicKey });
-    if (error || !signedMessage) {
-      throw new Error(error?.message ?? 'Freighter declined to sign the challenge');
-    }
-    // v6's type still allows a legacy Buffer return for an older extension
-    // message format; every current Freighter build resolves a plain string.
-    const signature = typeof signedMessage === 'string' ? signedMessage : signedMessage.toString();
-    const verified = await api.post<VerifyResponse>(
-      '/api/v1/auth/verify',
-      { address: publicKey, challenge, signature },
-      { auth: false }
-    );
-    setAuthToken(verified.token);
-    setCsrfToken(verified.csrfToken ?? null);
+    const attempt = (async () => {
+      const { signMessage } = await import('@stellar/freighter-api');
+
+      const { challenge } = await api.post<ChallengeResponse>(
+        '/api/v1/auth/challenge',
+        { address: publicKey },
+        { auth: false }
+      );
+      const { signedMessage, error } = await signMessage(challenge, { address: publicKey });
+      if (error || !signedMessage) {
+        throw new Error(error?.message ?? 'Freighter declined to sign the challenge');
+      }
+      // v6's type still allows a legacy Buffer return for an older extension
+      // message format; every current Freighter build resolves a plain string.
+      const signature =
+        typeof signedMessage === 'string' ? signedMessage : signedMessage.toString();
+      const verified = await api.post<VerifyResponse>(
+        '/api/v1/auth/verify',
+        { address: publicKey, challenge, signature },
+        { auth: false }
+      );
+      setAuthToken(verified.token);
+      setCsrfToken(verified.csrfToken ?? null);
+    })().finally(() => pendingSignIns.delete(publicKey));
+    pendingSignIns.set(publicKey, attempt);
+    return attempt;
   }, []);
 
   /** Reads the current network and authenticates `publicKey`, then commits both as connected state. Shared by `connect()` and the auto-reconnect-on-mount effect so the two cannot drift. */
