@@ -1,7 +1,7 @@
 'use client';
 
 import { useToast, Toast, ToastVariant } from '@/hooks/useToast';
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import styles from './ToastDisplay.module.css';
 
 /** Stroke icon per toast variant, drawn rather than typed so it renders the same everywhere. */

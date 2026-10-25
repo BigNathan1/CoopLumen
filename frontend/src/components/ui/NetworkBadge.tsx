@@ -4,8 +4,6 @@ interface NetworkBadgeProps {
 }
 
 export function NetworkBadge({ network, className = '' }: NetworkBadgeProps) {
-  const isTestnet = network === 'TESTNET';
-
   return (
     <span
       role="status"
