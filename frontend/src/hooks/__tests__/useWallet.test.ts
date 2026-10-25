@@ -54,7 +54,7 @@ jest.mock('@/lib/api', () => ({
 
 // Imported after the mocks above so useWallet's dynamic imports resolve to them.
 import { useWallet, EXPECTED_NETWORK } from '../useWallet';
-import { setAuthToken, setCsrfToken } from '@/lib/api';
+import { api, setAuthToken, setCsrfToken } from '@/lib/api';
 
 const PUBLIC_KEY = 'G' + 'A'.repeat(55);
 const OTHER_PUBLIC_KEY = 'G' + 'B'.repeat(55);
@@ -145,6 +145,21 @@ describe('useWallet network validation', () => {
 
     expect(setAuthToken).toHaveBeenLastCalledWith(null);
     expect(setCsrfToken).toHaveBeenLastCalledWith(null);
+  });
+
+  it('signs in once when two connects for the same address overlap', async () => {
+    mockNotYetAllowed();
+    const { result } = renderHook(() => useWallet());
+
+    await act(async () => {
+      await Promise.all([result.current.connect(), result.current.connect()]);
+    });
+
+    const challengeCalls = (api.post as jest.Mock).mock.calls.filter(
+      ([path]) => path === '/api/v1/auth/challenge'
+    );
+    expect(challengeCalls).toHaveLength(1);
+    expect(result.current.connected).toBe(true);
   });
 
   it('surfaces a connection error and does not mark the network incorrect', async () => {

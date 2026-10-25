@@ -23,7 +23,9 @@ describe('ProtectedRoute', () => {
       forward: jest.fn(),
       refresh: jest.fn(),
       prefetch: jest.fn(),
-    });
+      // Only the navigation methods matter here; the cast keeps the mock from
+      // tracking every field Next adds to the router instance.
+    } as unknown as ReturnType<typeof useRouter>);
   });
 
   describe('Loading State', () => {
