@@ -1030,7 +1030,7 @@ impl GovernanceContract {
         role: GovernanceRole,
     ) -> Result<(), GovernanceError> {
         actor.require_auth();
-        assert_admin_or_upgrader(&env, &actor)?;
+        assert_can_manage_role(&env, &actor, &role)?;
 
         if account_has_role(&env, &account, &role) {
             return Err(GovernanceError::RoleAlreadyAssigned);
@@ -1063,7 +1063,7 @@ impl GovernanceContract {
         role: GovernanceRole,
     ) -> Result<(), GovernanceError> {
         actor.require_auth();
-        assert_admin_or_upgrader(&env, &actor)?;
+        assert_can_manage_role(&env, &actor, &role)?;
 
         if !account_has_role(&env, &account, &role) {
             return Err(GovernanceError::RoleNotAssigned);
@@ -1798,9 +1798,20 @@ pub fn assert_role(
 }
 
 /// Copy the role set of one admin onto its successor.
+/// Moves the outgoing admin's roles to the new admin.
+///
+/// The roles leave the old address rather than being copied: after a recovery
+/// the old key may be the compromised one, and a lingering `Recovery` role
+/// would let it take the seat straight back.
 fn inherit_admin_roles(env: &Env, old_admin: &Address, new_admin: &Address) {
+    if old_admin == new_admin {
+        return;
+    }
     for role in all_roles(env) {
         if account_has_role(env, old_admin, &role) {
+            env.storage()
+                .instance()
+                .remove(&DataKey::GovernanceRole(old_admin.clone(), role.clone()));
             env.storage()
                 .instance()
                 .set(&DataKey::GovernanceRole(new_admin.clone(), role), &true);
@@ -1809,6 +1820,29 @@ fn inherit_admin_roles(env: &Env, old_admin: &Address, new_admin: &Address) {
 }
 
 /// Guard for role management: the contract admin or an `Upgrade` role holder.
+/// Who may grant or revoke `role`.
+///
+/// `Upgrade` and `Recovery` control the contract itself: an account that could
+/// hand them out could grant itself `Recovery` and take the admin seat through
+/// [`GovernanceContract::recover_admin`]. Only the admin manages those two; the
+/// admin or an `Upgrade` holder manages the operational roles.
+fn assert_can_manage_role(
+    env: &Env,
+    actor: &Address,
+    role: &GovernanceRole,
+) -> Result<(), GovernanceError> {
+    match role {
+        GovernanceRole::Upgrade | GovernanceRole::Recovery => {
+            if actor == &load_config(env)?.admin {
+                Ok(())
+            } else {
+                Err(GovernanceError::Unauthorized)
+            }
+        }
+        _ => assert_admin_or_upgrader(env, actor),
+    }
+}
+
 fn assert_admin_or_upgrader(env: &Env, account: &Address) -> Result<(), GovernanceError> {
     if account_has_role(env, account, &GovernanceRole::Upgrade) {
         return Ok(());
@@ -2741,6 +2775,37 @@ mod test {
     }
 
     #[test]
+    fn test_upgrader_cannot_grant_itself_control_roles() {
+        let (env, admin, _token_admin, _token, client) = setup_test();
+        let upgrader = Address::generate(&env);
+        let operator = Address::generate(&env);
+        client.grant_role(&admin, &upgrader, &GovernanceRole::Upgrade);
+
+        // Operational roles are delegated to upgraders...
+        client.grant_role(&upgrader, &operator, &GovernanceRole::Pause);
+        assert!(client.has_role(&operator, &GovernanceRole::Pause));
+
+        // ...but Recovery and Upgrade would hand over the contract itself.
+        for role in [GovernanceRole::Recovery, GovernanceRole::Upgrade] {
+            assert_eq!(
+                client
+                    .try_grant_role(&upgrader, &upgrader, &role)
+                    .unwrap_err()
+                    .unwrap(),
+                GovernanceError::Unauthorized
+            );
+        }
+        assert_eq!(
+            client
+                .try_revoke_role(&upgrader, &admin, &GovernanceRole::Recovery)
+                .unwrap_err()
+                .unwrap(),
+            GovernanceError::Unauthorized
+        );
+        assert!(!client.has_role(&upgrader, &GovernanceRole::Recovery));
+    }
+
+    #[test]
     fn test_grant_and_revoke_role() {
         let (env, admin, _token_admin, _token, client) = setup_test();
         let operator = Address::generate(&env);
@@ -2960,9 +3025,19 @@ mod test {
 
         assert_eq!(client.get_config().admin, new_admin);
 
-        // The new admin inherits the role set of the admin it replaces.
+        // The new admin inherits the role set of the admin it replaces, and
+        // the replaced key keeps none of it.
         assert!(client.has_role(&new_admin, &GovernanceRole::Pause));
         assert!(client.has_role(&new_admin, &GovernanceRole::Recovery));
+        assert!(!client.has_role(&admin, &GovernanceRole::Pause));
+        assert!(!client.has_role(&admin, &GovernanceRole::Recovery));
+        assert_eq!(
+            client
+                .try_recover_admin(&admin, &admin)
+                .unwrap_err()
+                .unwrap(),
+            GovernanceError::Unauthorized
+        );
 
         let history = client.get_admin_transfer_history(&None, &None);
         assert_eq!(history.len(), 1);

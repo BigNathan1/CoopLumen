@@ -11,41 +11,41 @@ chain instead of from a backend that has to be trusted.
 
 ## Data model
 
-| Type                    | Fields                                                                                                                                            |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Config`                | `admin`, `governance_token`, `voting_period` (seconds), `quorum_bps` (basis points, at most `10_000`), `total_supply`                             |
-| `Proposal`              | `proposal_id`, `proposer`, `title`, `description`, `actions: Vec<String>`, `votes_for`, `votes_against`, `status`, `created_at`, `voting_ends_at` |
-| `Vote`                  | `voter`, `choice`, `weight`                                                                                                                       |
-| `GovernanceAnalytics`   | Proposal counts, total voting power cast, turnout, average quorum, and pass rate                                                                  |
-| `ProposalStatus`        | `Active`, `Passed`, `Rejected`, `Executed`                                                                                                        |
-| `VoteChoice`            | `For`, `Against`                                                                                                                                  |
-| `GovernanceRole`        | `Pause`, `Schema`, `Issuer`, `Revocation`, `Upgrade`, `Recovery`                                                                                  |
-| `AdminTransferRecord`   | `sequence`, `old_admin`, `proposed_admin`, `actor`, `ledger_sequence`, `timestamp`, `terminal_reason`                                            |
-| `PauseTransitionRecord` | `sequence`, `scope`, `is_paused`, `actor`, `ledger_sequence`, `timestamp`, `incident_commitment`                                                 |
-| `PendingUpgradeApproval`| `proposal_id`, `target_hash`, `version`, `expires_at`, `approval_count`                                                                           |
-| `PendingAdminTransfer`  | `proposed_admin`, `expires_at`                                                                                                                    |
+| Type                     | Fields                                                                                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Config`                 | `admin`, `governance_token`, `voting_period` (seconds), `quorum_bps` (basis points, at most `10_000`), `total_supply`                             |
+| `Proposal`               | `proposal_id`, `proposer`, `title`, `description`, `actions: Vec<String>`, `votes_for`, `votes_against`, `status`, `created_at`, `voting_ends_at` |
+| `Vote`                   | `voter`, `choice`, `weight`                                                                                                                       |
+| `GovernanceAnalytics`    | Proposal counts, total voting power cast, turnout, average quorum, and pass rate                                                                  |
+| `ProposalStatus`         | `Active`, `Passed`, `Rejected`, `Executed`                                                                                                        |
+| `VoteChoice`             | `For`, `Against`                                                                                                                                  |
+| `GovernanceRole`         | `Pause`, `Schema`, `Issuer`, `Revocation`, `Upgrade`, `Recovery`                                                                                  |
+| `AdminTransferRecord`    | `sequence`, `old_admin`, `proposed_admin`, `actor`, `ledger_sequence`, `timestamp`, `terminal_reason`                                             |
+| `PauseTransitionRecord`  | `sequence`, `scope`, `is_paused`, `actor`, `ledger_sequence`, `timestamp`, `incident_commitment`                                                  |
+| `PendingUpgradeApproval` | `proposal_id`, `target_hash`, `version`, `expires_at`, `approval_count`                                                                           |
+| `PendingAdminTransfer`   | `proposed_admin`, `expires_at`                                                                                                                    |
 
 State is addressed through the `DataKey` enum:
 
-| Key                              | Holds                                                |
-| -------------------------------- | ---------------------------------------------------- |
-| `Config`                         | The deployed `Config`                                |
-| `Proposal(u64)`                  | One `Proposal`, keyed by its proposal id             |
-| `Vote(u64, Address)`             | One `Vote`, keyed by proposal id and voter           |
-| `VoteUsed(u64, Address)`         | Whether an address's power was counted in a proposal |
-| `Delegation(Address)`            | The delegatee selected by an address                 |
-| `Delegators(Address)`            | Addresses represented by a delegatee                 |
-| `ProposalCount`                  | The last assigned `proposal_id`                      |
-| `GovernanceRole(Address, GovernanceRole)` | Whether an account holds one operation-scoped role |
-| `AdminHistorySeq`                | The last admin-transfer history sequence             |
-| `AdminTransferHistory`           | The admin-transfer history, keyed by sequence        |
-| `PendingAdminTransfer`           | The admin transfer awaiting acceptance               |
-| `PauseHistorySeq`                | The last pause-transition history sequence           |
-| `PauseHistory`                   | The pause-transition history, keyed by sequence      |
-| `PauseScope(String)`             | Whether one scope is paused                          |
-| `PendingUpgrades`                | The pending upgrades, keyed by proposal id           |
-| `PendingUpgradeHashes`           | Index from an upgrade target hash to its proposal id |
-| `UpgradeApprovals(String)`       | The accounts that approved one pending upgrade       |
+| Key                                       | Holds                                                |
+| ----------------------------------------- | ---------------------------------------------------- |
+| `Config`                                  | The deployed `Config`                                |
+| `Proposal(u64)`                           | One `Proposal`, keyed by its proposal id             |
+| `Vote(u64, Address)`                      | One `Vote`, keyed by proposal id and voter           |
+| `VoteUsed(u64, Address)`                  | Whether an address's power was counted in a proposal |
+| `Delegation(Address)`                     | The delegatee selected by an address                 |
+| `Delegators(Address)`                     | Addresses represented by a delegatee                 |
+| `ProposalCount`                           | The last assigned `proposal_id`                      |
+| `GovernanceRole(Address, GovernanceRole)` | Whether an account holds one operation-scoped role   |
+| `AdminHistorySeq`                         | The last admin-transfer history sequence             |
+| `AdminTransferHistory`                    | The admin-transfer history, keyed by sequence        |
+| `PendingAdminTransfer`                    | The admin transfer awaiting acceptance               |
+| `PauseHistorySeq`                         | The last pause-transition history sequence           |
+| `PauseHistory`                            | The pause-transition history, keyed by sequence      |
+| `PauseScope(String)`                      | Whether one scope is paused                          |
+| `PendingUpgrades`                         | The pending upgrades, keyed by proposal id           |
+| `PendingUpgradeHashes`                    | Index from an upgrade target hash to its proposal id |
+| `UpgradeApprovals(String)`                | The accounts that approved one pending upgrade       |
 
 Every record is keyed individually, so a lookup by `proposal_id` neither scans
 nor disturbs any other proposal's record.
@@ -159,10 +159,13 @@ so the contract is operable from the first block.
 
 ### `grant_role(actor, account, role)` / `revoke_role(actor, account, role)`
 
-Requires `actor` authorization. The actor must be the contract admin or hold
-the `Upgrade` role, so role management can be delegated without surrendering
-admin control. Granting a role twice fails with `RoleAlreadyAssigned`, and
-revoking a role the account never held fails with `RoleNotAssigned`.
+Requires `actor` authorization. The admin or an `Upgrade` holder may grant and
+revoke the operational roles (`Pause`, `Schema`, `Issuer`, `Revocation`), so
+day-to-day role management can be delegated. `Upgrade` and `Recovery` control
+the contract itself, so only the admin grants or revokes them; otherwise an
+upgrader could grant itself `Recovery` and take the admin seat. Granting a role
+twice fails with `RoleAlreadyAssigned`, and revoking a role the account never
+held fails with `RoleNotAssigned`.
 
 ### `has_role(account, role) -> bool`
 
@@ -200,9 +203,10 @@ expired transfer was found.
 ### `recover_admin(actor, new_admin)`
 
 Requires `actor` authorization and the `Recovery` role. Restores admin control
-when the admin key is lost: the current admin is replaced, the new admin
-inherits the role set of the old admin, and the takeover is recorded in the
-admin-transfer history as `Accepted`.
+when the admin key is lost: the current admin is replaced, the old admin's
+roles move to the new admin (the old key keeps none, so a compromised key cannot
+recover the seat back), and the takeover is recorded in the admin-transfer
+history as `Accepted`.
 
 ## Scoped pause
 
@@ -289,10 +293,10 @@ Pending upgrades that have not expired, ordered by proposal id.
 | 12   | `CannotDelegateToSelf`    | An account tries to delegate to itself                          |
 | 13   | `InvalidDelegation`       | A delegation would create a chain or cycle                      |
 | 14   | `VotingPowerDelegated`    | A delegator tries to vote before revoking                       |
-| 15   | `NoDelegation`            | An account tries to revoke when it has no delegation             |
+| 15   | `NoDelegation`            | An account tries to revoke when it has no delegation            |
 | 16   | `Unauthorized`            | The account lacks the role the operation requires               |
 | 17   | `RoleAlreadyAssigned`     | The account already holds the role                              |
-| 18   | `RoleNotAssigned`         | The account does not hold the role that was to be revoked        |
+| 18   | `RoleNotAssigned`         | The account does not hold the role that was to be revoked       |
 | 19   | `AdminTransferNotFound`   | No admin transfer is pending                                    |
 | 20   | `AdminTransferPending`    | An admin transfer is already pending                            |
 | 21   | `AdminTransferExpired`    | The pending admin transfer expired                              |
