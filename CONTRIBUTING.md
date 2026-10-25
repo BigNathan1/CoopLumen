@@ -56,7 +56,7 @@ cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env.local
 
 # Start all services via Docker
-docker-compose up
+docker compose up
 
 # Or run locally (requires PostgreSQL)
 cd backend && npm install && npm run dev

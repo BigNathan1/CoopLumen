@@ -139,7 +139,7 @@ Edit `backend/.env` to set your Stellar keys and network preference.
 ### 3. Start with Docker (recommended)
 
 ```bash
-docker-compose up
+docker compose up
 ```
 
 This starts:
@@ -151,7 +151,7 @@ This starts:
 ### 4. Run database migrations
 
 ```bash
-docker-compose exec backend npm run db:migrate
+docker compose exec backend npm run db:migrate
 ```
 
 ### 5. Open the app
