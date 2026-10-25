@@ -279,6 +279,7 @@ The end-to-end suite drives a browser against the whole stack. See
 
 - [Product Requirements Document](PRD.md) — goals, roadmap, user stories
 - [Contributing Guide](CONTRIBUTING.md) — branch model, conventions, code review
+- [Design](docs/design.md) — the Figma file and the screens designed in it
 - [Wallet Authentication Flow](docs/auth-flow.md) — wallet challenge/verify flow, session tokens, RBAC, 401 handling, and sequence diagram
 - [Testing](docs/testing.md) — unit, component and Playwright end-to-end suites, and how to write a spec
 - [Governance Guide](docs/governance.md) - Soroban proposals, token-weighted voting, quorum, and execution
