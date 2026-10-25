@@ -275,17 +275,24 @@ The end-to-end suite drives a browser against the whole stack. See
 
 ---
 
-## Links
+## Documentation
 
 - [Product Requirements Document](PRD.md) — goals, roadmap, user stories
 - [Contributing Guide](CONTRIBUTING.md) — branch model, conventions, code review
+- [Architecture](docs/architecture.md) — how the frontend, API, database and Stellar fit together
+- [Database](docs/database.md) — schema, conventions and migrations
+- [API reference](docs/openapi.yaml) — OpenAPI specification for every endpoint
+- [Wallet authentication](docs/auth-flow.md) — challenge and verify, session tokens, RBAC and 401 handling
+- [Rate limiting](docs/rate-limiting.md) — per-route limits and graduated slowdown
+- [Governance](docs/governance.md) — Soroban proposals, token-weighted voting, quorum and execution
+- [Governance contract](docs/governance-contract.md) — contract types, functions, errors, events and deployment
+- [Multi-signature and batch operations](docs/multisig.md) — treasury signing lifecycle and batch payments
+- [SEP-12 KYC](docs/kyc.md) — provider integration, status mapping, privacy and security
+- [Testing](docs/testing.md) — unit, component and Playwright end-to-end suites
+- [CI/CD](docs/ci-cd.md) — the CI jobs, quality gate, releases and deploy workflows
+- [Staging](docs/staging.md) — the staging environment and its configuration
+- [PostgreSQL hardening](docs/infrastructure-hardening.md) — connection pooling and production database settings
 - [Design](docs/design.md) — the Figma file and the screens designed in it
-- [Wallet Authentication Flow](docs/auth-flow.md) — wallet challenge/verify flow, session tokens, RBAC, 401 handling, and sequence diagram
-- [Testing](docs/testing.md) — unit, component and Playwright end-to-end suites, and how to write a spec
-- [Governance Guide](docs/governance.md) - Soroban proposals, token-weighted voting, quorum, and execution
-- [Multi-Signature & Batch Operations Guide](docs/multisig.md) — multi-sig treasury governance, signing lifecycle, batch payments
-- [Governance Contract ABI and Deployment](docs/governance-contract.md) — contract types, functions, errors, events, and deployment procedure
-- [SEP-12 KYC Requirements](docs/kyc.md) — provider integration, status mapping, privacy, and security requirements
 
 ## Community
 
