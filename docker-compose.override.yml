@@ -45,9 +45,9 @@ services:
       retries: 3
       start_period: 90s
 
-  # Optional pgAdmin UI — start with: docker-compose --profile tools up
+  # Optional pgAdmin UI — start with: docker compose --profile tools up
   pgadmin:
-    image: dpage/pgadmin4:latest
+    image: dpage/pgadmin4:9.18.0
     profiles:
       - tools
     restart: 'no'

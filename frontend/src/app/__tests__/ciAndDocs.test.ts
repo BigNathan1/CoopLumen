@@ -84,7 +84,7 @@ describe('CI workflow and README coverage badge', () => {
 
   it('uploads the Playwright test report as a CI artifact even when tests fail', () => {
     expect(ciWorkflow).toMatch(
-      /- name: Upload Playwright test report\s+if: always\(\)\s+uses: actions\/upload-artifact@v\d+\s+with:\s+name: playwright-report\s+path: \|\s+frontend\/playwright-report\//
+      /- name: Upload Playwright test report\s+if: always\(\)\s+uses: actions\/upload-artifact@[0-9a-f]{40} # v\d+\s+with:\s+name: playwright-report\s+path: \|\s+frontend\/playwright-report\//
     );
   });
 

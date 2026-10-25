@@ -19,17 +19,22 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # semantic-release authenticates with GITHUB_TOKEN from its own
+          # environment, so the token is not left in .git/config for other
+          # steps to read.
+          persist-credentials: false
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '26'
 
+      # This job can write to the repository, so no dependency gets to run an
+      # install script here; semantic-release needs none.
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Run semantic-release
         env:

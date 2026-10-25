@@ -38,14 +38,14 @@ jobs:
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         if: env.ANTHROPIC_API_KEY != ''
         with:
           fetch-depth: 0
 
       - name: Run Claude Code review
         if: env.ANTHROPIC_API_KEY != ''
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@925afb53776cf1a2b738c6bdbed37b4d4000ef13 # v1
         with:
           anthropic_api_key: ${{ env.ANTHROPIC_API_KEY }}
           # Scope the review to correctness bugs and reuse/simplification/
