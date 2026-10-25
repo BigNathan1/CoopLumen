@@ -31,6 +31,10 @@ COPY --from=deps    --chown=node:node /app/node_modules ./node_modules
 COPY --from=builder --chown=node:node /app/dist         ./dist
 COPY --chown=node:node package*.json ./
 
+# The runtime only needs node. The package managers bundled with the base image
+# are never used here and carry their own advisories into the image scan.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack     /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack     /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
+
 # Run as the built-in non-root node user
 USER node
 EXPOSE 4000
