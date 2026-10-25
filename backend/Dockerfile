@@ -29,6 +29,9 @@ ENV NODE_ENV=production
 # Copy only compiled output and production node_modules
 COPY --from=deps    --chown=node:node /app/node_modules ./node_modules
 COPY --from=builder --chown=node:node /app/dist         ./dist
+# tsc does not emit .sql files; the migration runner (dist/db/migrate.js) reads
+# them from next to itself, so the staging deploy can migrate with this image.
+COPY --from=builder --chown=node:node /app/src/db/migrations ./dist/db/migrations
 COPY --chown=node:node package*.json ./
 
 # The runtime only needs node. The package managers bundled with the base image
