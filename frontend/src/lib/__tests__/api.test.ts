@@ -15,7 +15,9 @@ import {
   setUnauthorizedHandler,
   swrFetcher,
   AUTH_COOKIE_NAME,
+  CSRF_HEADER_NAME,
   readCookie,
+  setCsrfToken,
 } from '../api';
 
 const BASE_URL = 'https://api.cooplumen.test';
@@ -136,6 +138,48 @@ describe('URL building', () => {
     fetchMock.mockResolvedValue(jsonResponse({ data: [] }));
     await api.get('/api/v1/communities?page=1', { query: { limit: 10 } });
     expect(requestUrl()).toBe(`${BASE_URL}/api/v1/communities?page=1&limit=10`);
+  });
+});
+
+describe('CSRF header injection', () => {
+  it('echoes the stored CSRF token on state-changing requests', async () => {
+    mockJson({ data: {} });
+    setCsrfToken('csrf-123');
+
+    await api.post('/api/v1/communities', { name: 'EcoDAO' });
+    await api.put('/api/v1/communities/1', { name: 'EcoDAO' });
+    await api.delete('/api/v1/communities/1');
+
+    expect(requestHeader(CSRF_HEADER_NAME, 0)).toBe('csrf-123');
+    expect(requestHeader(CSRF_HEADER_NAME, 1)).toBe('csrf-123');
+    expect(requestHeader(CSRF_HEADER_NAME, 2)).toBe('csrf-123');
+  });
+
+  it('leaves reads without a CSRF header', async () => {
+    mockJson({ data: [] });
+    setCsrfToken('csrf-123');
+
+    await api.get('/api/v1/communities');
+
+    expect(requestHeader(CSRF_HEADER_NAME)).toBeNull();
+  });
+
+  it('sends no CSRF header when no token was issued', async () => {
+    mockJson({ data: {} });
+
+    await api.post('/api/v1/communities', { name: 'EcoDAO' });
+
+    expect(requestHeader(CSRF_HEADER_NAME)).toBeNull();
+  });
+
+  it('forgets the token when cleared', async () => {
+    mockJson({ data: {} });
+    setCsrfToken('csrf-123');
+    setCsrfToken(null);
+
+    await api.post('/api/v1/communities', { name: 'EcoDAO' });
+
+    expect(requestHeader(CSRF_HEADER_NAME)).toBeNull();
   });
 });
 
