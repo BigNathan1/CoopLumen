@@ -102,7 +102,15 @@ describe('useCommunity', () => {
 
   it('resolves the unwrapped community on a successful response', async () => {
     renderHook(() => useCommunity('community-1'));
-    fetchMock.mockResolvedValue(jsonResponse(200, { data: MOCK_COMMUNITY }));
+    // The detail route nests the record beside its statistics.
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, {
+        data: {
+          community: MOCK_COMMUNITY,
+          statistics: { totalTransactions: 0, totalTokenSupply: 0 },
+        },
+      })
+    );
 
     await expect(lastCall?.fetcher('/api/v1/communities/community-1')).resolves.toEqual(
       MOCK_COMMUNITY
