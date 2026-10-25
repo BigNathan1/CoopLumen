@@ -10,8 +10,11 @@ services:
       POSTGRES_DB: cooplumen
     ports:
       - '5432:5432'
+    # PostgreSQL 18 images keep their data under /var/lib/postgresql/18.
+    # The volume is new; data from the 16 volume (pg_data) has to be moved
+    # across with pg_dump and restore, see docs/database-operations.md.
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - pg18_data:/var/lib/postgresql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U cooplumen']
       interval: 5s
@@ -111,4 +114,4 @@ services:
       start_period: 60s
 
 volumes:
-  pg_data:
+  pg18_data:

@@ -15,7 +15,7 @@ services:
     ports:
       - '${TEST_POSTGRES_PORT:-5433}:5432'
     tmpfs:
-      - /var/lib/postgresql/data
+      - /var/lib/postgresql
     healthcheck:
       test:
         [
