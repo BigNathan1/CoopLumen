@@ -19,7 +19,24 @@ env:
   NODE_VERSION: '26'
   CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+# Every job only reads the repository; nothing here writes back to it.
+permissions:
+  contents: read
+
 jobs:
+  # Blocks a pull request that adds a dependency with a known vulnerability of
+  # high severity or above, or one GitHub's advisory database flags as malware.
+  dependency-review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+
   lint:
     name: Lint & format
     runs-on: ubuntu-latest
@@ -513,6 +530,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [
+        dependency-review,
         lint,
         typecheck,
         test-backend,
