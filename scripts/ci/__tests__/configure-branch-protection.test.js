@@ -12,7 +12,10 @@ test('getBranchProtectionPayload returns expected required status checks and rev
   assert.equal(payload.enforce_admins, false);
   assert.equal(payload.required_pull_request_reviews.required_approving_review_count, 1);
   assert.equal(payload.required_pull_request_reviews.dismiss_stale_reviews, true);
-  assert.equal(payload.required_pull_request_reviews.require_code_owner_reviews, false);
+  assert.equal(payload.required_pull_request_reviews.require_code_owner_reviews, true);
+  assert.equal(payload.required_pull_request_reviews.require_last_push_approval, true);
+  assert.equal(payload.allow_force_pushes, false);
+  assert.equal(payload.allow_deletions, false);
   assert.equal(payload.restrictions, null);
 });
 
