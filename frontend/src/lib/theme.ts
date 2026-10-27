@@ -1,3 +1,5 @@
+import { inlineJson } from './inlineJson';
+
 /**
  * Theme primitives shared by the `useTheme` hook, the pre-paint inline script
  * and any component that needs to reason about the active colour scheme.
@@ -83,8 +85,8 @@ export function applyTheme(resolved: ResolvedTheme): void {
  * It is intentionally dependency-free and wrapped in try/catch: it runs before
  * React and must never be able to break the page.
  */
-export const THEME_INIT_SCRIPT = `(function(){try{var s=localStorage.getItem(${JSON.stringify(
+export const THEME_INIT_SCRIPT = `(function(){try{var s=localStorage.getItem(${inlineJson(
   THEME_STORAGE_KEY
-)});var t=(s==='light'||s==='dark')?s:(window.matchMedia(${JSON.stringify(
+)});var t=(s==='light'||s==='dark')?s:(window.matchMedia(${inlineJson(
   DARK_MEDIA_QUERY
 )}).matches?'dark':'light');var e=document.documentElement;e.classList.remove('light','dark');e.classList.add(t);}catch(e){}})();`;
