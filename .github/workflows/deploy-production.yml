@@ -196,9 +196,12 @@ jobs:
       name: production
       url: ${{ needs.deploy.outputs.production_url }}
     steps:
+      # The smoke test is tooling, not the code being deployed, and this job
+      # holds the environment, so it runs the workflow's own commit rather
+      # than a caller-chosen ref.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.ref }}
+          persist-credentials: false
 
       - name: Run post-deploy smoke tests
         env:
