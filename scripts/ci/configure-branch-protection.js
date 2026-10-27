@@ -7,11 +7,12 @@
  * Enforces:
  * - Status check: "Quality gate" must pass
  * - Strict up-to-date branch requirement (strict: true)
- * - Required approving reviews: at least 1
- * - Dismiss stale reviews on new pushes
+ * - Required approving reviews: at least 1, from a code owner
+ * - Dismiss stale reviews on new pushes, and require the last push approved
+ * - No force pushes or branch deletion
  */
 
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -24,10 +25,13 @@ function getBranchProtectionPayload() {
     enforce_admins: false,
     required_pull_request_reviews: {
       dismiss_stale_reviews: true,
-      require_code_owner_reviews: false,
+      require_code_owner_reviews: true,
       required_approving_review_count: 1,
+      require_last_push_approval: true,
     },
     restrictions: null,
+    allow_force_pushes: false,
+    allow_deletions: false,
   };
 }
 
@@ -39,7 +43,7 @@ function detectRepo() {
     const remotes = ['origin', 'upstream'];
     for (const remote of remotes) {
       try {
-        const url = execSync(`git remote get-url ${remote}`, {
+        const url = execFileSync('git', ['remote', 'get-url', remote], {
           encoding: 'utf8',
           stdio: ['pipe', 'pipe', 'ignore'],
         }).trim();
@@ -96,7 +100,9 @@ function configureBranchProtection(options) {
   try {
     const endpoint = `repos/${options.repo}/branches/${options.branch}/protection`;
     console.log(`Applying branch protection on ${endpoint}...`);
-    const output = execSync(`gh api -X PUT ${endpoint} --input "${tmpFile}"`, {
+    // Arguments are passed as a list, never through a shell, so a crafted
+    // --repo or --branch value cannot run commands.
+    const output = execFileSync('gh', ['api', '-X', 'PUT', endpoint, '--input', tmpFile], {
       encoding: 'utf8',
     });
     console.log(`Branch protection successfully applied to ${options.repo}:${options.branch}`);
@@ -112,7 +118,7 @@ function verifyBranchProtection(options) {
   const endpoint = `repos/${options.repo}/branches/${options.branch}/protection`;
   console.log(`Verifying branch protection on ${endpoint}...`);
   try {
-    const output = execSync(`gh api ${endpoint}`, {
+    const output = execFileSync('gh', ['api', endpoint], {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
     });
