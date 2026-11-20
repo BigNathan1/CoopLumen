@@ -10,12 +10,81 @@ const REQUIRED_ENV_VARS = [
   'FRONTEND_URL',
 ] as const;
 
+/**
+ * Environment variables required only in production (NODE_ENV=production).
+ * These guard against accidental misconfiguration that could lead to
+ * security vulnerabilities or data loss (e.g., Mainnet transactions in a dev environment).
+ */
+const PRODUCTION_REQUIRED_ENV_VARS = [
+  'AUTH_SESSION_SECRET',
+  'ADMIN_ADDRESSES',
+] as const;
+
+/**
+ * Network-specific configuration validation for Mainnet.
+ * Ensures Mainnet deployments have explicit, non-placeholder values.
+ */
+function validateMainnetConfig(): void {
+  const network = process.env.STELLAR_NETWORK?.toLowerCase();
+  if (network !== 'mainnet') {
+    return; // Only validate if on Mainnet
+  }
+
+  // Mainnet-specific checks
+  const issues: string[] = [];
+
+  // Warn if critical secrets are still at placeholder values
+  if (!process.env.AUTH_SESSION_SECRET || process.env.AUTH_SESSION_SECRET === 'changeme') {
+    issues.push('AUTH_SESSION_SECRET is not set or is a placeholder (security risk on Mainnet)');
+  }
+
+  if (!process.env.ADMIN_ADDRESSES || process.env.ADMIN_ADDRESSES.trim() === '') {
+    issues.push('ADMIN_ADDRESSES is empty; all operator routes will be blocked');
+  }
+
+  if (issues.length > 0) {
+    logger.warn('⚠️ Mainnet configuration warnings:', { issues });
+  }
+}
+
 function validateEnv(): void {
-  const missing = REQUIRED_ENV_VARS.filter((key) => !process.env[key]);
+  const nodeEnv = process.env.NODE_ENV ?? 'development';
+  const missing: string[] = [];
+
+  // Check required environment variables (all environments)
+  REQUIRED_ENV_VARS.forEach((key) => {
+    if (!process.env[key]) {
+      missing.push(key);
+    }
+  });
+
+  // Check production-required environment variables
+  if (nodeEnv === 'production') {
+    PRODUCTION_REQUIRED_ENV_VARS.forEach((key) => {
+      if (!process.env[key]) {
+        missing.push(key);
+      }
+    });
+  }
+
   if (missing.length > 0) {
     logger.error(`Missing required environment variables: ${missing.join(', ')}`);
     process.exit(1);
   }
+
+  // Validate Stellar network selection
+  const network = process.env.STELLAR_NETWORK?.toLowerCase();
+  if (!network || !['testnet', 'mainnet'].includes(network)) {
+    logger.error(
+      `Invalid STELLAR_NETWORK: "${network}". Must be "testnet" or "mainnet".`
+    );
+    process.exit(1);
+  }
+
+  logger.info(`Stellar network: ${network}`);
+
+  // Mainnet-specific validation
+  validateMainnetConfig();
 }
 
 const PORT = process.env.PORT ?? 4000;
