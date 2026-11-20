@@ -1,0 +1,13 @@
+Frontend Design (Dark Mode)
+
+Delivered Components
+
+1. Fee & Remittance Savings Calculator — #915
+A comparison interface that demonstrates the difference between traditional money transfers and Stellar transactions. It presents transfer costs and settlement times side by side, making potential savings easier for users to understand.
+
+2. Built-on-Stellar Trust Bar — #912
+A technology credibility section highlighting the ecosystem and infrastructure behind CoopLumen, featuring Stellar, Horizon, Soroban, Freighter, SDK, and PostgreSQL.
+
+
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&p=f&t=FZOUntChCPpWW4cJ-0
+
