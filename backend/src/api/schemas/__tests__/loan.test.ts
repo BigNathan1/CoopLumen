@@ -1,4 +1,10 @@
-import { createLoanSchema, disburseLoanSchema, repayLoanSchema, defaultLoanSchema } from '../loan';
+import {
+  createLoanSchema,
+  disburseLoanSchema,
+  repayLoanSchema,
+  defaultLoanSchema,
+  loanRequestSchema,
+} from '../loan';
 
 const KEY = 'GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR';
 const KEY2 = 'GCATS5YOVB6ROX2WUNKGNQ2MP3GMXDMKSG2O4N5CLX3A6W4PZGZZI55U';
@@ -62,6 +68,31 @@ describe('createLoanSchema', () => {
 
   it('rejects a negative amount', () => {
     expect(createLoanSchema.safeParse({ ...VALID_LOAN, amount: '-100' }).success).toBe(false);
+  });
+});
+
+describe('loanRequestSchema', () => {
+  const request = {
+    communityId: UUID,
+    amount: '125.5000000',
+    purpose: 'Inventory purchase',
+    dueAt: '2099-01-01T00:00:00.000Z',
+  };
+
+  it('accepts a valid community pool request without borrower or lender fields', () => {
+    const result = loanRequestSchema.parse(request);
+    expect(result.dueAt).toBeInstanceOf(Date);
+  });
+
+  it('requires a future due date', () => {
+    expect(
+      loanRequestSchema.safeParse({ ...request, dueAt: '2020-01-01T00:00:00.000Z' }).success
+    ).toBe(false);
+  });
+
+  it('rejects zero and over-precision amounts', () => {
+    expect(loanRequestSchema.safeParse({ ...request, amount: '0' }).success).toBe(false);
+    expect(loanRequestSchema.safeParse({ ...request, amount: '1.00000001' }).success).toBe(false);
   });
 });
 
