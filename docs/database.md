@@ -546,6 +546,11 @@ address that has never borrowed is not indistinguishable from a serial defaulter
 
 Indexes: `stellar_address`, `(community_id, score DESC)` for community leaderboards.
 
+Migration `028_activate_reputation_scores.sql` activates this Phase 2 read model.
+It idempotently creates the table when needed and seeds only missing
+address/community rows from existing loan outcomes; previously calculated
+scores and counters are left unchanged.
+
 ---
 
 ### `community_settings`

@@ -10,6 +10,7 @@ import {
   disburseLoanSchema,
   repayLoanSchema,
   defaultLoanSchema,
+  loanRequestSchema,
 } from '../schemas/loan';
 
 export const loanRouter: Router = Router();
@@ -201,6 +202,109 @@ loanRouter.get('/:id/events', async (req, res, next) => {
     next(err);
   }
 });
+
+/**
+ * POST /api/v1/loans/request
+ * Lets an active member request a loan from the community pool. The borrower is
+ * derived from the authenticated session and the lender/asset from the
+ * community, so callers cannot request funds on behalf of another address or
+ * redirect the request to an arbitrary lender.
+ */
+loanRouter.post(
+  '/request',
+  requireAuth,
+  writeLimiter,
+  validateBody(loanRequestSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { communityId, amount, purpose, dueAt, interestRate } = req.body as {
+        communityId: string;
+        amount: string;
+        purpose?: string;
+        dueAt: Date;
+        interestRate?: number;
+      };
+      const borrowerAddress = req.auth!.address;
+
+      const [community] = await db.query<{
+        issuer_public_key: string;
+        asset_code: string;
+        asset_issuer: string;
+      }>(
+        `SELECT c.issuer_public_key, c.asset_code, c.asset_issuer
+         FROM communities c
+         JOIN members m ON m.community_id = c.id
+         WHERE c.id = $1
+           AND c.deleted_at IS NULL
+           AND m.stellar_address = $2
+           AND m.deleted_at IS NULL`,
+        [communityId, borrowerAddress]
+      );
+
+      if (!community) {
+        res.status(403).json({
+          data: null,
+          error: 'An active community membership is required to request a pool loan',
+        });
+        return;
+      }
+
+      const loan = await db.transaction(async (client) => {
+        const {
+          rows: [created],
+        } = await client.query<Loan>(
+          `INSERT INTO loans
+             (community_id, borrower_address, lender_address, amount, asset_code,
+              asset_issuer, purpose, due_at, interest_rate)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           RETURNING *`,
+          [
+            communityId,
+            borrowerAddress,
+            community.issuer_public_key,
+            amount,
+            community.asset_code,
+            community.asset_issuer,
+            purpose ?? null,
+            dueAt,
+            interestRate ?? 0,
+          ]
+        );
+        await client.query(
+          `INSERT INTO loan_events (loan_id, event_type, amount, note)
+           VALUES ($1, 'created', $2, $3)`,
+          [created.id, amount, purpose ?? null]
+        );
+        await client.query(
+          `INSERT INTO transactions_log (community_id, actor_address, action, metadata)
+           VALUES ($1, $2, 'loan_created', $3)`,
+          [
+            communityId,
+            borrowerAddress,
+            JSON.stringify({ loan_id: created.id, amount, source: 'community_pool' }),
+          ]
+        );
+        await client.query(
+          `INSERT INTO notifications
+             (stellar_address, community_id, type, title, body, metadata)
+           VALUES ($1, $2, 'loan_request', 'New community pool loan request', $3, $4)`,
+          [
+            community.issuer_public_key,
+            communityId,
+            purpose ?? null,
+            JSON.stringify({ loan_id: created.id, borrower_address: borrowerAddress, amount }),
+          ]
+        );
+        await bumpReputation(client, communityId, borrowerAddress, 'total_loans');
+        return created;
+      });
+
+      res.status(201).json({ data: withTotals(loan), error: null });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 /**
  * POST /api/v1/loans

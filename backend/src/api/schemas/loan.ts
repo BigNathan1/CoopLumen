@@ -31,6 +31,17 @@ export const createLoanSchema = z.object({
   interestRate: z.coerce.number().min(0).max(1000).optional(),
 });
 
+/** A member request funded by the community pool (the community issuer account). */
+export const loanRequestSchema = z.object({
+  communityId: z.string().uuid(),
+  amount,
+  purpose: z.string().trim().min(1).max(280).optional(),
+  dueAt: z.coerce.date().refine((date) => date.getTime() > Date.now(), {
+    message: 'dueAt must be in the future',
+  }),
+  interestRate: z.coerce.number().min(0).max(1000).optional(),
+});
+
 export const disburseLoanSchema = z.object({
   stellarTxHash: z.string().trim().min(1).max(128).optional(),
   note: z.string().trim().max(280).optional(),
