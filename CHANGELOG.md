@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Borrower-only `POST /api/v1/loans/request` endpoint for authenticated active members requesting loans from their community pool, with OpenAPI documentation (#451).
+- Idempotent Phase 2 reputation activation migration that seeds missing scores from existing loan outcomes without overwriting calculated data (#450).
+- Responsible disclosure safe harbor and standard `/.well-known/security.txt` contact for `security@cooplumen.org` (#448).
+- Internal Stellar signing-flow security review and authenticated signer binding for legacy batch disbursements (#447).
 - Owner-only JSON account data export at `GET /api/v1/account/:publicKey/export`, covering membership, lending, reputation, notification, KYC, trustline, transaction, audit, and multisig records (#444).
 - Security threat model covering assets, trust boundaries, principal threats, controls, incident response, and review cadence (#445).
 - Automated OWASP ZAP baseline scans after successful staging deployments, with retained reports and a blocking gate for medium-or-higher findings (#441).
