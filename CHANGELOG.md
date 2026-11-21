@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Hashed developer API keys with management endpoints and `X-API-Key` authentication, a restrictive browser `Permissions-Policy`, and finalized idempotent loan repayment schema activation (#436, #437, #438, #449).
 - Strict CSP and production HTTPS enforcement, DOMPurify coverage for stored user-authored UI text, and parameter-binding SQL injection tests (#432, #433, #434, #435).
 - Mutation audit logging, owner-authorized GDPR account erasure, logger-level credential redaction, and an internal wallet-auth security review with stricter session timestamp validation (#439, #440, #443, #446).
 

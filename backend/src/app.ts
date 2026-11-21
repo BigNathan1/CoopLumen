@@ -13,6 +13,14 @@ import { auditStateChange } from './api/middleware/auditLog';
 
 const app: Application = express();
 
+app.use((_req, res, next) => {
+  res.setHeader(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=(), accelerometer=(), gyroscope=(), magnetometer=(), browsing-topics=()'
+  );
+  next();
+});
+
 // Behind a load balancer every request otherwise appears to come from the proxy,
 // so per-IP rate limits would throttle all clients as one. Opt in with the
 // number of trusted proxy hops, e.g. TRUST_PROXY=1.
