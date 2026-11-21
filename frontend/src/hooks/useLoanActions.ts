@@ -53,7 +53,8 @@ export function useLoanActions(loanId: string) {
   }, []);
 
   const disburse = useCallback(
-    () => run(() => send(`${loanId}/disburse`, 'POST', {})),
+    (params?: { stellarTxHash?: string; note?: string }) =>
+      run(() => send(`${loanId}/disburse`, 'POST', params)),
     [loanId, run]
   );
   const repay = useCallback(
