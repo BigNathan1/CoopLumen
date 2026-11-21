@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Owner-only JSON account data export at `GET /api/v1/account/:publicKey/export`, covering membership, lending, reputation, notification, KYC, trustline, transaction, audit, and multisig records (#444).
+- Security threat model covering assets, trust boundaries, principal threats, controls, incident response, and review cadence (#445).
+- Automated OWASP ZAP baseline scans after successful staging deployments, with retained reports and a blocking gate for medium-or-higher findings (#441).
+- Production dependency audits are now part of the required CI quality gate (#442).
+
 - Playwright end-to-end suite for the frontend (`frontend/e2e/`): shared fixtures that sign the browser's API requests, a gateway that serves the app and the API from one origin, and specs covering the public pages, community registration and the governance flow (#389, #311).
 - Playwright configuration (`frontend/playwright.config.ts`) with an HTML report, failure traces and screenshots, plus an `e2e` CI job that boots the Docker Compose stack, runs the suite on every pull request and uploads the report as an artifact (#389, #311).
 - `docs/testing.md` describing the three test layers, how to run the end-to-end suite locally and how to write a spec (#389, #311).
