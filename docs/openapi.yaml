@@ -1510,6 +1510,38 @@ paths:
         '404':
           description: No pending loan found to cancel
 
+  /api/v1/loans/request:
+    post:
+      tags: [Loans]
+      summary: Request a loan from the community pool
+      description: >
+        Creates a pending loan for the authenticated active member. The API
+        derives the borrower from the session and the lender and asset from the
+        community pool.
+      security:
+        - SessionToken: []
+        - SessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CommunityPoolLoanRequest' }
+      responses:
+        '201':
+          description: Pool loan request created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Loan' }
+                  error: { nullable: true }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: Authentication required
+        '403':
+          description: Active community membership required
+
   /api/v1/loans/{id}/events:
     parameters:
       - $ref: '#/components/parameters/LoanId'
@@ -2438,6 +2470,15 @@ components:
         assetIssuer: { $ref: '#/components/schemas/StellarKey' }
         purpose: { type: string, maxLength: 280 }
         dueAt: { type: string, format: date-time }
+    CommunityPoolLoanRequest:
+      type: object
+      required: [communityId, amount, dueAt]
+      properties:
+        communityId: { type: string, format: uuid }
+        amount: { type: string, pattern: '^\d+(\.\d{1,7})?$' }
+        purpose: { type: string, minLength: 1, maxLength: 280 }
+        dueAt: { type: string, format: date-time }
+        interestRate: { type: number, minimum: 0, maximum: 1000, default: 0 }
     PriceData:
       type: object
       required: [asset, currency, price, source, timestamp]
