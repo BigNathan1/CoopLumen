@@ -27,6 +27,8 @@ interface Proposal {
   metadata: Record<string, unknown> | null;
   voting_starts_at: string;
   voting_ends_at: string;
+  start_time?: string;
+  end_time?: string;
   executed_at: string | null;
   stellar_tx_hash: string | null;
   created_at: string;
@@ -44,6 +46,8 @@ interface DatabaseError extends Error {
 
 const PROPOSAL_SELECT = `
   SELECT p.*,
+    p.voting_starts_at AS start_time,
+    p.voting_ends_at AS end_time,
     COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'for'), 0)::text AS votes_for,
     COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'against'), 0)::text AS votes_against,
     COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'abstain'), 0)::text AS votes_abstain,
@@ -259,8 +263,10 @@ proposalRouter.post(
         quorumPercent,
         votingDurationHours,
         votingEndsAt,
+        start_time,
+        end_time,
         metadata,
-      } = req.body as CreateProposalInput;
+      } = req.body as CreateProposalInput & { start_time?: Date | string; end_time?: Date | string };
 
       if (!(await isActiveMember(communityId, req.auth!.address))) {
         res.status(403).json({
@@ -270,13 +276,17 @@ proposalRouter.post(
         return;
       }
 
+      const effectiveEndsAt = end_time ?? votingEndsAt;
+      const effectiveStartsAt = start_time ?? null;
+
       const [created] = await db.query<{ id: string }>(
         `INSERT INTO proposals (
            community_id, proposer_address, title, description, type, status,
            quorum_percent, metadata, voting_starts_at, voting_ends_at
          )
-         VALUES ($1, $2, $3, $4, $5, 'active', $6, $7, NOW(),
-                 COALESCE($8::timestamptz, NOW() + ($9 * INTERVAL '1 hour')))
+         VALUES ($1, $2, $3, $4, $5, 'active', $6, $7,
+                 COALESCE($8::timestamptz, NOW()),
+                 COALESCE($9::timestamptz, NOW() + ($10 * INTERVAL '1 hour')))
          RETURNING id`,
         [
           communityId,
@@ -286,7 +296,8 @@ proposalRouter.post(
           type,
           quorumPercent,
           metadata ? JSON.stringify(metadata) : null,
-          votingEndsAt ? new Date(votingEndsAt).toISOString() : null,
+          effectiveStartsAt ? new Date(effectiveStartsAt).toISOString() : null,
+          effectiveEndsAt ? new Date(effectiveEndsAt).toISOString() : null,
           votingDurationHours ?? 24,
         ]
       );

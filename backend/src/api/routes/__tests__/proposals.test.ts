@@ -158,6 +158,36 @@ describe('governance proposal routes', () => {
       });
     });
 
+    it('creates an active proposal with start_time and end_time', async () => {
+      const startTime = new Date(Date.now() + 60_000).toISOString();
+      const endTime = new Date(Date.now() + 86_400_000).toISOString();
+      const timeBoundedProposal = {
+        ...proposal,
+        start_time: startTime,
+        end_time: endTime,
+        voting_starts_at: startTime,
+        voting_ends_at: endTime,
+      };
+
+      query
+        .mockResolvedValueOnce([{ exists: true }])
+        .mockResolvedValueOnce([{ id: proposalId }])
+        .mockResolvedValueOnce([timeBoundedProposal]);
+
+      const response = await request(app)
+        .post('/api/v1/proposals')
+        .set('Authorization', authHeader())
+        .send({
+          ...payload,
+          start_time: startTime,
+          end_time: endTime,
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body.data.start_time).toBe(startTime);
+      expect(response.body.data.end_time).toBe(endTime);
+    });
+
     it('creates an active proposal for an authenticated member', async () => {
       query
         .mockResolvedValueOnce([{ exists: true }])

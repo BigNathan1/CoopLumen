@@ -1931,7 +1931,7 @@ components:
             updatedAt: { type: string, format: date-time }
     CreateGovernanceProposal:
       type: object
-      required: [communityId, title, votingEndsAt]
+      required: [communityId, title]
       properties:
         communityId: { type: string, format: uuid }
         title: { type: string, minLength: 1, maxLength: 200 }
@@ -1950,6 +1950,8 @@ components:
           default: general
         quorumPercent: { type: number, minimum: 0, maximum: 100, default: 50 }
         metadata: { type: object, additionalProperties: true }
+        start_time: { type: string, format: date-time }
+        end_time: { type: string, format: date-time }
         votingEndsAt: { type: string, format: date-time }
     GovernanceProposal:
       type: object
@@ -1965,6 +1967,8 @@ components:
         metadata: { type: object, nullable: true, additionalProperties: true }
         voting_starts_at: { type: string, format: date-time }
         voting_ends_at: { type: string, format: date-time }
+        start_time: { type: string, format: date-time }
+        end_time: { type: string, format: date-time }
         votes_for: { type: string }
         votes_against: { type: string }
         votes_abstain: { type: string }

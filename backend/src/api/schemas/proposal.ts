@@ -36,6 +36,8 @@ export const createProposalSchema = z.object({
     .max(24 * 30)
     .default(24),
   metadata: z.record(z.string(), z.unknown()).optional(),
+  start_time: z.coerce.date().optional(),
+  end_time: z.coerce.date().optional(),
   votingEndsAt: z.coerce
     .date({ error: 'votingEndsAt must be a valid date' })
     .refine((value) => value.getTime() > Date.now(), {
