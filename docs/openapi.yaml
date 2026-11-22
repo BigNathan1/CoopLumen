@@ -52,6 +52,42 @@ tags:
     description: Wallet sign-in (challenge, signature, session cookie)
 
 paths:
+  /api/v1/multisig/{id}/reject:
+    post:
+      tags: [MultiSig]
+      summary: Cosigner rejects a multisig proposal
+      description: Marks a pending multisig proposal as rejected with an optional reason.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  maxLength: 500
+      responses:
+        '200':
+          description: Proposal rejected successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MultiSigRequest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          description: Proposal not found
   /api/v1/multisig/{communityId}:
     get:
       tags: [MultiSig]

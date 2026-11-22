@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `POST /api/v1/multisig/:id/reject` endpoint allowing cosigners to reject a pending multi-signature proposal with an optional reason (#486).
 - `GET /api/v1/multisig/:communityId` endpoint to list multi-signature proposals and signature status for a community (#484).
 
 - Borrower-only `POST /api/v1/loans/request` endpoint for authenticated active members requesting loans from their community pool, with OpenAPI documentation (#451).

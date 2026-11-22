@@ -234,6 +234,24 @@ describe('MultiSig Endpoint Handlers', () => {
     });
   });
 
+  describe('POST /api/v1/multisig/:id/reject', () => {
+    it('rejects pending request and records reason via /:id/reject alias', async () => {
+      mockDb.query
+        .mockResolvedValueOnce([{ id: validRequestID, status: 'pending' }])
+        .mockResolvedValueOnce([
+          { id: validRequestID, status: 'rejected', rejection_reason: 'Cosigner rejection' },
+        ]);
+
+      const res = await request(app)
+        .post(`/api/v1/multisig/${validRequestID}/reject`)
+        .send({ reason: 'Cosigner rejection' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.status).toBe('rejected');
+      expect(res.body.data.rejection_reason).toBe('Cosigner rejection');
+    });
+  });
+
   describe('POST /api/v1/multisig/requests/:id/reject', () => {
     it('rejects pending request and records reason', async () => {
       mockDb.query

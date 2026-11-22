@@ -307,6 +307,13 @@ multisigRouter.post(
   approveMultiSigRequest
 );
 multisigRouter.post(
+  '/:id/reject',
+  validateParams(uuidParamSchema),
+  validateBody(rejectMultiSigRequestSchema),
+  rejectMultiSigRequest
+);
+
+multisigRouter.post(
   '/requests/:id/reject',
   validateParams(uuidParamSchema),
   validateBody(rejectMultiSigRequestSchema),
