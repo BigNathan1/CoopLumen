@@ -469,3 +469,67 @@ export const api = {
 export function swrFetcher<T>(path: string): Promise<T> {
   return api.get<T>(path);
 }
+
+/** A single vote tally bucket (e.g. `for`, `against`, `abstain`). */
+export interface ProposalTally {
+  /** Machine-readable choice identifier, e.g. `for`. */
+  choice: string;
+  /** Human-readable label for the choice, e.g. `For`. */
+  label?: string;
+  /** Token weight accumulated for this choice, as a decimal string. */
+  weight: string;
+}
+
+/** A governance proposal as returned by `GET /api/v1/proposals/:id`. */
+export interface Proposal {
+  id: string;
+  title: string;
+  description?: string;
+  status: string;
+  /** Voting window opening time, ISO-8601. */
+  startsAt?: string;
+  /** Voting window closing time, ISO-8601. */
+  endsAt?: string;
+  /** Per-choice token-weight tallies used to render the vote bar chart. */
+  tally?: ProposalTally[];
+  /** Total token weight eligible to vote, as a decimal string. */
+  totalWeight?: string;
+  /** Whether the authenticated user has already cast a vote. */
+  hasVoted?: boolean;
+  /** The choice the authenticated user voted for, when known. */
+  userChoice?: string | null;
+  [key: string]: unknown;
+}
+
+/** Payload accepted by `POST /api/v1/proposals/:id/vote`. */
+export interface SubmitVoteInput {
+  /** Base64-encoded, wallet-signed Soroban transaction envelope. */
+  signedXdr: string;
+}
+
+/** Result of `POST /api/v1/proposals/:id/vote`. */
+export interface SubmitVoteResult {
+  /** Transaction hash of the submitted vote, when the backend returns one. */
+  txHash?: string;
+  /** Updated proposal state after the vote was recorded. */
+  proposal?: Proposal;
+  [key: string]: unknown;
+}
+
+/** Fetches a single governance proposal, including its vote tallies. */
+export function getProposal(id: string, options?: RequestOptions): Promise<Proposal> {
+  return api.get<Proposal>(`/api/v1/proposals/${encodeURIComponent(id)}`, options);
+}
+
+/** Submits a wallet-signed vote transaction for the given proposal. */
+export function submitVote(
+  id: string,
+  input: SubmitVoteInput,
+  options?: RequestOptions
+): Promise<SubmitVoteResult> {
+  return api.post<SubmitVoteResult>(
+    `/api/v1/proposals/${encodeURIComponent(id)}/vote`,
+    input,
+    options
+  );
+}

@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `GET /api/v1/proposals/:communityId` listing a community's governance proposals from the Soroban governance contract, merged with the local `proposals` cache, with Zod-validated path/query input, the standard `{ data, meta?, error? }` envelope, and OpenAPI documentation (#513).
+- `GET /api/v1/proposals/:id` returning a single proposal's detail with its on-chain vote tally (votes for, votes against, quorum progress), validated and documented in the OpenAPI spec (#515).
+- `POST /api/v1/proposals/:id/vote` submitting a client-signed vote XDR to the Soroban governance contract, with Zod body validation, the standard response envelope, and OpenAPI documentation (#514).
+- `ProposalDetail` component (`frontend/src/components/governance/ProposalDetail.tsx`) rendering a proposal's vote tally as an accessible bar chart with design-token styling and dark-mode support, plus test coverage under `frontend/src/components/__tests__/` (#519).
 - Borrower-only `POST /api/v1/loans/request` endpoint for authenticated active members requesting loans from their community pool, with OpenAPI documentation (#451).
 - Idempotent Phase 2 reputation activation migration that seeds missing scores from existing loan outcomes without overwriting calculated data (#450).
 - Responsible disclosure safe harbor and standard `/.well-known/security.txt` contact for `security@cooplumen.org` (#448).

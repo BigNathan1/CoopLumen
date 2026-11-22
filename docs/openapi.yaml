@@ -43,9 +43,7 @@ tags:
   - name: KYC
     description: Account verification status
   - name: Proposals
-    description: Governance proposals and voting-power delegation
-  - name: Proposals
-    description: Governance proposal creation and read models
+    description: Governance proposals, on-chain voting, and voting-power delegation
   - name: KYC
     description: Account identity verification flows
   - name: Auth
@@ -77,6 +75,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/proposals/{communityId}:
+    get:
+      tags: [Proposals]
+      summary: List proposals for a community from contract and DB cache
+      description: >
+        Returns the community's governance proposals. Proposals are read from the
+        Soroban governance contract and merged with the database read model, so
+        tallies reflect on-chain state where available and the cached DB values
+        otherwise.
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Community UUID.
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [draft, active, passed, rejected, executed, cancelled]
+      responses:
+        '200':
+          description: Community proposals with current tallies
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/GovernanceProposal' }
+                  meta:
+                    type: object
+                    additionalProperties: true
+                  error: { nullable: true }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502':
+          description: The Soroban governance contract could not be reached
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /api/v1/proposals/{id}/delegate:
     post:
       tags: [Proposals]
@@ -181,6 +223,10 @@ paths:
     get:
       tags: [Proposals]
       summary: Get proposal detail and current tally
+      description: >
+        Returns a single proposal with its vote tally. The tally is read from the
+        Soroban governance contract and falls back to the database cache when the
+        contract is unavailable.
       parameters:
         - name: id
           in: path
@@ -188,15 +234,91 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         '200':
-          description: Proposal detail
+          description: Proposal detail with vote tally
           content:
             application/json:
               schema:
                 type: object
+                required: [data]
                 properties:
-                  data: { $ref: '#/components/schemas/GovernanceProposal' }
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/GovernanceProposal'
+                      - type: object
+                        properties:
+                          tally: { $ref: '#/components/schemas/GovernanceProposalTally' }
+                  meta:
+                    type: object
+                    additionalProperties: true
+                  error: { nullable: true }
         '400': { $ref: '#/components/responses/ValidationError' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '502':
+          description: The Soroban governance contract could not be reached
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /api/v1/proposals/{id}/vote:
+    post:
+      tags: [Proposals]
+      summary: Submit a signed vote transaction to Soroban
+      description: >
+        Accepts a base64-encoded signed Soroban transaction XDR invoking the
+        governance contract's vote entry point and submits it to the network.
+        The vote weight is derived on-chain from the voter's token balance.
+      security:
+        - SessionToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SubmitVote' }
+      responses:
+        '200':
+          description: Vote transaction submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/VoteSubmissionResult' }
+                  meta:
+                    type: object
+                    additionalProperties: true
+                  error: { nullable: true }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Caller is not an active member of the proposal's community
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Proposal is not open for voting or the address has already voted
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: The Stellar network rejected the signed vote transaction
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '502':
+          description: Soroban RPC is temporarily unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /api/v1/kyc/initiate:
     post:
@@ -1830,6 +1952,41 @@ components:
         votes_for: { type: string }
         votes_against: { type: string }
         votes_abstain: { type: string }
+        on_chain_id: { type: string, nullable: true, description: Proposal identifier in the Soroban contract }
+        tally: { $ref: '#/components/schemas/GovernanceProposalTally' }
+    GovernanceProposalTally:
+      type: object
+      description: Token-weighted vote tally for a proposal.
+      properties:
+        votes_for: { type: string, example: '1500.0000000' }
+        votes_against: { type: string, example: '250.0000000' }
+        votes_abstain: { type: string, example: '0.0000000' }
+        total_voting_power: { type: string, example: '1750.0000000' }
+        quorum_percent: { type: string, example: '50.00' }
+        quorum_reached: { type: boolean }
+        source:
+          type: string
+          enum: [contract, cache]
+          description: Where the tally was read from.
+    SubmitVote:
+      type: object
+      required: [signedXdr]
+      properties:
+        signedXdr:
+          type: string
+          minLength: 1
+          maxLength: 100000
+          description: Base64-encoded signed Soroban transaction XDR invoking the vote entry point.
+    VoteSubmissionResult:
+      type: object
+      required: [txHash, status]
+      properties:
+        txHash: { type: string }
+        status:
+          type: string
+          enum: [pending, success, failed]
+        ledger: { type: integer, nullable: true }
+        tally: { $ref: '#/components/schemas/GovernanceProposalTally' }
     InitiateKycRequest:
       type: object
       required: [communityId, address]
