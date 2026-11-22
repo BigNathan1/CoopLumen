@@ -4,6 +4,7 @@ import { FormEvent, useState } from 'react';
 import { api } from '@/lib/api';
 import styles from './governance.module.css';
 import { sanitizeUserText } from '@/lib/sanitize';
+import { VotingPanel } from '@/components/governance/VotingPanel';
 
 type VoteChoice = 'for' | 'against' | 'abstain';
 
@@ -25,7 +26,6 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
   const [description, setDescription] = useState('');
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [voting, setVoting] = useState<VoteChoice | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -53,23 +53,9 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
     }
   }
 
-  async function castVote(choice: VoteChoice) {
-    if (!proposal) return;
-    setVoting(choice);
-    setMessage('');
-    setError('');
-
-    try {
-      const updated = await api.post<Proposal>(`/api/v1/proposals/${proposal.id}/votes`, {
-        choice,
-      });
-      setProposal(updated);
-      setMessage('Vote recorded.');
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not record the vote.');
-    } finally {
-      setVoting(null);
-    }
+  function handleVoteRecorded(updated: Proposal) {
+    setProposal(updated);
+    setMessage('Vote recorded.');
   }
 
   return (
@@ -133,39 +119,17 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
               <p className={styles.description}>{sanitizeUserText(proposal.description)}</p>
             )}
 
-            <dl className={styles.tally} aria-label="Live vote tally">
-              <div>
-                <dt>For</dt>
-                <dd data-testid="votes-for">{proposal.votes_for}</dd>
-              </div>
-              <div>
-                <dt>Against</dt>
-                <dd>{proposal.votes_against}</dd>
-              </div>
-              <div>
-                <dt>Abstain</dt>
-                <dd>{proposal.votes_abstain}</dd>
-              </div>
-              <div>
-                <dt>Total</dt>
-                <dd>{proposal.total_weight}</dd>
-              </div>
-            </dl>
-
-            <fieldset className={styles.voteGroup} disabled={voting !== null}>
-              <legend>Cast your vote</legend>
-              <div className={styles.voteActions}>
-                <button type="button" onClick={() => castVote('for')}>
-                  Vote for
-                </button>
-                <button type="button" onClick={() => castVote('against')}>
-                  Vote against
-                </button>
-                <button type="button" onClick={() => castVote('abstain')}>
-                  Abstain
-                </button>
-              </div>
-            </fieldset>
+            <VotingPanel
+              proposalId={proposal.id}
+              tally={{
+                votes_for: proposal.votes_for,
+                votes_against: proposal.votes_against,
+                votes_abstain: proposal.votes_abstain,
+                total_weight: proposal.total_weight,
+              }}
+              status={proposal.status}
+              onVoteRecorded={handleVoteRecorded}
+            />
           </section>
         )}
 

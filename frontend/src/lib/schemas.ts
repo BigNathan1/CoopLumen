@@ -201,6 +201,46 @@ export const createLoanSchema = z.object({
   dueAt: z.coerce.date().optional(),
 });
 
+// World ID
+
+/**
+ * A World ID proof as produced by IDKit and forwarded to the backend.
+ *
+ * The proof is opaque to the frontend — it is generated and signed by the
+ * World App — so this only checks the shape the backend requires: the
+ * `merkle_root`, `nullifier_hash` and `proof` fields are 0x-prefixed hex, and
+ * the verification level is one of the two the backend accepts. Anything
+ * deeper is the backend's (and World's) job to reject.
+ */
+export const worldIdVerifySchema = z.object({
+  merkle_root: z
+    .string()
+    .trim()
+    .regex(/^0x[0-9a-fA-F]+$/, 'Merkle root must be a 0x-prefixed hex string'),
+  nullifier_hash: z
+    .string()
+    .trim()
+    .regex(/^0x[0-9a-fA-F]+$/, 'Nullifier hash must be a 0x-prefixed hex string'),
+  proof: z.string().trim().regex(/^0x[0-9a-fA-F]+$/, 'Proof must be a 0x-prefixed hex string'),
+  verification_level: z.enum(['orb', 'device'], {
+    message: 'Verification level must be orb or device',
+  }),
+});
+
+/**
+ * The verification state the backend reports for the signed-in account.
+ *
+ * `verified` is the one-person-one-account flag; `nullifier_hash` is present
+ * only once a proof has been accepted, and `verified_at` is the ISO timestamp
+ * of that acceptance.
+ */
+export const worldIdStatusSchema = z.object({
+  verified: z.boolean(),
+  verification_level: z.enum(['orb', 'device']).nullable().optional(),
+  nullifier_hash: z.string().nullable().optional(),
+  verified_at: z.string().nullable().optional(),
+});
+
 // Query parameters
 
 /** List query for paginated endpoints; values are coerced from the URL. */
@@ -230,6 +270,8 @@ export type UpdateMemberInput = z.infer<typeof updateMemberSchema>;
 export type BuildTrustlineInput = z.infer<typeof buildTrustlineSchema>;
 export type PaymentInput = z.infer<typeof paymentSchema>;
 export type CreateLoanInput = z.infer<typeof createLoanSchema>;
+export type WorldIdVerifyInput = z.infer<typeof worldIdVerifySchema>;
+export type WorldIdStatus = z.infer<typeof worldIdStatusSchema>;
 export type ListQueryInput = z.infer<typeof listQuerySchema>;
 
 // Helpers
