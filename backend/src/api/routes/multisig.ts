@@ -279,6 +279,13 @@ async function executeMultiSigRequest(req: Request, res: Response): Promise<void
 
 // Routes
 multisigRouter.get(
+  '/:communityId',
+  validateParams(communityIdParamSchema),
+  validateQuery(getMultiSigQuerySchema),
+  getCommunityMultiSigRequests
+);
+
+multisigRouter.get(
   '/community/:communityId',
   validateParams(communityIdParamSchema),
   validateQuery(getMultiSigQuerySchema),

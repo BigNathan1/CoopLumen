@@ -20,6 +20,42 @@ beforeEach(() => {
 });
 
 describe('MultiSig Endpoint Handlers', () => {
+  describe('GET /api/v1/multisig/:communityId', () => {
+    it('returns 200 with list of requests when queried at /api/v1/multisig/:communityId', async () => {
+      const mockRequests = [
+        {
+          id: validRequestID,
+          community_id: validUUID,
+          proposer_address: validStellarAddress,
+          action: 'payment',
+          title: 'Disburse Community Funds',
+          description: 'Batch payout to members',
+          payload: { recipients: [] },
+          transaction_xdr: 'AAAA...',
+          required_signatures: 2,
+          current_signatures: 1,
+          status: 'pending',
+          stellar_tx_hash: null,
+          rejection_reason: null,
+          expires_at: null,
+          executed_at: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ];
+
+      mockDb.query
+        .mockResolvedValueOnce([{ id: validUUID }]) // community check
+        .mockResolvedValueOnce([{ total: '1' }]) // count query
+        .mockResolvedValueOnce(mockRequests); // data query
+
+      const res = await request(app).get(`/api/v1/multisig/${validUUID}`);
+      expect(res.status).toBe(200);
+      expect(res.body.data).toEqual(mockRequests);
+      expect(res.body.meta).toEqual(expect.objectContaining({ total: 1, page: 1, limit: 20 }));
+    });
+  });
+
   describe('GET /api/v1/multisig/community/:communityId', () => {
     it('returns 400 when :communityId is not a valid UUID', async () => {
       const res = await request(app).get('/api/v1/multisig/community/invalid-uuid');
