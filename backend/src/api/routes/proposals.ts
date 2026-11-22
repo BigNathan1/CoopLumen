@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import { PoolClient } from 'pg';
 import { db } from '../../db';
+import { executeProposalOnChain } from '../../contracts/stellar';
 import { requireAuth } from '../middleware/auth';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate';
 import {
@@ -173,31 +174,53 @@ async function saveDelegation(
 }
 
 proposalRouter.post(
-  '/:id/delegate',
+  '/:id/execute',
   requireAuth,
   validateParams(proposalIdParamsSchema),
-  validateBody(delegateProposalSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const delegatorAddress = req.auth!.address;
-    const { delegateeAddress } = req.body as DelegateProposalInput;
-    if (delegatorAddress === delegateeAddress) {
-      res.status(400).json({ data: null, error: 'Cannot delegate voting power to yourself' });
-      return;
-    }
-
     try {
-      const delegation = await db.transaction((client) =>
-        saveDelegation(client, req.params.id, delegatorAddress, delegateeAddress)
-      );
-      res.status(200).json({
-        data: {
-          proposalId: delegation.proposal_id,
-          delegatorAddress: delegation.delegator_address,
-          delegateeAddress: delegation.delegatee_address,
-          createdAt: delegation.created_at,
-          updatedAt: delegation.updated_at,
-        },
+      const proposal = await findProposal(req.params.id);
+      if (!proposal) {
+        res.status(404).json({ data: null, error: 'Proposal not found' });
+        return;
+      }
+
+      if (proposal.status === 'executed') {
+        res.status(409).json({ data: null, error: 'Proposal has already been executed' });
+        return;
+      }
+      if (proposal.status === 'rejected' || proposal.status === 'cancelled') {
+        res.status(409).json({
+          data: null,
+          error: `Proposal cannot be executed because it is ${proposal.status}`,
+        });
+        return;
+      }
+      if (
+        proposal.status === 'active' &&
+        new Date(proposal.voting_ends_at).getTime() > Date.now()
+      ) {
+        res.status(409).json({ data: null, error: 'Voting period has not ended yet' });
+        return;
+      }
+
+      const { txHash } = await executeProposalOnChain({
+        proposalId: proposal.id,
+        communityId: proposal.community_id,
+        proposerAddress: proposal.proposer_address,
       });
+
+      await db.query(
+        `UPDATE proposals
+            SET status = 'executed',
+                executed_at = NOW(),
+                stellar_tx_hash = $2,
+                updated_at = NOW()
+          WHERE id = $1`,
+        [proposal.id, txHash]
+      );
+
+      res.status(200).json({ data: await findProposal(proposal.id) });
     } catch (error) {
       next(error);
     }
