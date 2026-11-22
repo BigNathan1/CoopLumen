@@ -1,6 +1,11 @@
 import request from 'supertest';
 import app from '../../../app';
 import { db } from '../../../db';
+import * as txModule from '../../../contracts/transactions';
+
+jest.mock('../../../contracts/transactions', () => ({
+  submitSignedXdr: jest.fn(),
+}));
 
 jest.mock('../../../db', () => ({
   db: {
@@ -299,6 +304,43 @@ describe('MultiSig Endpoint Handlers', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.status).toBe('rejected');
       expect(res.body.data.rejection_reason).toBe('Invalid payload');
+    });
+  });
+
+  describe('POST /api/v1/multisig/:id/execute', () => {
+    it('executes approved request by submitting transaction_xdr to Horizon', async () => {
+      const mockTxHash = 'abcdefabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234';
+      (txModule.submitSignedXdr as jest.Mock).mockResolvedValueOnce(mockTxHash);
+
+      mockDb.query
+        .mockResolvedValueOnce([
+          { id: validRequestID, status: 'approved', transaction_xdr: 'AAAA_SIGNED_XDR' },
+        ])
+        .mockResolvedValueOnce([
+          { id: validRequestID, status: 'executed', stellar_tx_hash: mockTxHash },
+        ]);
+
+      const res = await request(app)
+        .post(`/api/v1/multisig/${validRequestID}/execute`)
+        .send({});
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.status).toBe('executed');
+      expect(res.body.data.stellar_tx_hash).toBe(mockTxHash);
+      expect(txModule.submitSignedXdr).toHaveBeenCalledWith('AAAA_SIGNED_XDR');
+    });
+
+    it('returns 400 when neither stellar_tx_hash nor transaction_xdr is present', async () => {
+      mockDb.query.mockResolvedValueOnce([
+        { id: validRequestID, status: 'approved', transaction_xdr: null },
+      ]);
+
+      const res = await request(app)
+        .post(`/api/v1/multisig/${validRequestID}/execute`)
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('Either stellar_tx_hash or a signed transaction_xdr is required');
     });
   });
 

@@ -1627,6 +1627,35 @@ paths:
         '409':
           description: Loan is not in `active` status
 
+  /api/v1/multisig/{id}/execute:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [MultiSig]
+      summary: Submit fully-signed XDR to Horizon or record execution
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stellar_tx_hash: { type: string }
+                signed_xdr: { type: string }
+      responses:
+        '200':
+          description: Proposal executed on-chain
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/MultiSigRequest' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /api/v1/multisig/{id}/sign:
     parameters:
       - name: id
