@@ -1627,6 +1627,32 @@ paths:
         '409':
           description: Loan is not in `active` status
 
+  /api/v1/loans/detect-defaults:
+    post:
+      tags: [Loans]
+      summary: Detect and mark overdue loans as defaulted
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: List of newly defaulted loans
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Loan'
+                  meta:
+                    type: object
+                    properties:
+                      count:
+                        type: integer
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /api/v1/loans/{id}/default:
     parameters:
       - $ref: '#/components/parameters/LoanId'

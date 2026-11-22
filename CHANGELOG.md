@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Automated loan default detection job and `POST /api/v1/loans/detect-defaults` endpoint to transition overdue loans to defaulted and update reputation (#459).
+
 - Borrower-only `POST /api/v1/loans/request` endpoint for authenticated active members requesting loans from their community pool, with OpenAPI documentation (#451).
 - Idempotent Phase 2 reputation activation migration that seeds missing scores from existing loan outcomes without overwriting calculated data (#450).
 - Responsible disclosure safe harbor and standard `/.well-known/security.txt` contact for `security@cooplumen.org` (#448).
