@@ -159,6 +159,41 @@ describe('MultiSig Endpoint Handlers', () => {
       expect(res.status).toBe(201);
       expect(res.body.data).toEqual(newRequest);
     });
+
+    it('uses configured community threshold when required_signatures is not specified', async () => {
+      const customRequest = {
+        id: validRequestID,
+        community_id: validUUID,
+        proposer_address: validStellarAddress,
+        action: 'payment',
+        title: 'Threshold Test',
+        description: null,
+        payload: {},
+        transaction_xdr: null,
+        required_signatures: 3,
+        current_signatures: 0,
+        status: 'pending',
+        stellar_tx_hash: null,
+        rejection_reason: null,
+        expires_at: null,
+        executed_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      mockDb.query
+        .mockResolvedValueOnce([{ id: validUUID, settings: { threshold: 3 } }]) // community check with threshold
+        .mockResolvedValueOnce([customRequest]); // insert
+
+      const res = await request(app).post(`/api/v1/multisig/community/${validUUID}`).send({
+        action: 'payment',
+        title: 'Threshold Test',
+        proposer_address: validStellarAddress,
+      });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.required_signatures).toBe(3);
+    });
   });
 
   describe('GET /api/v1/multisig/requests/:id', () => {

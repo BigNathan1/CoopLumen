@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Per-community threshold configuration support in community settings and multisig request creation (#487).
 - `POST /api/v1/multisig/:id/reject` endpoint allowing cosigners to reject a pending multi-signature proposal with an optional reason (#486).
 - `GET /api/v1/multisig/:communityId` endpoint to list multi-signature proposals and signature status for a community (#484).
 
