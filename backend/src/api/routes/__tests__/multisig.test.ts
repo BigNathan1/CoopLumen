@@ -69,6 +69,49 @@ describe('MultiSig Endpoint Handlers', () => {
     });
   });
 
+  describe('POST /api/v1/multisig/propose', () => {
+    it('creates a multisig proposal with community_id in body', async () => {
+      const newRequest = {
+        id: validRequestID,
+        community_id: validUUID,
+        proposer_address: validStellarAddress,
+        action: 'payment',
+        title: 'Batch Disburse',
+        description: null,
+        payload: {},
+        transaction_xdr: null,
+        required_signatures: 2,
+        current_signatures: 0,
+        status: 'pending',
+      };
+
+      mockDb.query
+        .mockResolvedValueOnce([{ id: validUUID }]) // community check
+        .mockResolvedValueOnce([newRequest]); // insert
+
+      const res = await request(app).post('/api/v1/multisig/propose').send({
+        community_id: validUUID,
+        action: 'payment',
+        title: 'Batch Disburse',
+        proposer_address: validStellarAddress,
+      });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.id).toBe(validRequestID);
+    });
+
+    it('returns 400 when community_id is missing in body', async () => {
+      const res = await request(app).post('/api/v1/multisig/propose').send({
+        action: 'payment',
+        title: 'Batch Disburse',
+        proposer_address: validStellarAddress,
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('community_id is required');
+    });
+  });
+
   describe('POST /api/v1/multisig/community/:communityId', () => {
     it('returns 400 when body validation fails', async () => {
       const res = await request(app)

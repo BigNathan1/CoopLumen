@@ -1627,6 +1627,39 @@ paths:
         '409':
           description: Loan is not in `active` status
 
+  /api/v1/multisig/propose:
+    post:
+      tags: [MultiSig]
+      summary: Propose a multi-sig transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [community_id, action, title, proposer_address]
+              properties:
+                community_id: { type: string, format: uuid }
+                action: { type: string, enum: [payment, token_issue, trustline, settings_update, member_role_change, signer_update] }
+                title: { type: string }
+                description: { type: string }
+                payload: { type: object }
+                transaction_xdr: { type: string }
+                required_signatures: { type: integer, default: 2 }
+                proposer_address: { type: string }
+                expires_at: { type: string, format: date-time }
+      responses:
+        '201':
+          description: Proposal created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/MultiSigRequest' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /api/v1/loans/detect-defaults:
     post:
       tags: [Loans]
@@ -2470,6 +2503,26 @@ components:
         due_at: { type: string, format: date-time, nullable: true }
         disbursed_at: { type: string, format: date-time, nullable: true }
         closed_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    MultiSigRequest:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        community_id: { type: string, format: uuid }
+        proposer_address: { $ref: '#/components/schemas/StellarKey' }
+        action: { type: string }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        payload: { type: object }
+        transaction_xdr: { type: string, nullable: true }
+        required_signatures: { type: integer }
+        current_signatures: { type: integer }
+        status: { type: string }
+        stellar_tx_hash: { type: string, nullable: true }
+        rejection_reason: { type: string, nullable: true }
+        expires_at: { type: string, format: date-time, nullable: true }
+        executed_at: { type: string, format: date-time, nullable: true }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
     LoanEvent:

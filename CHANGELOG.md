@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Added `POST /api/v1/multisig/propose` endpoint to create a multi-sig transaction proposal (#482).
 - Automated loan default detection job and `POST /api/v1/loans/detect-defaults` endpoint to transition overdue loans to defaulted and update reputation (#459).
 
 - Borrower-only `POST /api/v1/loans/request` endpoint for authenticated active members requesting loans from their community pool, with OpenAPI documentation (#451).
