@@ -28,3 +28,13 @@ CREATE TRIGGER loans_updated_at
 
 -- #054: index for status filtering and lender/borrower dashboards
 CREATE INDEX IF NOT EXISTS idx_loans_status ON loans(status);
+
+-- #380: allow the 'overdue' lifecycle state for the loan expiry background job
+ALTER TABLE loans
+  DROP CONSTRAINT IF EXISTS loans_status_check;
+ALTER TABLE loans
+  ADD CONSTRAINT loans_status_check
+  CHECK (status IN ('pending', 'active', 'overdue', 'repaid', 'defaulted', 'cancelled'));
+
+-- #380: composite index to make the expiry sweep (status = 'active' AND due_at <= NOW()) cheap
+CREATE INDEX IF NOT EXISTS idx_loans_status_due_at ON loans(status, due_at);

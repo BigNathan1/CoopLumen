@@ -11,6 +11,8 @@ import {
   repayLoanSchema,
   defaultLoanSchema,
   loanRequestSchema,
+  borrowerAddressParamSchema,
+  borrowerLoansQuerySchema,
 } from '../schemas/loan';
 
 export const loanRouter: Router = Router();
@@ -154,6 +156,48 @@ loanRouter.get('/', async (req, res, next) => {
     );
 
     res.json({ data: loans.map(withTotals), meta: pageMeta(count, pagination) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/v1/loans/borrower/:address
+ * All loans for a borrower address, newest first. Registered before the
+ * `/:id` routes so `borrower` is never captured as a loan id.
+ */
+loanRouter.get('/borrower/:address', async (req, res, next) => {
+  try {
+    const params = borrowerAddressParamSchema.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ data: null, error: 'Invalid borrower address' });
+      return;
+    }
+    const query = borrowerLoansQuerySchema.safeParse(req.query);
+    if (!query.success) {
+      res.status(400).json({ data: null, error: 'Invalid pagination parameters' });
+      return;
+    }
+    const { page, limit } = query.data;
+    const offset = (page - 1) * limit;
+
+    const [{ count }] = await db.query<{ count: number }>(
+      'SELECT COUNT(*)::int AS count FROM loans WHERE borrower_address = $1',
+      [params.data.address]
+    );
+
+    const loans = await db.query<Loan>(
+      `SELECT * FROM loans
+       WHERE borrower_address = $1
+       ORDER BY created_at DESC
+       LIMIT $2 OFFSET $3`,
+      [params.data.address, limit, offset]
+    );
+
+    res.json({
+      data: loans.map(withTotals),
+      meta: { total: count, page, limit },
+    });
   } catch (err) {
     next(err);
   }
@@ -526,7 +570,7 @@ loanRouter.post(
       let conflictStatus: string | null = null;
       let exceedsOutstanding: number | null = null;
 
-      const updated = await db.transaction(async (client) => {
+      const result = await db.transaction(async (client) => {
         const [loan] = (
           await client.query<Loan>('SELECT * FROM loans WHERE id = $1 FOR UPDATE', [req.params.id])
         ).rows;
@@ -548,6 +592,29 @@ loanRouter.post(
 
         const newRepaid = Number(loan.amount_repaid) + Number(amount);
         const fullyRepaid = newRepaid >= due - 1e-7;
+
+        const {
+          rows: [repayment],
+        } = await client.query<{
+          id: string;
+          loan_id: string;
+          payer_address: string;
+          amount: string;
+          stellar_tx_hash: string | null;
+          metadata: unknown;
+          created_at: string;
+        }>(
+          `INSERT INTO loan_repayments (loan_id, payer_address, amount, stellar_tx_hash, metadata)
+           VALUES ($1, $2, $3, $4, $5)
+           RETURNING *`,
+          [
+            loan.id,
+            loan.borrower_address,
+            amount,
+            paymentId ?? null,
+            JSON.stringify({ note: note ?? null }),
+          ]
+        );
 
         const {
           rows: [row],
@@ -597,7 +664,7 @@ loanRouter.post(
             'on_time_repayments'
           );
         }
-        return row;
+        return { loan: row, repayment };
       });
 
       if (notFound) {
@@ -619,7 +686,7 @@ loanRouter.post(
         return;
       }
 
-      res.json({ data: updated });
+      res.json({ data: result });
     } catch (err) {
       next(err);
     }

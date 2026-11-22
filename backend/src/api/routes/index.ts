@@ -18,7 +18,6 @@ import { kycRouter } from './kyc';
 import { apiKeysRouter } from './apiKeys';
 import { accountRouter } from './account';
 import { proposalRouter } from './proposals';
-import { accountRouter } from './account';
 import {
   apiLimiter,
   apiSlowDown,
@@ -63,4 +62,3 @@ apiRouter.use('/kyc', kycRouter);
 apiRouter.use('/api-keys', apiKeysRouter);
 apiRouter.use('/account', accountRouter);
 apiRouter.use('/proposals', proposalRouter);
-apiRouter.use('/account', accountRouter);
