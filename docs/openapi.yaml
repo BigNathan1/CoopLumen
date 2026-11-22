@@ -1627,6 +1627,35 @@ paths:
         '409':
           description: Loan is not in `active` status
 
+  /api/v1/multisig/{id}/sign:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [MultiSig]
+      summary: Submit signature for a multi-sig transaction proposal
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                signed_xdr: { type: string }
+                signer_address: { type: string }
+      responses:
+        '200':
+          description: Proposal signed / approved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/MultiSigRequest' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /api/v1/multisig/propose:
     post:
       tags: [MultiSig]

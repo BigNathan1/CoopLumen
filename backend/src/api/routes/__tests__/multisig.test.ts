@@ -190,6 +190,49 @@ describe('MultiSig Endpoint Handlers', () => {
     });
   });
 
+  describe('POST /api/v1/multisig/:id/sign', () => {
+    it('cosigner submits partial XDR signature and increments signature count', async () => {
+      mockDb.query
+        .mockResolvedValueOnce([
+          {
+            id: validRequestID,
+            status: 'pending',
+            current_signatures: 0,
+            required_signatures: 2,
+            transaction_xdr: 'XDR_INITIAL',
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: validRequestID,
+            status: 'pending',
+            current_signatures: 1,
+            required_signatures: 2,
+            transaction_xdr: 'XDR_PARTIALLY_SIGNED',
+          },
+        ]);
+
+      const res = await request(app)
+        .post(`/api/v1/multisig/${validRequestID}/sign`)
+        .send({ signed_xdr: 'XDR_PARTIALLY_SIGNED', signer_address: validStellarAddress });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.current_signatures).toBe(1);
+      expect(res.body.data.transaction_xdr).toBe('XDR_PARTIALLY_SIGNED');
+    });
+
+    it('returns 400 when request is not pending', async () => {
+      mockDb.query.mockResolvedValueOnce([
+        { id: validRequestID, status: 'executed', current_signatures: 2, required_signatures: 2 },
+      ]);
+      const res = await request(app)
+        .post(`/api/v1/multisig/${validRequestID}/sign`)
+        .send({ signed_xdr: 'XDR_SIGNED' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("Cannot approve request with status 'executed'");
+    });
+  });
+
   describe('POST /api/v1/multisig/requests/:id/approve', () => {
     it('returns 404 when request does not exist', async () => {
       mockDb.query.mockResolvedValueOnce([]);

@@ -171,8 +171,9 @@ async function getMultiSigRequest(req: Request, res: Response): Promise<void> {
 }
 
 /**
+ * POST /api/v1/multisig/:id/sign
  * POST /api/v1/multisig/requests/:id/approve
- * Sign / approve request.
+ * Cosigner submits their signature (partial XDR) / approve request.
  */
 async function approveMultiSigRequest(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
@@ -304,6 +305,12 @@ multisigRouter.post(
 );
 
 multisigRouter.get('/requests/:id', validateParams(uuidParamSchema), getMultiSigRequest);
+multisigRouter.post(
+  '/:id/sign',
+  validateParams(uuidParamSchema),
+  validateBody(approveMultiSigRequestSchema),
+  approveMultiSigRequest
+);
 multisigRouter.post(
   '/requests/:id/approve',
   validateParams(uuidParamSchema),
