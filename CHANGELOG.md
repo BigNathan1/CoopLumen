@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Added `POST /api/v1/proposals` endpoint allowing authenticated community members to submit on-chain governance proposals (#512).
+- Activated `proposals` and `votes` database tables via migration `029_activate_proposals_and_votes.sql` (#511).
+- Recorded deployed governance contract testnet address and configuration in documentation (#510).
+- Added comprehensive Soroban governance contract unit tests using `soroban-sdk` test utilities (#509).
+
 - Borrower-only `POST /api/v1/loans/request` endpoint for authenticated active members requesting loans from their community pool, with OpenAPI documentation (#451).
 - Idempotent Phase 2 reputation activation migration that seeds missing scores from existing loan outcomes without overwriting calculated data (#450).
 - Responsible disclosure safe harbor and standard `/.well-known/security.txt` contact for `security@cooplumen.org` (#448).
