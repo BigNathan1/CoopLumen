@@ -1,17 +1,23 @@
 import request from 'supertest';
 import { PoolClient } from 'pg';
 import { Keypair } from '@stellar/stellar-sdk';
-import app from '../../../app';
-import { db } from '../../../db';
-import { createSessionToken } from '../../utils/sessionToken';
 
 jest.mock('../../../db', () => ({
   db: {
     connect: jest.fn().mockResolvedValue(undefined),
-    query: jest.fn(),
+    query: jest.fn().mockResolvedValue({ rows: [] }),
     transaction: jest.fn(),
   },
 }));
+
+// Mock auditLog middleware to avoid db connection issues in tests
+jest.mock('../../../api/middleware/auditLog', () => ({
+  auditStateChange: (_req: any, _res: any, next: any) => next(),
+}));
+
+import app from '../../../app';
+import { db } from '../../../db';
+import { createSessionToken } from '../../utils/sessionToken';
 
 const mockDb = db as jest.Mocked<typeof db>;
 const borrower = Keypair.random().publicKey();
@@ -528,5 +534,553 @@ describe('DELETE /api/v1/loans/:id', () => {
       .delete(`/api/v1/loans/${loanId}`)
       .set('Authorization', authHeader(borrower));
     expect(res.status).toBe(404);
+  });
+});
+
+describe('GET /api/v1/loans - pagination and filtering', () => {
+  it('returns paginated results with correct meta', async () => {
+    mockDb.query
+      .mockResolvedValueOnce([{ count: 45 }])
+      .mockResolvedValueOnce(
+        Array.from({ length: 20 }, (_, i) => ({ id: `loan-${i}`, amount: '100.0000000' }))
+      );
+    const res = await request(app).get('/api/v1/loans?page=2&limit=20');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(20);
+    expect(res.body.meta).toEqual({ total: 45, page: 2, limit: 20, pages: 3, offset: 20 });
+  });
+
+  it('filters by communityId', async () => {
+    mockDb.query
+      .mockResolvedValueOnce([{ count: 1 }])
+      .mockResolvedValueOnce([{ id: loanId, community_id: communityId, amount: '100.0000000' }]);
+    const res = await request(app).get(`/api/v1/loans?communityId=${communityId}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+  });
+
+  it('filters by borrower address', async () => {
+    mockDb.query
+      .mockResolvedValueOnce([{ count: 1 }])
+      .mockResolvedValueOnce([{ id: loanId, borrower_address: borrower, amount: '100.0000000' }]);
+    const res = await request(app).get(`/api/v1/loans?borrower=${borrower}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+  });
+
+  it('filters by lender address', async () => {
+    mockDb.query
+      .mockResolvedValueOnce([{ count: 1 }])
+      .mockResolvedValueOnce([{ id: loanId, lender_address: lender, amount: '100.0000000' }]);
+    const res = await request(app).get(`/api/v1/loans?lender=${lender}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+  });
+
+  it('sorts by amount descending', async () => {
+    mockDb.query.mockResolvedValueOnce([{ count: 2 }]).mockResolvedValueOnce([
+      { id: loanId, amount: '200.0000000' },
+      { id: 'loan-2', amount: '100.0000000' },
+    ]);
+    const res = await request(app).get('/api/v1/loans?sortBy=amount&order=desc');
+    expect(res.status).toBe(200);
+    expect(res.body.data[0].amount).toBe('200.0000000');
+  });
+});
+
+describe('GET /api/v1/loans/:id - error handling', () => {
+  it('returns 500 when database query fails', async () => {
+    mockDb.query.mockRejectedValueOnce(new Error('Database connection failed'));
+    const res = await request(app).get(`/api/v1/loans/${loanId}`);
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Internal server error');
+  });
+});
+
+describe('GET /api/v1/loans/:id/events - error handling', () => {
+  it('returns 404 when loan does not exist', async () => {
+    mockDb.query.mockResolvedValueOnce([{ count: 0 }]).mockResolvedValueOnce([]);
+    const res = await request(app).get(`/api/v1/loans/${loanId}/events`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual([]);
+    expect(res.body.meta.total).toBe(0);
+  });
+
+  it('returns 500 when database query fails', async () => {
+    mockDb.query.mockRejectedValueOnce(new Error('Database connection failed'));
+    const res = await request(app).get(`/api/v1/loans/${loanId}/events`);
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Internal server error');
+  });
+});
+
+describe('POST /api/v1/loans - Zod validation', () => {
+  it('rejects missing communityId', async () => {
+    const res = await request(app)
+      .post('/api/v1/loans')
+      .set('Authorization', authHeader(lender))
+      .send({
+        borrowerAddress: borrower,
+        lenderAddress: lender,
+        amount: '50',
+        assetCode: 'ECO',
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'communityId' })])
+    );
+  });
+
+  it('rejects invalid communityId format', async () => {
+    const res = await request(app)
+      .post('/api/v1/loans')
+      .set('Authorization', authHeader(lender))
+      .send({
+        communityId: 'not-a-uuid',
+        borrowerAddress: borrower,
+        lenderAddress: lender,
+        amount: '50',
+        assetCode: 'ECO',
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'communityId' })])
+    );
+  });
+
+  it('rejects negative amount', async () => {
+    const res = await request(app)
+      .post('/api/v1/loans')
+      .set('Authorization', authHeader(lender))
+      .send({
+        communityId,
+        borrowerAddress: borrower,
+        lenderAddress: lender,
+        amount: '-50',
+        assetCode: 'ECO',
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'amount' })])
+    );
+  });
+
+  it('rejects amount with too many decimals', async () => {
+    const res = await request(app)
+      .post('/api/v1/loans')
+      .set('Authorization', authHeader(lender))
+      .send({
+        communityId,
+        borrowerAddress: borrower,
+        lenderAddress: lender,
+        amount: '50.12345678',
+        assetCode: 'ECO',
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'amount' })])
+    );
+  });
+
+  it('rejects invalid assetCode format', async () => {
+    const res = await request(app)
+      .post('/api/v1/loans')
+      .set('Authorization', authHeader(lender))
+      .send({
+        communityId,
+        borrowerAddress: borrower,
+        lenderAddress: lender,
+        amount: '50',
+        assetCode: 'INVALID@CODE',
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'assetCode' })])
+    );
+  });
+
+  it('rejects interestRate above maximum', async () => {
+    const res = await request(app)
+      .post('/api/v1/loans')
+      .set('Authorization', authHeader(lender))
+      .send({
+        communityId,
+        borrowerAddress: borrower,
+        lenderAddress: lender,
+        amount: '50',
+        assetCode: 'ECO',
+        interestRate: 2000,
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'interestRate' })])
+    );
+  });
+
+  it('rejects negative interestRate', async () => {
+    const res = await request(app)
+      .post('/api/v1/loans')
+      .set('Authorization', authHeader(lender))
+      .send({
+        communityId,
+        borrowerAddress: borrower,
+        lenderAddress: lender,
+        amount: '50',
+        assetCode: 'ECO',
+        interestRate: -5,
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'interestRate' })])
+    );
+  });
+});
+
+describe('POST /api/v1/loans - DB error handling', () => {
+  it('returns 500 when community lookup fails', async () => {
+    mockDb.query.mockRejectedValueOnce(new Error('Database connection failed'));
+    const res = await request(app)
+      .post('/api/v1/loans')
+      .set('Authorization', authHeader(lender))
+      .send({
+        communityId,
+        borrowerAddress: borrower,
+        lenderAddress: lender,
+        amount: '50',
+        assetCode: 'ECO',
+      });
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Internal server error');
+  });
+
+  it('returns 500 when transaction fails', async () => {
+    mockDb.query.mockResolvedValueOnce([{ id: communityId }]);
+    mockDb.transaction.mockRejectedValueOnce(new Error('Transaction failed'));
+    const res = await request(app)
+      .post('/api/v1/loans')
+      .set('Authorization', authHeader(lender))
+      .send({
+        communityId,
+        borrowerAddress: borrower,
+        lenderAddress: lender,
+        amount: '50',
+        assetCode: 'ECO',
+      });
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Internal server error');
+  });
+});
+
+describe('POST /api/v1/loans/request - Zod validation', () => {
+  it('rejects missing communityId', async () => {
+    const res = await request(app)
+      .post('/api/v1/loans/request')
+      .set('Authorization', authHeader(borrower))
+      .send({
+        amount: '1000',
+        dueAt: new Date(Date.now() + 86400000).toISOString(),
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'communityId' })])
+    );
+  });
+
+  it('rejects missing amount', async () => {
+    const res = await request(app)
+      .post('/api/v1/loans/request')
+      .set('Authorization', authHeader(borrower))
+      .send({
+        communityId,
+        dueAt: new Date(Date.now() + 86400000).toISOString(),
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'amount' })])
+    );
+  });
+
+  it('rejects past dueAt', async () => {
+    const res = await request(app)
+      .post('/api/v1/loans/request')
+      .set('Authorization', authHeader(borrower))
+      .send({
+        communityId,
+        amount: '1000',
+        dueAt: new Date(Date.now() - 86400000).toISOString(),
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'dueAt' })])
+    );
+  });
+
+  it('rejects negative amount', async () => {
+    const res = await request(app)
+      .post('/api/v1/loans/request')
+      .set('Authorization', authHeader(borrower))
+      .send({
+        communityId,
+        amount: '-1000',
+        dueAt: new Date(Date.now() + 86400000).toISOString(),
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'amount' })])
+    );
+  });
+
+  it('rejects interestRate above maximum', async () => {
+    const res = await request(app)
+      .post('/api/v1/loans/request')
+      .set('Authorization', authHeader(borrower))
+      .send({
+        communityId,
+        amount: '1000',
+        dueAt: new Date(Date.now() + 86400000).toISOString(),
+        interestRate: 2000,
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'interestRate' })])
+    );
+  });
+});
+
+describe('POST /api/v1/loans/request - DB error handling', () => {
+  it('returns 500 when community lookup fails', async () => {
+    mockDb.query.mockRejectedValueOnce(new Error('Database connection failed'));
+    const res = await request(app)
+      .post('/api/v1/loans/request')
+      .set('Authorization', authHeader(borrower))
+      .send({
+        communityId,
+        amount: '1000',
+        dueAt: new Date(Date.now() + 86400000).toISOString(),
+      });
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Internal server error');
+  });
+
+  it('returns 500 when transaction fails', async () => {
+    mockDb.query
+      .mockResolvedValueOnce([
+        { issuer_public_key: lender, asset_code: 'ECO', asset_issuer: lender },
+      ])
+      .mockResolvedValueOnce([{ settings: {} }]);
+    mockDb.transaction.mockRejectedValueOnce(new Error('Transaction failed'));
+    const res = await request(app)
+      .post('/api/v1/loans/request')
+      .set('Authorization', authHeader(borrower))
+      .send({
+        communityId,
+        amount: '1000',
+        dueAt: new Date(Date.now() + 86400000).toISOString(),
+      });
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Internal server error');
+  });
+});
+
+describe('POST /api/v1/loans/:id/disburse - Zod validation', () => {
+  it('accepts empty body', async () => {
+    mockDb.query.mockResolvedValueOnce([{ id: loanId, status: 'pending', lender_address: lender }]);
+    runTransaction([
+      [{ id: loanId, status: 'pending', amount: '50.0000000', lender_address: lender }],
+      [{ id: loanId, status: 'active' }],
+    ]);
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/disburse`)
+      .set('Authorization', authHeader(lender))
+      .send({});
+    expect(res.status).toBe(200);
+  });
+
+  it('accepts optional stellarTxHash', async () => {
+    mockDb.query.mockResolvedValueOnce([{ id: loanId, status: 'pending', lender_address: lender }]);
+    runTransaction([
+      [{ id: loanId, status: 'pending', amount: '50.0000000', lender_address: lender }],
+      [{ id: loanId, status: 'active' }],
+    ]);
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/disburse`)
+      .set('Authorization', authHeader(lender))
+      .send({ stellarTxHash: 'abc123', note: 'Test disbursement' });
+    expect(res.status).toBe(200);
+  });
+
+  it('rejects invalid stellarTxHash type', async () => {
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/disburse`)
+      .set('Authorization', authHeader(lender))
+      .send({ stellarTxHash: 123 });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/v1/loans/:id/disburse - DB error handling', () => {
+  it('returns 500 when loan lookup fails', async () => {
+    mockDb.query.mockRejectedValueOnce(new Error('Database connection failed'));
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/disburse`)
+      .set('Authorization', authHeader(lender))
+      .send({});
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Internal server error');
+  });
+
+  it('returns 500 when transaction fails', async () => {
+    mockDb.query.mockResolvedValueOnce([{ id: loanId, status: 'pending', lender_address: lender }]);
+    mockDb.transaction.mockRejectedValueOnce(new Error('Transaction failed'));
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/disburse`)
+      .set('Authorization', authHeader(lender))
+      .send({});
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Internal server error');
+  });
+});
+
+describe('POST /api/v1/loans/:id/repay - Zod validation', () => {
+  it('rejects missing amount', async () => {
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/repay`)
+      .set('Authorization', authHeader(borrower))
+      .send({});
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'amount' })])
+    );
+  });
+
+  it('rejects negative amount', async () => {
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/repay`)
+      .set('Authorization', authHeader(borrower))
+      .send({ amount: '-20' });
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'amount' })])
+    );
+  });
+
+  it('accepts optional paymentId', async () => {
+    mockDb.query.mockResolvedValueOnce([
+      {
+        id: loanId,
+        status: 'active',
+        amount: '50.0000000',
+        amount_repaid: '0',
+        borrower_address: borrower,
+      },
+    ]);
+    runTransaction([
+      [
+        {
+          id: loanId,
+          status: 'active',
+          amount: '50.0000000',
+          amount_repaid: '0',
+          borrower_address: borrower,
+        },
+      ],
+      [{ id: loanId, status: 'active', amount_repaid: '20.0000000' }],
+    ]);
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/repay`)
+      .set('Authorization', authHeader(borrower))
+      .send({ amount: '20', paymentId: '11111111-1111-4111-8111-111111111111' });
+    expect(res.status).toBe(200);
+  });
+
+  it('rejects invalid paymentId format', async () => {
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/repay`)
+      .set('Authorization', authHeader(borrower))
+      .send({ amount: '20', paymentId: 'not-a-uuid' });
+    expect(res.status).toBe(400);
+    expect(res.body.meta.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'paymentId' })])
+    );
+  });
+});
+
+describe('POST /api/v1/loans/:id/repay - DB error handling', () => {
+  it('returns 500 when loan lookup fails', async () => {
+    mockDb.query.mockRejectedValueOnce(new Error('Database connection failed'));
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/repay`)
+      .set('Authorization', authHeader(borrower))
+      .send({ amount: '20' });
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Internal server error');
+  });
+
+  it('returns 500 when transaction fails', async () => {
+    mockDb.query.mockResolvedValueOnce([
+      {
+        id: loanId,
+        status: 'active',
+        amount: '50.0000000',
+        amount_repaid: '0',
+        borrower_address: borrower,
+      },
+    ]);
+    mockDb.transaction.mockRejectedValueOnce(new Error('Transaction failed'));
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/repay`)
+      .set('Authorization', authHeader(borrower))
+      .send({ amount: '20' });
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Internal server error');
+  });
+});
+
+describe('POST /api/v1/loans/:id/default - DB error handling', () => {
+  it('returns 500 when loan lookup fails', async () => {
+    mockDb.query.mockRejectedValueOnce(new Error('Database connection failed'));
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/default`)
+      .set('Authorization', authHeader(lender))
+      .send({});
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Internal server error');
+  });
+
+  it('returns 500 when transaction fails', async () => {
+    mockDb.query.mockResolvedValueOnce([
+      { id: loanId, status: 'active', borrower_address: borrower, lender_address: lender },
+    ]);
+    mockDb.transaction.mockRejectedValueOnce(new Error('Transaction failed'));
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/default`)
+      .set('Authorization', authHeader(lender))
+      .send({});
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Internal server error');
+  });
+});
+
+describe('DELETE /api/v1/loans/:id - DB error handling', () => {
+  it('returns 500 when loan lookup fails', async () => {
+    mockDb.query.mockRejectedValueOnce(new Error('Database connection failed'));
+    const res = await request(app)
+      .delete(`/api/v1/loans/${loanId}`)
+      .set('Authorization', authHeader(borrower));
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Internal server error');
+  });
+
+  it('returns 500 when update fails', async () => {
+    mockDb.query
+      .mockResolvedValueOnce([
+        { id: loanId, status: 'pending', borrower_address: borrower, lender_address: lender },
+      ])
+      .mockRejectedValueOnce(new Error('Update failed'));
+    const res = await request(app)
+      .delete(`/api/v1/loans/${loanId}`)
+      .set('Authorization', authHeader(borrower));
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Internal server error');
   });
 });
