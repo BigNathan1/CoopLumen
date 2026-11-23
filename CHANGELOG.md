@@ -11,6 +11,18 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Borrower-only `POST /api/v1/loans/request` endpoint for authenticated active members requesting loans from their community pool, with OpenAPI documentation (#451).
+- Idempotent Phase 2 reputation activation migration that seeds missing scores from existing loan outcomes without overwriting calculated data (#450).
+- Responsible disclosure safe harbor and standard `/.well-known/security.txt` contact for `security@cooplumen.org` (#448).
+- Internal Stellar signing-flow security review and authenticated signer binding for legacy batch disbursements (#447).
+- Owner-only JSON account data export at `GET /api/v1/account/:publicKey/export`, covering membership, lending, reputation, notification, KYC, trustline, transaction, audit, and multisig records (#444).
+- Security threat model covering assets, trust boundaries, principal threats, controls, incident response, and review cadence (#445).
+- Automated OWASP ZAP baseline scans after successful staging deployments, with retained reports and a blocking gate for medium-or-higher findings (#441).
+- Production dependency audits are now part of the required CI quality gate (#442).
+- Hashed developer API keys with management endpoints and `X-API-Key` authentication, a restrictive browser `Permissions-Policy`, and finalized idempotent loan repayment schema activation (#436, #437, #438, #449).
+- Strict CSP and production HTTPS enforcement, DOMPurify coverage for stored user-authored UI text, and parameter-binding SQL injection tests (#432, #433, #434, #435).
+- Mutation audit logging, owner-authorized GDPR account erasure, logger-level credential redaction, and an internal wallet-auth security review with stricter session timestamp validation (#439, #440, #443, #446).
+
 - Playwright end-to-end suite for the frontend (`frontend/e2e/`): shared fixtures that sign the browser's API requests, a gateway that serves the app and the API from one origin, and specs covering the public pages, community registration and the governance flow (#389, #311).
 - Playwright configuration (`frontend/playwright.config.ts`) with an HTML report, failure traces and screenshots, plus an `e2e` CI job that boots the Docker Compose stack, runs the suite on every pull request and uploads the report as an artifact (#389, #311).
 - `docs/testing.md` describing the three test layers, how to run the end-to-end suite locally and how to write a spec (#389, #311).

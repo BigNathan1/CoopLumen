@@ -20,6 +20,11 @@ Please report security issues by emailing **security@cooplumen.org** with:
 - The potential impact
 - Any suggested mitigations
 
+The address is the canonical monitored security contact for CoopLumen. If a
+report contains sensitive attachments, request the current PGP key before
+sending them. Do not include Stellar secret seeds, production credentials, or
+personal KYC data in the initial message.
+
 ### What to expect
 
 | Timeline                  | Action                                      |
@@ -30,6 +35,20 @@ Please report security issues by emailing **security@cooplumen.org** with:
 | **After fix is deployed** | Public disclosure coordinated with you      |
 
 We follow responsible disclosure. We will credit reporters in the release notes unless you prefer anonymity.
+
+## Safe Harbor
+
+Research performed in good faith, within the scope below, and without harming
+users or disrupting service is authorized. We will not initiate legal action
+against researchers who avoid privacy violations, data destruction, service
+degradation, and access beyond what is necessary to demonstrate the issue;
+promptly report their findings; and give us a reasonable opportunity to fix
+them before disclosure. If you are uncertain whether a test is safe, contact us
+before proceeding.
+
+Do not test against other users' accounts, perform denial-of-service or social
+engineering, send unsolicited messages, or retain data obtained during
+research. Use testnet and accounts you control whenever possible.
 
 ## Scope
 

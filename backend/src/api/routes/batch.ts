@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { BASE_FEE } from '@stellar/stellar-sdk';
+import { BASE_FEE, Keypair } from '@stellar/stellar-sdk';
 import { buildBatchPayment, submitBatchPayment } from '../../contracts/batchPayments';
 import {
   batchDisburseSchema,
@@ -9,6 +9,8 @@ import {
 } from '../schemas/batch';
 import { isValidStellarPublicKey } from '../utils/stellar';
 import { mapHorizonError } from '../utils/horizonError';
+import { requireAuth } from '../middleware/auth';
+import { writeLimiter } from '../middleware/rateLimit';
 
 export const batchRouter = Router();
 
@@ -24,7 +26,7 @@ export const batchRouter = Router();
  *
  * @route POST /api/v1/batch/disburse
  */
-batchRouter.post('/disburse', async (req: Request, res: Response): Promise<void> => {
+batchRouter.post('/disburse', requireAuth, writeLimiter, async (req: Request, res: Response): Promise<void> => {
   const parsed = batchDisburseSchema.safeParse(req.body);
 
   if (!parsed.success) {
@@ -42,6 +44,13 @@ batchRouter.post('/disburse', async (req: Request, res: Response): Promise<void>
   }
 
   const { senderSecret, payments, memo } = parsed.data;
+
+  if (Keypair.fromSecret(senderSecret).publicKey() !== req.auth!.address) {
+    res.status(403).json({ data: null, error: 'The signing account must match the authenticated account' });
+    return;
+  }
+
+  res.setHeader('Cache-Control', 'no-store');
 
   try {
     const hash = await submitBatchPayment({
