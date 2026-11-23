@@ -21,6 +21,8 @@ module.exports = {
   },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^@/db$': '<rootDir>/src/db',
+    '^@/db/(.*)$': '<rootDir>/src/db/$1',
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   // Detect async operations that prevent Jest from exiting cleanly

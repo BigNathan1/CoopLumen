@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
-import { db } from '../../db';
-import { logger } from '../../utils/logger';
+import { db } from '@/db';
+import { logger } from '@/utils/logger';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -15,19 +15,25 @@ export function auditStateChange(req: Request, res: Response, next: NextFunction
   res.on('finish', () => {
     if (res.statusCode < 200 || res.statusCode >= 400) return;
     const resource = resourceFromPath(req.originalUrl);
-    void db.query(
-      `INSERT INTO audit_log
+    const routePath = (req.route as { path?: string } | undefined)?.path ?? req.path;
+    void db
+      .query<unknown>(
+        `INSERT INTO audit_log
          (actor_address, ip_address, action, resource_type, resource_id, after_state)
        VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
-      [
-        req.auth?.address ?? null,
-        req.ip,
-        `${req.method} ${req.route?.path ?? req.path}`,
-        resource.type,
-        resource.id,
-        JSON.stringify({ status: res.statusCode, requestId: res.getHeader('x-request-id') ?? null }),
-      ]
-    ).catch((error) => logger.error('Failed to persist mutation audit event', { error }));
+        [
+          req.auth?.address ?? null,
+          req.ip,
+          `${req.method} ${routePath}`,
+          resource.type,
+          resource.id,
+          JSON.stringify({
+            status: res.statusCode,
+            requestId: res.getHeader('x-request-id') ?? null,
+          }),
+        ]
+      )
+      .catch((error: unknown) => logger.error('Failed to persist mutation audit event', { error }));
   });
   next();
 }

@@ -1,6 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { PoolClient } from 'pg';
+import { Horizon } from '@stellar/stellar-sdk';
 import { db } from '../../db';
+import { StellarService } from '../../contracts/stellar';
 import { parsePagination, pageMeta, parseSort, queryString } from '../utils/http';
 import { validateBody } from '../middleware/validate';
 import { requireAuth } from '../middleware/auth';
@@ -12,6 +14,7 @@ import {
   defaultLoanSchema,
   loanRequestSchema,
 } from '../schemas/loan';
+import { mapHorizonError } from '../utils/horizonError';
 
 export const loanRouter: Router = Router();
 
@@ -209,6 +212,10 @@ loanRouter.get('/:id/events', async (req, res, next) => {
  * derived from the authenticated session and the lender/asset from the
  * community, so callers cannot request funds on behalf of another address or
  * redirect the request to an arbitrary lender.
+ *
+ * Loan-to-value (LTV) limit enforcement: the maximum loan amount is determined
+ * by the borrower's community token holdings multiplied by the community's
+ * configured LTV limit (stored in community_settings.ltvLimit, default 0.5).
  */
 loanRouter.post(
   '/request',
@@ -245,6 +252,61 @@ loanRouter.post(
         res.status(403).json({
           data: null,
           error: 'An active community membership is required to request a pool loan',
+        });
+        return;
+      }
+
+      // Enforce loan-to-value (LTV) limit based on community token holdings
+      const [settingsRow] = await db.query<{ settings: Record<string, unknown> }>(
+        'SELECT settings FROM community_settings WHERE community_id = $1',
+        [communityId]
+      );
+      const ltvLimit = (settingsRow?.settings?.ltvLimit as number) ?? 0.5;
+
+      // Fetch borrower's token balance from Stellar
+      let tokenBalance = 0;
+      try {
+        const balances = await StellarService.getAccountBalance(borrowerAddress);
+        const tokenBalanceLine = balances.find(
+          (
+            b
+          ): b is
+            | Horizon.HorizonApi.BalanceLineAsset<'credit_alphanum4'>
+            | Horizon.HorizonApi.BalanceLineAsset<'credit_alphanum12'> =>
+            'asset_code' in b &&
+            'asset_issuer' in b &&
+            b.asset_code === community.asset_code &&
+            b.asset_issuer === community.asset_issuer
+        );
+        if (tokenBalanceLine) {
+          tokenBalance = Number(tokenBalanceLine.balance);
+        }
+      } catch (err) {
+        // If Horizon is unavailable, we fail closed for safety
+        const mapped = mapHorizonError(err);
+        if (mapped.status === 502) {
+          res.status(502).json({
+            data: null,
+            error: 'Unable to verify token balance. Please try again later.',
+          });
+          return;
+        }
+        // For other errors, log and continue with 0 balance (conservative)
+      }
+
+      const maxLoanAmount = tokenBalance * ltvLimit;
+      const requestedAmount = Number(amount);
+
+      if (requestedAmount > maxLoanAmount + 1e-7) {
+        res.status(400).json({
+          data: null,
+          error: 'Loan request exceeds loan-to-value limit',
+          meta: {
+            requestedAmount: requestedAmount.toFixed(7),
+            maxLoanAmount: maxLoanAmount.toFixed(7),
+            tokenBalance: tokenBalance.toFixed(7),
+            ltvLimit,
+          },
         });
         return;
       }

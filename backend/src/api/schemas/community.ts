@@ -21,11 +21,19 @@ export const createCommunitySchema = z.object({
   assetIssuer: stellarPublicKey,
 });
 
+const communitySettingsSchema = z.object({
+  ltvLimit: z
+    .number()
+    .min(0, { message: 'ltvLimit must be greater than or equal to 0' })
+    .max(1, { message: 'ltvLimit must be less than or equal to 1' })
+    .optional(),
+});
+
 export const updateCommunitySchema = z
   .object({
     name: z.string().trim().min(2).max(64).optional(),
     description: z.string().trim().max(500).nullable().optional(),
-    settings: z.record(z.string(), z.unknown()).optional(),
+    settings: communitySettingsSchema.optional(),
   })
   .superRefine((value, ctx) => {
     if (
