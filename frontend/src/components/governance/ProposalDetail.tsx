@@ -40,11 +40,17 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat().format(value);
 }
 
-function normalizeTally(tally: Partial<VoteTally> | null | undefined): VoteTally {
+function normalizeTally(tally: any): VoteTally {
   return {
-    for: Math.max(0, Number(tally?.for) || 0),
-    against: Math.max(0, Number(tally?.against) || 0),
-    abstain: Math.max(0, Number(tally?.abstain) || 0),
+    for: Math.max(0, Number(tally?.for ?? tally?.votesFor ?? tally?.votes_for) || 0),
+    against: Math.max(
+      0,
+      Number(tally?.against ?? tally?.votesAgainst ?? tally?.votes_against) || 0
+    ),
+    abstain: Math.max(
+      0,
+      Number(tally?.abstain ?? tally?.votesAbstain ?? tally?.votes_abstain) || 0
+    ),
   };
 }
 
@@ -67,10 +73,14 @@ function statusClassName(status: string | undefined): string {
 }
 
 export function ProposalDetail({ proposalId }: ProposalDetailProps) {
-  const { data: proposal, isLoading, error, mutate: refetch } = useProposal(proposalId);
+  const hookResult = useProposal(proposalId) as any;
+  const proposal = (hookResult?.data ?? hookResult?.proposal) as any;
+  const isLoading = Boolean(hookResult?.isLoading ?? hookResult?.loading);
+  const error = hookResult?.error ?? null;
+  const refetch = (hookResult?.mutate ?? hookResult?.refetch) as () => void;
 
   const tally = useMemo<VoteTally>(
-    () => normalizeTally(proposal?.tally ?? proposal?.votes),
+    () => normalizeTally(proposal?.tally ?? proposal?.votes ?? proposal),
     [proposal]
   );
 
@@ -145,11 +155,15 @@ export function ProposalDetail({ proposalId }: ProposalDetailProps) {
       <dl className={styles.meta}>
         <div className={styles.metaItem}>
           <dt className={styles.metaLabel}>Voting opens</dt>
-          <dd className={styles.metaValue}>{formatDate(proposal.startTime)}</dd>
+          <dd className={styles.metaValue}>
+            {formatDate(proposal?.startTime ?? proposal?.voting_starts_at)}
+          </dd>
         </div>
         <div className={styles.metaItem}>
           <dt className={styles.metaLabel}>Voting closes</dt>
-          <dd className={styles.metaValue}>{formatDate(proposal.endTime)}</dd>
+          <dd className={styles.metaValue}>
+            {formatDate(proposal?.endTime ?? proposal?.voting_ends_at)}
+          </dd>
         </div>
       </dl>
 

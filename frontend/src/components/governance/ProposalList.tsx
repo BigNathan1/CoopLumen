@@ -66,7 +66,8 @@ function formatVotes(value: number | undefined): string {
 }
 
 export default function ProposalList({ communityId }: ProposalListProps) {
-  const { proposals, isLoading, error } = useProposals(communityId);
+  const { data: rawProposals, isLoading, error } = useProposals(communityId);
+  const proposals = (rawProposals ?? []) as Proposal[];
   const [activeTab, setActiveTab] = useState<TabKey>('open');
   const baseId = useId();
   const tabRefs = useRef<Record<TabKey, HTMLButtonElement | null>>({
@@ -170,16 +171,16 @@ export default function ProposalList({ communityId }: ProposalListProps) {
         className={styles.panel}
       >
         {isLoading ? (
-          <LoadingSkeleton variant="list" count={3} />
+          <LoadingSkeleton variant="rect" count={3} />
         ) : error ? (
           <EmptyState
             title="Unable to load proposals"
-            description="Something went wrong while fetching proposals. Please try again."
+            message="Something went wrong while fetching proposals. Please try again."
           />
         ) : activeProposals.length === 0 ? (
           <EmptyState
             title={`No ${activeDefinition.label.toLowerCase()} proposals`}
-            description={`There are currently no ${activeDefinition.label.toLowerCase()} proposals for this community.`}
+            message={`There are currently no ${activeDefinition.label.toLowerCase()} proposals for this community.`}
           />
         ) : (
           <ul className={styles.list}>
@@ -198,17 +199,25 @@ export default function ProposalList({ communityId }: ProposalListProps) {
                   <dl className={styles.meta}>
                     <div className={styles.metaItem}>
                       <dt className={styles.metaLabel}>For</dt>
-                      <dd className={styles.metaValue}>{formatVotes(proposal.votesFor)}</dd>
+                      <dd className={styles.metaValue}>
+                        {formatVotes((proposal as any).votesFor ?? proposal.votes_for)}
+                      </dd>
                     </div>
                     <div className={styles.metaItem}>
                       <dt className={styles.metaLabel}>Against</dt>
-                      <dd className={styles.metaValue}>{formatVotes(proposal.votesAgainst)}</dd>
+                      <dd className={styles.metaValue}>
+                        {formatVotes((proposal as any).votesAgainst ?? proposal.votes_against)}
+                      </dd>
                     </div>
                     <div className={styles.metaItem}>
                       <dt className={styles.metaLabel}>Voting ends</dt>
                       <dd className={styles.metaValue}>
-                        <time dateTime={String(proposal.votingEndsAt ?? '')}>
-                          {formatDate(proposal.votingEndsAt)}
+                        <time
+                          dateTime={String(
+                            (proposal as any).votingEndsAt ?? proposal.voting_ends_at ?? ''
+                          )}
+                        >
+                          {formatDate((proposal as any).votingEndsAt ?? proposal.voting_ends_at)}
                         </time>
                       </dd>
                     </div>
@@ -222,5 +231,3 @@ export default function ProposalList({ communityId }: ProposalListProps) {
     </section>
   );
 }
-
-export default ProposalList;
