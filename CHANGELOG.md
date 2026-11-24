@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Community loans page at `/communities/[id]/loans` with loan listing, request/disburse/repay actions, and LTV limit enforcement (#465, #387).
+- Integration tests for full loan lifecycle (request → fund → repay) with reputation scoring, using real database when DATABASE_URL is configured (#464, #386).
 - Borrower-only `POST /api/v1/loans/request` endpoint for authenticated active members requesting loans from their community pool, with OpenAPI documentation (#451).
 - Idempotent Phase 2 reputation activation migration that seeds missing scores from existing loan outcomes without overwriting calculated data (#450).
 - Responsible disclosure safe harbor and standard `/.well-known/security.txt` contact for `security@cooplumen.org` (#448).
