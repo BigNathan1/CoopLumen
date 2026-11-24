@@ -25,6 +25,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Reputation score calculation — `(on-time repayments / total loans) * 100` — recomputed from loan outcomes and persisted to `reputation_scores`, with unit and integration coverage (#460).
 - `GET /api/v1/reputation/:address` returning a member's reputation score alongside their repayment history, with Zod-validated input, the standard response envelope and OpenAPI documentation (#461).
 - Borrower-only `POST /api/v1/loans/request` endpoint for authenticated active members requesting loans from their community pool, with OpenAPI documentation (#451).
+- `POST /api/v1/loans/:id/repay` lets the borrower submit a partial or full repayment against an active loan, with Zod-validated input, the standard `{ data, meta?, error? }` envelope, and OpenAPI documentation (#455).
+- `GET /api/v1/loans/borrower/:address` lists every loan borrowed by a Stellar address, with pagination metadata and OpenAPI documentation (#457).
+- Loan expiry background job that marks active loans overdue once their `due_at` has passed, with unit test coverage (#458).
+- Community governance page at `/communities/[id]/governance` (`frontend/src/app/communities/[id]/governance/page.tsx`) built on the existing design tokens with dark-mode support, keyboard and screen-reader accessibility, and component test coverage (#517).
 - Idempotent Phase 2 reputation activation migration that seeds missing scores from existing loan outcomes without overwriting calculated data (#450).
 - Responsible disclosure safe harbor and standard `/.well-known/security.txt` contact for `security@cooplumen.org` (#448).
 - Internal Stellar signing-flow security review and authenticated signer binding for legacy batch disbursements (#447).

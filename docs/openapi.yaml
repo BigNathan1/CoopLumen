@@ -1584,7 +1584,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [pending, active, repaid, defaulted, cancelled]
+            enum: [pending, active, repaid, defaulted, cancelled, overdue]
         - name: sortBy
           in: query
           schema:
@@ -1785,6 +1785,34 @@ paths:
         '409':
           description: Loan is not in `pending` status
 
+  /api/v1/loans/borrower/{address}:
+    parameters:
+      - name: address
+        in: path
+        required: true
+        description: Stellar public key of the borrower.
+        schema: { $ref: '#/components/schemas/StellarKey' }
+    get:
+      tags: [Loans]
+      summary: List all loans for a borrower address
+      description: Paginated list of loans where the address is the borrower, newest first.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of loans for the borrower
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Loan' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+
   /api/v1/loans/{id}/repay:
     parameters:
       - $ref: '#/components/parameters/LoanId'
@@ -1792,19 +1820,17 @@ paths:
       tags: [Loans]
       summary: Record a loan repayment
       description: >
-        Records a partial or full repayment. When the outstanding balance
+        Records a partial or full repayment submitted by the borrower. The
+        borrower is derived from the session. When the outstanding balance
         reaches zero the loan is marked `repaid`.
+      security:
+        - SessionToken: []
+        - SessionCookie: []
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [amount]
-              properties:
-                amount: { type: string }
-                paymentId: { type: string, format: uuid }
-                note: { type: string }
+            schema: { $ref: '#/components/schemas/RepayLoan' }
       responses:
         '200':
           description: Repayment recorded
@@ -1813,12 +1839,34 @@ paths:
               schema:
                 type: object
                 properties:
-                  data: { $ref: '#/components/schemas/Loan' }
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/Loan'
+                      - type: object
+                        properties:
+                          outstanding: { type: string }
+                          repayment: { $ref: '#/components/schemas/LoanEvent' }
         '400':
           description: Repayment exceeds the outstanding balance, or validation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ValidationErrorResponse' }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Caller is not the borrower on this loan
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: Loan is not in `active` status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /api/v1/multisig/{id}/execute:
     parameters:
@@ -2794,7 +2842,7 @@ components:
         purpose: { type: string, nullable: true }
         status:
           type: string
-          enum: [pending, active, repaid, defaulted, cancelled]
+          enum: [pending, active, repaid, defaulted, cancelled, overdue]
         due_at: { type: string, format: date-time, nullable: true }
         disbursed_at: { type: string, format: date-time, nullable: true }
         closed_at: { type: string, format: date-time, nullable: true }
@@ -2968,7 +3016,7 @@ components:
               items: { $ref: '#/components/schemas/LoanEvent' }
     LoanStatus:
       type: string
-      enum: [pending, active, repaid, defaulted, cancelled]
+      enum: [pending, active, repaid, defaulted, cancelled, overdue]
     RepayLoan:
       type: object
       required: [amount]
