@@ -4,6 +4,7 @@ import { FormEvent, useState } from 'react';
 import { api } from '@/lib/api';
 import styles from './governance.module.css';
 import { sanitizeUserText } from '@/lib/sanitize';
+import { ProposalDetail } from '@/components/ProposalDetail';
 
 type VoteChoice = 'for' | 'against' | 'abstain';
 
@@ -17,6 +18,11 @@ interface Proposal {
   votes_abstain: string;
   total_weight: string;
   voting_ends_at: string;
+}
+
+async function signVoteXdr(xdr: string): Promise<string> {
+  const { signTransaction } = await import('@/lib/wallet');
+  return signTransaction(xdr);
 }
 
 export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId: string }) {
@@ -60,8 +66,15 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
     setError('');
 
     try {
-      const updated = await api.post<Proposal>(`/api/v1/proposals/${proposal.id}/votes`, {
-        choice,
+      // Votes are cast on-chain: the client builds and signs the vote XDR,
+      // then submits it to the proposal vote endpoint.
+      const { xdr } = await api.post<{ xdr: string }>(
+        `/api/v1/proposals/${proposal.id}/vote/build`,
+        { choice },
+      );
+      const signedXdr = await signVoteXdr(xdr);
+      const updated = await api.post<Proposal>(`/api/v1/proposals/${proposal.id}/vote`, {
+        signedXdr,
       });
       setProposal(updated);
       setMessage('Vote recorded.');
@@ -166,6 +179,8 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
                 </button>
               </div>
             </fieldset>
+
+            <ProposalDetail proposalId={proposal.id} />
           </section>
         )}
 

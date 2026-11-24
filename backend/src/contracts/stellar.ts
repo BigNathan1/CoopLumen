@@ -5,6 +5,12 @@ import {
   TransactionBuilder,
   Operation,
   BASE_FEE,
+  SorobanRpc,
+  Contract,
+  Transaction,
+  nativeToScVal,
+  scValToNative,
+  xdr,
 } from '@stellar/stellar-sdk';
 import { logger } from '../utils/logger';
 import { MemoInput, buildMemo } from './memo';
@@ -58,6 +64,39 @@ const NETWORK_PASSPHRASES: Record<StellarNetwork, string> = {
   testnet: Networks.TESTNET,
   mainnet: Networks.PUBLIC,
 };
+
+const SOROBAN_RPC_URLS: Record<StellarNetwork, string> = {
+  testnet: 'https://soroban-testnet.stellar.org',
+  mainnet: 'https://soroban-mainnet.stellar.org',
+};
+
+/**
+ * A proposal as stored in the on-chain governance contract.
+ * Vote tallies are token-weighted amounts (as strings to avoid precision loss).
+ */
+export interface OnChainProposal {
+  id: string;
+  communityId: string;
+  title: string;
+  description: string;
+  proposer: string;
+  status: string;
+  createdAt: number;
+  votingEndsAt: number;
+  votesFor: string;
+  votesAgainst: string;
+  votesAbstain: string;
+}
+
+export interface SubmitVoteResult {
+  hash: string;
+  status: string;
+}
+
+export interface SubmitVoteParams {
+  /** Base64-encoded, already-signed Soroban transaction envelope XDR. */
+  signedXdr: string;
+}
 
 export const HORIZON_RETRY_CONFIG = {
   maxAttempts: 4,
@@ -128,13 +167,195 @@ export interface CreateAccountParams {
 class StellarServiceClass {
   private server: Horizon.Server;
   private network: string;
+  private sorobanServer: SorobanRpc.Server;
+  private networkPassphrase: string;
 
   constructor() {
     const env = (process.env.STELLAR_NETWORK ?? 'testnet') as StellarNetwork;
     const horizonUrl = process.env.STELLAR_HORIZON_URL ?? HORIZON_URLS[env];
+    const sorobanUrl = process.env.SOROBAN_RPC_URL ?? SOROBAN_RPC_URLS[env];
 
     this.network = NETWORK_PASSPHRASES[env];
+    this.networkPassphrase = NETWORK_PASSPHRASES[env];
     this.server = new Horizon.Server(horizonUrl);
+    this.sorobanServer = new SorobanRpc.Server(sorobanUrl, { allowHttp: sorobanUrl.startsWith('http://') });
+  }
+
+  getSorobanServer(): SorobanRpc.Server {
+    return this.sorobanServer;
+  }
+
+  /** Returns the configured governance contract id, or throws if it is not set. */
+  private getGovernanceContractId(): string {
+    const contractId = process.env.GOVERNANCE_CONTRACT_ID;
+    if (!contractId) {
+      throw new StellarNetworkError('GOVERNANCE_CONTRACT_ID is not configured');
+    }
+    return contractId;
+  }
+
+  /**
+   * Simulates a read-only invocation of the governance contract and returns the
+   * decoded native result. Throws StellarNetworkError on simulation failure.
+   */
+  private async simulateContractRead(
+    method: string,
+    args: xdr.ScVal[]
+  ): Promise<unknown> {
+    const contract = new Contract(this.getGovernanceContractId());
+    const operation = contract.call(method, ...args);
+
+    // Simulation requires a source account; use a well-known funded account
+    // since read-only invocations are not signed or submitted.
+    const sourceAccount = new Horizon.AccountResponse(
+      {
+        account_id: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+        sequence: '0',
+      } as unknown as Horizon.HorizonApi.AccountResponse,
+      this.networkPassphrase
+    );
+
+    const tx = new TransactionBuilder(sourceAccount, {
+      fee: BASE_FEE,
+      networkPassphrase: this.networkPassphrase,
+    })
+      .addOperation(operation)
+      .setTimeout(30)
+      .build();
+
+    let simulation: SorobanRpc.Api.SimulateTransactionResponse;
+    try {
+      simulation = await this.sorobanServer.simulateTransaction(tx);
+    } catch (error) {
+      logger.warn(`Soroban simulation for ${method} failed`, { method, error });
+      throw new StellarNetworkError(
+        `Failed to simulate governance contract call ${method}: ${(error as Error).message}`
+      );
+    }
+
+    if (SorobanRpc.Api.isSimulationError(simulation)) {
+      logger.warn(`Soroban simulation for ${method} returned an error`, {
+        method,
+        error: simulation.error,
+      });
+      throw new StellarNetworkError(
+        `Governance contract call ${method} failed: ${simulation.error}`
+      );
+    }
+
+    const success = simulation as SorobanRpc.Api.SimulateTransactionSuccessResponse;
+    if (!success.result) {
+      return null;
+    }
+
+    return scValToNative(success.result.retval);
+  }
+
+  private decodeProposal(raw: unknown): OnChainProposal {
+    const record = (raw ?? {}) as Record<string, unknown>;
+    const pick = (...keys: string[]): unknown => {
+      for (const key of keys) {
+        if (record[key] !== undefined && record[key] !== null) return record[key];
+      }
+      return undefined;
+    };
+
+    const asString = (value: unknown): string => {
+      if (value === undefined || value === null) return '0';
+      return typeof value === 'string' ? value : String(value);
+    };
+
+    const asNumber = (value: unknown): number => {
+      if (value === undefined || value === null) return 0;
+      const num = typeof value === 'number' ? value : Number(value);
+      return Number.isFinite(num) ? num : 0;
+    };
+
+    return {
+      id: asString(pick('id', 'proposal_id', 'proposalId')),
+      communityId: asString(pick('community_id', 'communityId')),
+      title: asString(pick('title')),
+      description: asString(pick('description')),
+      proposer: asString(pick('proposer', 'creator')),
+      status: asString(pick('status', 'state')),
+      createdAt: asNumber(pick('created_at', 'createdAt')),
+      votingEndsAt: asNumber(pick('voting_ends_at', 'votingEndsAt', 'ends_at', 'endsAt')),
+      votesFor: asString(pick('votes_for', 'votesFor')),
+      votesAgainst: asString(pick('votes_against', 'votesAgainst')),
+      votesAbstain: asString(pick('votes_abstain', 'votesAbstain')),
+    };
+  }
+
+  /**
+   * Reads all proposals for a community from the governance contract.
+   */
+  async getProposalsForCommunity(communityId: string): Promise<OnChainProposal[]> {
+    const result = await this.simulateContractRead('get_proposals', [
+      nativeToScVal(communityId, { type: 'string' }),
+    ]);
+
+    if (!Array.isArray(result)) {
+      return [];
+    }
+
+    return result.map((entry) => this.decodeProposal(entry));
+  }
+
+  /**
+   * Reads a single proposal (with vote tally) by id from the governance contract.
+   * Returns null when the contract reports no such proposal.
+   */
+  async getProposalById(proposalId: string): Promise<OnChainProposal | null> {
+    const result = await this.simulateContractRead('get_proposal', [
+      nativeToScVal(proposalId, { type: 'string' }),
+    ]);
+
+    if (result === null || result === undefined) {
+      return null;
+    }
+
+    return this.decodeProposal(result);
+  }
+
+  /**
+   * Submits an already-signed Soroban vote transaction envelope to Soroban RPC.
+   * Returns the transaction hash and the RPC-reported status.
+   */
+  async submitVoteTransaction(params: SubmitVoteParams): Promise<SubmitVoteResult> {
+    const { signedXdr } = params;
+
+    let transaction: Transaction;
+    try {
+      transaction = new Transaction(signedXdr, this.networkPassphrase);
+    } catch (error) {
+      throw new StellarNetworkError(
+        `Invalid signed transaction envelope: ${(error as Error).message}`
+      );
+    }
+
+    try {
+      const response = await this.sorobanServer.sendTransaction(transaction);
+
+      if (response.status === 'ERROR') {
+        logger.warn('Soroban sendTransaction returned ERROR', {
+          hash: response.hash,
+          errorResult: response.errorResult?.toXDR('base64'),
+        });
+        throw new StellarNetworkError(
+          `Soroban rejected vote transaction: ${response.errorResult?.toXDR('base64') ?? 'unknown error'}`
+        );
+      }
+
+      return { hash: response.hash, status: response.status };
+    } catch (error) {
+      if (error instanceof StellarNetworkError) {
+        throw error;
+      }
+      logger.warn('Soroban sendTransaction failed', { error });
+      throw new StellarNetworkError(
+        `Failed to submit vote transaction: ${(error as Error).message}`
+      );
+    }
   }
 
   getServer(): Horizon.Server {
