@@ -1597,6 +1597,44 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /api/v1/loans/{communityId}:
+    parameters:
+      - name: communityId
+        in: path
+        required: true
+        description: Community UUID whose loans should be listed.
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Loans]
+      summary: List loans in a community
+      description: >
+        Returns the community's loans, optionally narrowed to a single status.
+        `closed` groups the terminal `repaid`, `defaulted`, and `cancelled`
+        states.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, active, closed]
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of loans belonging to the community
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Loan' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /api/v1/loans/{id}:
     parameters:
       - $ref: '#/components/parameters/LoanId'
@@ -1819,10 +1857,11 @@ paths:
         schema: { $ref: '#/components/schemas/StellarKey' }
     get:
       tags: [Reputation]
-      summary: Get a member's reputation
+      summary: Get a member's reputation score and history
       description: >
         A member's reputation across every community they participate in, plus
-        an aggregate summary. Optionally narrowed with `communityId`.
+        an aggregate summary and the repayment history that produced it.
+        Optionally narrowed with `communityId`.
       parameters:
         - name: communityId
           in: query
@@ -1839,12 +1878,20 @@ paths:
                     type: object
                     properties:
                       address: { $ref: '#/components/schemas/StellarKey' }
+                      score: { type: string, description: 'Aggregate NUMERIC(5,2) score, 0–100' }
                       communities:
                         type: array
                         items: { $ref: '#/components/schemas/ReputationScore' }
+                      history:
+                        type: array
+                        items: { $ref: '#/components/schemas/ReputationHistoryEntry' }
                       summary: { $ref: '#/components/schemas/ReputationSummary' }
+        '400': { $ref: '#/components/responses/ValidationError' }
         '404':
           description: No reputation found for this address
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 components:
   parameters:
     CommunityId:
@@ -2772,6 +2819,17 @@ components:
         last_calculated_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    ReputationHistoryEntry:
+      type: object
+      properties:
+        loan_id: { type: string, format: uuid }
+        community_id: { type: string, format: uuid }
+        event_type:
+          type: string
+          enum: [repayment, default]
+        amount: { type: string, nullable: true }
+        on_time: { type: boolean }
+        occurred_at: { type: string, format: date-time }
     ReputationSummary:
       type: object
       properties:
