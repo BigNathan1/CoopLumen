@@ -2,6 +2,7 @@ import 'dotenv/config';
 import app from './app';
 import { logger } from './utils/logger';
 import { db } from './db';
+import { startLoanExpiryJob, stopLoanExpiryJob } from './services/loanExpiry.service';
 
 const REQUIRED_ENV_VARS = [
   'DATABASE_URL',
@@ -32,6 +33,11 @@ async function main(): Promise<void> {
     logger.info(`CoopLumen API running on port ${PORT}`);
   });
 
+  // Mark loans overdue once their due_at has passed. Runs on an unref'd timer
+  // so it never keeps the process alive on its own.
+  const loanExpiryIntervalMs = Number(process.env.LOAN_EXPIRY_INTERVAL_MS ?? 60_000);
+  startLoanExpiryJob(loanExpiryIntervalMs);
+
   // Blue/green deploys retire the old container with SIGTERM after traffic has
   // moved. Stop accepting connections but let in-flight requests finish, so the
   // switch drops nothing, then close the database pool. The timer is a backstop
@@ -42,6 +48,7 @@ async function main(): Promise<void> {
     isShuttingDown = true;
 
     logger.info(`${signal} received, starting graceful shutdown`);
+    stopLoanExpiryJob();
     const forceExit = setTimeout(() => {
       logger.warn('Drain timed out; exiting');
       process.exit(1);

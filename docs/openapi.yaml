@@ -1584,7 +1584,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [pending, active, repaid, defaulted, cancelled]
+            enum: [pending, active, repaid, defaulted, cancelled, overdue]
         - name: sortBy
           in: query
           schema:
@@ -1785,6 +1785,34 @@ paths:
         '409':
           description: Loan is not in `pending` status
 
+  /api/v1/loans/borrower/{address}:
+    parameters:
+      - name: address
+        in: path
+        required: true
+        description: Stellar public key of the borrower.
+        schema: { $ref: '#/components/schemas/StellarKey' }
+    get:
+      tags: [Loans]
+      summary: List all loans for a borrower address
+      description: Paginated list of loans where the address is the borrower, newest first.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of loans for the borrower
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Loan' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+
   /api/v1/loans/{id}/repay:
     parameters:
       - $ref: '#/components/parameters/LoanId'
@@ -1792,19 +1820,17 @@ paths:
       tags: [Loans]
       summary: Record a loan repayment
       description: >
-        Records a partial or full repayment. When the outstanding balance
+        Records a partial or full repayment submitted by the borrower. The
+        borrower is derived from the session. When the outstanding balance
         reaches zero the loan is marked `repaid`.
+      security:
+        - SessionToken: []
+        - SessionCookie: []
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [amount]
-              properties:
-                amount: { type: string }
-                paymentId: { type: string, format: uuid }
-                note: { type: string }
+            schema: { $ref: '#/components/schemas/RepayLoan' }
       responses:
         '200':
           description: Repayment recorded
@@ -1813,12 +1839,151 @@ paths:
               schema:
                 type: object
                 properties:
-                  data: { $ref: '#/components/schemas/Loan' }
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/Loan'
+                      - type: object
+                        properties:
+                          outstanding: { type: string }
+                          repayment: { $ref: '#/components/schemas/LoanEvent' }
         '400':
           description: Repayment exceeds the outstanding balance, or validation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ValidationErrorResponse' }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Caller is not the borrower on this loan
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: Loan is not in `active` status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/v1/multisig/{id}/execute:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [MultiSig]
+      summary: Submit fully-signed XDR to Horizon or record execution
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stellar_tx_hash: { type: string }
+                signed_xdr: { type: string }
+      responses:
+        '200':
+          description: Proposal executed on-chain
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/MultiSigRequest' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/multisig/{id}/sign:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [MultiSig]
+      summary: Submit signature for a multi-sig transaction proposal
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                signed_xdr: { type: string }
+                signer_address: { type: string }
+      responses:
+        '200':
+          description: Proposal signed / approved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/MultiSigRequest' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/multisig/propose:
+    post:
+      tags: [MultiSig]
+      summary: Propose a multi-sig transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [community_id, action, title, proposer_address]
+              properties:
+                community_id: { type: string, format: uuid }
+                action: { type: string, enum: [payment, token_issue, trustline, settings_update, member_role_change, signer_update] }
+                title: { type: string }
+                description: { type: string }
+                payload: { type: object }
+                transaction_xdr: { type: string }
+                required_signatures: { type: integer, default: 2 }
+                proposer_address: { type: string }
+                expires_at: { type: string, format: date-time }
+      responses:
+        '201':
+          description: Proposal created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/MultiSigRequest' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/loans/detect-defaults:
+    post:
+      tags: [Loans]
+      summary: Detect and mark overdue loans as defaulted
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: List of newly defaulted loans
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Loan'
+                  meta:
+                    type: object
+                    properties:
+                      count:
+                        type: integer
+        '401': { $ref: '#/components/responses/Unauthorized' }
 
   /api/v1/loans/{id}/default:
     parameters:
@@ -2677,10 +2842,30 @@ components:
         purpose: { type: string, nullable: true }
         status:
           type: string
-          enum: [pending, active, repaid, defaulted, cancelled]
+          enum: [pending, active, repaid, defaulted, cancelled, overdue]
         due_at: { type: string, format: date-time, nullable: true }
         disbursed_at: { type: string, format: date-time, nullable: true }
         closed_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    MultiSigRequest:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        community_id: { type: string, format: uuid }
+        proposer_address: { $ref: '#/components/schemas/StellarKey' }
+        action: { type: string }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        payload: { type: object }
+        transaction_xdr: { type: string, nullable: true }
+        required_signatures: { type: integer }
+        current_signatures: { type: integer }
+        status: { type: string }
+        stellar_tx_hash: { type: string, nullable: true }
+        rejection_reason: { type: string, nullable: true }
+        expires_at: { type: string, format: date-time, nullable: true }
+        executed_at: { type: string, format: date-time, nullable: true }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
     LoanEvent:
@@ -2831,7 +3016,7 @@ components:
               items: { $ref: '#/components/schemas/LoanEvent' }
     LoanStatus:
       type: string
-      enum: [pending, active, repaid, defaulted, cancelled]
+      enum: [pending, active, repaid, defaulted, cancelled, overdue]
     RepayLoan:
       type: object
       required: [amount]
