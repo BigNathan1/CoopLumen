@@ -97,10 +97,7 @@ export function isApiError(value: unknown): value is ApiError {
 
 /** Supplies the bearer token for outgoing requests. May be async. */
 export type AuthTokenProvider = () =>
-  | string
-  | null
-  | undefined
-  | Promise<string | null | undefined>;
+  string | null | undefined | Promise<string | null | undefined>;
 
 /** Callback invoked when an API request returns HTTP 401 Unauthorized. */
 export type UnauthorizedHandler = () => void;

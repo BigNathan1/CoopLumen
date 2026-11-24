@@ -69,14 +69,16 @@ export function useProposal(id: string | null | undefined) {
   return useSWR<ProposalDetail, ApiError>(
     path,
     async () => {
-      const response = await api.get<ProposalDetailEnvelope>(path as string, { auth: false });
-      return response.data;
+      const response = await api.get<ProposalDetailEnvelope | ProposalDetail>(path as string, {
+        auth: false,
+      });
+      return (response as ProposalDetailEnvelope)?.data ?? (response as ProposalDetail);
     },
     {
       refreshInterval: PROPOSAL_REFRESH_MS,
       keepPreviousData: true,
       refreshWhenHidden: false,
       revalidateOnFocus: true,
-    },
+    }
   );
 }

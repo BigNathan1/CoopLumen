@@ -1924,7 +1924,19 @@ paths:
               required: [community_id, action, title, proposer_address]
               properties:
                 community_id: { type: string, format: uuid }
-                action: { type: string, enum: [payment, token_issue, trustline, settings_update, member_role_change, signer_update] }
+                action:
+                  {
+                    type: string,
+                    enum:
+                      [
+                        payment,
+                        token_issue,
+                        trustline,
+                        settings_update,
+                        member_role_change,
+                        signer_update,
+                      ],
+                  }
                 title: { type: string }
                 description: { type: string }
                 payload: { type: object }

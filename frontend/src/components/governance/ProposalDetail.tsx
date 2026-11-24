@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useProposal } from '../../hooks/useProposal';
 import styles from './ProposalDetail.module.css';
 
@@ -67,11 +67,11 @@ function statusClassName(status: string | undefined): string {
 }
 
 export function ProposalDetail({ proposalId }: ProposalDetailProps) {
-  const { proposal, isLoading, error, refetch } = useProposal(proposalId);
+  const { data: proposal, isLoading, error, mutate: refetch } = useProposal(proposalId);
 
   const tally = useMemo<VoteTally>(
     () => normalizeTally(proposal?.tally ?? proposal?.votes),
-    [proposal],
+    [proposal]
   );
 
   const totalVotes = tally.for + tally.against + tally.abstain;
@@ -93,7 +93,7 @@ export function ProposalDetail({ proposalId }: ProposalDetailProps) {
     }
     const parts = VOTE_ORDER.map(
       (key) =>
-        `${VOTE_LABELS[key]} ${formatNumber(tally[key])} votes (${percentages[key].toFixed(1)}%)`,
+        `${VOTE_LABELS[key]} ${formatNumber(tally[key])} votes (${percentages[key].toFixed(1)}%)`
     );
     return `Vote tally out of ${formatNumber(totalVotes)} total votes: ${parts.join(', ')}.`;
   }, [tally, percentages, totalVotes]);
@@ -137,14 +137,10 @@ export function ProposalDetail({ proposalId }: ProposalDetailProps) {
         <h1 id="proposal-detail-title" className={styles.title}>
           {proposal.title}
         </h1>
-        <span className={`${styles.statusBadge} ${statusClassName(status)}`}>
-          {status}
-        </span>
+        <span className={`${styles.statusBadge} ${statusClassName(status)}`}>{status}</span>
       </header>
 
-      {proposal.description && (
-        <p className={styles.description}>{proposal.description}</p>
-      )}
+      {proposal.description && <p className={styles.description}>{proposal.description}</p>}
 
       <dl className={styles.meta}>
         <div className={styles.metaItem}>
@@ -166,11 +162,7 @@ export function ProposalDetail({ proposalId }: ProposalDetailProps) {
           <p className={styles.stateMessage}>No votes have been cast yet.</p>
         ) : (
           <>
-            <div
-              className={styles.chart}
-              role="img"
-              aria-label={chartSummary}
-            >
+            <div className={styles.chart} role="img" aria-label={chartSummary}>
               {VOTE_ORDER.map((key) => (
                 <div key={key} className={styles.barRow}>
                   <span className={styles.barLabel} aria-hidden="true">
@@ -196,9 +188,7 @@ export function ProposalDetail({ proposalId }: ProposalDetailProps) {
             </div>
 
             <table className={styles.tallyTable}>
-              <caption className={styles.visuallyHidden}>
-                Vote tally for {proposal.title}
-              </caption>
+              <caption className={styles.visuallyHidden}>Vote tally for {proposal.title}</caption>
               <thead>
                 <tr>
                   <th scope="col">Option</th>

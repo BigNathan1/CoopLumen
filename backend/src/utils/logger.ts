@@ -21,7 +21,9 @@ export function redactSensitive(value: unknown, key = ''): unknown {
   return value;
 }
 
-const redactFormat = winston.format((info) => redactSensitive(info) as winston.Logform.TransformableInfo);
+const redactFormat = winston.format(
+  (info) => redactSensitive(info) as winston.Logform.TransformableInfo
+);
 
 export const logger = winston.createLogger({
   level: process.env.LOG_LEVEL ?? 'info',

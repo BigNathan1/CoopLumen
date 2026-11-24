@@ -5,8 +5,8 @@ import { api } from '@/lib/api';
 import styles from './governance.module.css';
 import { sanitizeUserText } from '@/lib/sanitize';
 import { CreateProposalForm } from '@/components/governance/CreateProposalForm';
-import { ProposalList } from '@/components/governance/ProposalList';
-import { ProposalDetail } from '@/components/ProposalDetail';
+import ProposalList from '@/components/governance/ProposalList';
+import ProposalDetail from '@/components/governance/ProposalDetail';
 
 type VoteChoice = 'for' | 'against' | 'abstain';
 
@@ -23,8 +23,11 @@ interface Proposal {
 }
 
 async function signVoteXdr(xdr: string): Promise<string> {
-  const { signTransaction } = await import('@/lib/wallet');
-  return signTransaction(xdr);
+  const { signTransaction } = await import('@stellar/freighter-api');
+  const res = await signTransaction(xdr);
+  if (typeof res === 'string') return res;
+  if (res && 'signedTxXdr' in res && res.signedTxXdr) return res.signedTxXdr;
+  throw new Error('Signing failed');
 }
 
 export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId: string }) {
@@ -45,7 +48,7 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
       // then submits it to the proposal vote endpoint.
       const { xdr } = await api.post<{ xdr: string }>(
         `/api/v1/proposals/${proposal.id}/vote/build`,
-        { choice },
+        { choice }
       );
       const signedXdr = await signVoteXdr(xdr);
       const updated = await api.post<Proposal>(`/api/v1/proposals/${proposal.id}/vote`, {
@@ -72,7 +75,7 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
         <CreateProposalForm
           communityId={communityId}
           onCreated={(created) => {
-            setProposal(created);
+            setProposal(created as unknown as Proposal);
             setMessage('Proposal created and voting is open.');
             setError('');
           }}

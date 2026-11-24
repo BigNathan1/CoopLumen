@@ -10,12 +10,7 @@ export type MultiSigAction =
   | 'signer_update';
 
 export type MultiSigStatus =
-  | 'pending'
-  | 'approved'
-  | 'rejected'
-  | 'executed'
-  | 'expired'
-  | 'cancelled';
+  'pending' | 'approved' | 'rejected' | 'executed' | 'expired' | 'cancelled';
 
 export interface MultiSigSignerStatus {
   address: string;

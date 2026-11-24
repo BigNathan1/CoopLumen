@@ -1,9 +1,9 @@
-import React, { useCallback, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { useProposals } from '../../hooks/useProposals';
-import type { Proposal, ProposalStatus } from '../../types/governance';
-import Badge from '../ui/Badge';
-import LoadingSkeleton from '../ui/LoadingSkeleton';
-import EmptyState from '../ui/EmptyState';
+import type { Proposal, ProposalStatus } from '../../hooks/useProposal';
+import { Badge } from '../ui/Badge';
+import { LoadingSkeleton } from '../ui/LoadingSkeleton';
+import { EmptyState } from '../ui/EmptyState';
 import styles from './ProposalList.module.css';
 
 type TabKey = 'open' | 'passed' | 'rejected' | 'executed';
@@ -21,21 +21,22 @@ const TABS: TabDefinition[] = [
   { key: 'executed', label: 'Executed', status: 'executed' },
 ];
 
-const STATUS_BADGE_VARIANT: Record<
-  ProposalStatus,
-  'info' | 'success' | 'danger' | 'neutral'
-> = {
+const STATUS_BADGE_VARIANT: Record<ProposalStatus, 'info' | 'success' | 'error' | 'neutral'> = {
+  draft: 'neutral',
   active: 'info',
   passed: 'success',
-  rejected: 'danger',
+  rejected: 'error',
   executed: 'neutral',
+  cancelled: 'neutral',
 };
 
 const STATUS_LABEL: Record<ProposalStatus, string> = {
+  draft: 'Draft',
   active: 'Open',
   passed: 'Passed',
   rejected: 'Rejected',
   executed: 'Executed',
+  cancelled: 'Cancelled',
 };
 
 export interface ProposalListProps {
@@ -125,7 +126,7 @@ export default function ProposalList({ communityId }: ProposalListProps) {
       setActiveTab(nextTab.key);
       focusTab(nextTab.key);
     },
-    [focusTab],
+    [focusTab]
   );
 
   const activeDefinition = TABS.find((t) => t.key === activeTab) ?? TABS[0];
@@ -197,15 +198,11 @@ export default function ProposalList({ communityId }: ProposalListProps) {
                   <dl className={styles.meta}>
                     <div className={styles.metaItem}>
                       <dt className={styles.metaLabel}>For</dt>
-                      <dd className={styles.metaValue}>
-                        {formatVotes(proposal.votesFor)}
-                      </dd>
+                      <dd className={styles.metaValue}>{formatVotes(proposal.votesFor)}</dd>
                     </div>
                     <div className={styles.metaItem}>
                       <dt className={styles.metaLabel}>Against</dt>
-                      <dd className={styles.metaValue}>
-                        {formatVotes(proposal.votesAgainst)}
-                      </dd>
+                      <dd className={styles.metaValue}>{formatVotes(proposal.votesAgainst)}</dd>
                     </div>
                     <div className={styles.metaItem}>
                       <dt className={styles.metaLabel}>Voting ends</dt>
@@ -225,3 +222,5 @@ export default function ProposalList({ communityId }: ProposalListProps) {
     </section>
   );
 }
+
+export default ProposalList;

@@ -15,7 +15,7 @@ const payloads = [
   "' OR '1'='1",
   "'; DROP TABLE communities; --",
   "' UNION SELECT current_user, version() --",
-  "1); SELECT pg_sleep(10); --",
+  '1); SELECT pg_sleep(10); --',
 ];
 
 describe('SQL injection boundary', () => {
