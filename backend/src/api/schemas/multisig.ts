@@ -19,6 +19,7 @@ export const MULTISIG_STATUSES = [
 ] as const;
 
 export const createMultiSigRequestSchema = z.object({
+  community_id: z.string().uuid('Invalid community ID').optional(),
   action: z.enum(MULTISIG_ACTIONS),
   title: z.string().min(1, 'Title is required').max(255),
   description: z.string().max(1000).optional().nullable(),
@@ -39,7 +40,8 @@ export const rejectMultiSigRequestSchema = z.object({
 });
 
 export const executeMultiSigRequestSchema = z.object({
-  stellar_tx_hash: z.string().min(1, 'Stellar transaction hash is required'),
+  stellar_tx_hash: z.string().optional().nullable(),
+  signed_xdr: z.string().optional().nullable(),
 });
 
 export const getMultiSigQuerySchema = z.object({

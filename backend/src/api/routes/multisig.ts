@@ -9,6 +9,7 @@ import {
   executeMultiSigRequestSchema,
   getMultiSigQuerySchema,
 } from '../schemas/multisig';
+import { submitSignedXdr } from '../../contracts/transactions';
 import { z } from 'zod';
 
 export const multisigRouter: Router = Router();
@@ -89,10 +90,15 @@ async function getCommunityMultiSigRequests(req: Request, res: Response): Promis
 
 /**
  * POST /api/v1/multisig/community/:communityId
+ * POST /api/v1/multisig/propose
  * Create a new multisig request.
  */
 async function createMultiSigRequest(req: Request, res: Response): Promise<void> {
-  const { communityId } = req.params;
+  const communityId = req.params.communityId ?? (req.body as { community_id?: string })?.community_id;
+  if (!communityId) {
+    res.status(400).json({ data: null, error: 'community_id is required' });
+    return;
+  }
   const body = req.body as {
     action: string;
     title: string;
@@ -166,8 +172,9 @@ async function getMultiSigRequest(req: Request, res: Response): Promise<void> {
 }
 
 /**
+ * POST /api/v1/multisig/:id/sign
  * POST /api/v1/multisig/requests/:id/approve
- * Sign / approve request.
+ * Cosigner submits their signature (partial XDR) / approve request.
  */
 async function approveMultiSigRequest(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
@@ -242,13 +249,15 @@ async function rejectMultiSigRequest(req: Request, res: Response): Promise<void>
 }
 
 /**
+ * POST /api/v1/multisig/:id/execute
  * POST /api/v1/multisig/requests/:id/execute
- * Execute request on-chain.
+ * Execute request on-chain by submitting fully-signed XDR to Horizon or recording tx hash.
  */
 async function executeMultiSigRequest(req: Request, res: Response): Promise<void> {
   const { id } = req.params;
-  const body = req.body as { stellar_tx_hash: string };
-  const { stellar_tx_hash } = body;
+  const body = (req.body ?? {}) as { stellar_tx_hash?: string; signed_xdr?: string };
+  let { stellar_tx_hash } = body;
+  const { signed_xdr } = body;
 
   const rows = await db.query<MultiSigRow>('SELECT * FROM multisig_requests WHERE id = $1', [id]);
   if (rows.length === 0) {
@@ -262,6 +271,24 @@ async function executeMultiSigRequest(req: Request, res: Response): Promise<void
       .status(400)
       .json({ data: null, error: `Cannot execute request with status '${request.status}'` });
     return;
+  }
+
+  if (!stellar_tx_hash) {
+    const xdrToSubmit = signed_xdr ?? request.transaction_xdr;
+    if (!xdrToSubmit) {
+      res.status(400).json({
+        data: null,
+        error: 'Either stellar_tx_hash or a signed transaction_xdr is required to execute',
+      });
+      return;
+    }
+    try {
+      stellar_tx_hash = await submitSignedXdr(xdrToSubmit);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to submit XDR to Horizon';
+      res.status(400).json({ data: null, error: message });
+      return;
+    }
   }
 
   const updatedRows = await db.query<MultiSigRow>(
@@ -292,7 +319,19 @@ multisigRouter.post(
   createMultiSigRequest
 );
 
+multisigRouter.post(
+  '/propose',
+  validateBody(createMultiSigRequestSchema),
+  createMultiSigRequest
+);
+
 multisigRouter.get('/requests/:id', validateParams(uuidParamSchema), getMultiSigRequest);
+multisigRouter.post(
+  '/:id/sign',
+  validateParams(uuidParamSchema),
+  validateBody(approveMultiSigRequestSchema),
+  approveMultiSigRequest
+);
 multisigRouter.post(
   '/requests/:id/approve',
   validateParams(uuidParamSchema),
@@ -304,6 +343,12 @@ multisigRouter.post(
   validateParams(uuidParamSchema),
   validateBody(rejectMultiSigRequestSchema),
   rejectMultiSigRequest
+);
+multisigRouter.post(
+  '/:id/execute',
+  validateParams(uuidParamSchema),
+  validateBody(executeMultiSigRequestSchema),
+  executeMultiSigRequest
 );
 multisigRouter.post(
   '/requests/:id/execute',
