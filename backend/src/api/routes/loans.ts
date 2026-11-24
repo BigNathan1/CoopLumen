@@ -195,7 +195,7 @@ loanRouter.get('/borrower/:address', async (req, res, next) => {
       res.status(400).json({ data: null, error: 'Invalid pagination parameters' });
       return;
     }
-    const { page, limit } = query.data;
+    const { page = 1, limit = 20 } = query.data;
     const offset = (page - 1) * limit;
 
     const [{ count }] = await db.query<{ count: number }>(
