@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { api } from '@/lib/api';
 import styles from '@/app/governance/governance.module.css';
 
 export interface VoteTally {
@@ -29,13 +30,10 @@ export function VotingPanel({ proposalId, tally, status, onVoteRecorded }: Votin
     setMessage(null);
     setError(null);
     try {
-      setMessage(`Vote ${choice} recorded.`);
-      if (onVoteRecorded) {
-        onVoteRecorded({
-          id: proposalId,
-          status,
-          ...tally,
-        });
+      const res = await api.post(`/proposals/${proposalId}/votes`, { choice });
+      setMessage('Vote recorded.');
+      if (onVoteRecorded && res.data) {
+        onVoteRecorded(res.data);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to cast vote';
@@ -74,7 +72,7 @@ export function VotingPanel({ proposalId, tally, status, onVoteRecorded }: Votin
             disabled={!canVote || submitting !== null}
             onClick={() => handleVote('for')}
           >
-            Vote For
+            Support
           </button>
           <button
             type="button"
@@ -83,7 +81,7 @@ export function VotingPanel({ proposalId, tally, status, onVoteRecorded }: Votin
             disabled={!canVote || submitting !== null}
             onClick={() => handleVote('against')}
           >
-            Vote Against
+            Oppose
           </button>
           <button
             type="button"

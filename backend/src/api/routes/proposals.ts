@@ -334,6 +334,31 @@ proposalRouter.post(
 );
 
 proposalRouter.get(
+  '/:id',
+  validateParams(proposalIdParamsSchema),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const proposal = await findProposal(req.params.id);
+      if (!proposal) {
+        return next();
+      }
+
+      await aggregateVoteTally(proposal.id);
+
+      try {
+        await fetchProposalTally(proposal.id);
+      } catch (chainError) {
+        logger.warn('Failed to fetch on-chain proposal tally', { err: chainError });
+      }
+
+      res.json({ data: proposal });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+proposalRouter.get(
   '/:communityId',
   validateParams(communityIdParamsSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -359,6 +384,18 @@ proposalRouter.get(
           ORDER BY p.created_at DESC`,
         [communityId]
       );
+
+      if (proposals.length === 0) {
+        const [community] = await db.query<{ id: string }>(
+          'SELECT id FROM communities WHERE id = $1 AND deleted_at IS NULL',
+          [communityId]
+        );
+        if (!community) {
+          res.status(404).json({ data: null, error: 'Proposal not found' });
+          return;
+        }
+      }
+
       res.json({ data: proposals, meta: { count: proposals.length, source } });
     } catch (error) {
       next(error);
@@ -384,34 +421,6 @@ proposalRouter.get(
         [communityId, status ?? null]
       );
       res.json({ data: proposals });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-proposalRouter.get(
-  '/:id',
-  validateParams(proposalIdParamsSchema),
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const proposal = await findProposal(req.params.id);
-      if (!proposal) {
-        res.status(404).json({ data: null, error: 'Proposal not found' });
-        return;
-      }
-
-      const tally = await aggregateVoteTally(proposal.id);
-
-      // Cross-check against the contract tally when available; the DB remains
-      // the source of truth for the response so the endpoint stays resilient.
-      try {
-        await fetchProposalTally(proposal.id);
-      } catch (chainError) {
-        logger.warn('Failed to fetch on-chain proposal tally', { err: chainError });
-      }
-
-      res.json({ data: { proposal, tally } });
     } catch (error) {
       next(error);
     }
