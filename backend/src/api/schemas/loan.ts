@@ -63,6 +63,17 @@ export const repayLoanSchema = z.object({
   note: z.string().trim().max(280).optional(),
 });
 
+/** Path params for `GET /api/v1/loans/borrower/:address`. */
+export const borrowerAddressParamSchema = z.object({
+  address: stellarPublicKey,
+});
+
+/** Optional pagination for the borrower loan listing. */
+export const borrowerLoansQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+
 export const defaultLoanSchema = z.object({
   note: z.string().trim().max(280).optional(),
 });
