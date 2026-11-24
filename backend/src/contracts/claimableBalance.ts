@@ -29,6 +29,21 @@ export interface CreateClaimableBalanceParams {
   timeBounds?: TimeBoundsInput;
 }
 
+export interface CreateLoanEscrowParams {
+  /** Stellar asset of the funded loan */
+  asset: Asset;
+  /** Funded loan amount (as string, e.g. "100.0000000") */
+  amount: string;
+  /** Borrower public key — the only claimant of the escrowed funds */
+  borrowerPublicKey: string;
+  /** Loan due date; the borrower can only claim before this time */
+  dueDate: Date | string;
+  /** Lender keypair, or the community issuer keypair for pool loans */
+  sourceKeypair: Keypair;
+  memo?: MemoInput;
+  timeBounds?: TimeBoundsInput;
+}
+
 export interface ClaimClaimableBalanceParams {
   /** Claimable balance ID to claim */
   balanceId: string;
@@ -143,6 +158,42 @@ export async function create(
 }
 
 /**
+ * Creates a claimable balance escrowing a funded loan amount for the borrower.
+ *
+ * The borrower is the sole claimant, gated by a predicate that prevents claiming
+ * at or after the loan due date (i.e. the borrower can only claim before default).
+ * The lender (or community issuer for pool loans) is the source account.
+ *
+ * Reuses {@link create} so Horizon result codes are mapped to `StellarError`
+ * messages via `withStellarErrors`.
+ *
+ * @param params - Loan escrow parameters
+ * @returns Balance ID, transaction hash, and ledger number
+ * @throws Mapped error with actionable message on failure
+ */
+export async function createLoanEscrow(
+  params: CreateLoanEscrowParams
+): Promise<ClaimableBalanceResult> {
+  const { asset, amount, borrowerPublicKey, dueDate, sourceKeypair, memo, timeBounds } = params;
+
+  const dueDateIso = typeof dueDate === 'string' ? dueDate : dueDate.toISOString();
+
+  const claimant = new Claimant(
+    borrowerPublicKey,
+    Claimant.predicateNot(Claimant.predicateBeforeAbsoluteTime(dueDateIso))
+  );
+
+  return create({
+    asset,
+    amount,
+    claimants: [claimant],
+    sourceKeypair,
+    memo,
+    timeBounds,
+  });
+}
+
+/**
  * Claims a claimable balance for the designated claimant account.
  *
  * The source account of the transaction is the claimant account, and Horizon
@@ -188,4 +239,4 @@ export async function claim(params: ClaimClaimableBalanceParams): Promise<Claima
   });
 }
 
-export const claimableBalance = { create, claim };
+export const claimableBalance = { create, createLoanEscrow, claim };

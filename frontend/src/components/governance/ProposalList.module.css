@@ -1,0 +1,275 @@
+/* ProposalList.module.css
+ * Styles for the governance ProposalList component.
+ * Uses only design tokens from globals.css so dark mode follows automatically.
+ */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+/* ---------------------------------------------------------------------------
+ * Tablist
+ * ------------------------------------------------------------------------- */
+
+.tablist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.tab:hover {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.tab[aria-selected="true"] {
+  background-color: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+/* Active-tab indicator */
+.tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: calc(var(--space-1) * -1);
+  height: 2px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-accent);
+}
+
+.tabCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface-hover);
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+
+.tab[aria-selected="true"] .tabCount {
+  background-color: var(--color-accent-subtle);
+  color: var(--color-accent);
+}
+
+/* ---------------------------------------------------------------------------
+ * Tab panel
+ * ------------------------------------------------------------------------- */
+
+.tabpanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  outline: none;
+}
+
+.tabpanel:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+
+/* ---------------------------------------------------------------------------
+ * Proposal cards / list
+ * ------------------------------------------------------------------------- */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+
+.card:hover {
+  border-color: var(--color-border-strong);
+  background-color: var(--color-surface-hover);
+}
+
+.cardHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.cardTitle {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.cardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+}
+
+.cardDescription {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* ---------------------------------------------------------------------------
+ * Status badges
+ * ------------------------------------------------------------------------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.75;
+  text-transform: capitalize;
+}
+
+.badgeOpen {
+  background-color: var(--color-info-subtle);
+  color: var(--color-info);
+}
+
+.badgePassed {
+  background-color: var(--color-success-subtle);
+  color: var(--color-success);
+}
+
+.badgeRejected {
+  background-color: var(--color-danger-subtle);
+  color: var(--color-danger);
+}
+
+.badgeExecuted {
+  background-color: var(--color-accent-subtle);
+  color: var(--color-accent);
+}
+
+/* ---------------------------------------------------------------------------
+ * Empty / loading / error states
+ * ------------------------------------------------------------------------- */
+
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-4);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.stateTitle {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.stateText {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.error {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+/* ---------------------------------------------------------------------------
+ * Responsive layout
+ * ------------------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  .tablist {
+    flex-wrap: nowrap;
+  }
+
+  .tab {
+    flex: 1 0 auto;
+    justify-content: center;
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .card {
+    padding: var(--space-3);
+  }
+
+  .cardHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab,
+  .card {
+    transition: none;
+  }
+}
