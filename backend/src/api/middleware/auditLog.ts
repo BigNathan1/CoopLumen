@@ -15,8 +15,8 @@ export function auditStateChange(req: Request, res: Response, next: NextFunction
   res.on('finish', () => {
     if (res.statusCode < 200 || res.statusCode >= 400) return;
     const resource = resourceFromPath(req.originalUrl);
-    void db
-      .query(
+    void Promise.resolve(
+      db.query(
         `INSERT INTO audit_log
          (actor_address, ip_address, action, resource_type, resource_id, after_state)
        VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
@@ -32,11 +32,11 @@ export function auditStateChange(req: Request, res: Response, next: NextFunction
           }),
         ]
       )
-      .catch((error: unknown) =>
-        logger.error('Failed to persist mutation audit event', {
-          error: error instanceof Error ? error.message : String(error),
-        })
-      );
+    ).catch((error: unknown) =>
+      logger.error('Failed to persist mutation audit event', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    );
   });
   next();
 }
