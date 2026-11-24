@@ -51,6 +51,20 @@ export const castVoteSchema = z.object({
   reason: z.string().trim().max(2_000).optional(),
 });
 
+export const executeProposalSchema = z
+  .object({
+    executorAddress: z
+      .string()
+      .trim()
+      .refine(isValidStellarPublicKey, {
+        message: 'executorAddress must be a valid Stellar public key',
+      })
+      .optional(),
+  })
+  .strict();
+
+export type ExecuteProposalInput = z.infer<typeof executeProposalSchema>;
+
 export const listProposalsQuerySchema = z.object({
   communityId: z.string().uuid({ message: 'communityId must be a valid UUID' }),
   status: proposalStatus.optional(),

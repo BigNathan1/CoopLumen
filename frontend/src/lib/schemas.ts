@@ -203,6 +203,47 @@ export const createLoanSchema = z.object({
 
 // Governance
 
+/**
+ * Proposal kinds the contract accepts. Mirrors the backend enum; the label
+ * shown to the user lives in the form, not here.
+ */
+export const proposalTypeSchema = z.enum([
+  'general',
+  'treasury',
+  'membership',
+  'parameter_change',
+  'custom',
+]);
+
+/**
+ * One action a proposal would execute if it passes.
+ *
+ * `params` is deliberately untyped here: each action type has its own shape,
+ * validated by the action builder before it is added to the list. This schema
+ * only guarantees the action is tagged and carries an object.
+ */
+export const proposalActionSchema = z.object({
+  actionType: z.string().trim().min(1, 'Choose an action type'),
+  params: z.record(z.string(), z.unknown()),
+});
+
+/**
+ * A new proposal. At least one action is required, because a proposal with
+ * nothing to execute cannot do anything on-chain.
+ */
+export const createProposalFormSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, 'Title is required')
+    .max(200, 'Title must be 200 characters or fewer'),
+  description: z
+    .string()
+    .trim()
+    .max(10000, 'Description must be 10,000 characters or fewer')
+    .optional(),
+  type: proposalTypeSchema,
+  actions: z.array(proposalActionSchema).min(1, 'Add at least one action'),
 /** A vote choice, matching the on-chain contract's enum. */
 export const voteChoiceSchema = z.enum(['for', 'against', 'abstain']);
 
@@ -278,6 +319,9 @@ export type UpdateMemberInput = z.infer<typeof updateMemberSchema>;
 export type BuildTrustlineInput = z.infer<typeof buildTrustlineSchema>;
 export type PaymentInput = z.infer<typeof paymentSchema>;
 export type CreateLoanInput = z.infer<typeof createLoanSchema>;
+export type ProposalType = z.infer<typeof proposalTypeSchema>;
+export type ProposalAction = z.infer<typeof proposalActionSchema>;
+export type CreateProposalFormValues = z.infer<typeof createProposalFormSchema>;
 export type VoteChoice = z.infer<typeof voteChoiceSchema>;
 export type SubmitVoteInput = z.infer<typeof submitVoteSchema>;
 export type ProposalTally = z.infer<typeof proposalTallySchema>;

@@ -304,6 +304,39 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/proposals/{id}/execute:
+    post:
+      tags: [Proposals]
+      summary: Execute a passed proposal
+      description: >
+        Triggers execution of a proposal once its voting period has closed and
+        it has passed. Proposals whose voting period is still open, that were
+        rejected, or that were already executed are rejected with 409.
+      security:
+        - SessionToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Proposal executed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/GovernanceProposal' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Voting period is still open, the proposal was rejected, or it was already executed
         '409':
           description: Proposal is not open for voting or the address has already voted
           content:
