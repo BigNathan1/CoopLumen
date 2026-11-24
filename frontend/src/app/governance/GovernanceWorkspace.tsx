@@ -30,8 +30,14 @@ async function signVoteXdr(xdr: string): Promise<string> {
   throw new Error('Signing failed');
 }
 
-export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId: string }) {
-  const [communityId] = useState(initialCommunityId);
+export function GovernanceWorkspace({
+  initialCommunityId,
+  communityId: propCommunityId,
+}: {
+  initialCommunityId?: string;
+  communityId?: string;
+}) {
+  const [communityId] = useState(propCommunityId ?? initialCommunityId ?? '');
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [voting, setVoting] = useState<VoteChoice | null>(null);
   const [message, setMessage] = useState('');

@@ -142,12 +142,7 @@ export function ProposalDetail({ proposalId }: ProposalDetailProps) {
   const status = proposal.status ?? 'unknown';
 
   return (
-    <article
-      className={styles.container}
-      role="region"
-      aria-label="Proposal detail"
-      aria-labelledby="proposal-detail-title"
-    >
+    <article className={styles.container} role="region" aria-label="Proposal detail">
       <header className={styles.header}>
         <h1 id="proposal-detail-title" className={styles.title}>
           {proposal.title}

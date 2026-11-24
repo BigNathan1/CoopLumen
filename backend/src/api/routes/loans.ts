@@ -812,7 +812,7 @@ loanRouter.post(
       let conflictStatus: string | null = null;
       let exceedsOutstanding: number | null = null;
 
-      const result = await db.transaction(async (client) => {
+      const updated = await db.transaction(async (client) => {
         const [loan] = (
           await client.query<Loan>('SELECT * FROM loans WHERE id = $1 FOR UPDATE', [req.params.id])
         ).rows;
@@ -834,29 +834,6 @@ loanRouter.post(
 
         const newRepaid = Number(loan.amount_repaid) + Number(amount);
         const fullyRepaid = newRepaid >= due - 1e-7;
-
-        const {
-          rows: [repayment],
-        } = await client.query<{
-          id: string;
-          loan_id: string;
-          payer_address: string;
-          amount: string;
-          stellar_tx_hash: string | null;
-          metadata: unknown;
-          created_at: string;
-        }>(
-          `INSERT INTO loan_repayments (loan_id, payer_address, amount, stellar_tx_hash, metadata)
-           VALUES ($1, $2, $3, $4, $5)
-           RETURNING *`,
-          [
-            loan.id,
-            loan.borrower_address,
-            amount,
-            paymentId ?? null,
-            JSON.stringify({ note: note ?? null }),
-          ]
-        );
 
         const {
           rows: [row],
@@ -917,7 +894,7 @@ loanRouter.post(
             'on_time_repayments'
           );
         }
-        return { loan: row, repayment };
+        return row;
       });
 
       if (notFound) {
@@ -939,7 +916,7 @@ loanRouter.post(
         return;
       }
 
-      res.json({ data: result });
+      res.json({ data: updated });
     } catch (err) {
       next(err);
     }
