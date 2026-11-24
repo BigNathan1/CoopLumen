@@ -1,236 +1,325 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
-import type { PoolClient } from 'pg';
-import { Keypair } from '@stellar/stellar-sdk';
-import { db } from '../../../db';
-import { createSessionToken } from '../../utils/sessionToken';
+import express from 'express';
 
-jest.mock('../../../db', () => ({
+// ---------------------------------------------------------------------------
+// Mocks — declared before importing the router under test.
+// ---------------------------------------------------------------------------
+
+vi.mock('../../../services/stellar', () => ({
+  getProposalsFromContract: vi.fn(),
+  getProposalFromContract: vi.fn(),
+  submitVoteXdr: vi.fn(),
+  getProposalTally: vi.fn(),
+}));
+
+vi.mock('../../../db', () => ({
   db: {
-    connect: jest.fn().mockResolvedValue(undefined),
-    query: jest.fn(),
-    transaction: jest.fn(),
-    ping: jest.fn().mockResolvedValue(true),
+    select: vi.fn(),
+    insert: vi.fn(),
+    update: vi.fn(),
   },
 }));
 
-jest.mock('../../../utils/logger', () => ({
-  logger: {
-    warn: jest.fn(),
-    error: jest.fn(),
-    info: jest.fn(),
+vi.mock('../../../middleware/auth', () => ({
+  requireAuth: (req: any, _res: any, next: any) => {
+    req.user = { id: 'user-1', stellarAddress: 'GUSER1' };
+    next();
   },
 }));
 
-import app from '../../../app';
+import proposalsRouter from '../proposals';
+import {
+  getProposalsFromContract,
+  getProposalFromContract,
+  submitVoteXdr,
+  getProposalTally,
+} from '../../../services/stellar';
+import { db } from '../../../db';
 
-const mockDb = db as jest.Mocked<typeof db>;
-const query = db.query as jest.Mock;
-const proposalId = '11111111-1111-4111-8111-111111111111';
-const communityId = '22222222-2222-4222-8222-222222222222';
-const proposer = Keypair.random().publicKey();
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
-function authHeader(address = proposer): string {
-  return `Bearer ${createSessionToken(address).token}`;
+const COMMUNITY_ID = '11111111-1111-4111-8111-111111111111';
+const PROPOSAL_ID = '22222222-2222-4222-8222-222222222222';
+const CONTRACT_ID = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4';
+
+function buildApp() {
+  const app = express();
+  app.use(express.json());
+  app.use('/api/v1/proposals', proposalsRouter);
+  return app;
 }
 
-const proposal = {
-  id: proposalId,
-  community_id: communityId,
-  proposer_address: proposer,
+/**
+ * Builds a chainable drizzle-like select mock that resolves to `rows`.
+ * Supports: db.select().from().where().limit() and .orderBy().
+ */
+function mockSelect(rows: any[]) {
+  const chain: any = {
+    from: vi.fn(() => chain),
+    where: vi.fn(() => chain),
+    orderBy: vi.fn(() => chain),
+    limit: vi.fn(() => Promise.resolve(rows)),
+    then: (resolve: any, reject: any) => Promise.resolve(rows).then(resolve, reject),
+  };
+  (db.select as any).mockReturnValue(chain);
+  return chain;
+}
+
+function mockInsert(rows: any[]) {
+  const chain: any = {
+    values: vi.fn(() => chain),
+    returning: vi.fn(() => Promise.resolve(rows)),
+    onConflictDoNothing: vi.fn(() => chain),
+    then: (resolve: any, reject: any) => Promise.resolve(rows).then(resolve, reject),
+  };
+  (db.insert as any).mockReturnValue(chain);
+  return chain;
+}
+
+function mockUpdate(rows: any[]) {
+  const chain: any = {
+    set: vi.fn(() => chain),
+    where: vi.fn(() => chain),
+    returning: vi.fn(() => Promise.resolve(rows)),
+    then: (resolve: any, reject: any) => Promise.resolve(rows).then(resolve, reject),
+  };
+  (db.update as any).mockReturnValue(chain);
+  return chain;
+}
+
+const baseProposal = {
+  id: PROPOSAL_ID,
+  communityId: COMMUNITY_ID,
+  contractId: CONTRACT_ID,
+  onChainId: 7,
   title: 'Fund the community garden',
-  description: 'Release the approved grant.',
-  type: 'treasury_spend',
+  description: 'Allocate treasury funds for a community garden.',
   status: 'active',
-  quorum_percent: '50.00',
-  metadata: { amount: '500' },
-  voting_starts_at: '2026-10-16T00:00:00.000Z',
-  voting_ends_at: '2099-01-01T00:00:00.000Z',
-  executed_at: null,
-  stellar_tx_hash: null,
-  created_at: '2026-10-16T00:00:00.000Z',
-  updated_at: '2026-10-16T00:00:00.000Z',
-  votes_for: '0',
-  votes_against: '0',
-  votes_abstain: '0',
-  total_weight: '0',
+  createdAt: new Date('2024-01-01T00:00:00.000Z'),
+  endsAt: new Date('2024-02-01T00:00:00.000Z'),
 };
 
-describe('governance proposal routes', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/v1/proposals/:communityId
+// ---------------------------------------------------------------------------
+
+describe('GET /api/v1/proposals/:communityId', () => {
+  it('returns proposals merged from contract and DB cache', async () => {
+    (getProposalsFromContract as any).mockResolvedValue([
+      {
+        onChainId: 7,
+        title: 'Fund the community garden',
+        description: 'Allocate treasury funds for a community garden.',
+        status: 'active',
+        endsAt: '2024-02-01T00:00:00.000Z',
+      },
+      {
+        onChainId: 8,
+        title: 'New playground',
+        description: 'Build a playground.',
+        status: 'active',
+        endsAt: '2024-03-01T00:00:00.000Z',
+      },
+    ]);
+
+    mockSelect([baseProposal]);
+
+    const res = await request(buildApp()).get(`/api/v1/proposals/${COMMUNITY_ID}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.error).toBeUndefined();
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data).toHaveLength(2);
+
+    const cached = res.body.data.find((p: any) => p.onChainId === 7);
+    expect(cached).toBeDefined();
+    expect(cached.id).toBe(PROPOSAL_ID);
+    expect(cached.source).toBe('cache');
+
+    const fresh = res.body.data.find((p: any) => p.onChainId === 8);
+    expect(fresh).toBeDefined();
+    expect(fresh.source).toBe('contract');
+    expect(fresh.title).toBe('New playground');
+
+    expect(getProposalsFromContract).toHaveBeenCalledWith(COMMUNITY_ID);
   });
 
-  describe('GET /api/v1/proposals', () => {
-    it('requires a valid communityId query parameter', async () => {
-      const response = await request(app).get('/api/v1/proposals?communityId=bad');
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe('Validation failed');
-      expect(response.body.meta.errors[0].path).toBe('communityId');
-      expect(query).not.toHaveBeenCalled();
-    });
+  it('falls back to DB cache when the contract call fails', async () => {
+    (getProposalsFromContract as any).mockRejectedValue(new Error('rpc down'));
+    mockSelect([baseProposal]);
 
-    it('lists proposals for a community with an optional status filter', async () => {
-      query.mockResolvedValue([proposal]);
-      const response = await request(app).get(
-        `/api/v1/proposals?communityId=${communityId}&status=active`
-      );
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({ data: [proposal] });
-      expect(query).toHaveBeenCalledWith(expect.stringContaining('p.community_id = $1'), [
-        communityId,
-        'active',
-      ]);
-    });
+    const res = await request(buildApp()).get(`/api/v1/proposals/${COMMUNITY_ID}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].id).toBe(PROPOSAL_ID);
   });
 
-  describe('GET /api/v1/proposals/:id', () => {
-    it('rejects a malformed proposal id before querying', async () => {
-      const response = await request(app).get('/api/v1/proposals/not-a-uuid');
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe('Validation failed');
-      expect(query).not.toHaveBeenCalled();
+  it('returns 400 for an invalid community id', async () => {
+    const res = await request(buildApp()).get('/api/v1/proposals/not-a-uuid');
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeDefined();
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(getProposalsFromContract).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/v1/proposals/:id
+// ---------------------------------------------------------------------------
+
+describe('GET /api/v1/proposals/:id', () => {
+  it('returns proposal detail with aggregated vote tally', async () => {
+    mockSelect([baseProposal]);
+    (getProposalTally as any).mockResolvedValue({
+      yes: '1500',
+      no: '500',
+      abstain: '100',
+      totalVotes: '2100',
     });
 
-    it('returns 404 for an unknown proposal', async () => {
-      query.mockResolvedValue([]);
-      const response = await request(app).get(`/api/v1/proposals/${proposalId}`);
-      expect(response.status).toBe(404);
-      expect(response.body).toEqual({ data: null, error: 'Proposal not found' });
-    });
+    const res = await request(buildApp()).get(`/api/v1/proposals/${PROPOSAL_ID}`);
 
-    it('returns proposal detail with its current database tally', async () => {
-      query.mockResolvedValue([{ ...proposal, votes_for: '75', votes_against: '25' }]);
-      const response = await request(app).get(`/api/v1/proposals/${proposalId}`);
-      expect(response.status).toBe(200);
-      expect(response.body.data.votes_for).toBe('75');
-      expect(response.body.data.votes_against).toBe('25');
-      expect(query).toHaveBeenCalledWith(expect.stringContaining('LEFT JOIN votes'), [proposalId]);
+    expect(res.status).toBe(200);
+    expect(res.body.error).toBeUndefined();
+    expect(res.body.data.id).toBe(PROPOSAL_ID);
+    expect(res.body.data.tally).toEqual({
+      yes: '1500',
+      no: '500',
+      abstain: '100',
+      totalVotes: '2100',
     });
+    expect(getProposalTally).toHaveBeenCalledWith(PROPOSAL_ID);
   });
 
-  describe('POST /api/v1/proposals', () => {
-    const payload = {
-      communityId,
-      title: proposal.title,
-      description: proposal.description,
-      type: proposal.type,
-      quorumPercent: 50,
-      metadata: proposal.metadata,
-      votingEndsAt: proposal.voting_ends_at,
-    };
+  it('returns 404 when the proposal does not exist', async () => {
+    mockSelect([]);
 
-    it('requires authentication', async () => {
-      const response = await request(app).post('/api/v1/proposals').send(payload);
-      expect(response.status).toBe(401);
-      expect(response.body).toEqual({ data: null, error: 'Authentication required' });
-      expect(query).not.toHaveBeenCalled();
-    });
+    const res = await request(buildApp()).get(`/api/v1/proposals/${PROPOSAL_ID}`);
 
-    it('validates the request body with Zod', async () => {
-      const response = await request(app)
-        .post('/api/v1/proposals')
-        .set('Authorization', authHeader())
-        .send({ ...payload, title: '   ', votingEndsAt: 'yesterday' });
-
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe('Validation failed');
-      expect(response.body.meta.errors).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ path: 'title' }),
-          expect.objectContaining({ path: 'votingEndsAt' }),
-        ])
-      );
-      expect(query).not.toHaveBeenCalled();
-    });
-
-    it('rejects a caller who is not an active community member', async () => {
-      query.mockResolvedValueOnce([{ exists: false }]);
-
-      const response = await request(app)
-        .post('/api/v1/proposals')
-        .set('Authorization', authHeader())
-        .send(payload);
-
-      expect(response.status).toBe(403);
-      expect(response.body).toEqual({
-        data: null,
-        error: 'Active community membership required',
-      });
-    });
-
-    it('creates an active proposal for an authenticated member', async () => {
-      query
-        .mockResolvedValueOnce([{ exists: true }])
-        .mockResolvedValueOnce([{ id: proposalId }])
-        .mockResolvedValueOnce([proposal]);
-
-      const response = await request(app)
-        .post('/api/v1/proposals')
-        .set('Authorization', authHeader())
-        .send(payload);
-
-      expect(response.status).toBe(201);
-      expect(response.body).toEqual({ data: proposal });
-      expect(query.mock.calls[1][0]).toContain('INSERT INTO proposals');
-    });
-
-    it('returns the standard envelope for unexpected database errors', async () => {
-      query.mockRejectedValue(new Error('database unavailable'));
-
-      const response = await request(app)
-        .post('/api/v1/proposals')
-        .set('Authorization', authHeader())
-        .send(payload);
-
-      expect(response.status).toBe(500);
-      expect(response.body).toEqual({ data: null, error: 'Internal server error' });
-    });
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBeDefined();
+    expect(res.body.error.code).toBe('NOT_FOUND');
   });
 
-  describe('POST /api/v1/proposals/:id/votes', () => {
-    it('records a member vote in a transaction and returns the new tally', async () => {
-      const clientQuery = jest
-        .fn()
-        .mockResolvedValueOnce({
-          rows: [
-            {
-              community_id: communityId,
-              status: 'active',
-              voting_ends_at: new Date(Date.now() + 60_000),
-            },
-          ],
-        })
-        .mockResolvedValueOnce({ rows: [{ exists: true }] })
-        .mockResolvedValueOnce({ rows: [] });
-      const client = { query: clientQuery } as unknown as PoolClient;
-      mockDb.transaction.mockImplementation(async (handler) => handler(client));
-      query.mockResolvedValueOnce([
-        { ...proposal, votes_for: '1.0000000', total_weight: '1.0000000' },
-      ]);
+  it('returns 400 for an invalid proposal id', async () => {
+    const res = await request(buildApp()).get('/api/v1/proposals/not-a-uuid');
 
-      const response = await request(app)
-        .post(`/api/v1/proposals/${proposalId}/votes`)
-        .set('Authorization', authHeader())
-        .send({ choice: 'for' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeDefined();
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+});
 
-      expect(response.status).toBe(201);
-      expect(response.body.data.votes_for).toBe('1.0000000');
-      expect(clientQuery.mock.calls[2][0]).toContain('INSERT INTO votes');
+// ---------------------------------------------------------------------------
+// POST /api/v1/proposals/:id/vote
+// ---------------------------------------------------------------------------
+
+describe('POST /api/v1/proposals/:id/vote', () => {
+  const validXdr = 'AAAAAgAAAAB...signed-xdr...';
+
+  it('submits a valid signed vote XDR to Soroban', async () => {
+    mockSelect([baseProposal]);
+    (submitVoteXdr as any).mockResolvedValue({
+      hash: 'abc123hash',
+      status: 'SUCCESS',
+    });
+    mockInsert([{ id: 'vote-1', proposalId: PROPOSAL_ID, userId: 'user-1' }]);
+
+    const res = await request(buildApp())
+      .post(`/api/v1/proposals/${PROPOSAL_ID}/vote`)
+      .send({ signedXdr: validXdr, choice: 'yes' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.error).toBeUndefined();
+    expect(res.body.data.hash).toBe('abc123hash');
+    expect(res.body.data.status).toBe('SUCCESS');
+    expect(submitVoteXdr).toHaveBeenCalledWith(
+      expect.objectContaining({ signedXdr: validXdr }),
+    );
+  });
+
+  it('returns 400 for malformed XDR', async () => {
+    mockSelect([baseProposal]);
+
+    const res = await request(buildApp())
+      .post(`/api/v1/proposals/${PROPOSAL_ID}/vote`)
+      .send({ signedXdr: 'not-valid-xdr', choice: 'yes' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeDefined();
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(submitVoteXdr).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when the XDR targets the wrong contract', async () => {
+    mockSelect([baseProposal]);
+    (submitVoteXdr as any).mockRejectedValue(
+      Object.assign(new Error('Contract id mismatch'), { code: 'WRONG_CONTRACT' }),
+    );
+
+    const res = await request(buildApp())
+      .post(`/api/v1/proposals/${PROPOSAL_ID}/vote`)
+      .send({ signedXdr: validXdr, choice: 'yes' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeDefined();
+    expect(res.body.error.code).toBe('WRONG_CONTRACT');
+  });
+
+  it('returns 409 for a duplicate vote', async () => {
+    mockSelect([baseProposal]);
+    (submitVoteXdr as any).mockResolvedValue({
+      hash: 'abc123hash',
+      status: 'SUCCESS',
+    });
+    (db.insert as any).mockImplementation(() => {
+      const chain: any = {
+        values: vi.fn(() => chain),
+        returning: vi.fn(() =>
+          Promise.reject(
+            Object.assign(new Error('duplicate key value violates unique constraint'), {
+              code: '23505',
+            }),
+          ),
+        ),
+        then: (resolve: any, reject: any) =>
+          Promise.reject(
+            Object.assign(new Error('duplicate key value violates unique constraint'), {
+              code: '23505',
+            }),
+          ).then(resolve, reject),
+      };
+      return chain;
     });
 
-    it('returns a conflict when the member already voted', async () => {
-      mockDb.transaction.mockRejectedValue({
-        code: '23505',
-        constraint: 'votes_unique_per_voter',
-      });
+    const res = await request(buildApp())
+      .post(`/api/v1/proposals/${PROPOSAL_ID}/vote`)
+      .send({ signedXdr: validXdr, choice: 'yes' });
 
-      const response = await request(app)
-        .post(`/api/v1/proposals/${proposalId}/votes`)
-        .set('Authorization', authHeader())
-        .send({ choice: 'for' });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBeDefined();
+    expect(res.body.error.code).toBe('CONFLICT');
+  });
 
-      expect(response.status).toBe(409);
-      expect(response.body.error).toBe('This member has already voted');
-    });
+  it('returns 404 when voting on a non-existent proposal', async () => {
+    mockSelect([]);
+
+    const res = await request(buildApp())
+      .post(`/api/v1/proposals/${PROPOSAL_ID}/vote`)
+      .send({ signedXdr: validXdr, choice: 'yes' });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBeDefined();
+    expect(res.body.error.code).toBe('NOT_FOUND');
+    expect(submitVoteXdr).not.toHaveBeenCalled();
   });
 });

@@ -11,7 +11,11 @@ import {
   repayLoanSchema,
   defaultLoanSchema,
   loanRequestSchema,
+  listLoansParamsSchema,
+  listLoansQuerySchema,
 } from '../schemas/loan';
+import { validateParams, validateQuery } from '../middleware/validate';
+import { createLoanEscrow, mapHorizonError } from '../../contracts/claimableBalance';
 
 export const loanRouter: Router = Router();
 
@@ -158,6 +162,55 @@ loanRouter.get('/', async (req, res, next) => {
     next(err);
   }
 });
+
+/**
+ * GET /api/v1/loans/:communityId
+ * Lists a community's loans grouped by status bucket. `status` may be
+ * `active`, `pending`, or `closed` (repaid/defaulted/cancelled); omitting it
+ * returns every loan in the community. Mounted before `GET /:id` so the
+ * `:communityId` segment is not shadowed by the single-loan route.
+ */
+loanRouter.get(
+  '/:communityId',
+  validateParams(listLoansParamsSchema),
+  validateQuery(listLoansQuerySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { communityId } = req.params;
+      const { status } = req.query as { status?: 'active' | 'pending' | 'closed' };
+      const pagination = parsePagination(req);
+
+      const clauses: string[] = ['community_id = $1'];
+      const params: unknown[] = [communityId];
+
+      if (status === 'active') {
+        clauses.push(`status = 'active'`);
+      } else if (status === 'pending') {
+        clauses.push(`status = 'pending'`);
+      } else if (status === 'closed') {
+        clauses.push(`status IN ('repaid', 'defaulted', 'cancelled')`);
+      }
+      const where = `WHERE ${clauses.join(' AND ')}`;
+
+      const [{ count }] = await db.query<{ count: number }>(
+        `SELECT COUNT(*)::int AS count FROM loans ${where}`,
+        params
+      );
+
+      const listParams = [...params, pagination.limit, pagination.offset];
+      const loans = await db.query<Loan>(
+        `SELECT * FROM loans ${where}
+         ORDER BY created_at DESC
+         LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
+        listParams
+      );
+
+      res.json({ data: loans.map(withTotals), meta: pageMeta(count, pagination) });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 /**
  * GET /api/v1/loans/:id
@@ -433,6 +486,26 @@ loanRouter.post(
       let notFound = false;
       let conflictStatus: string | null = null;
 
+      // Lock the lender's funds in a claimable balance the borrower can claim
+      // once the loan is active. Horizon failures are mapped to actionable
+      // messages rather than surfaced raw.
+      let escrowBalanceId: string;
+      try {
+        const escrow = await createLoanEscrow({
+          lenderAddress: loan.lender_address,
+          borrowerAddress: loan.borrower_address,
+          amount: loan.amount,
+          assetCode: loan.asset_code,
+          assetIssuer: loan.asset_issuer,
+          loanId: loan.id,
+        });
+        escrowBalanceId = escrow.balanceId;
+      } catch (err) {
+        const mapped = mapHorizonError(err);
+        res.status(mapped.status).json({ data: null, error: mapped.message });
+        return;
+      }
+
       const updated = await db.transaction(async (client) => {
         const [loan] = (
           await client.query<Loan>('SELECT * FROM loans WHERE id = $1 FOR UPDATE', [req.params.id])
@@ -449,8 +522,11 @@ loanRouter.post(
         const {
           rows: [row],
         } = await client.query<Loan>(
-          `UPDATE loans SET status = 'active', disbursed_at = NOW() WHERE id = $1 RETURNING *`,
-          [loan.id]
+          `UPDATE loans
+           SET status = 'active', disbursed_at = NOW(), escrow_balance_id = $2
+           WHERE id = $1
+           RETURNING *`,
+          [loan.id, escrowBalanceId]
         );
         await client.query(
           `INSERT INTO loan_events (loan_id, event_type, amount, note)
