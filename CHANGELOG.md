@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Added `POST /api/v1/multisig/:id/execute` endpoint to submit fully-signed XDR to Horizon or record transaction hash (#485).
+- Added `POST /api/v1/multisig/:id/sign` endpoint for cosigners submitting partial XDR signatures (#483).
+- Added `POST /api/v1/multisig/propose` endpoint to create a multi-sig transaction proposal (#482).
+- Automated loan default detection job and `POST /api/v1/loans/detect-defaults` endpoint to transition overdue loans to defaulted and update reputation (#459).
+
 - `GET /api/v1/proposals/:communityId` listing a community's governance proposals from the Soroban governance contract, merged with the local `proposals` cache, with Zod-validated path/query input, the standard `{ data, meta?, error? }` envelope, and OpenAPI documentation (#513).
 - `GET /api/v1/proposals/:id` returning a single proposal's detail with its on-chain vote tally (votes for, votes against, quorum progress), validated and documented in the OpenAPI spec (#515).
 - `POST /api/v1/proposals/:id/vote` submitting a client-signed vote XDR to the Soroban governance contract, with Zod body validation, the standard response envelope, and OpenAPI documentation (#514).

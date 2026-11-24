@@ -1,6 +1,11 @@
 import request from 'supertest';
 import app from '../../../app';
 import { db } from '../../../db';
+import * as txModule from '../../../contracts/transactions';
+
+jest.mock('../../../contracts/transactions', () => ({
+  submitSignedXdr: jest.fn(),
+}));
 
 jest.mock('../../../db', () => ({
   db: {
@@ -66,6 +71,49 @@ describe('MultiSig Endpoint Handlers', () => {
       expect(res.status).toBe(200);
       expect(res.body.data).toEqual(mockRequests);
       expect(res.body.meta).toEqual(expect.objectContaining({ total: 1, page: 1, limit: 20 }));
+    });
+  });
+
+  describe('POST /api/v1/multisig/propose', () => {
+    it('creates a multisig proposal with community_id in body', async () => {
+      const newRequest = {
+        id: validRequestID,
+        community_id: validUUID,
+        proposer_address: validStellarAddress,
+        action: 'payment',
+        title: 'Batch Disburse',
+        description: null,
+        payload: {},
+        transaction_xdr: null,
+        required_signatures: 2,
+        current_signatures: 0,
+        status: 'pending',
+      };
+
+      mockDb.query
+        .mockResolvedValueOnce([{ id: validUUID }]) // community check
+        .mockResolvedValueOnce([newRequest]); // insert
+
+      const res = await request(app).post('/api/v1/multisig/propose').send({
+        community_id: validUUID,
+        action: 'payment',
+        title: 'Batch Disburse',
+        proposer_address: validStellarAddress,
+      });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.id).toBe(validRequestID);
+    });
+
+    it('returns 400 when community_id is missing in body', async () => {
+      const res = await request(app).post('/api/v1/multisig/propose').send({
+        action: 'payment',
+        title: 'Batch Disburse',
+        proposer_address: validStellarAddress,
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe('community_id is required');
     });
   });
 
@@ -147,6 +195,49 @@ describe('MultiSig Endpoint Handlers', () => {
     });
   });
 
+  describe('POST /api/v1/multisig/:id/sign', () => {
+    it('cosigner submits partial XDR signature and increments signature count', async () => {
+      mockDb.query
+        .mockResolvedValueOnce([
+          {
+            id: validRequestID,
+            status: 'pending',
+            current_signatures: 0,
+            required_signatures: 2,
+            transaction_xdr: 'XDR_INITIAL',
+          },
+        ])
+        .mockResolvedValueOnce([
+          {
+            id: validRequestID,
+            status: 'pending',
+            current_signatures: 1,
+            required_signatures: 2,
+            transaction_xdr: 'XDR_PARTIALLY_SIGNED',
+          },
+        ]);
+
+      const res = await request(app)
+        .post(`/api/v1/multisig/${validRequestID}/sign`)
+        .send({ signed_xdr: 'XDR_PARTIALLY_SIGNED', signer_address: validStellarAddress });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.current_signatures).toBe(1);
+      expect(res.body.data.transaction_xdr).toBe('XDR_PARTIALLY_SIGNED');
+    });
+
+    it('returns 400 when request is not pending', async () => {
+      mockDb.query.mockResolvedValueOnce([
+        { id: validRequestID, status: 'executed', current_signatures: 2, required_signatures: 2 },
+      ]);
+      const res = await request(app)
+        .post(`/api/v1/multisig/${validRequestID}/sign`)
+        .send({ signed_xdr: 'XDR_SIGNED' });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("Cannot approve request with status 'executed'");
+    });
+  });
+
   describe('POST /api/v1/multisig/requests/:id/approve', () => {
     it('returns 404 when request does not exist', async () => {
       mockDb.query.mockResolvedValueOnce([]);
@@ -213,6 +304,43 @@ describe('MultiSig Endpoint Handlers', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.status).toBe('rejected');
       expect(res.body.data.rejection_reason).toBe('Invalid payload');
+    });
+  });
+
+  describe('POST /api/v1/multisig/:id/execute', () => {
+    it('executes approved request by submitting transaction_xdr to Horizon', async () => {
+      const mockTxHash = 'abcdefabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234';
+      (txModule.submitSignedXdr as jest.Mock).mockResolvedValueOnce(mockTxHash);
+
+      mockDb.query
+        .mockResolvedValueOnce([
+          { id: validRequestID, status: 'approved', transaction_xdr: 'AAAA_SIGNED_XDR' },
+        ])
+        .mockResolvedValueOnce([
+          { id: validRequestID, status: 'executed', stellar_tx_hash: mockTxHash },
+        ]);
+
+      const res = await request(app)
+        .post(`/api/v1/multisig/${validRequestID}/execute`)
+        .send({});
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.status).toBe('executed');
+      expect(res.body.data.stellar_tx_hash).toBe(mockTxHash);
+      expect(txModule.submitSignedXdr).toHaveBeenCalledWith('AAAA_SIGNED_XDR');
+    });
+
+    it('returns 400 when neither stellar_tx_hash nor transaction_xdr is present', async () => {
+      mockDb.query.mockResolvedValueOnce([
+        { id: validRequestID, status: 'approved', transaction_xdr: null },
+      ]);
+
+      const res = await request(app)
+        .post(`/api/v1/multisig/${validRequestID}/execute`)
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('Either stellar_tx_hash or a signed transaction_xdr is required');
     });
   });
 
