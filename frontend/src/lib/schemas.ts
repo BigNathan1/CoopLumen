@@ -244,9 +244,53 @@ export const createProposalFormSchema = z.object({
     .optional(),
   type: proposalTypeSchema,
   actions: z.array(proposalActionSchema).min(1, 'Add at least one action'),
+/** A vote choice, matching the on-chain contract's enum. */
+export const voteChoiceSchema = z.enum(['for', 'against', 'abstain']);
+
+/**
+ * A signed vote submission.
+ *
+ * The vote itself is expressed on-chain, so the body carries the proposal it
+ * applies to and the signed transaction envelope rather than a choice: the
+ * backend submits the envelope and reads the choice back from the contract.
+ */
+export const submitVoteSchema = z.object({
+  proposalId: uuidSchema,
+  signedXdr: z
+    .string()
+    .trim()
+    .min(1, 'Signed transaction is required')
+    .max(100_000, 'Signed transaction is too large'),
+});
+
+/** Token-weighted tally for a proposal, as reported by the contract. */
+export const proposalTallySchema = z.object({
+  for: z.number().nonnegative(),
+  against: z.number().nonnegative(),
+  abstain: z.number().nonnegative(),
+  totalWeight: z.number().nonnegative(),
+});
+
+/**
+ * A proposal with its current tally.
+ *
+ * `status` is a free string rather than an enum: the contract can add states
+ * (queued, executed, cancelled) without a frontend release, and an unknown
+ * status should render as itself rather than fail validation.
+ */
+export const proposalDetailSchema = z.object({
+  id: uuidSchema,
+  title: z.string(),
+  description: z.string(),
+  status: z.string(),
+  proposerAddress: stellarPublicKeySchema,
+  createdAt: z.coerce.date(),
+  votingEndsAt: z.coerce.date(),
+  tally: proposalTallySchema,
 });
 
 // Query parameters
+=======
 
 /** List query for paginated endpoints; values are coerced from the URL. */
 export const listQuerySchema = z.object({
@@ -278,6 +322,10 @@ export type CreateLoanInput = z.infer<typeof createLoanSchema>;
 export type ProposalType = z.infer<typeof proposalTypeSchema>;
 export type ProposalAction = z.infer<typeof proposalActionSchema>;
 export type CreateProposalFormValues = z.infer<typeof createProposalFormSchema>;
+export type VoteChoice = z.infer<typeof voteChoiceSchema>;
+export type SubmitVoteInput = z.infer<typeof submitVoteSchema>;
+export type ProposalTally = z.infer<typeof proposalTallySchema>;
+export type ProposalDetail = z.infer<typeof proposalDetailSchema>;
 export type ListQueryInput = z.infer<typeof listQuerySchema>;
 
 // Helpers

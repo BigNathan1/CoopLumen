@@ -100,6 +100,74 @@ export async function createProposal(
       overrides.votingEndsAt ?? new Date(now + 60 * 60 * 1000),
       overrides.executedAt ?? null,
       overrides.stellarTxHash ?? null,
+export interface TestLoan {
+  id: string;
+  community_id: string;
+  borrower_address: string;
+  lender_address: string | null;
+  principal_amount: string;
+  outstanding_amount: string;
+  status: string;
+  due_at: Date | null;
+}
+
+export interface TestLoanRepayment {
+  id: string;
+  loan_id: string;
+  amount: string;
+  paid_at: Date;
+  on_time: boolean;
+}
+
+export async function createLoan(
+  client: PoolClient,
+  communityId: string,
+  overrides: Partial<{
+    borrowerAddress: string;
+    lenderAddress: string | null;
+    principalAmount: string;
+    outstandingAmount: string;
+    status: string;
+    dueAt: Date | null;
+  }> = {}
+): Promise<TestLoan> {
+  const result = await client.query<TestLoan>(
+    `INSERT INTO loans
+       (community_id, borrower_address, lender_address, principal_amount, outstanding_amount, status, due_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING id, community_id, borrower_address, lender_address,
+               principal_amount, outstanding_amount, status, due_at`,
+    [
+      communityId,
+      overrides.borrowerAddress ?? TEST_MEMBERS[0],
+      overrides.lenderAddress ?? null,
+      overrides.principalAmount ?? '100.0000000',
+      overrides.outstandingAmount ?? overrides.principalAmount ?? '100.0000000',
+      overrides.status ?? 'active',
+      overrides.dueAt ?? null,
+    ]
+  );
+  return result.rows[0];
+}
+
+export async function createRepayment(
+  client: PoolClient,
+  loanId: string,
+  overrides: Partial<{
+    amount: string;
+    paidAt: Date;
+    onTime: boolean;
+  }> = {}
+): Promise<TestLoanRepayment> {
+  const result = await client.query<TestLoanRepayment>(
+    `INSERT INTO loan_repayments (loan_id, amount, paid_at, on_time)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, loan_id, amount, paid_at, on_time`,
+    [
+      loanId,
+      overrides.amount ?? '10.0000000',
+      overrides.paidAt ?? new Date(),
+      overrides.onTime ?? true,
     ]
   );
   return result.rows[0];
