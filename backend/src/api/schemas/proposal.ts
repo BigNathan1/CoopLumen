@@ -51,7 +51,47 @@ export const castVoteSchema = z.object({
   reason: z.string().trim().max(2_000).optional(),
 });
 
+export const executeProposalSchema = z
+  .object({
+    executorAddress: z
+      .string()
+      .trim()
+      .refine(isValidStellarPublicKey, {
+        message: 'executorAddress must be a valid Stellar public key',
+      })
+      .optional(),
+  })
+  .strict();
+
+export type ExecuteProposalInput = z.infer<typeof executeProposalSchema>;
+
 export const listProposalsQuerySchema = z.object({
   communityId: z.string().uuid({ message: 'communityId must be a valid UUID' }),
   status: proposalStatus.optional(),
 });
+
+export const communityIdParamsSchema = z.object({
+  communityId: z.string().uuid({ message: 'Community ID must be a valid UUID' }),
+});
+
+export type CommunityIdParams = z.infer<typeof communityIdParamsSchema>;
+
+export const proposalDetailParamsSchema = proposalIdParamsSchema;
+
+export type ProposalDetailParams = z.infer<typeof proposalDetailParamsSchema>;
+
+const base64Pattern = /^[A-Za-z0-9+/]+={0,2}$/;
+
+export const submitVoteSchema = z.object({
+  signedXdr: z
+    .string()
+    .trim()
+    .min(1, { message: 'signedXdr is required' })
+    .refine((value) => value.length % 4 === 0 && base64Pattern.test(value), {
+      message: 'signedXdr must be a base64-encoded signed transaction envelope',
+    }),
+  memo: z.string().trim().max(28).optional(),
+  reason: z.string().trim().max(2_000).optional(),
+});
+
+export type SubmitVoteInput = z.infer<typeof submitVoteSchema>;

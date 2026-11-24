@@ -1,5 +1,5 @@
 import useSWR from 'swr';
-import { api } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 
 export type ProposalType =
   | 'general'
@@ -34,20 +34,49 @@ export interface Proposal {
   total_weight: string;
 }
 
+/** Aggregate ballot weights for a proposal, as returned by the detail endpoint. */
+export interface Tally {
+  for: string;
+  against: string;
+  abstain: string;
+  totalWeight: string;
+}
+
+/** Proposal detail payload: metadata plus the current vote tally. */
+export interface ProposalDetail extends Proposal {
+  tally: Tally;
+}
+
+/** Envelope returned by `GET /api/v1/proposals/:id`. */
+interface ProposalDetailEnvelope {
+  data: ProposalDetail;
+}
+
 /** How often an open proposal's tally is refreshed from the backend. */
 export const PROPOSAL_REFRESH_MS = 5_000;
 
 /**
  * Reads one proposal and keeps its vote tally current while the view is open.
  * Pass an empty or null id to defer the request until route data is available.
+ *
+ * The detail endpoint wraps the payload in a `{ data }` envelope; the envelope
+ * is unwrapped here so consumers receive a `ProposalDetail` directly. Failures
+ * surface as `ApiError` via SWR's `error` for the component's error state.
  */
 export function useProposal(id: string | null | undefined) {
   const path = id ? `/api/v1/proposals/${encodeURIComponent(id)}` : null;
 
-  return useSWR<Proposal>(path, () => api.get<Proposal>(path as string, { auth: false }), {
-    refreshInterval: PROPOSAL_REFRESH_MS,
-    keepPreviousData: true,
-    refreshWhenHidden: false,
-    revalidateOnFocus: true,
-  });
+  return useSWR<ProposalDetail, ApiError>(
+    path,
+    async () => {
+      const response = await api.get<ProposalDetailEnvelope>(path as string, { auth: false });
+      return response.data;
+    },
+    {
+      refreshInterval: PROPOSAL_REFRESH_MS,
+      keepPreviousData: true,
+      refreshWhenHidden: false,
+      revalidateOnFocus: true,
+    },
+  );
 }

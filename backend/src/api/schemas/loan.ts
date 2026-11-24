@@ -67,3 +67,37 @@ export const borrowerLoansQuerySchema = z.object({
 export const defaultLoanSchema = z.object({
   note: z.string().trim().max(280).optional(),
 });
+
+/** Loan lifecycle statuses exposed by the list endpoint. */
+export const LOAN_LIST_STATUSES = ['pending', 'active', 'closed'] as const;
+export type LoanListStatus = (typeof LOAN_LIST_STATUSES)[number];
+
+/** Path params for `GET /api/v1/loans/:communityId`. */
+export const listLoansParamsSchema = z.object({
+  communityId: z.string().uuid(),
+});
+
+/**
+ * Query params for `GET /api/v1/loans/:communityId`.
+ * `status` is the public lifecycle bucket; the DB stores `repaid`, `defaulted`
+ * and `cancelled` separately, all of which map to the public `closed` bucket.
+ */
+export const listLoansQuerySchema = z.object({
+  status: z.enum(LOAN_LIST_STATUSES).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+  sortBy: z.enum(['createdAt', 'dueAt', 'amount']).default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+/** Path params for `GET /api/v1/reputation/:address`. */
+export const reputationAddressParamsSchema = z.object({
+  address: stellarPublicKey,
+});
+
+/** Query params for `GET /api/v1/reputation/:address`. */
+export const reputationQuerySchema = z.object({
+  communityId: z.string().uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});

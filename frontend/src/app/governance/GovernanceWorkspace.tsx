@@ -1,9 +1,12 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { useState } from 'react';
 import { api } from '@/lib/api';
 import styles from './governance.module.css';
 import { sanitizeUserText } from '@/lib/sanitize';
+import { CreateProposalForm } from '@/components/governance/CreateProposalForm';
+import { ProposalList } from '@/components/governance/ProposalList';
+import { ProposalDetail } from '@/components/ProposalDetail';
 
 type VoteChoice = 'for' | 'against' | 'abstain';
 
@@ -19,39 +22,17 @@ interface Proposal {
   voting_ends_at: string;
 }
 
+async function signVoteXdr(xdr: string): Promise<string> {
+  const { signTransaction } = await import('@/lib/wallet');
+  return signTransaction(xdr);
+}
+
 export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId: string }) {
-  const [communityId, setCommunityId] = useState(initialCommunityId);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const [communityId] = useState(initialCommunityId);
   const [proposal, setProposal] = useState<Proposal | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const [voting, setVoting] = useState<VoteChoice | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-
-  async function createProposal(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSubmitting(true);
-    setMessage('');
-    setError('');
-
-    try {
-      const created = await api.post<Proposal>('/api/v1/proposals', {
-        communityId,
-        title,
-        description: description || undefined,
-        type: 'general',
-        quorumPercent: 50,
-        votingDurationHours: 24,
-      });
-      setProposal(created);
-      setMessage('Proposal created and voting is open.');
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not create the proposal.');
-    } finally {
-      setSubmitting(false);
-    }
-  }
 
   async function castVote(choice: VoteChoice) {
     if (!proposal) return;
@@ -60,8 +41,15 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
     setError('');
 
     try {
-      const updated = await api.post<Proposal>(`/api/v1/proposals/${proposal.id}/votes`, {
-        choice,
+      // Votes are cast on-chain: the client builds and signs the vote XDR,
+      // then submits it to the proposal vote endpoint.
+      const { xdr } = await api.post<{ xdr: string }>(
+        `/api/v1/proposals/${proposal.id}/vote/build`,
+        { choice },
+      );
+      const signedXdr = await signVoteXdr(xdr);
+      const updated = await api.post<Proposal>(`/api/v1/proposals/${proposal.id}/vote`, {
+        signedXdr,
       });
       setProposal(updated);
       setMessage('Vote recorded.');
@@ -81,44 +69,16 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
           <p>Open a ballot for an existing CoopLumen community.</p>
         </header>
 
-        <section className={styles.panel} aria-labelledby="proposal-form-title">
-          <h2 id="proposal-form-title">Proposal details</h2>
-          <form className={styles.form} onSubmit={createProposal}>
-            <label>
-              Community ID
-              <input
-                name="communityId"
-                value={communityId}
-                onChange={(event) => setCommunityId(event.target.value)}
-                required
-                autoComplete="off"
-              />
-            </label>
-            <label>
-              Title
-              <input
-                name="title"
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                maxLength={200}
-                required
-              />
-            </label>
-            <label>
-              Description
-              <textarea
-                name="description"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                maxLength={10_000}
-                rows={4}
-              />
-            </label>
-            <button className={styles.primaryButton} type="submit" disabled={submitting}>
-              {submitting ? 'Creating proposal...' : 'Create proposal'}
-            </button>
-          </form>
-        </section>
+        <CreateProposalForm
+          communityId={communityId}
+          onCreated={(created) => {
+            setProposal(created);
+            setMessage('Proposal created and voting is open.');
+            setError('');
+          }}
+        />
+
+        <ProposalList communityId={communityId} />
 
         {proposal && (
           <section className={styles.panel} aria-labelledby="active-proposal-title">
@@ -166,6 +126,8 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
                 </button>
               </div>
             </fieldset>
+
+            <ProposalDetail proposalId={proposal.id} />
           </section>
         )}
 
