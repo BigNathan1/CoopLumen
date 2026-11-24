@@ -15,7 +15,10 @@ const HEX_PATTERN = /^[0-9a-fA-F]+$/;
  * before hash memos existed, so existing callers keep working unchanged.
  */
 export type MemoInput =
-  string | { type: 'text'; value: string } | { type: 'hash'; value: string } | { type: 'none' };
+  | string
+  | { type: 'text'; value: string }
+  | { type: 'hash'; value: string }
+  | { type: 'none' };
 
 /** Raised when a memo cannot be represented on-chain. Always human-readable. */
 export class MemoValidationError extends Error {

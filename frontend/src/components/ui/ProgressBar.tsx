@@ -5,7 +5,12 @@ import styles from './ProgressBar.module.css';
 
 /** Visual color tone representing state or context (e.g., quorum achieved, loan on track, overdue). */
 export type ProgressBarVariant =
-  'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'info';
+  | 'primary'
+  | 'secondary'
+  | 'success'
+  | 'warning'
+  | 'danger'
+  | 'info';
 
 /** Height and thickness scale of the progress bar track. */
 export type ProgressBarSize = 'sm' | 'md' | 'lg';

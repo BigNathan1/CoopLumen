@@ -4,7 +4,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 /** Connection state of the payments stream. */
 export type TransactionsConnectionState =
-  'idle' | 'connecting' | 'live' | 'reconnecting' | 'closed';
+  | 'idle'
+  | 'connecting'
+  | 'live'
+  | 'reconnecting'
+  | 'closed';
 
 /**
  * A payment record received over the SSE feed. Horizon's payment record is

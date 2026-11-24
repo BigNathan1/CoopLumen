@@ -7,7 +7,12 @@ import { Button } from '../ui/Button';
 export type ProposalType = 'treasury' | 'parameter' | 'membership' | 'general';
 
 export type ProposalActionType =
-  'transfer' | 'mint' | 'burn' | 'set_parameter' | 'add_member' | 'remove_member';
+  | 'transfer'
+  | 'mint'
+  | 'burn'
+  | 'set_parameter'
+  | 'add_member'
+  | 'remove_member';
 
 export interface ProposalAction {
   id: string;
