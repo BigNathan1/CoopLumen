@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `GET /api/v1/loans/:communityId` listing a community's active, pending and closed loans, with Zod-validated path/query input, the standard `{ data, meta?, error? }` envelope, OpenAPI documentation and route test coverage (#452).
+- Claimable-balance escrow for funded loan amounts: disbursement now locks the principal in a Stellar claimable balance the borrower can claim, Horizon result codes are mapped to actionable messages, unit tests mock Horizon, and a testnet verification script confirms the flow against real testnet (#454).
+- Reputation score calculation — `(on-time repayments / total loans) * 100` — recomputed from loan outcomes and persisted to `reputation_scores`, with unit and integration coverage (#460).
+- `GET /api/v1/reputation/:address` returning a member's reputation score alongside their repayment history, with Zod-validated input, the standard response envelope and OpenAPI documentation (#461).
 - Borrower-only `POST /api/v1/loans/request` endpoint for authenticated active members requesting loans from their community pool, with OpenAPI documentation (#451).
 - Idempotent Phase 2 reputation activation migration that seeds missing scores from existing loan outcomes without overwriting calculated data (#450).
 - Responsible disclosure safe harbor and standard `/.well-known/security.txt` contact for `security@cooplumen.org` (#448).
