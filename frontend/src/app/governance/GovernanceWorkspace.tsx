@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { api } from '@/lib/api';
 import styles from './governance.module.css';
 import { sanitizeUserText } from '@/lib/sanitize';
+import { VotingPanel } from '@/components/governance/VotingPanel';
 import { CreateProposalForm } from '@/components/governance/CreateProposalForm';
 import { ProposalList } from '@/components/governance/ProposalList';
 import { ProposalDetail } from '@/components/ProposalDetail';
@@ -60,6 +61,11 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
     }
   }
 
+  function handleVoteRecorded(updated: Proposal) {
+    setProposal(updated);
+    setMessage('Vote recorded.');
+  }
+
   return (
     <main className={styles.page}>
       <div className={styles.inner}>
@@ -92,6 +98,18 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
             {proposal.description && (
               <p className={styles.description}>{sanitizeUserText(proposal.description)}</p>
             )}
+
+            <VotingPanel
+              proposalId={proposal.id}
+              tally={{
+                votes_for: proposal.votes_for,
+                votes_against: proposal.votes_against,
+                votes_abstain: proposal.votes_abstain,
+                total_weight: proposal.total_weight,
+              }}
+              status={proposal.status}
+              onVoteRecorded={handleVoteRecorded}
+            />
 
             <dl className={styles.tally} aria-label="Live vote tally">
               <div>

@@ -459,6 +459,61 @@ export const api = {
   request,
 };
 
+/** Verification state of an account's World ID proof. */
+export type WorldIdVerificationStatus = 'unverified' | 'pending' | 'verified' | 'failed';
+
+/** World ID proof payload produced by IDKit and submitted to the backend. */
+export interface WorldIdProofPayload {
+  /** Merkle root of the World ID identity set the proof was generated against. */
+  merkle_root: string;
+  /** Nullifier hash, unique per (app, action) pair — the Sybil-resistance anchor. */
+  nullifier_hash: string;
+  /** ABI-encoded Semaphore proof. */
+  proof: string;
+  /** Verification level the proof was generated for (e.g. `orb`, `device`). */
+  verification_level: string;
+  /** World ID action the proof was generated for. */
+  action?: string;
+  /** World ID app identifier the proof was generated for. */
+  app_id?: string;
+  /** Signal bound into the proof, if any. */
+  signal?: string;
+}
+
+/** Result of submitting a World ID proof for verification. */
+export interface WorldIdVerificationResult {
+  status: WorldIdVerificationStatus;
+  /** True once the account is confirmed as a unique person. */
+  verified: boolean;
+  /** Verification level accepted by the backend, when verified. */
+  verification_level?: string | null;
+  /** ISO-8601 timestamp of when verification completed, when verified. */
+  verified_at?: string | null;
+  /** Human-readable reason the proof was rejected, when `status` is `failed`. */
+  reason?: string | null;
+}
+
+/** Current World ID verification state for an account. */
+export interface WorldIdStatus {
+  address: string;
+  status: WorldIdVerificationStatus;
+  verified: boolean;
+  verification_level?: string | null;
+  verified_at?: string | null;
+  /** True when the account has already consumed its one-person-one-account slot. */
+  already_verified?: boolean;
+}
+
+/** Submits a World ID proof to verify the account is a unique person. */
+export function verifyWorldId(payload: WorldIdProofPayload): Promise<WorldIdVerificationResult> {
+  return api.post<WorldIdVerificationResult>('/api/v1/world-id/verify', payload);
+}
+
+/** Fetches the World ID verification status for an account address. */
+export function getWorldIdStatus(address: string): Promise<WorldIdStatus> {
+  return api.get<WorldIdStatus>('/api/v1/world-id/status', { query: { address } });
+}
+
 /**
  * SWR-compatible fetcher that unwraps the envelope and throws {@link ApiError}.
  *
