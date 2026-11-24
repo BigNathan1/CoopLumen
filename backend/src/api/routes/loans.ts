@@ -16,6 +16,7 @@ import {
   borrowerAddressParamSchema,
   borrowerLoansQuerySchema,
 } from '../schemas/loan';
+import { detectLoanDefaults } from '../../jobs/loanDefaults';
 import { validateParams, validateQuery } from '../middleware/validate';
 import { createLoanEscrow, mapHorizonError } from '../../contracts/claimableBalance';
 
@@ -763,6 +764,29 @@ loanRouter.post(
       }
 
       res.json({ data: result });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
+ * POST /api/v1/loans/detect-defaults
+ * Runs automated loan default detection for overdue loans and updates reputation.
+ */
+loanRouter.post(
+  '/detect-defaults',
+  requireAuth,
+  writeLimiter,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const defaultedLoans = await detectLoanDefaults();
+      res.json({
+        data: defaultedLoans,
+        meta: {
+          count: defaultedLoans.length,
+        },
+      });
     } catch (err) {
       next(err);
     }
