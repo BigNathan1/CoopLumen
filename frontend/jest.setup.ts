@@ -69,5 +69,14 @@ const mockFreighterApi = {
 // Install the global mock
 jest.mock('@stellar/freighter-api', () => mockFreighterApi);
 
+// Global mock for isomorphic-dompurify in Jest CommonJS environment
+jest.mock('isomorphic-dompurify', () => ({
+  __esModule: true,
+  default: {
+    sanitize: (val: string) => (typeof val === 'string' ? val.replace(/<[^>]*>/g, '') : ''),
+  },
+  sanitize: (val: string) => (typeof val === 'string' ? val.replace(/<[^>]*>/g, '') : ''),
+}));
+
 // Export for tests that need to access the mocks
 export { mockFreighterApi };

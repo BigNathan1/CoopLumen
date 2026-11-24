@@ -337,8 +337,6 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: Voting period is still open, the proposal was rejected, or it was already executed
-        '409':
-          description: Proposal is not open for voting or the address has already voted
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }

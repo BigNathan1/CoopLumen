@@ -87,6 +87,9 @@
   --color-success-subtle: color-mix(in srgb, var(--color-success) 16%, transparent);
   --color-info-subtle: color-mix(in srgb, var(--color-info) 16%, transparent);
   --color-warning-subtle: color-mix(in srgb, var(--color-warning) 16%, transparent);
+  --color-danger: var(--color-error);
+  --color-danger-subtle: var(--color-error-subtle);
+  --color-danger-ring: color-mix(in srgb, var(--color-error) 40%, transparent);
 
   /*
    * Skeleton placeholders are derived from the surface and border tokens so a

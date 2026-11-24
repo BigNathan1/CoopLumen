@@ -519,6 +519,47 @@ describe('loan interest', () => {
   });
 });
 
+describe('POST /api/v1/loans/detect-defaults', () => {
+  it('rejects an unauthenticated request', async () => {
+    const res = await request(app).post('/api/v1/loans/detect-defaults').send({});
+    expect(res.status).toBe(401);
+  });
+
+  it('runs detection and returns defaulted loans', async () => {
+    mockDb.query.mockResolvedValueOnce([
+      {
+        id: loanId,
+        community_id: communityId,
+        borrower_address: borrower,
+        lender_address: lender,
+        amount: '100.0000000',
+        due_at: '2026-01-01T00:00:00Z',
+      },
+    ]);
+    runTransaction([
+      [
+        {
+          id: loanId,
+          community_id: communityId,
+          borrower_address: borrower,
+          lender_address: lender,
+          amount: '100.0000000',
+          due_at: '2026-01-01T00:00:00Z',
+        },
+      ],
+      [{ on_time_repayments: 0, defaults: 1 }],
+    ]);
+
+    const res = await request(app)
+      .post('/api/v1/loans/detect-defaults')
+      .set('Authorization', authHeader(lender))
+      .send({});
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.meta.count).toBe(1);
+  });
+});
+
 describe('POST /api/v1/loans/:id/default', () => {
   it('rejects an unauthenticated request', async () => {
     const res = await request(app).post(`/api/v1/loans/${loanId}/default`).send({});
