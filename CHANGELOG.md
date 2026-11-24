@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `POST /api/v1/loans/:id/fund` endpoint allowing lenders to fund pending loan requests with Zod validation, response envelope, unit tests, and OpenAPI documentation (#453).
+- Repayment history support in `GET /api/v1/loans/:id` activating `loan_repayments` alongside loan events with Zod param validation and OpenAPI documentation (#456).
+- Compliance model and limitations documentation (`docs/compliance.md`) detailing SEP-12 KYC alignment, daily transaction limits, Sybil resistance, and technical boundaries (#543).
+- Redis price caching with 30-second TTL on `GET /api/v1/prices/xlm` to prevent third-party rate limits (#545).
+
 - `GET /api/v1/proposals/:communityId` listing a community's governance proposals from the Soroban governance contract, merged with the local `proposals` cache, with Zod-validated path/query input, the standard `{ data, meta?, error? }` envelope, and OpenAPI documentation (#513).
 - `GET /api/v1/proposals/:id` returning a single proposal's detail with its on-chain vote tally (votes for, votes against, quorum progress), validated and documented in the OpenAPI spec (#515).
 - `POST /api/v1/proposals/:id/vote` submitting a client-signed vote XDR to the Soroban governance contract, with Zod body validation, the standard response envelope, and OpenAPI documentation (#514).

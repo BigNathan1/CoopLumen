@@ -1692,6 +1692,9 @@ paths:
                           events:
                             type: array
                             items: { $ref: '#/components/schemas/LoanEvent' }
+                          repayments:
+                            type: array
+                            items: { $ref: '#/components/schemas/LoanRepayment' }
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
       tags: [Loans]
@@ -1756,6 +1759,38 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/LoanEvent' }
                   meta: { $ref: '#/components/schemas/PageMeta' }
+
+  /api/v1/loans/{id}/fund:
+    parameters:
+      - $ref: '#/components/parameters/LoanId'
+    post:
+      tags: [Loans]
+      summary: Fund a loan request
+      description: Lender funds a pending loan request, transitioning it to active.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount: { type: string }
+                stellarTxHash: { type: string }
+                note: { type: string }
+      responses:
+        '200':
+          description: Loan funded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Loan' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '403':
+          description: Borrower cannot fund their own loan
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Loan is not in `pending` status
 
   /api/v1/loans/{id}/disburse:
     parameters:
@@ -2032,7 +2067,8 @@ components:
         votes_for: { type: string }
         votes_against: { type: string }
         votes_abstain: { type: string }
-        on_chain_id: { type: string, nullable: true, description: Proposal identifier in the Soroban contract }
+        on_chain_id:
+          { type: string, nullable: true, description: Proposal identifier in the Soroban contract }
         tally: { $ref: '#/components/schemas/GovernanceProposalTally' }
     GovernanceProposalTally:
       type: object
@@ -2695,6 +2731,16 @@ components:
         payment_id: { type: string, format: uuid, nullable: true }
         note: { type: string, nullable: true }
         created_at: { type: string, format: date-time }
+    LoanRepayment:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        loan_id: { type: string, format: uuid }
+        payer_address: { $ref: '#/components/schemas/StellarKey' }
+        amount: { type: string }
+        stellar_tx_hash: { type: string, nullable: true }
+        paid_at: { type: string, format: date-time }
+        metadata: { type: object }
     CreateLoan:
       type: object
       required: [communityId, borrowerAddress, lenderAddress, amount, assetCode]

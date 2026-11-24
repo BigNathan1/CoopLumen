@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import { PoolClient } from 'pg';
 import { db } from '../../db';
+import { logger } from '../../utils/logger';
 import { executeProposalOnChain } from '../../contracts/stellar';
 import { requireAuth } from '../middleware/auth';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate';
@@ -348,7 +349,7 @@ proposalRouter.get(
         source = 'chain';
       } catch (chainError) {
         // Fall back to the DB cache when the contract is unreachable.
-        req.log?.warn?.({ err: chainError }, 'Failed to refresh proposals from contract');
+        logger.warn('Failed to refresh proposals from contract', { err: chainError });
       }
 
       const proposals = await db.query<Proposal>(
@@ -407,7 +408,7 @@ proposalRouter.get(
       try {
         await fetchProposalTally(proposal.id);
       } catch (chainError) {
-        req.log?.warn?.({ err: chainError }, 'Failed to fetch on-chain proposal tally');
+        logger.warn('Failed to fetch on-chain proposal tally', { err: chainError });
       }
 
       res.json({ data: { proposal, tally } });
@@ -478,7 +479,8 @@ proposalRouter.post(
   validateBody(submitVoteSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { xdr } = req.body as SubmitVoteInput;
+      const body = req.body as SubmitVoteInput & { xdr?: string };
+      const xdr = body.signedXdr ?? body.xdr ?? '';
       const proposalId = req.params.id;
 
       const validation = validateXdr(xdr);

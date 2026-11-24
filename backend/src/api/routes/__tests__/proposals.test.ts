@@ -31,7 +31,6 @@ vi.mock('../../../middleware/auth', () => ({
 import proposalsRouter from '../proposals';
 import {
   getProposalsFromContract,
-  getProposalFromContract,
   submitVoteXdr,
   getProposalTally,
 } from '../../../services/stellar';
@@ -76,17 +75,6 @@ function mockInsert(rows: any[]) {
     then: (resolve: any, reject: any) => Promise.resolve(rows).then(resolve, reject),
   };
   (db.insert as any).mockReturnValue(chain);
-  return chain;
-}
-
-function mockUpdate(rows: any[]) {
-  const chain: any = {
-    set: vi.fn(() => chain),
-    where: vi.fn(() => chain),
-    returning: vi.fn(() => Promise.resolve(rows)),
-    then: (resolve: any, reject: any) => Promise.resolve(rows).then(resolve, reject),
-  };
-  (db.update as any).mockReturnValue(chain);
   return chain;
 }
 
@@ -242,9 +230,7 @@ describe('POST /api/v1/proposals/:id/vote', () => {
     expect(res.body.error).toBeUndefined();
     expect(res.body.data.hash).toBe('abc123hash');
     expect(res.body.data.status).toBe('SUCCESS');
-    expect(submitVoteXdr).toHaveBeenCalledWith(
-      expect.objectContaining({ signedXdr: validXdr }),
-    );
+    expect(submitVoteXdr).toHaveBeenCalledWith(expect.objectContaining({ signedXdr: validXdr }));
   });
 
   it('returns 400 for malformed XDR', async () => {
@@ -263,7 +249,7 @@ describe('POST /api/v1/proposals/:id/vote', () => {
   it('returns 400 when the XDR targets the wrong contract', async () => {
     mockSelect([baseProposal]);
     (submitVoteXdr as any).mockRejectedValue(
-      Object.assign(new Error('Contract id mismatch'), { code: 'WRONG_CONTRACT' }),
+      Object.assign(new Error('Contract id mismatch'), { code: 'WRONG_CONTRACT' })
     );
 
     const res = await request(buildApp())
@@ -288,14 +274,14 @@ describe('POST /api/v1/proposals/:id/vote', () => {
           Promise.reject(
             Object.assign(new Error('duplicate key value violates unique constraint'), {
               code: '23505',
-            }),
-          ),
+            })
+          )
         ),
         then: (resolve: any, reject: any) =>
           Promise.reject(
             Object.assign(new Error('duplicate key value violates unique constraint'), {
               code: '23505',
-            }),
+            })
           ).then(resolve, reject),
       };
       return chain;

@@ -7,6 +7,8 @@ import { requireAuth } from '../middleware/auth';
 import { writeLimiter } from '../middleware/rateLimit';
 import {
   createLoanSchema,
+  fundLoanSchema,
+  loanParamsSchema,
   disburseLoanSchema,
   repayLoanSchema,
   defaultLoanSchema,
@@ -36,6 +38,16 @@ interface Loan {
   closed_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface LoanRepayment {
+  id: string;
+  loan_id: string;
+  payer_address: string;
+  amount: string;
+  stellar_tx_hash: string | null;
+  paid_at: string;
+  metadata: Record<string, unknown>;
 }
 
 interface LoanEvent {
@@ -170,6 +182,41 @@ loanRouter.get('/', async (req, res, next) => {
  * returns every loan in the community. Mounted before `GET /:id` so the
  * `:communityId` segment is not shadowed by the single-loan route.
  */
+/**
+ * GET /api/v1/loans/:id
+ * Single loan with its full event history and repayment history.
+ * If no loan matches the ID, falls through to the community loans route.
+ */
+loanRouter.get(
+  '/:id',
+  validateParams(loanParamsSchema),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const [loan] = await db.query<Loan>('SELECT * FROM loans WHERE id = $1', [req.params.id]);
+      if (!loan) {
+        return next();
+      }
+      const events = await db.query<LoanEvent>(
+        'SELECT * FROM loan_events WHERE loan_id = $1 ORDER BY created_at',
+        [loan.id]
+      );
+      const repayments = await db.query<LoanRepayment>(
+        'SELECT * FROM loan_repayments WHERE loan_id = $1 ORDER BY paid_at DESC',
+        [loan.id]
+      );
+      res.json({ data: { ...withTotals(loan), events, repayments } });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
+ * GET /api/v1/loans/:communityId
+ * Lists a community's loans grouped by status bucket. `status` may be
+ * `active`, `pending`, or `closed` (repaid/defaulted/cancelled); omitting it
+ * returns every loan in the community.
+ */
 loanRouter.get(
   '/:communityId',
   validateParams(listLoansParamsSchema),
@@ -192,10 +239,22 @@ loanRouter.get(
       }
       const where = `WHERE ${clauses.join(' AND ')}`;
 
-      const [{ count }] = await db.query<{ count: number }>(
+      const countResult = await db.query<{ count: number }>(
         `SELECT COUNT(*)::int AS count FROM loans ${where}`,
         params
       );
+      const count = countResult[0]?.count ?? 0;
+
+      if (Number(count) === 0) {
+        const [community] = await db.query<{ id: string }>(
+          'SELECT id FROM communities WHERE id = $1 AND deleted_at IS NULL',
+          [communityId]
+        );
+        if (!community) {
+          res.status(404).json({ data: null, error: 'Loan not found' });
+          return;
+        }
+      }
 
       const listParams = [...params, pagination.limit, pagination.offset];
       const loans = await db.query<Loan>(
@@ -213,48 +272,31 @@ loanRouter.get(
 );
 
 /**
- * GET /api/v1/loans/:id
- * Single loan with its full event history and a repayment summary.
- */
-loanRouter.get('/:id', async (req, res, next) => {
-  try {
-    const [loan] = await db.query<Loan>('SELECT * FROM loans WHERE id = $1', [req.params.id]);
-    if (!loan) {
-      res.status(404).json({ data: null, error: 'Loan not found' });
-      return;
-    }
-    const events = await db.query<LoanEvent>(
-      'SELECT * FROM loan_events WHERE loan_id = $1 ORDER BY created_at',
-      [loan.id]
-    );
-    res.json({ data: { ...withTotals(loan), events } });
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
  * GET /api/v1/loans/:id/events
  * Chronological event log for a single loan.
  */
-loanRouter.get('/:id/events', async (req, res, next) => {
-  try {
-    const pagination = parsePagination(req);
+loanRouter.get(
+  '/:id/events',
+  validateParams(loanParamsSchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const pagination = parsePagination(req);
 
-    const [{ count }] = await db.query<{ count: number }>(
-      'SELECT COUNT(*)::int AS count FROM loan_events WHERE loan_id = $1',
-      [req.params.id]
-    );
+      const [{ count }] = await db.query<{ count: number }>(
+        'SELECT COUNT(*)::int AS count FROM loan_events WHERE loan_id = $1',
+        [req.params.id]
+      );
 
-    const events = await db.query<LoanEvent>(
-      'SELECT * FROM loan_events WHERE loan_id = $1 ORDER BY created_at LIMIT $2 OFFSET $3',
-      [req.params.id, pagination.limit, pagination.offset]
-    );
-    res.json({ data: events, meta: pageMeta(count, pagination) });
-  } catch (err) {
-    next(err);
+      const events = await db.query<LoanEvent>(
+        'SELECT * FROM loan_events WHERE loan_id = $1 ORDER BY created_at LIMIT $2 OFFSET $3',
+        [req.params.id, pagination.limit, pagination.offset]
+      );
+      res.json({ data: events, meta: pageMeta(count, pagination) });
+    } catch (err) {
+      next(err);
+    }
   }
-});
+);
 
 /**
  * POST /api/v1/loans/request
@@ -456,6 +498,127 @@ loanRouter.post(
 );
 
 /**
+ * POST /api/v1/loans/:id/fund
+ * Lender(s) fund a loan request.
+ */
+loanRouter.post(
+  '/:id/fund',
+  requireAuth,
+  writeLimiter,
+  validateParams(loanParamsSchema),
+  validateBody(fundLoanSchema),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const {
+        amount: fundAmount,
+        stellarTxHash,
+        note,
+      } = req.body as {
+        amount?: string;
+        stellarTxHash?: string;
+        note?: string;
+      };
+      const lenderAddress = req.auth!.address;
+
+      const [loan] = await db.query<Loan>('SELECT * FROM loans WHERE id = $1', [req.params.id]);
+      if (!loan) {
+        res.status(404).json({ data: null, error: 'Loan not found' });
+        return;
+      }
+      if (req.auth!.address === loan.borrower_address) {
+        res.status(403).json({ data: null, error: 'Borrower cannot fund their own loan' });
+        return;
+      }
+      if (loan.status !== 'pending') {
+        res
+          .status(409)
+          .json({ data: null, error: `Cannot fund a loan in status "${loan.status}"` });
+        return;
+      }
+      if (fundAmount && Number(fundAmount) > Number(loan.amount)) {
+        res.status(400).json({ data: null, error: 'Funding amount exceeds loan amount' });
+        return;
+      }
+
+      let notFound = false;
+      let conflictStatus: string | null = null;
+
+      const updated = await db.transaction(async (client) => {
+        const [locked] = (
+          await client.query<Loan>('SELECT * FROM loans WHERE id = $1 FOR UPDATE', [req.params.id])
+        ).rows;
+        if (!locked) {
+          notFound = true;
+          return null;
+        }
+        if (locked.status !== 'pending') {
+          conflictStatus = locked.status;
+          return null;
+        }
+
+        const {
+          rows: [row],
+        } = await client.query<Loan>(
+          `UPDATE loans
+           SET status = 'active',
+               lender_address = $2,
+               disbursed_at = NOW()
+           WHERE id = $1
+           RETURNING *`,
+          [locked.id, lenderAddress]
+        );
+        await client.query(
+          `INSERT INTO loan_events (loan_id, event_type, amount, note)
+           VALUES ($1, 'disbursed', $2, $3)`,
+          [locked.id, locked.amount, note ?? 'Loan funded by lender']
+        );
+        await client.query(
+          `INSERT INTO transactions_log (community_id, actor_address, action, stellar_tx_hash, metadata)
+           VALUES ($1, $2, 'loan_funded', $3, $4)`,
+          [
+            locked.community_id,
+            lenderAddress,
+            stellarTxHash ?? null,
+            JSON.stringify({ loan_id: locked.id, amount: locked.amount, note: note ?? null }),
+          ]
+        );
+        await client.query(
+          `INSERT INTO notifications (stellar_address, community_id, type, title, body, metadata)
+           VALUES ($1, $2, 'loan_funded', 'Loan funded', $3, $4)`,
+          [
+            locked.borrower_address,
+            locked.community_id,
+            `Your loan of ${locked.amount} ${locked.asset_code} has been funded`,
+            JSON.stringify({
+              loan_id: locked.id,
+              lender_address: lenderAddress,
+              amount: locked.amount,
+            }),
+          ]
+        );
+        return row;
+      });
+
+      if (notFound) {
+        res.status(404).json({ data: null, error: 'Loan not found' });
+        return;
+      }
+      if (conflictStatus) {
+        res.status(409).json({
+          data: null,
+          error: `Cannot fund a loan in status "${String(conflictStatus)}"`,
+        });
+        return;
+      }
+
+      res.status(200).json({ data: withTotals(updated!) });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
  * POST /api/v1/loans/:id/disburse
  * Transitions a `pending` loan to `active` once funds have been sent.
  */
@@ -463,6 +626,7 @@ loanRouter.post(
   '/:id/disburse',
   requireAuth,
   writeLimiter,
+  validateParams(loanParamsSchema),
   validateBody(disburseLoanSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -574,6 +738,7 @@ loanRouter.post(
   '/:id/repay',
   requireAuth,
   writeLimiter,
+  validateParams(loanParamsSchema),
   validateBody(repayLoanSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -647,6 +812,17 @@ loanRouter.post(
           [loan.id, amount, paymentId ?? null, note ?? null]
         );
         await client.query(
+          `INSERT INTO loan_repayments (loan_id, payer_address, amount, stellar_tx_hash, paid_at, metadata)
+           VALUES ($1, $2, $3, $4, NOW(), $5)`,
+          [
+            loan.id,
+            loan.borrower_address,
+            amount,
+            paymentId ?? null,
+            JSON.stringify({ note: note ?? null }),
+          ]
+        );
+        await client.query(
           `INSERT INTO transactions_log (community_id, actor_address, action, metadata)
            VALUES ($1, $2, 'loan_repayment', $3)`,
           [
@@ -711,6 +887,7 @@ loanRouter.post(
   '/:id/default',
   requireAuth,
   writeLimiter,
+  validateParams(loanParamsSchema),
   validateBody(defaultLoanSchema),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -790,33 +967,42 @@ loanRouter.post(
  * DELETE /api/v1/loans/:id
  * Cancels a loan that has not yet been disbursed (status `pending`).
  */
-loanRouter.delete('/:id', requireAuth, writeLimiter, async (req, res, next) => {
-  try {
-    const [loan] = await db.query<Loan>('SELECT * FROM loans WHERE id = $1', [req.params.id]);
-    if (!loan) {
-      res.status(404).json({ data: null, error: 'No pending loan found to cancel' });
-      return;
-    }
-    if (req.auth!.address !== loan.borrower_address && req.auth!.address !== loan.lender_address) {
-      res.status(403).json({
-        data: null,
-        error: 'Only the borrower or lender can cancel this loan',
-      });
-      return;
-    }
+loanRouter.delete(
+  '/:id',
+  requireAuth,
+  writeLimiter,
+  validateParams(loanParamsSchema),
+  async (req, res, next) => {
+    try {
+      const [loan] = await db.query<Loan>('SELECT * FROM loans WHERE id = $1', [req.params.id]);
+      if (!loan) {
+        res.status(404).json({ data: null, error: 'No pending loan found to cancel' });
+        return;
+      }
+      if (
+        req.auth!.address !== loan.borrower_address &&
+        req.auth!.address !== loan.lender_address
+      ) {
+        res.status(403).json({
+          data: null,
+          error: 'Only the borrower or lender can cancel this loan',
+        });
+        return;
+      }
 
-    const result = await db.query<{ id: string }>(
-      `UPDATE loans SET status = 'cancelled'
+      const result = await db.query<{ id: string }>(
+        `UPDATE loans SET status = 'cancelled'
        WHERE id = $1 AND status = 'pending'
        RETURNING id`,
-      [req.params.id]
-    );
-    if (result.length === 0) {
-      res.status(404).json({ data: null, error: 'No pending loan found to cancel' });
-      return;
+        [req.params.id]
+      );
+      if (result.length === 0) {
+        res.status(404).json({ data: null, error: 'No pending loan found to cancel' });
+        return;
+      }
+      res.json({ data: { id: result[0].id, cancelled: true } });
+    } catch (err) {
+      next(err);
     }
-    res.json({ data: { id: result[0].id, cancelled: true } });
-  } catch (err) {
-    next(err);
   }
-});
+);
