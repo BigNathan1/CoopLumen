@@ -110,7 +110,7 @@ export function ProposalDetail({ proposalId }: ProposalDetailProps) {
 
   if (isLoading) {
     return (
-      <section className={styles.container} aria-busy="true" aria-live="polite">
+      <section className={styles.container} role="status" aria-busy="true" aria-live="polite">
         <p className={styles.stateMessage}>Loading proposal…</p>
       </section>
     );
@@ -142,7 +142,12 @@ export function ProposalDetail({ proposalId }: ProposalDetailProps) {
   const status = proposal.status ?? 'unknown';
 
   return (
-    <article className={styles.container} aria-labelledby="proposal-detail-title">
+    <article
+      className={styles.container}
+      role="region"
+      aria-label="Proposal detail"
+      aria-labelledby="proposal-detail-title"
+    >
       <header className={styles.header}>
         <h1 id="proposal-detail-title" className={styles.title}>
           {proposal.title}
@@ -188,6 +193,7 @@ export function ProposalDetail({ proposalId }: ProposalDetailProps) {
                       style={{ width: `${percentages[key]}%` }}
                       tabIndex={0}
                       role="progressbar"
+                      aria-label={`${VOTE_LABELS[key]}: ${Math.round(percentages[key])}%`}
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={Math.round(percentages[key])}
@@ -195,7 +201,11 @@ export function ProposalDetail({ proposalId }: ProposalDetailProps) {
                     />
                   </div>
                   <span className={styles.barValue} aria-hidden="true">
-                    {formatNumber(tally[key])} ({percentages[key].toFixed(1)}%)
+                    {formatNumber(tally[key])} (
+                    {percentages[key] % 1 === 0
+                      ? `${percentages[key]}%`
+                      : `${percentages[key].toFixed(1)}%`}
+                    )
                   </span>
                 </div>
               ))}
@@ -215,13 +225,17 @@ export function ProposalDetail({ proposalId }: ProposalDetailProps) {
                   <tr key={key}>
                     <th scope="row">{VOTE_LABELS[key]}</th>
                     <td>{formatNumber(tally[key])}</td>
-                    <td>{percentages[key].toFixed(1)}%</td>
+                    <td>
+                      {percentages[key] % 1 === 0
+                        ? `${percentages[key]}%`
+                        : `${percentages[key].toFixed(1)}%`}
+                    </td>
                   </tr>
                 ))}
                 <tr className={styles.totalRow}>
                   <th scope="row">Total</th>
                   <td>{formatNumber(totalVotes)}</td>
-                  <td>100.0%</td>
+                  <td>100%</td>
                 </tr>
               </tbody>
             </table>
