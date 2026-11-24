@@ -244,6 +244,8 @@ export const createProposalFormSchema = z.object({
     .optional(),
   type: proposalTypeSchema,
   actions: z.array(proposalActionSchema).min(1, 'Add at least one action'),
+});
+
 /** A vote choice, matching the on-chain contract's enum. */
 export const voteChoiceSchema = z.enum(['for', 'against', 'abstain']);
 
@@ -290,7 +292,6 @@ export const proposalDetailSchema = z.object({
 });
 
 // Query parameters
-=======
 
 /** List query for paginated endpoints; values are coerced from the URL. */
 export const listQuerySchema = z.object({

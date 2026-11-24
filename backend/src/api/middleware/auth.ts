@@ -28,7 +28,10 @@ declare global {
  * Stellar address.
  */
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const apiKey = req.header('x-api-key');
+  const apiKey =
+    typeof req.header === 'function'
+      ? req.header('x-api-key')
+      : (req.headers?.['x-api-key'] as string | undefined);
   if (apiKey) {
     const address = await authenticateApiKey(apiKey);
     if (!address) {

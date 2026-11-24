@@ -9,8 +9,9 @@ jest.mock('../../hooks/useProposal', () => ({
   default: jest.fn(),
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const useProposal = require('../../hooks/useProposal').default as jest.Mock;
+import useProposalMock from '../../hooks/useProposal';
+
+const useProposal = useProposalMock as unknown as jest.Mock;
 
 const baseProposal = {
   id: 'prop-1',
@@ -39,11 +40,9 @@ describe('ProposalDetail', () => {
     render(<ProposalDetail proposalId="prop-1" />);
 
     expect(
-      screen.getByRole('heading', { name: /increase community treasury allocation/i }),
+      screen.getByRole('heading', { name: /increase community treasury allocation/i })
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/a proposal to increase the treasury allocation/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/a proposal to increase the treasury allocation/i)).toBeInTheDocument();
     expect(screen.getByText(/active/i)).toBeInTheDocument();
   });
 
