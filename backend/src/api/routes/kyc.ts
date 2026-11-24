@@ -228,7 +228,7 @@ async function verifyWorldIdProof(input: WorldIdVerifyInput): Promise<WorldIdPro
         verification_level: input.verification_level,
       }),
     });
-  } catch (error) {
+  } catch {
     throw new WorldIdVerificationError('Unable to reach World ID verification service', 502);
   }
 
