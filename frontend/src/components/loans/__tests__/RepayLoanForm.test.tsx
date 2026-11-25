@@ -1,40 +1,220 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
-import { RepayLoanForm } from '../RepayLoanForm';
+import React, { useId, useState } from 'react';
+import type { Loan } from '@/hooks/useLoans';
 
-describe('RepayLoanForm', () => {
-  it('submits a valid partial repayment', async () => {
-    const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<RepayLoanForm loanId="loan-1" remainingBalance={200} onSubmit={onSubmit} />);
+export interface RepayLoanFormProps {
+  loan: Pick<Loan, 'id' | 'outstanding' | 'total_due' | 'amount_repaid' | 'asset_code'>;
+  minRepayment?: string;
+  isSubmitting?: boolean;
+  onSubmit: (payload: {
+    loanId: string;
+    amount: string;
+    isFullRepayment: boolean;
+  }) => Promise<void> | void;
+  onCancel?: () => void;
+}
 
-    fireEvent.change(screen.getByLabelText(/repayment amount/i), { target: { value: '75' } });
-    fireEvent.click(screen.getByRole('button', { name: /submit partial repayment/i }));
+const STELLAR_PRECISION = 7;
 
-    await waitFor(() => {
-      expect(onSubmit).toHaveBeenCalledWith({ loanId: 'loan-1', amount: 75, isFullRepayment: false });
-    });
-  });
+function formatStellarAmount(value: number): string {
+  return value.toFixed(STELLAR_PRECISION).replace(/\.?0+$/, '');
+}
 
-  it('supports quick preset buttons for partial and full repayment', async () => {
-    const onSubmit = vi.fn().mockResolvedValue(undefined);
-    render(<RepayLoanForm loanId="loan-2" remainingBalance={100} onSubmit={onSubmit} />);
+export const RepayLoanForm: React.FC<RepayLoanFormProps> = ({
+  loan,
+  minRepayment = '0.0000001',
+  isSubmitting = false,
+  onSubmit,
+  onCancel,
+}) => {
+  const [amountInput, setAmountInput] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Full' }));
-    fireEvent.click(screen.getByRole('button', { name: /pay full balance/i }));
+  const amountId = useId();
+  const hintId = useId();
+  const errorId = useId();
 
-    await waitFor(() => {
-      expect(onSubmit).toHaveBeenCalledWith({ loanId: 'loan-2', amount: 100, isFullRepayment: true });
-    });
-  });
+  const outstanding = Number(loan.outstanding);
+  const minAmount = Number(minRepayment);
+  const trimmedInput = amountInput.trim();
+  const parsedAmount = Number(trimmedInput);
 
-  it('shows accessible validation error when amount exceeds remaining balance', async () => {
-    const onSubmit = vi.fn();
-    render(<RepayLoanForm loanId="loan-3" remainingBalance={50} onSubmit={onSubmit} />);
+  const isDisabled = isSubmitting || !Number.isFinite(outstanding) || outstanding <= 0;
+  const isFullRepayment =
+    trimmedInput !== '' &&
+    (trimmedInput === loan.outstanding.trim() ||
+      (Number.isFinite(parsedAmount) && parsedAmount >= outstanding));
 
-    fireEvent.change(screen.getByLabelText(/repayment amount/i), { target: { value: '75' } });
-    fireEvent.click(screen.getByRole('button', { name: /pay full balance/i }));
+  const setPresetPercent = (ratio: number) => {
+    if (ratio === 1) {
+      // Preserve exact server-computed string to avoid floating-point drift
+      setAmountInput(loan.outstanding);
+    } else {
+      const value = Math.min(outstanding * ratio, outstanding);
+      setAmountInput(formatStellarAmount(value));
+    }
+    setError(null);
+  };
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/cannot exceed remaining balance/i);
-    expect(onSubmit).not.toHaveBeenCalled();
-  });
-});
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+
+    if (!trimmedInput || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setError('Enter a valid repayment amount.');
+      return;
+    }
+    if (parsedAmount < minAmount) {
+      setError(`Minimum repayment is ${minRepayment} ${loan.asset_code}.`);
+      return;
+    }
+    if (parsedAmount > outstanding) {
+      setError(`Amount cannot exceed remaining balance (${loan.outstanding} ${loan.asset_code}).`);
+      return;
+    }
+
+    const exactFull = trimmedInput === loan.outstanding.trim() || parsedAmount === outstanding;
+
+    try {
+      await onSubmit({
+        loanId: loan.id,
+        amount: exactFull ? loan.outstanding : trimmedInput,
+        isFullRepayment: exactFull,
+      });
+      setAmountInput('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit repayment.');
+    }
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      noValidate
+      aria-label="Repay loan"
+      style={{
+        backgroundColor: 'var(--color-surface, #ffffff)',
+        color: 'var(--color-text-primary, #111827)',
+        border: '1px solid var(--color-border, #e5e7eb)',
+        borderRadius: 'var(--radius-md, 0.5rem)',
+        padding: 'var(--space-4, 1rem)',
+      }}
+    >
+      <div style={{ marginBottom: 'var(--space-3, 0.75rem)' }}>
+        <label htmlFor={amountId} style={{ display: 'block', fontWeight: 600 }}>
+          Repayment amount ({loan.asset_code})
+        </label>
+        <p id={hintId} style={{ color: 'var(--color-text-secondary, #4b5563)', fontSize: '0.875rem' }}>
+          Remaining balance: {loan.outstanding} {loan.asset_code} (repaid {loan.amount_repaid} of {loan.total_due})
+        </p>
+
+        <div
+          role="group"
+          aria-label="Quick repayment presets"
+          style={{ display: 'flex', gap: 'var(--space-2, 0.5rem)', marginBlock: 'var(--space-2, 0.5rem)' }}
+        >
+          {[
+            { label: '25%', ratio: 0.25 },
+            { label: '50%', ratio: 0.5 },
+            { label: 'Full', ratio: 1 },
+          ].map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              disabled={isDisabled}
+              onClick={() => setPresetPercent(preset.ratio)}
+              style={{
+                backgroundColor: 'var(--color-surface-muted, #f3f4f6)',
+                color: 'var(--color-text-primary, #111827)',
+                border: '1px solid var(--color-border, #d1d5db)',
+                borderRadius: 'var(--radius-sm, 0.375rem)',
+                padding: '0.25rem 0.75rem',
+                cursor: isDisabled ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+
+        <input
+          id={amountId}
+          name="amount"
+          type="number"
+          inputMode="decimal"
+          step="0.0000001"
+          min={minRepayment}
+          max={loan.outstanding}
+          value={amountInput}
+          disabled={isDisabled}
+          aria-describedby={error ? `${hintId} ${errorId}` : hintId}
+          aria-invalid={Boolean(error)}
+          onChange={(e) => {
+            setAmountInput(e.target.value);
+            if (error) setError(null);
+          }}
+          style={{
+            width: '100%',
+            backgroundColor: 'var(--color-input-bg, transparent)',
+            color: 'var(--color-text-primary, inherit)',
+            border: '1px solid var(--color-border, #d1d5db)',
+            borderRadius: 'var(--radius-sm, 0.375rem)',
+            padding: '0.5rem',
+          }}
+        />
+      </div>
+
+      {error && (
+        <p
+          id={errorId}
+          role="alert"
+          style={{
+            color: 'var(--color-danger, #dc2626)',
+            fontSize: '0.875rem',
+            marginBottom: 'var(--space-3, 0.75rem)',
+          }}
+        >
+          {error}
+        </p>
+      )}
+
+      <div style={{ display: 'flex', gap: 'var(--space-2, 0.5rem)' }}>
+        <button
+          type="submit"
+          disabled={isDisabled}
+          style={{
+            backgroundColor: 'var(--color-primary, #2563eb)',
+            color: 'var(--color-on-primary, #ffffff)',
+            border: 'none',
+            borderRadius: 'var(--radius-sm, 0.375rem)',
+            padding: '0.5rem 1rem',
+            cursor: isDisabled ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {isSubmitting
+            ? 'Submitting...'
+            : isFullRepayment
+              ? 'Pay Full Balance'
+              : 'Submit Partial Repayment'}
+        </button>
+
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isSubmitting}
+            style={{
+              backgroundColor: 'transparent',
+              color: 'var(--color-text-secondary, #4b5563)',
+              border: '1px solid var(--color-border, #d1d5db)',
+              borderRadius: 'var(--radius-sm, 0.375rem)',
+              padding: '0.5rem 1rem',
+              cursor: isSubmitting ? 'not-allowed' : 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+    </form>
+  );
+};

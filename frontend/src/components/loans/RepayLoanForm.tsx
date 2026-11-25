@@ -1,20 +1,27 @@
 import React, { useId, useState } from 'react';
+import type { Loan } from '@/hooks/useLoans';
 
 export interface RepayLoanFormProps {
-  loanId: string;
-  remainingBalance: number;
-  currencySymbol?: string;
-  minRepayment?: number;
+  loan: Pick<Loan, 'id' | 'outstanding' | 'total_due' | 'amount_repaid' | 'asset_code'>;
+  minRepayment?: string;
   isSubmitting?: boolean;
-  onSubmit: (payload: { loanId: string; amount: number; isFullRepayment: boolean }) => Promise<void> | void;
+  onSubmit: (payload: {
+    loanId: string;
+    amount: string;
+    isFullRepayment: boolean;
+  }) => Promise<void> | void;
   onCancel?: () => void;
 }
 
+const STELLAR_PRECISION = 7;
+
+function formatStellarAmount(value: number): string {
+  return value.toFixed(STELLAR_PRECISION).replace(/\.?0+$/, '');
+}
+
 export const RepayLoanForm: React.FC<RepayLoanFormProps> = ({
-  loanId,
-  remainingBalance,
-  currencySymbol = 'XLM',
-  minRepayment = 0.01,
+  loan,
+  minRepayment = '0.0000001',
   isSubmitting = false,
   onSubmit,
   onCancel,
@@ -26,12 +33,25 @@ export const RepayLoanForm: React.FC<RepayLoanFormProps> = ({
   const hintId = useId();
   const errorId = useId();
 
-  const parsedAmount = Number(amountInput);
-  const isFullRepayment = Number.isFinite(parsedAmount) && parsedAmount >= remainingBalance;
+  const outstanding = Number(loan.outstanding);
+  const minAmount = Number(minRepayment);
+  const trimmedInput = amountInput.trim();
+  const parsedAmount = Number(trimmedInput);
+
+  const isDisabled = isSubmitting || !Number.isFinite(outstanding) || outstanding <= 0;
+  const isFullRepayment =
+    trimmedInput !== '' &&
+    (trimmedInput === loan.outstanding.trim() ||
+      (Number.isFinite(parsedAmount) && parsedAmount >= outstanding));
 
   const setPresetPercent = (ratio: number) => {
-    const value = Number((remainingBalance * ratio).toFixed(2));
-    setAmountInput(String(Math.min(value, remainingBalance)));
+    if (ratio === 1) {
+      // Preserve exact server-computed string to avoid floating-point drift
+      setAmountInput(loan.outstanding);
+    } else {
+      const value = Math.min(outstanding * ratio, outstanding);
+      setAmountInput(formatStellarAmount(value));
+    }
     setError(null);
   };
 
@@ -39,24 +59,26 @@ export const RepayLoanForm: React.FC<RepayLoanFormProps> = ({
     event.preventDefault();
     setError(null);
 
-    if (!amountInput.trim() || !Number.isFinite(parsedAmount)) {
+    if (!trimmedInput || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       setError('Enter a valid repayment amount.');
       return;
     }
-    if (parsedAmount < minRepayment) {
-      setError(`Minimum repayment is ${minRepayment} ${currencySymbol}.`);
+    if (parsedAmount < minAmount) {
+      setError(`Minimum repayment is ${minRepayment} ${loan.asset_code}.`);
       return;
     }
-    if (parsedAmount > remainingBalance) {
-      setError(`Amount cannot exceed remaining balance (${remainingBalance} ${currencySymbol}).`);
+    if (parsedAmount > outstanding) {
+      setError(`Amount cannot exceed remaining balance (${loan.outstanding} ${loan.asset_code}).`);
       return;
     }
 
+    const exactFull = trimmedInput === loan.outstanding.trim() || parsedAmount === outstanding;
+
     try {
       await onSubmit({
-        loanId,
-        amount: parsedAmount,
-        isFullRepayment: parsedAmount === remainingBalance,
+        loanId: loan.id,
+        amount: exactFull ? loan.outstanding : trimmedInput,
+        isFullRepayment: exactFull,
       });
       setAmountInput('');
     } catch (err) {
@@ -79,10 +101,10 @@ export const RepayLoanForm: React.FC<RepayLoanFormProps> = ({
     >
       <div style={{ marginBottom: 'var(--space-3, 0.75rem)' }}>
         <label htmlFor={amountId} style={{ display: 'block', fontWeight: 600 }}>
-          Repayment amount ({currencySymbol})
+          Repayment amount ({loan.asset_code})
         </label>
         <p id={hintId} style={{ color: 'var(--color-text-secondary, #4b5563)', fontSize: '0.875rem' }}>
-          Remaining balance: {remainingBalance.toFixed(2)} {currencySymbol}
+          Remaining balance: {loan.outstanding} {loan.asset_code} (repaid {loan.amount_repaid} of {loan.total_due})
         </p>
 
         <div
@@ -98,7 +120,7 @@ export const RepayLoanForm: React.FC<RepayLoanFormProps> = ({
             <button
               key={preset.label}
               type="button"
-              disabled={isSubmitting || remainingBalance <= 0}
+              disabled={isDisabled}
               onClick={() => setPresetPercent(preset.ratio)}
               style={{
                 backgroundColor: 'var(--color-surface-muted, #f3f4f6)',
@@ -106,7 +128,7 @@ export const RepayLoanForm: React.FC<RepayLoanFormProps> = ({
                 border: '1px solid var(--color-border, #d1d5db)',
                 borderRadius: 'var(--radius-sm, 0.375rem)',
                 padding: '0.25rem 0.75rem',
-                cursor: 'pointer',
+                cursor: isDisabled ? 'not-allowed' : 'pointer',
               }}
             >
               {preset.label}
@@ -119,11 +141,11 @@ export const RepayLoanForm: React.FC<RepayLoanFormProps> = ({
           name="amount"
           type="number"
           inputMode="decimal"
-          step="0.01"
+          step="0.0000001"
           min={minRepayment}
-          max={remainingBalance}
+          max={loan.outstanding}
           value={amountInput}
-          disabled={isSubmitting || remainingBalance <= 0}
+          disabled={isDisabled}
           aria-describedby={error ? `${hintId} ${errorId}` : hintId}
           aria-invalid={Boolean(error)}
           onChange={(e) => {
@@ -145,7 +167,11 @@ export const RepayLoanForm: React.FC<RepayLoanFormProps> = ({
         <p
           id={errorId}
           role="alert"
-          style={{ color: 'var(--color-danger, #dc2626)', fontSize: '0.875rem', marginBottom: 'var(--space-3, 0.75rem)' }}
+          style={{
+            color: 'var(--color-danger, #dc2626)',
+            fontSize: '0.875rem',
+            marginBottom: 'var(--space-3, 0.75rem)',
+          }}
         >
           {error}
         </p>
@@ -154,14 +180,14 @@ export const RepayLoanForm: React.FC<RepayLoanFormProps> = ({
       <div style={{ display: 'flex', gap: 'var(--space-2, 0.5rem)' }}>
         <button
           type="submit"
-          disabled={isSubmitting || remainingBalance <= 0}
+          disabled={isDisabled}
           style={{
             backgroundColor: 'var(--color-primary, #2563eb)',
             color: 'var(--color-on-primary, #ffffff)',
             border: 'none',
             borderRadius: 'var(--radius-sm, 0.375rem)',
             padding: '0.5rem 1rem',
-            cursor: 'pointer',
+            cursor: isDisabled ? 'not-allowed' : 'pointer',
           }}
         >
           {isSubmitting
@@ -182,7 +208,7 @@ export const RepayLoanForm: React.FC<RepayLoanFormProps> = ({
               border: '1px solid var(--color-border, #d1d5db)',
               borderRadius: 'var(--radius-sm, 0.375rem)',
               padding: '0.5rem 1rem',
-              cursor: 'pointer',
+              cursor: isSubmitting ? 'not-allowed' : 'pointer',
             }}
           >
             Cancel
