@@ -15,6 +15,9 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added `POST /api/v1/multisig/:id/sign` endpoint for cosigners submitting partial XDR signatures (#483).
 - Added `POST /api/v1/multisig/propose` endpoint to create a multi-sig transaction proposal (#482).
 - Automated loan default detection job and `POST /api/v1/loans/detect-defaults` endpoint to transition overdue loans to defaulted and update reputation (#459).
+- **Documented P2P Lending API & Escrow Mechanism** in `docs/lending.md` with complete data model, escrow flow, endpoint reference, status codes, and response examples (#477).
+- **Added `useReputation(address)` hook** (`frontend/src/hooks/useReputation.ts`) with address validation (Stellar G... and EVM 0x...), SWR-free fetch, loading/error/refetch states, and unit tests (#474).
+- **Playwright E2E tests for lending flows**: `e2e/lending-request-and-fund.spec.ts` covering loan request creation and loan funding against the real Docker Compose stack, integrated into the CI `e2e` job (#475, #476).
 
 - `GET /api/v1/proposals/:communityId` listing a community's governance proposals from the Soroban governance contract, merged with the local `proposals` cache, with Zod-validated path/query input, the standard `{ data, meta?, error? }` envelope, and OpenAPI documentation (#513).
 - `GET /api/v1/proposals/:id` returning a single proposal's detail with its on-chain vote tally (votes for, votes against, quorum progress), validated and documented in the OpenAPI spec (#515).
