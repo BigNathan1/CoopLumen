@@ -2,7 +2,10 @@ import useSWR from 'swr';
 import { fetcher } from '@/lib/swr';
 
 export type LoanStatus = 'pending' | 'active' | 'repaid' | 'defaulted' | 'cancelled';
-
+export function useLoan(id: string | null | undefined, enabled = true) {
+  const key = enabled && id ? `/api/v1/loans/${encodeURIComponent(id)}` : null;
+  return useSWR<LoanDetail>(key, fetcher);
+}
 export interface Loan {
   id: string;
   community_id: string;
