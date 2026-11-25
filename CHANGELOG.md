@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Add `RepayLoanForm` component with partial and full loan repayment support (#470)
+
 - Added `POST /api/v1/multisig/:id/execute` endpoint to submit fully-signed XDR to Horizon or record transaction hash (#485).
 - Added `POST /api/v1/multisig/:id/sign` endpoint for cosigners submitting partial XDR signatures (#483).
 - Added `POST /api/v1/multisig/propose` endpoint to create a multi-sig transaction proposal (#482).
