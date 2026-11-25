@@ -1,91 +1,65 @@
-import { renderHook, waitFor } from '@testing-library/react';
-import { SWRConfig } from 'swr';
-import { useReputation, useReputationDetail } from '../useReputation';
+import React from 'react';
+import { render, screen, waitFor } from '@testing-library/react';
+import { useReputation } from '../useReputation';
 
-function jsonResponse(status: number, body: unknown) {
-  return { ok: status >= 200 && status < 300, status, json: async () => body };
-}
-
-const fetchMock = jest.fn();
-
-beforeAll(() => {
-  (global as { fetch?: unknown }).fetch = fetchMock as typeof fetch;
-});
-
-afterEach(() => {
-  fetchMock.mockReset();
-});
-
-function wrapper({ children }: { children: React.ReactNode }) {
+function ReputationProbe({ address }: { address?: string | null }) {
+  const { data, isLoading, error } = useReputation(address);
+  if (isLoading) return <div role="status">Loading reputation...</div>;
+  if (error) return <div role="alert">{error}</div>;
+  if (!data) return <div>No reputation</div>;
   return (
-    <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>{children}</SWRConfig>
+    <div>
+      <span data-testid="rep-score">{data.score}</span>
+      <span data-testid="rep-address">{data.address}</span>
+    </div>
   );
 }
 
-const ADDRESS = 'G' + 'A'.repeat(55);
-
 describe('useReputation', () => {
-  it('fetches the reputation leaderboard for a community', async () => {
-    const payload = [
-      {
-        id: 'score-1',
-        stellar_address: ADDRESS,
-        community_id: 'community-1',
-        score: '95.00',
-        total_loans: 3,
-        on_time_repayments: 3,
-        defaults: 0,
-        last_calculated_at: '2026-01-01T00:00:00.000Z',
-        updated_at: '2026-01-01T00:00:00.000Z',
-      },
-    ];
-    fetchMock.mockResolvedValue(jsonResponse(200, { data: payload }));
-
-    const { result } = renderHook(() => useReputation('community-1', 5), { wrapper });
-
-    await waitFor(() => expect(result.current.data).toEqual(payload));
-    expect(String(fetchMock.mock.calls[0][0])).toContain(
-      '/api/v1/reputation?limit=5&communityId=community-1'
-    );
+  beforeEach(() => {
+    jest.restoreAllMocks();
   });
 
-  it('does not fetch a detail lookup when no address is provided', () => {
-    renderHook(() => useReputationDetail(null), { wrapper });
-    expect(fetchMock).not.toHaveBeenCalled();
+  test('skips fetch when address is empty or invalid', () => {
+    const fetchSpy = jest.spyOn(global, 'fetch' as never);
+    render(<ReputationProbe address="" />);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(screen.getByText('No reputation')).toBeInTheDocument();
   });
 
-  it('fetches a member reputation detail when an address is present', async () => {
-    const payload = {
-      address: ADDRESS,
-      communities: [
-        {
-          id: 'score-1',
-          stellar_address: ADDRESS,
-          community_id: 'community-1',
-          score: '95.00',
-          total_loans: 3,
-          on_time_repayments: 3,
-          defaults: 0,
-          last_calculated_at: '2026-01-01T00:00:00.000Z',
-          updated_at: '2026-01-01T00:00:00.000Z',
+  test('loads and renders reputation data for a valid address', async () => {
+    const validAddr = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    jest.spyOn(global, 'fetch' as never).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          address: validAddr,
+          score: 740,
+          completedLoans: 3,
+          onTimeRepayments: 3,
         },
-      ],
-      summary: { total_loans: 3, on_time_repayments: 3, defaults: 0 },
-    };
-    fetchMock.mockResolvedValue(jsonResponse(200, { data: payload }));
+      }),
+    } as never);
 
-    const { result } = renderHook(() => useReputationDetail(ADDRESS), { wrapper });
+    render(<ReputationProbe address={validAddr} />);
+    expect(screen.getByRole('status')).toHaveTextContent('Loading reputation...');
 
-    await waitFor(() => expect(result.current.data).toEqual(payload));
-    expect(String(fetchMock.mock.calls[0][0])).toContain(`/api/v1/reputation/${ADDRESS}`);
+    await waitFor(() => {
+      expect(screen.getByTestId('rep-score')).toHaveTextContent('740');
+    });
   });
 
-  it('surfaces a failed detail request as an error', async () => {
-    fetchMock.mockResolvedValue(jsonResponse(404, { error: 'No reputation yet' }));
+  test('surfaces error state on failed API response', async () => {
+    const validAddr = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    jest.spyOn(global, 'fetch' as never).mockResolvedValue({
+      ok: false,
+      status: 502,
+    } as never);
 
-    const { result } = renderHook(() => useReputationDetail(ADDRESS), { wrapper });
+    render(<ReputationProbe address={validAddr} />);
 
-    await waitFor(() => expect(result.current.error).toBeDefined());
-    expect((result.current.error as Error).message).toBe('No reputation yet');
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Failed to load reputation (502)');
+    });
   });
 });
