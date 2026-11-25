@@ -290,6 +290,7 @@ The end-to-end suite drives a browser against the whole stack. See
 - [Governance contract](docs/governance-contract.md) — contract types, functions, errors, events and deployment
 - [Multi-signature and batch operations](docs/multisig.md) — treasury signing lifecycle and batch payments
 - [SEP-12 KYC](docs/kyc.md) — provider integration, status mapping, privacy and security
+- [P2P Lending API & Escrow](docs/lending.md) — loan lifecycle, escrow, reputation scoring and API reference
 - [Testing](docs/testing.md) — unit, component and Playwright end-to-end suites
 - [CI/CD](docs/ci-cd.md) — the CI jobs, quality gate, releases and deploy workflows
 - [Staging](docs/staging.md) — the staging environment and its configuration
