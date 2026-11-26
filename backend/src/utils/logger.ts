@@ -21,7 +21,20 @@ export function redactSensitive(value: unknown, key = ''): unknown {
   return value;
 }
 
-const redactFormat = winston.format((info) => redactSensitive(info) as winston.Logform.TransformableInfo);
+/**
+ * Redacts the message and metadata in place.
+ *
+ * The info object carries winston's level and message under symbol keys, so it
+ * must be mutated rather than rebuilt: replacing it with a plain object drops
+ * those symbols and winston then discards the entry instead of writing it.
+ */
+const redactFormat = winston.format((info) => {
+  const entry = info as unknown as Record<string, unknown>;
+  for (const [key, value] of Object.entries(entry)) {
+    entry[key] = redactSensitive(value, key);
+  }
+  return info;
+});
 
 export const logger = winston.createLogger({
   level: process.env.LOG_LEVEL ?? 'info',

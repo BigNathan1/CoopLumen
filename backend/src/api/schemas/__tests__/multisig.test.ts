@@ -112,8 +112,8 @@ describe('executeMultiSigRequestSchema', () => {
     expect(executeMultiSigRequestSchema.safeParse({ stellar_tx_hash: '' }).success).toBe(false);
   });
 
-  it('requires stellar_tx_hash', () => {
-    expect(executeMultiSigRequestSchema.safeParse({}).success).toBe(false);
+  it('accepts an empty body, leaving execution to the stored transaction_xdr', () => {
+    expect(executeMultiSigRequestSchema.safeParse({}).success).toBe(true);
   });
 });
 

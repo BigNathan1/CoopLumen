@@ -7,7 +7,7 @@
 
 CREATE TABLE IF NOT EXISTS worldid_verifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
   nullifier_hash TEXT NOT NULL UNIQUE,
   verified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

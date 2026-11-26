@@ -18,7 +18,9 @@ import {
 } from '../schemas/loan';
 import { detectLoanDefaults } from '../../jobs/loanDefaults';
 import { validateParams, validateQuery } from '../middleware/validate';
-import { createLoanEscrow, mapHorizonError } from '../../contracts/claimableBalance';
+import { Asset, Keypair } from '@stellar/stellar-sdk';
+import { createLoanEscrow } from '../../contracts/claimableBalance';
+import { mapHorizonError } from '../utils/horizonError';
 
 export const loanRouter: Router = Router();
 
@@ -183,7 +185,7 @@ loanRouter.get('/borrower/:address', async (req, res, next) => {
       res.status(400).json({ data: null, error: 'Invalid pagination parameters' });
       return;
     }
-    const { page, limit } = query.data;
+    const { page = 1, limit = 20 } = query.data;
     const offset = (page - 1) * limit;
 
     const [{ count }] = await db.query<{ count: number }>(
@@ -536,13 +538,16 @@ loanRouter.post(
       // messages rather than surfaced raw.
       let escrowBalanceId: string;
       try {
+        const escrowSourceSecret = process.env.ESCROW_SOURCE_SECRET;
+        if (!escrowSourceSecret) {
+          throw new Error('ESCROW_SOURCE_SECRET is not configured');
+        }
         const escrow = await createLoanEscrow({
-          lenderAddress: loan.lender_address,
-          borrowerAddress: loan.borrower_address,
+          asset: loan.asset_issuer ? new Asset(loan.asset_code, loan.asset_issuer) : Asset.native(),
           amount: loan.amount,
-          assetCode: loan.asset_code,
-          assetIssuer: loan.asset_issuer,
-          loanId: loan.id,
+          borrowerPublicKey: loan.borrower_address,
+          dueDate: loan.due_at ?? new Date(),
+          sourceKeypair: Keypair.fromSecret(escrowSourceSecret),
         });
         escrowBalanceId = escrow.balanceId;
       } catch (err) {
@@ -778,7 +783,7 @@ loanRouter.post(
   '/detect-defaults',
   requireAuth,
   writeLimiter,
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const defaultedLoans = await detectLoanDefaults();
       res.json({

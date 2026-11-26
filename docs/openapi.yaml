@@ -337,11 +337,6 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: Voting period is still open, the proposal was rejected, or it was already executed
-        '409':
-          description: Proposal is not open for voting or the address has already voted
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '422':
           description: The Stellar network rejected the signed vote transaction
           content:
@@ -1939,7 +1934,19 @@ paths:
               required: [community_id, action, title, proposer_address]
               properties:
                 community_id: { type: string, format: uuid }
-                action: { type: string, enum: [payment, token_issue, trustline, settings_update, member_role_change, signer_update] }
+                action:
+                  {
+                    type: string,
+                    enum:
+                      [
+                        payment,
+                        token_issue,
+                        trustline,
+                        settings_update,
+                        member_role_change,
+                        signer_update,
+                      ],
+                  }
                 title: { type: string }
                 description: { type: string }
                 payload: { type: object }
@@ -2197,7 +2204,8 @@ components:
         votes_for: { type: string }
         votes_against: { type: string }
         votes_abstain: { type: string }
-        on_chain_id: { type: string, nullable: true, description: Proposal identifier in the Soroban contract }
+        on_chain_id:
+          { type: string, nullable: true, description: Proposal identifier in the Soroban contract }
         tally: { $ref: '#/components/schemas/GovernanceProposalTally' }
     GovernanceProposalTally:
       type: object

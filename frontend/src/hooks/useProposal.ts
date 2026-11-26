@@ -77,6 +77,6 @@ export function useProposal(id: string | null | undefined) {
       keepPreviousData: true,
       refreshWhenHidden: false,
       revalidateOnFocus: true,
-    },
+    }
   );
 }

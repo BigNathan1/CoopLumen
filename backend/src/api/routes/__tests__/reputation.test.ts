@@ -43,39 +43,40 @@ describe('GET /api/v1/reputation', () => {
 
 describe('GET /api/v1/reputation/:address', () => {
   it('returns 404 when the address has no reputation', async () => {
-    mockDb.query.mockResolvedValueOnce([]);
+    mockDb.query.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
     const res = await request(app).get(`/api/v1/reputation/${address}`);
     expect(res.status).toBe(404);
   });
 
   it('aggregates a member reputation across communities', async () => {
-    mockDb.query.mockResolvedValueOnce([
-      {
-        id: 'r-1',
-        stellar_address: address,
-        community_id: communityId,
-        score: '90.00',
-        total_loans: 3,
-        on_time_repayments: 2,
-        defaults: 0,
-      },
-      {
-        id: 'r-2',
-        stellar_address: address,
-        community_id: '22222222-2222-4222-8222-222222222222',
-        score: '50.00',
-        total_loans: 1,
-        on_time_repayments: 0,
-        defaults: 1,
-      },
-    ]);
+    mockDb.query
+      .mockResolvedValueOnce([
+        {
+          id: 'r-1',
+          stellar_address: address,
+          community_id: communityId,
+          score: '90.00',
+          total_loans: 3,
+          on_time_repayments: 2,
+          defaults: 0,
+        },
+        {
+          id: 'r-2',
+          stellar_address: address,
+          community_id: '22222222-2222-4222-8222-222222222222',
+          score: '50.00',
+          total_loans: 1,
+          on_time_repayments: 0,
+          defaults: 1,
+        },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ total_loans: 3, on_time_repayments: 2, defaults: 0 }])
+      .mockResolvedValueOnce([{ total_loans: 1, on_time_repayments: 0, defaults: 1 }]);
     const res = await request(app).get(`/api/v1/reputation/${address}`);
     expect(res.status).toBe(200);
+    expect(res.body.data.address).toBe(address);
     expect(res.body.data.communities).toHaveLength(2);
-    expect(res.body.data.summary).toEqual({
-      total_loans: 4,
-      on_time_repayments: 2,
-      defaults: 1,
-    });
+    expect(res.body.data.score).toBe(50);
   });
 });

@@ -33,7 +33,13 @@ describe('GET /api/v1/kyc/status/:address', () => {
     const response = await request(app).get(`/api/v1/kyc/status/${address}`);
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ data: { address, status: 'none' } });
+    expect(response.body).toEqual({
+      data: {
+        address,
+        status: 'none',
+        worldId: { verified: false, verifiedAt: null, verificationLevel: null },
+      },
+    });
     expect(query).toHaveBeenCalledWith(expect.stringContaining('FROM kyc_records'), [address]);
   });
 
@@ -44,12 +50,18 @@ describe('GET /api/v1/kyc/status/:address', () => {
     ['rejected', 'rejected'],
     ['expired', 'rejected'],
   ])('maps stored %s status to public %s status', async (stored, expected) => {
-    query.mockResolvedValue([{ status: stored }]);
+    query.mockResolvedValueOnce([{ status: stored }]).mockResolvedValueOnce([]);
 
     const response = await request(app).get(`/api/v1/kyc/status/${address}`);
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ data: { address, status: expected } });
+    expect(response.body).toEqual({
+      data: {
+        address,
+        status: expected,
+        worldId: { verified: false, verifiedAt: null, verificationLevel: null },
+      },
+    });
   });
 
   it('rejects an invalid Stellar address before querying the database', async () => {

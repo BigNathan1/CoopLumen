@@ -56,21 +56,21 @@
   outline-offset: 2px;
 }
 
-.tab[aria-selected="true"] {
+.tab[aria-selected='true'] {
   background-color: var(--color-surface-raised);
   color: var(--color-text);
 }
 
 /* Active-tab indicator */
-.tab[aria-selected="true"]::after {
-  content: "";
+.tab[aria-selected='true']::after {
+  content: '';
   position: absolute;
   left: var(--space-3);
   right: var(--space-3);
   bottom: calc(var(--space-1) * -1);
   height: 2px;
-  border-radius: var(--radius-full);
-  background-color: var(--color-accent);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
 }
 
 .tabCount {
@@ -79,7 +79,7 @@
   justify-content: center;
   min-width: 1.5rem;
   padding: 0 var(--space-1);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-pill);
   background-color: var(--color-surface-hover);
   color: var(--color-text-muted);
   font-size: 0.75rem;
@@ -87,9 +87,9 @@
   line-height: 1.5;
 }
 
-.tab[aria-selected="true"] .tabCount {
-  background-color: var(--color-accent-subtle);
-  color: var(--color-accent);
+.tab[aria-selected='true'] .tabCount {
+  background-color: var(--color-primary-subtle);
+  color: var(--color-primary);
 }
 
 /* ---------------------------------------------------------------------------
@@ -180,7 +180,7 @@
   align-items: center;
   gap: var(--space-1);
   padding: 0 var(--space-2);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-pill);
   font-size: 0.75rem;
   font-weight: 600;
   line-height: 1.75;
@@ -198,13 +198,13 @@
 }
 
 .badgeRejected {
-  background-color: var(--color-danger-subtle);
-  color: var(--color-danger);
+  background-color: var(--color-error-subtle);
+  color: var(--color-error);
 }
 
 .badgeExecuted {
-  background-color: var(--color-accent-subtle);
-  color: var(--color-accent);
+  background-color: var(--color-primary-subtle);
+  color: var(--color-primary);
 }
 
 /* ---------------------------------------------------------------------------
@@ -238,8 +238,8 @@
 }
 
 .error {
-  border-color: var(--color-danger);
-  color: var(--color-danger);
+  border-color: var(--color-error);
+  color: var(--color-error);
 }
 
 /* ---------------------------------------------------------------------------

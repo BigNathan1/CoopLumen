@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 
-import { CommunityGovernanceWorkspace } from "@/components/governance/CommunityGovernanceWorkspace";
+import { GovernanceWorkspace } from '@/app/governance/GovernanceWorkspace';
 
 interface CommunityGovernancePageProps {
   params: Promise<{ id: string }>;
@@ -15,30 +15,28 @@ export async function generateMetadata({
   return {
     title: `Governance · Community ${id}`,
     description:
-      "Create proposals and vote on community decisions with token-weighted, on-chain governance.",
+      'Create proposals and vote on community decisions with token-weighted, on-chain governance.',
   };
 }
 
-export default async function CommunityGovernancePage({
-  params,
-}: CommunityGovernancePageProps) {
+export default async function CommunityGovernancePage({ params }: CommunityGovernancePageProps) {
   const { id } = await params;
 
-  if (!id || typeof id !== "string" || id.trim().length === 0) {
+  if (!id || typeof id !== 'string' || id.trim().length === 0) {
     notFound();
   }
 
   return (
-    <main className="community-governance-page">
-      <header className="community-governance-page__header">
-        <h1 className="community-governance-page__title">Governance</h1>
-        <p className="community-governance-page__subtitle">
-          Create proposals and vote on community decisions. Votes are
-          token-weighted and recorded on-chain.
+    <main>
+      <header>
+        <h1>Governance</h1>
+        <p>
+          Create proposals and vote on community decisions. Votes are token-weighted and recorded
+          on-chain.
         </p>
       </header>
 
-      <CommunityGovernanceWorkspace communityId={id} />
+      <GovernanceWorkspace initialCommunityId={id} />
     </main>
   );
 }

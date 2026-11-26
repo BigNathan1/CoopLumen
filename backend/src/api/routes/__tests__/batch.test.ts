@@ -2,6 +2,7 @@ import request from 'supertest';
 import { Keypair } from '@stellar/stellar-sdk';
 import app from '../../../app';
 import { buildBatchPayment, submitBatchPayment } from '../../../contracts/batchPayments';
+import { createSessionToken } from '../../utils/sessionToken';
 
 jest.mock('../../../db', () => ({
   db: { query: jest.fn(), ping: jest.fn() },
@@ -30,6 +31,7 @@ describe('Batch Payments Endpoints (/api/v1/batch)', () => {
 
       const res = await request(app)
         .post('/api/v1/batch/disburse')
+        .set('Authorization', `Bearer ${createSessionToken(SENDER_PUBLIC).token}`)
         .send({
           senderSecret: SENDER_SECRET,
           payments: [
@@ -57,10 +59,13 @@ describe('Batch Payments Endpoints (/api/v1/batch)', () => {
     });
 
     it('returns 400 for validation errors', async () => {
-      const res = await request(app).post('/api/v1/batch/disburse').send({
-        senderSecret: 'invalid-secret',
-        payments: [],
-      });
+      const res = await request(app)
+        .post('/api/v1/batch/disburse')
+        .set('Authorization', `Bearer ${createSessionToken(SENDER_PUBLIC).token}`)
+        .send({
+          senderSecret: 'invalid-secret',
+          payments: [],
+        });
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Validation failed');

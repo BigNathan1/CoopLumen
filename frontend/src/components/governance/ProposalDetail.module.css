@@ -39,9 +39,9 @@
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-pill);
   border: 1px solid var(--color-border);
-  background-color: var(--color-surface-muted);
+  background-color: var(--color-surface-hover);
   color: var(--color-text-muted);
   white-space: nowrap;
 }
@@ -130,13 +130,13 @@
   height: 0.75rem;
   width: 100%;
   overflow: hidden;
-  background-color: var(--color-surface-muted);
-  border-radius: var(--radius-full);
+  background-color: var(--color-surface-hover);
+  border-radius: var(--radius-pill);
 }
 
 .tallyBar {
   height: 100%;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-pill);
   transition: width 200ms ease;
 }
 
@@ -198,11 +198,13 @@
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-text);
-  background-color: var(--color-surface-muted);
+  background-color: var(--color-surface-hover);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background-color 150ms ease, border-color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
 }
 
 .button:hover {
@@ -210,7 +212,7 @@
 }
 
 .button:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
   outline-offset: var(--focus-ring-offset);
 }
 
@@ -220,7 +222,7 @@
 }
 
 .buttonPrimary {
-  color: var(--color-on-primary);
+  color: var(--color-text-on-primary);
   background-color: var(--color-primary);
   border-color: var(--color-primary);
 }
@@ -244,8 +246,8 @@
   .tallyRow {
     grid-template-columns: 1fr auto;
     grid-template-areas:
-      "label value"
-      "track track";
+      'label value'
+      'track track';
     row-gap: var(--space-1);
   }
 

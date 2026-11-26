@@ -284,17 +284,17 @@
   cursor: pointer;
 }
 
-.voteButton[data-vote="for"] {
+.voteButton[data-vote='for'] {
   border-color: var(--color-success);
   color: var(--color-success);
 }
 
-.voteButton[data-vote="against"] {
+.voteButton[data-vote='against'] {
   border-color: var(--color-error);
   color: var(--color-error);
 }
 
-.voteButton[data-vote="abstain"] {
+.voteButton[data-vote='abstain'] {
   border-color: var(--color-border-strong);
   color: var(--color-text-muted);
 }

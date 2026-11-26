@@ -40,8 +40,8 @@ export const rejectMultiSigRequestSchema = z.object({
 });
 
 export const executeMultiSigRequestSchema = z.object({
-  stellar_tx_hash: z.string().optional().nullable(),
-  signed_xdr: z.string().optional().nullable(),
+  stellar_tx_hash: z.string().trim().min(1).optional().nullable(),
+  signed_xdr: z.string().trim().min(1).optional().nullable(),
 });
 
 export const getMultiSigQuerySchema = z.object({

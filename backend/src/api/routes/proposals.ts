@@ -16,7 +16,8 @@ import {
   submitVoteSchema,
   SubmitVoteInput,
 } from '../schemas/proposal';
-import { validateXdr } from '../../contracts/xdrValidation';
+import { inspectVoteXdr, validateXdr } from '../../contracts/xdrValidation';
+import { logger } from '../../utils/logger';
 import {
   fetchProposalTally,
   fetchProposalsForCommunity,
@@ -342,13 +343,28 @@ proposalRouter.get(
 
       try {
         const onChainProposals = await fetchProposalsForCommunity(communityId);
+        const now = new Date().toISOString();
         for (const proposal of onChainProposals) {
-          await upsertProposalFromChain(proposal);
+          await upsertProposalFromChain({
+            id: proposal.id,
+            communityId: proposal.communityId,
+            proposerAddress: proposal.proposer,
+            title: proposal.title,
+            description: proposal.description ?? null,
+            type: 'general',
+            status: 'active',
+            quorumPercent: '0',
+            metadata: null,
+            votingStartsAt: now,
+            votingEndsAt: now,
+            executedAt: null,
+            stellarTxHash: null,
+          });
         }
         source = 'chain';
       } catch (chainError) {
         // Fall back to the DB cache when the contract is unreachable.
-        req.log?.warn?.({ err: chainError }, 'Failed to refresh proposals from contract');
+        logger.warn('Failed to refresh proposals from contract', { error: chainError });
       }
 
       const proposals = await db.query<Proposal>(
@@ -407,7 +423,7 @@ proposalRouter.get(
       try {
         await fetchProposalTally(proposal.id);
       } catch (chainError) {
-        req.log?.warn?.({ err: chainError }, 'Failed to fetch on-chain proposal tally');
+        logger.warn('Failed to fetch on-chain proposal tally', { error: chainError });
       }
 
       res.json({ data: { proposal, tally } });
@@ -478,15 +494,16 @@ proposalRouter.post(
   validateBody(submitVoteSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { xdr } = req.body as SubmitVoteInput;
+      const { signedXdr } = req.body as SubmitVoteInput;
       const proposalId = req.params.id;
 
-      const validation = validateXdr(xdr);
+      const validation = validateXdr(signedXdr);
       if (!validation.valid) {
         res.status(400).json({ data: null, error: validation.error ?? 'Malformed XDR' });
         return;
       }
-      if (!validation.targetsVoteMethod || validation.proposalId !== proposalId) {
+      const vote = inspectVoteXdr(signedXdr);
+      if (!vote.targetsVoteMethod || vote.proposalId !== proposalId) {
         res.status(400).json({
           data: null,
           error: 'XDR does not target the governance vote method for this proposal',
@@ -500,20 +517,13 @@ proposalRouter.post(
         return;
       }
 
-      const submission = await submitVoteTransaction(xdr);
+      const submission = await submitVoteTransaction({ signedXdr });
 
       try {
         await db.query(
           `INSERT INTO votes (proposal_id, voter_address, choice, weight, reason, tx_hash)
            VALUES ($1, $2, $3, $4, $5, $6)`,
-          [
-            proposalId,
-            req.auth!.address,
-            validation.choice,
-            validation.weight ?? '1',
-            null,
-            submission.txHash,
-          ]
+          [proposalId, req.auth!.address, vote.choice, vote.weight ?? '1', null, submission.hash]
         );
       } catch (error) {
         const databaseError = error as DatabaseError;
@@ -527,7 +537,7 @@ proposalRouter.post(
         throw error;
       }
 
-      res.status(201).json({ data: { txHash: submission.txHash, status: submission.status } });
+      res.status(201).json({ data: { txHash: submission.hash, status: submission.status } });
     } catch (error) {
       next(error);
     }

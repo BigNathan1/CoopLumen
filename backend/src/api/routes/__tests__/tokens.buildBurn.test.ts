@@ -110,6 +110,9 @@ describe('POST /api/v1/tokens/submit with refreshSupply', () => {
 
     expect(res.status).toBe(200);
     expect(getTotalSupply).not.toHaveBeenCalled();
-    expect(db.query).not.toHaveBeenCalled();
+    const nonAuditQueries = (db.query as jest.Mock).mock.calls.filter(
+      ([sql]) => !String(sql).includes('audit_log')
+    );
+    expect(nonAuditQueries).toHaveLength(0);
   });
 });

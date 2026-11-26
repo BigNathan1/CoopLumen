@@ -1,4 +1,5 @@
 import {
+  Account,
   Horizon,
   Keypair,
   Networks,
@@ -178,7 +179,9 @@ class StellarServiceClass {
     this.network = NETWORK_PASSPHRASES[env];
     this.networkPassphrase = NETWORK_PASSPHRASES[env];
     this.server = new Horizon.Server(horizonUrl);
-    this.sorobanServer = new SorobanRpc.Server(sorobanUrl, { allowHttp: sorobanUrl.startsWith('http://') });
+    this.sorobanServer = new SorobanRpc.Server(sorobanUrl, {
+      allowHttp: sorobanUrl.startsWith('http://'),
+    });
   }
 
   getSorobanServer(): SorobanRpc.Server {
@@ -198,21 +201,15 @@ class StellarServiceClass {
    * Simulates a read-only invocation of the governance contract and returns the
    * decoded native result. Throws StellarNetworkError on simulation failure.
    */
-  private async simulateContractRead(
-    method: string,
-    args: xdr.ScVal[]
-  ): Promise<unknown> {
+  private async simulateContractRead(method: string, args: xdr.ScVal[]): Promise<unknown> {
     const contract = new Contract(this.getGovernanceContractId());
     const operation = contract.call(method, ...args);
 
     // Simulation requires a source account; use a well-known funded account
     // since read-only invocations are not signed or submitted.
-    const sourceAccount = new Horizon.AccountResponse(
-      {
-        account_id: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
-        sequence: '0',
-      } as unknown as Horizon.HorizonApi.AccountResponse,
-      this.networkPassphrase
+    const sourceAccount = new Account(
+      'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+      '0'
     );
 
     const tx = new TransactionBuilder(sourceAccount, {
@@ -243,12 +240,11 @@ class StellarServiceClass {
       );
     }
 
-    const success = simulation as SorobanRpc.Api.SimulateTransactionSuccessResponse;
-    if (!success.result) {
+    if (!('result' in simulation) || !simulation.result) {
       return null;
     }
 
-    return scValToNative(success.result.retval);
+    return scValToNative(simulation.result.retval);
   }
 
   private decodeProposal(raw: unknown): OnChainProposal {
@@ -262,7 +258,11 @@ class StellarServiceClass {
 
     const asString = (value: unknown): string => {
       if (value === undefined || value === null) return '0';
-      return typeof value === 'string' ? value : String(value);
+      if (typeof value === 'string') return value;
+      if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+        return String(value);
+      }
+      return JSON.stringify(value);
     };
 
     const asNumber = (value: unknown): number => {
@@ -590,3 +590,75 @@ class StellarServiceClass {
 }
 
 export const StellarService = new StellarServiceClass();
+
+/** Parameters for executing a passed governance proposal on chain. */
+export interface ExecuteProposalParams {
+  proposalId: string;
+  communityId: string;
+  proposerAddress: string;
+}
+
+/** Reads every governance proposal for a community from the contract. */
+export async function fetchProposalsForCommunity(communityId: string): Promise<OnChainProposal[]> {
+  return StellarService.getProposalsForCommunity(communityId);
+}
+
+/** Reads a single governance proposal, including its on-chain vote tally. */
+export async function fetchProposalTally(proposalId: string): Promise<OnChainProposal | null> {
+  return StellarService.getProposalById(proposalId);
+}
+
+/** Submits an already-signed Soroban vote transaction envelope. */
+export async function submitVoteTransaction(params: SubmitVoteParams): Promise<SubmitVoteResult> {
+  return StellarService.submitVoteTransaction(params);
+}
+
+/**
+ * Invokes the governance contract's `execute` method for a proposal whose
+ * voting period has ended.
+ *
+ * The transaction is simulated, assembled and signed by the funded account in
+ * GOVERNANCE_SIGNER_SECRET; the resulting hash is what the route records.
+ */
+export async function executeProposalOnChain(
+  params: ExecuteProposalParams
+): Promise<{ txHash: string }> {
+  const contractId = process.env.GOVERNANCE_CONTRACT_ID;
+  if (!contractId) {
+    throw new StellarNetworkError('GOVERNANCE_CONTRACT_ID is not configured');
+  }
+
+  const signerSecret = process.env.GOVERNANCE_SIGNER_SECRET;
+  if (!signerSecret) {
+    throw new StellarNetworkError('GOVERNANCE_SIGNER_SECRET is not configured');
+  }
+
+  const signer = Keypair.fromSecret(signerSecret);
+  const account = await StellarService.loadAccount(signer.publicKey());
+  const contract = new Contract(contractId);
+  const transaction = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: StellarService.getNetworkPassphrase(),
+  })
+    .addOperation(contract.call('execute', nativeToScVal(params.proposalId, { type: 'string' })))
+    .setTimeout(30)
+    .build();
+
+  const server = StellarService.getSorobanServer();
+  const simulation = await server.simulateTransaction(transaction);
+  if (SorobanRpc.Api.isSimulationError(simulation)) {
+    throw new StellarNetworkError(`Proposal execution simulation failed: ${simulation.error}`);
+  }
+
+  const prepared = SorobanRpc.assembleTransaction(transaction, simulation).build();
+  prepared.sign(signer);
+  const response = await server.sendTransaction(prepared);
+
+  if (response.status === 'ERROR') {
+    throw new StellarNetworkError(
+      `Soroban rejected proposal execution: ${response.errorResult?.toXDR('base64') ?? 'unknown error'}`
+    );
+  }
+
+  return { txHash: response.hash };
+}

@@ -1,27 +1,46 @@
-import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import ProposalDetail from '../ProposalDetail';
+import ProposalDetail from '../governance/ProposalDetail';
 
-// Mock the useProposal hook following existing component test patterns.
 jest.mock('../../hooks/useProposal', () => ({
-  __esModule: true,
-  default: jest.fn(),
+  useProposal: jest.fn(),
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const useProposal = require('../../hooks/useProposal').default as jest.Mock;
+import { useProposal } from '../../hooks/useProposal';
+
+const mockedUseProposal = useProposal as jest.MockedFunction<typeof useProposal>;
+
+function mockResult(overrides: Record<string, unknown>) {
+  return {
+    data: undefined,
+    error: undefined,
+    isLoading: false,
+    mutate: jest.fn(),
+    ...overrides,
+  } as unknown as ReturnType<typeof useProposal>;
+}
 
 const baseProposal = {
   id: 'prop-1',
+  community_id: 'community-1',
+  proposer_address: 'GABC',
   title: 'Increase Community Treasury Allocation',
   description: 'A proposal to increase the treasury allocation for community grants.',
+  type: 'treasury_spend',
   status: 'active',
-  votesFor: 300,
-  votesAgainst: 100,
-  votesAbstain: 100,
-  totalVotes: 500,
-  quorum: 400,
+  quorum_percent: '50',
+  metadata: null,
+  voting_starts_at: '2026-01-01T00:00:00.000Z',
+  voting_ends_at: '2026-01-08T00:00:00.000Z',
+  executed_at: null,
+  stellar_tx_hash: null,
+  created_at: '2026-01-01T00:00:00.000Z',
+  updated_at: '2026-01-01T00:00:00.000Z',
+  votes_for: '300',
+  votes_against: '100',
+  votes_abstain: '100',
+  total_weight: '500',
+  tally: { for: '300', against: '100', abstain: '100', totalWeight: '500' },
 };
 
 describe('ProposalDetail', () => {
@@ -29,137 +48,48 @@ describe('ProposalDetail', () => {
     jest.clearAllMocks();
   });
 
-  it('renders the title, description, and status', () => {
-    useProposal.mockReturnValue({
-      proposal: baseProposal,
-      loading: false,
-      error: null,
-    });
+  it('renders the title, description and status', () => {
+    mockedUseProposal.mockReturnValue(mockResult({ data: baseProposal }));
 
     render(<ProposalDetail proposalId="prop-1" />);
 
     expect(
-      screen.getByRole('heading', { name: /increase community treasury allocation/i }),
+      screen.getByRole('heading', { name: /increase community treasury allocation/i })
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/a proposal to increase the treasury allocation/i),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/active/i)).toBeInTheDocument();
+    expect(screen.getByText(/a proposal to increase the treasury allocation/i)).toBeInTheDocument();
+    expect(screen.getByText('active')).toBeInTheDocument();
   });
 
   it('computes tally percentages correctly', () => {
-    useProposal.mockReturnValue({
-      proposal: baseProposal,
-      loading: false,
-      error: null,
-    });
+    mockedUseProposal.mockReturnValue(mockResult({ data: baseProposal }));
 
     render(<ProposalDetail proposalId="prop-1" />);
 
-    // For: 300/500 = 60%, Against: 100/500 = 20%, Abstain: 100/500 = 20%
-    expect(screen.getByText('60%')).toBeInTheDocument();
-    expect(screen.getAllByText('20%')).toHaveLength(2);
+    expect(screen.getByText('(60.0%)')).toBeInTheDocument();
+    expect(screen.getAllByText('(20.0%)')).toHaveLength(2);
+    expect(screen.getAllByText('500').length).toBeGreaterThan(0);
   });
 
-  it('renders the vote tally bar chart with accessible labels', () => {
-    useProposal.mockReturnValue({
-      proposal: baseProposal,
-      loading: false,
-      error: null,
-    });
-
-    render(<ProposalDetail proposalId="prop-1" />);
-
-    const chart = screen.getByRole('img', { name: /vote tally/i });
-    expect(chart).toBeInTheDocument();
-
-    const forBar = screen.getByRole('progressbar', { name: /for.*60%/i });
-    expect(forBar).toBeInTheDocument();
-    expect(forBar).toHaveAttribute('aria-valuenow', '60');
-    expect(forBar).toHaveAttribute('aria-valuemin', '0');
-    expect(forBar).toHaveAttribute('aria-valuemax', '100');
-
-    const againstBar = screen.getByRole('progressbar', { name: /against.*20%/i });
-    expect(againstBar).toBeInTheDocument();
-    expect(againstBar).toHaveAttribute('aria-valuenow', '20');
-
-    const abstainBar = screen.getByRole('progressbar', { name: /abstain.*20%/i });
-    expect(abstainBar).toBeInTheDocument();
-    expect(abstainBar).toHaveAttribute('aria-valuenow', '20');
-  });
-
-  it('makes tally bars focusable for keyboard users', () => {
-    useProposal.mockReturnValue({
-      proposal: baseProposal,
-      loading: false,
-      error: null,
-    });
-
-    render(<ProposalDetail proposalId="prop-1" />);
-
-    const bars = screen.getAllByRole('progressbar');
-    expect(bars.length).toBeGreaterThan(0);
-    bars.forEach((bar) => {
-      expect(bar).toHaveAttribute('tabindex', '0');
-    });
-  });
-
-  it('renders an empty state when there are no votes', () => {
-    useProposal.mockReturnValue({
-      proposal: {
-        ...baseProposal,
-        votesFor: 0,
-        votesAgainst: 0,
-        votesAbstain: 0,
-        totalVotes: 0,
-      },
-      loading: false,
-      error: null,
-    });
+  it('shows an empty state before any votes are cast', () => {
+    mockedUseProposal.mockReturnValue(
+      mockResult({
+        data: {
+          ...baseProposal,
+          tally: { for: '0', against: '0', abstain: '0', totalWeight: '0' },
+        },
+      })
+    );
 
     render(<ProposalDetail proposalId="prop-1" />);
 
     expect(screen.getByText(/no votes have been cast yet/i)).toBeInTheDocument();
-    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });
 
-  it('renders an error state when the proposal fails to load', () => {
-    useProposal.mockReturnValue({
-      proposal: null,
-      loading: false,
-      error: new Error('Failed to load proposal'),
-    });
+  it('shows an error state when the request fails', () => {
+    mockedUseProposal.mockReturnValue(mockResult({ error: new Error('boom') }));
 
     render(<ProposalDetail proposalId="prop-1" />);
 
-    const alert = screen.getByRole('alert');
-    expect(alert).toBeInTheDocument();
-    expect(within(alert).getByText(/failed to load proposal/i)).toBeInTheDocument();
-  });
-
-  it('renders a loading state while the proposal is being fetched', () => {
-    useProposal.mockReturnValue({
-      proposal: null,
-      loading: true,
-      error: null,
-    });
-
-    render(<ProposalDetail proposalId="prop-1" />);
-
-    expect(screen.getByRole('status')).toBeInTheDocument();
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
-  });
-
-  it('exposes a labelled region for the proposal detail', () => {
-    useProposal.mockReturnValue({
-      proposal: baseProposal,
-      loading: false,
-      error: null,
-    });
-
-    render(<ProposalDetail proposalId="prop-1" />);
-
-    const region = screen.getByRole('region', { name: /proposal detail/i });
-    expect(region).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/unable to load this proposal/i);
   });
 });

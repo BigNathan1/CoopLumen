@@ -88,7 +88,7 @@ describe('useProposal', () => {
   });
 
   it('uses the public proposal endpoint fetcher', async () => {
-    const get = jest.spyOn(api, 'get').mockResolvedValue(PROPOSAL);
+    const get = jest.spyOn(api, 'get').mockResolvedValue({ data: PROPOSAL });
     renderHook(() => useProposal('proposal-1'));
 
     await expect(lastCall?.fetcher()).resolves.toEqual(PROPOSAL);

@@ -2,38 +2,27 @@
 
 import { useState } from 'react';
 import { api } from '@/lib/api';
-import styles from './governance.module.css';
 import { sanitizeUserText } from '@/lib/sanitize';
-import { VotingPanel } from '@/components/governance/VotingPanel';
+import { useFreighterSign } from '@/hooks/useFreighterSign';
+import type { Proposal } from '@/hooks/useProposal';
 import { CreateProposalForm } from '@/components/governance/CreateProposalForm';
 import { ProposalList } from '@/components/governance/ProposalList';
-import { ProposalDetail } from '@/components/ProposalDetail';
+import styles from './governance.module.css';
 
 type VoteChoice = 'for' | 'against' | 'abstain';
 
-interface Proposal {
-  id: string;
-  title: string;
-  description: string | null;
-  status: string;
-  votes_for: string;
-  votes_against: string;
-  votes_abstain: string;
-  total_weight: string;
-  voting_ends_at: string;
-}
-
-async function signVoteXdr(xdr: string): Promise<string> {
-  const { signTransaction } = await import('@/lib/wallet');
-  return signTransaction(xdr);
-}
-
+/**
+ * Creates proposals for a community and casts token-weighted votes on the
+ * selected ballot. Votes are built by the API, signed in Freighter, and
+ * submitted back as a signed envelope.
+ */
 export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId: string }) {
   const [communityId] = useState(initialCommunityId);
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [voting, setVoting] = useState<VoteChoice | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const { sign } = useFreighterSign();
 
   async function castVote(choice: VoteChoice) {
     if (!proposal) return;
@@ -42,13 +31,11 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
     setError('');
 
     try {
-      // Votes are cast on-chain: the client builds and signs the vote XDR,
-      // then submits it to the proposal vote endpoint.
       const { xdr } = await api.post<{ xdr: string }>(
         `/api/v1/proposals/${proposal.id}/vote/build`,
-        { choice },
+        { choice }
       );
-      const signedXdr = await signVoteXdr(xdr);
+      const signedXdr = await sign(xdr);
       const updated = await api.post<Proposal>(`/api/v1/proposals/${proposal.id}/vote`, {
         signedXdr,
       });
@@ -59,11 +46,6 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
     } finally {
       setVoting(null);
     }
-  }
-
-  function handleVoteRecorded(updated: Proposal) {
-    setProposal(updated);
-    setMessage('Vote recorded.');
   }
 
   return (
@@ -78,7 +60,7 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
         <CreateProposalForm
           communityId={communityId}
           onCreated={(created) => {
-            setProposal(created);
+            setProposal(created as Proposal);
             setMessage('Proposal created and voting is open.');
             setError('');
           }}
@@ -98,18 +80,6 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
             {proposal.description && (
               <p className={styles.description}>{sanitizeUserText(proposal.description)}</p>
             )}
-
-            <VotingPanel
-              proposalId={proposal.id}
-              tally={{
-                votes_for: proposal.votes_for,
-                votes_against: proposal.votes_against,
-                votes_abstain: proposal.votes_abstain,
-                total_weight: proposal.total_weight,
-              }}
-              status={proposal.status}
-              onVoteRecorded={handleVoteRecorded}
-            />
 
             <dl className={styles.tally} aria-label="Live vote tally">
               <div>
@@ -144,8 +114,6 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
                 </button>
               </div>
             </fieldset>
-
-            <ProposalDetail proposalId={proposal.id} />
           </section>
         )}
 

@@ -84,6 +84,7 @@ export const listLoansParamsSchema = z.object({
  */
 export const listLoansQuerySchema = z.object({
   status: z.enum(LOAN_LIST_STATUSES).optional(),
+  page: z.coerce.number().int().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
   sortBy: z.enum(['createdAt', 'dueAt', 'amount']).default('createdAt'),

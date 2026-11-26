@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '../../db';
 import { parsePagination, pageMeta, parseSort, queryString } from '../utils/http';
-import { validateParams, validateQuery } from '../middleware/validation';
+import { validateParams, validateQuery } from '../middleware/validate';
 
 export const reputationRouter = Router();
 
@@ -20,7 +20,7 @@ interface ReputationScore {
 }
 
 interface QueryClient {
-  query<T = unknown>(text: string, params?: unknown[]): Promise<T[]>;
+  query<T extends object = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]>;
 }
 
 /** Neutral score used when a member has no loan history yet. */
@@ -213,10 +213,7 @@ reputationRouter.get(
         score = calc.score;
       } else {
         const communityIds = Array.from(
-          new Set([
-            ...scores.map((s) => s.community_id),
-            ...history.map((h) => h.community_id),
-          ])
+          new Set([...scores.map((s) => s.community_id), ...history.map((h) => h.community_id)])
         );
         if (communityIds.length === 0) {
           score = NEUTRAL_SCORE;
@@ -227,9 +224,7 @@ reputationRouter.get(
           const totalLoans = calcs.reduce((acc, c) => acc + c.totalLoans, 0);
           const onTime = calcs.reduce((acc, c) => acc + c.onTimeRepayments, 0);
           score =
-            totalLoans === 0
-              ? NEUTRAL_SCORE
-              : Math.round((onTime / totalLoans) * 100 * 100) / 100;
+            totalLoans === 0 ? NEUTRAL_SCORE : Math.round((onTime / totalLoans) * 100 * 100) / 100;
         }
       }
 

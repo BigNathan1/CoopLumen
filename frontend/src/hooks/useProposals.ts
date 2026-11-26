@@ -19,10 +19,9 @@ export interface UseProposalsResult {
  */
 export function useProposals(
   communityId: string | null | undefined,
-  status?: ProposalStatus,
+  status?: ProposalStatus
 ): UseProposalsResult {
-  const hasCommunityId =
-    typeof communityId === 'string' && communityId.trim().length > 0;
+  const hasCommunityId = typeof communityId === 'string' && communityId.trim().length > 0;
 
   let path: string | null = null;
   if (hasCommunityId) {
@@ -34,9 +33,8 @@ export function useProposals(
     path = `/api/v1/proposals?${params.toString()}`;
   }
 
-  const { data, error, isLoading, mutate } = useSWR<Proposal[]>(
-    path,
-    (url: string) => api.get<Proposal[]>(url, { auth: false }),
+  const { data, error, isLoading, mutate } = useSWR<Proposal[]>(path, (url: string) =>
+    api.get<Proposal[]>(url, { auth: false })
   );
 
   return {

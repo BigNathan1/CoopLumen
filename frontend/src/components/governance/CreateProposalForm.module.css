@@ -53,7 +53,7 @@
 }
 
 .required {
-  color: var(--color-danger);
+  color: var(--color-error);
   margin-left: var(--space-1);
 }
 
@@ -76,7 +76,9 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-sizing: border-box;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .textarea {
@@ -113,13 +115,13 @@
 .input[aria-invalid='true'],
 .textarea[aria-invalid='true'],
 .select[aria-invalid='true'] {
-  border-color: var(--color-danger);
+  border-color: var(--color-error);
 }
 
 .input[aria-invalid='true']:focus,
 .textarea[aria-invalid='true']:focus,
 .select[aria-invalid='true']:focus {
-  box-shadow: 0 0 0 2px var(--color-danger-ring);
+  box-shadow: 0 0 0 2px var(--color-error);
 }
 
 .input:disabled,
@@ -127,7 +129,7 @@
 .select:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  background-color: var(--color-surface-muted);
+  background-color: var(--color-surface-hover);
 }
 
 /* Action builder */
@@ -139,7 +141,7 @@
   padding: var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background-color: var(--color-surface-muted);
+  background-color: var(--color-surface-hover);
 }
 
 .actionBuilderHeader {
@@ -227,7 +229,10 @@
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
 }
 
 .button:hover:not(:disabled) {
@@ -255,7 +260,7 @@
 }
 
 .buttonSecondary:hover:not(:disabled) {
-  background-color: var(--color-surface-muted);
+  background-color: var(--color-surface-hover);
   border-color: var(--color-primary);
 }
 
@@ -265,18 +270,18 @@
 }
 
 .buttonDanger {
-  color: var(--color-danger);
+  color: var(--color-error);
   background-color: transparent;
   border-color: var(--color-border-strong);
 }
 
 .buttonDanger:hover:not(:disabled) {
-  background-color: var(--color-danger-subtle);
-  border-color: var(--color-danger);
+  background-color: var(--color-error-subtle);
+  border-color: var(--color-error);
 }
 
 .buttonDanger:focus-visible {
-  outline: 2px solid var(--color-danger);
+  outline: 2px solid var(--color-error);
   outline-offset: 2px;
 }
 
@@ -296,9 +301,9 @@
   padding: var(--space-2) var(--space-3);
   font-size: 0.8125rem;
   line-height: 1.4;
-  color: var(--color-danger);
-  background-color: var(--color-danger-subtle);
-  border: 1px solid var(--color-danger);
+  color: var(--color-error);
+  background-color: var(--color-error-subtle);
+  border: 1px solid var(--color-error);
   border-radius: var(--radius-sm);
 }
 
@@ -306,7 +311,7 @@
   margin: 0;
   font-size: 0.75rem;
   line-height: 1.4;
-  color: var(--color-danger);
+  color: var(--color-error);
 }
 
 .formError {
@@ -316,9 +321,9 @@
   padding: var(--space-3);
   font-size: 0.875rem;
   line-height: 1.5;
-  color: var(--color-danger);
-  background-color: var(--color-danger-subtle);
-  border: 1px solid var(--color-danger);
+  color: var(--color-error);
+  background-color: var(--color-error-subtle);
+  border: 1px solid var(--color-error);
   border-radius: var(--radius-md);
 }
 
