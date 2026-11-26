@@ -6,16 +6,16 @@ This review covers wallet challenges, Ed25519 signature verification, session an
 
 ## Threat Review
 
-| Threat | Control | Result |
-| --- | --- | --- |
-| Forged wallet identity | Challenge signatures are verified with the claimed Stellar public key | Mitigated |
-| Challenge replay | Challenges are random, expire after five minutes, and are consumed before signature validation | Mitigated |
-| Session forgery | Session payloads use HMAC-SHA256 and constant-time signature comparison | Mitigated |
-| Token lifetime manipulation | Verification rejects missing/future `iat`, expired tokens, and lifetimes beyond one hour | Mitigated |
-| Browser token theft | Session and refresh cookies are HTTP-only, SameSite Strict, and Secure in production | Mitigated |
-| Refresh replay | Refresh tokens are random, stored only as hashes, single-use, and rotated | Mitigated |
-| Authorization bypass | Community and operator guards fail closed and derive identity only from verified auth context | Mitigated |
-| Credential disclosure | Logger-level recursive redaction removes bearer tokens, cookies, signatures, API keys, and Stellar secret seeds | Mitigated |
+| Threat                      | Control                                                                                                         | Result    |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------- | --------- |
+| Forged wallet identity      | Challenge signatures are verified with the claimed Stellar public key                                           | Mitigated |
+| Challenge replay            | Challenges are random, expire after five minutes, and are consumed before signature validation                  | Mitigated |
+| Session forgery             | Session payloads use HMAC-SHA256 and constant-time signature comparison                                         | Mitigated |
+| Token lifetime manipulation | Verification rejects missing/future `iat`, expired tokens, and lifetimes beyond one hour                        | Mitigated |
+| Browser token theft         | Session and refresh cookies are HTTP-only, SameSite Strict, and Secure in production                            | Mitigated |
+| Refresh replay              | Refresh tokens are random, stored only as hashes, single-use, and rotated                                       | Mitigated |
+| Authorization bypass        | Community and operator guards fail closed and derive identity only from verified auth context                   | Mitigated |
+| Credential disclosure       | Logger-level recursive redaction removes bearer tokens, cookies, signatures, API keys, and Stellar secret seeds | Mitigated |
 
 ## Residual Risks
 

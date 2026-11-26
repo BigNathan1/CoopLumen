@@ -107,6 +107,33 @@ executors or indexers must consume the events and perform any domain-specific
 work. Because the status is already `Executed`, the proposal cannot be run a
 second time.
 
+### 5. Backend execution endpoint
+
+`POST /api/v1/proposals/:id/execute` is the backend entry point for triggering
+execution. It maps directly onto the contract's `execute_proposal(proposal_id,
+executor)` call: the backend submits the transaction with the configured
+executor address and waits for the result.
+
+The endpoint enforces the same preconditions as the contract before and after
+submission:
+
+1. the voting window has closed (`voting_ends_at` is in the past);
+2. the proposal status is `Passed`; and
+3. total participation meets the configured quorum.
+
+Requests that fail these checks return the standard `{ data, meta?, error? }`
+envelope with an error code describing the failed precondition, and no
+transaction is submitted. If the contract call itself fails (for example,
+`InsufficientQuorum` or `ProposalExecutionFailed`), the contract error is
+surfaced through the same envelope.
+
+On success the backend records the execution transaction hash and the resulting
+status (`Executed`) in the `proposals` read model, so subsequent reads reflect
+the on-chain outcome without requiring a separate indexer pass. The read model
+remains a projection: the contract is still the authority for whether a
+proposal executed.
+=======
+
 ## Read interface
 
 - `get_config()` returns the singleton configuration.

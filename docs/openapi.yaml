@@ -43,9 +43,7 @@ tags:
   - name: KYC
     description: Account verification status
   - name: Proposals
-    description: Governance proposals and voting-power delegation
-  - name: Proposals
-    description: Governance proposal creation and read models
+    description: Governance proposals, on-chain voting, and voting-power delegation
   - name: KYC
     description: Account identity verification flows
   - name: Auth
@@ -77,6 +75,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/proposals/{communityId}:
+    get:
+      tags: [Proposals]
+      summary: List proposals for a community from contract and DB cache
+      description: >
+        Returns the community's governance proposals. Proposals are read from the
+        Soroban governance contract and merged with the database read model, so
+        tallies reflect on-chain state where available and the cached DB values
+        otherwise.
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          description: Community UUID.
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [draft, active, passed, rejected, executed, cancelled]
+      responses:
+        '200':
+          description: Community proposals with current tallies
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/GovernanceProposal' }
+                  meta:
+                    type: object
+                    additionalProperties: true
+                  error: { nullable: true }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502':
+          description: The Soroban governance contract could not be reached
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /api/v1/proposals/{id}/delegate:
     post:
       tags: [Proposals]
@@ -181,6 +223,10 @@ paths:
     get:
       tags: [Proposals]
       summary: Get proposal detail and current tally
+      description: >
+        Returns a single proposal with its vote tally. The tally is read from the
+        Soroban governance contract and falls back to the database cache when the
+        contract is unavailable.
       parameters:
         - name: id
           in: path
@@ -188,7 +234,94 @@ paths:
           schema: { type: string, format: uuid }
       responses:
         '200':
-          description: Proposal detail
+          description: Proposal detail with vote tally
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/GovernanceProposal'
+                      - type: object
+                        properties:
+                          tally: { $ref: '#/components/schemas/GovernanceProposalTally' }
+                  meta:
+                    type: object
+                    additionalProperties: true
+                  error: { nullable: true }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502':
+          description: The Soroban governance contract could not be reached
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /api/v1/proposals/{id}/vote:
+    post:
+      tags: [Proposals]
+      summary: Submit a signed vote transaction to Soroban
+      description: >
+        Accepts a base64-encoded signed Soroban transaction XDR invoking the
+        governance contract's vote entry point and submits it to the network.
+        The vote weight is derived on-chain from the voter's token balance.
+      security:
+        - SessionToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SubmitVote' }
+      responses:
+        '200':
+          description: Vote transaction submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/VoteSubmissionResult' }
+                  meta:
+                    type: object
+                    additionalProperties: true
+                  error: { nullable: true }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Caller is not an active member of the proposal's community
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/proposals/{id}/execute:
+    post:
+      tags: [Proposals]
+      summary: Execute a passed proposal
+      description: >
+        Triggers execution of a proposal once its voting period has closed and
+        it has passed. Proposals whose voting period is still open, that were
+        rejected, or that were already executed are rejected with 409.
+      security:
+        - SessionToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Proposal executed
           content:
             application/json:
               schema:
@@ -196,7 +329,27 @@ paths:
                 properties:
                   data: { $ref: '#/components/schemas/GovernanceProposal' }
         '400': { $ref: '#/components/responses/ValidationError' }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Voting period is still open, the proposal was rejected, or it was already executed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: The Stellar network rejected the signed vote transaction
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '502':
+          description: Soroban RPC is temporarily unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /api/v1/kyc/initiate:
     post:
@@ -1429,7 +1582,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [pending, active, repaid, defaulted, cancelled]
+            enum: [pending, active, repaid, defaulted, cancelled, overdue]
         - name: sortBy
           in: query
           schema:
@@ -1475,6 +1628,44 @@ paths:
         '400': { $ref: '#/components/responses/ValidationError' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /api/v1/loans/{communityId}:
+    parameters:
+      - name: communityId
+        in: path
+        required: true
+        description: Community UUID whose loans should be listed.
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Loans]
+      summary: List loans in a community
+      description: >
+        Returns the community's loans, optionally narrowed to a single status.
+        `closed` groups the terminal `repaid`, `defaulted`, and `cancelled`
+        states.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, active, closed]
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of loans belonging to the community
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Loan' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /api/v1/loans/{id}:
     parameters:
       - $ref: '#/components/parameters/LoanId'
@@ -1499,6 +1690,9 @@ paths:
                           events:
                             type: array
                             items: { $ref: '#/components/schemas/LoanEvent' }
+                          repayments:
+                            type: array
+                            items: { $ref: '#/components/schemas/LoanRepayment' }
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
       tags: [Loans]
@@ -1564,6 +1758,38 @@ paths:
                     items: { $ref: '#/components/schemas/LoanEvent' }
                   meta: { $ref: '#/components/schemas/PageMeta' }
 
+  /api/v1/loans/{id}/fund:
+    parameters:
+      - $ref: '#/components/parameters/LoanId'
+    post:
+      tags: [Loans]
+      summary: Fund a loan request
+      description: Lender funds a pending loan request, transitioning it to active.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount: { type: string }
+                stellarTxHash: { type: string }
+                note: { type: string }
+      responses:
+        '200':
+          description: Loan funded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Loan' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '403':
+          description: Borrower cannot fund their own loan
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Loan is not in `pending` status
+
   /api/v1/loans/{id}/disburse:
     parameters:
       - $ref: '#/components/parameters/LoanId'
@@ -1592,6 +1818,34 @@ paths:
         '409':
           description: Loan is not in `pending` status
 
+  /api/v1/loans/borrower/{address}:
+    parameters:
+      - name: address
+        in: path
+        required: true
+        description: Stellar public key of the borrower.
+        schema: { $ref: '#/components/schemas/StellarKey' }
+    get:
+      tags: [Loans]
+      summary: List all loans for a borrower address
+      description: Paginated list of loans where the address is the borrower, newest first.
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of loans for the borrower
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Loan' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+
   /api/v1/loans/{id}/repay:
     parameters:
       - $ref: '#/components/parameters/LoanId'
@@ -1599,19 +1853,17 @@ paths:
       tags: [Loans]
       summary: Record a loan repayment
       description: >
-        Records a partial or full repayment. When the outstanding balance
+        Records a partial or full repayment submitted by the borrower. The
+        borrower is derived from the session. When the outstanding balance
         reaches zero the loan is marked `repaid`.
+      security:
+        - SessionToken: []
+        - SessionCookie: []
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [amount]
-              properties:
-                amount: { type: string }
-                paymentId: { type: string, format: uuid }
-                note: { type: string }
+            schema: { $ref: '#/components/schemas/RepayLoan' }
       responses:
         '200':
           description: Repayment recorded
@@ -1620,12 +1872,163 @@ paths:
               schema:
                 type: object
                 properties:
-                  data: { $ref: '#/components/schemas/Loan' }
+                  data:
+                    allOf:
+                      - $ref: '#/components/schemas/Loan'
+                      - type: object
+                        properties:
+                          outstanding: { type: string }
+                          repayment: { $ref: '#/components/schemas/LoanEvent' }
         '400':
           description: Repayment exceeds the outstanding balance, or validation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ValidationErrorResponse' }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '403':
+          description: Caller is not the borrower on this loan
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: Loan is not in `active` status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/v1/multisig/{id}/execute:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [MultiSig]
+      summary: Submit fully-signed XDR to Horizon or record execution
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stellar_tx_hash: { type: string }
+                signed_xdr: { type: string }
+      responses:
+        '200':
+          description: Proposal executed on-chain
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/MultiSigRequest' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/multisig/{id}/sign:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [MultiSig]
+      summary: Submit signature for a multi-sig transaction proposal
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                signed_xdr: { type: string }
+                signer_address: { type: string }
+      responses:
+        '200':
+          description: Proposal signed / approved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/MultiSigRequest' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/multisig/propose:
+    post:
+      tags: [MultiSig]
+      summary: Propose a multi-sig transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [community_id, action, title, proposer_address]
+              properties:
+                community_id: { type: string, format: uuid }
+                action:
+                  {
+                    type: string,
+                    enum:
+                      [
+                        payment,
+                        token_issue,
+                        trustline,
+                        settings_update,
+                        member_role_change,
+                        signer_update,
+                      ],
+                  }
+                title: { type: string }
+                description: { type: string }
+                payload: { type: object }
+                transaction_xdr: { type: string }
+                required_signatures: { type: integer, default: 2 }
+                proposer_address: { type: string }
+                expires_at: { type: string, format: date-time }
+      responses:
+        '201':
+          description: Proposal created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/MultiSigRequest' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/loans/detect-defaults:
+    post:
+      tags: [Loans]
+      summary: Detect and mark overdue loans as defaulted
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: List of newly defaulted loans
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Loan'
+                  meta:
+                    type: object
+                    properties:
+                      count:
+                        type: integer
+        '401': { $ref: '#/components/responses/Unauthorized' }
 
   /api/v1/loans/{id}/default:
     parameters:
@@ -1697,10 +2100,11 @@ paths:
         schema: { $ref: '#/components/schemas/StellarKey' }
     get:
       tags: [Reputation]
-      summary: Get a member's reputation
+      summary: Get a member's reputation score and history
       description: >
         A member's reputation across every community they participate in, plus
-        an aggregate summary. Optionally narrowed with `communityId`.
+        an aggregate summary and the repayment history that produced it.
+        Optionally narrowed with `communityId`.
       parameters:
         - name: communityId
           in: query
@@ -1717,12 +2121,20 @@ paths:
                     type: object
                     properties:
                       address: { $ref: '#/components/schemas/StellarKey' }
+                      score: { type: string, description: 'Aggregate NUMERIC(5,2) score, 0–100' }
                       communities:
                         type: array
                         items: { $ref: '#/components/schemas/ReputationScore' }
+                      history:
+                        type: array
+                        items: { $ref: '#/components/schemas/ReputationHistoryEntry' }
                       summary: { $ref: '#/components/schemas/ReputationSummary' }
+        '400': { $ref: '#/components/responses/ValidationError' }
         '404':
           description: No reputation found for this address
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 components:
   parameters:
     CommunityId:
@@ -1830,6 +2242,42 @@ components:
         votes_for: { type: string }
         votes_against: { type: string }
         votes_abstain: { type: string }
+        on_chain_id:
+          { type: string, nullable: true, description: Proposal identifier in the Soroban contract }
+        tally: { $ref: '#/components/schemas/GovernanceProposalTally' }
+    GovernanceProposalTally:
+      type: object
+      description: Token-weighted vote tally for a proposal.
+      properties:
+        votes_for: { type: string, example: '1500.0000000' }
+        votes_against: { type: string, example: '250.0000000' }
+        votes_abstain: { type: string, example: '0.0000000' }
+        total_voting_power: { type: string, example: '1750.0000000' }
+        quorum_percent: { type: string, example: '50.00' }
+        quorum_reached: { type: boolean }
+        source:
+          type: string
+          enum: [contract, cache]
+          description: Where the tally was read from.
+    SubmitVote:
+      type: object
+      required: [signedXdr]
+      properties:
+        signedXdr:
+          type: string
+          minLength: 1
+          maxLength: 100000
+          description: Base64-encoded signed Soroban transaction XDR invoking the vote entry point.
+    VoteSubmissionResult:
+      type: object
+      required: [txHash, status]
+      properties:
+        txHash: { type: string }
+        status:
+          type: string
+          enum: [pending, success, failed]
+        ledger: { type: integer, nullable: true }
+        tally: { $ref: '#/components/schemas/GovernanceProposalTally' }
     InitiateKycRequest:
       type: object
       required: [communityId, address]
@@ -2440,10 +2888,30 @@ components:
         purpose: { type: string, nullable: true }
         status:
           type: string
-          enum: [pending, active, repaid, defaulted, cancelled]
+          enum: [pending, active, repaid, defaulted, cancelled, overdue]
         due_at: { type: string, format: date-time, nullable: true }
         disbursed_at: { type: string, format: date-time, nullable: true }
         closed_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    MultiSigRequest:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        community_id: { type: string, format: uuid }
+        proposer_address: { $ref: '#/components/schemas/StellarKey' }
+        action: { type: string }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        payload: { type: object }
+        transaction_xdr: { type: string, nullable: true }
+        required_signatures: { type: integer }
+        current_signatures: { type: integer }
+        status: { type: string }
+        stellar_tx_hash: { type: string, nullable: true }
+        rejection_reason: { type: string, nullable: true }
+        expires_at: { type: string, format: date-time, nullable: true }
+        executed_at: { type: string, format: date-time, nullable: true }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
     LoanEvent:
@@ -2458,6 +2926,16 @@ components:
         payment_id: { type: string, format: uuid, nullable: true }
         note: { type: string, nullable: true }
         created_at: { type: string, format: date-time }
+    LoanRepayment:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        loan_id: { type: string, format: uuid }
+        payer_address: { $ref: '#/components/schemas/StellarKey' }
+        amount: { type: string }
+        stellar_tx_hash: { type: string, nullable: true }
+        paid_at: { type: string, format: date-time }
+        metadata: { type: object }
     CreateLoan:
       type: object
       required: [communityId, borrowerAddress, lenderAddress, amount, assetCode]
@@ -2594,7 +3072,7 @@ components:
               items: { $ref: '#/components/schemas/LoanEvent' }
     LoanStatus:
       type: string
-      enum: [pending, active, repaid, defaulted, cancelled]
+      enum: [pending, active, repaid, defaulted, cancelled, overdue]
     RepayLoan:
       type: object
       required: [amount]
@@ -2615,6 +3093,17 @@ components:
         last_calculated_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    ReputationHistoryEntry:
+      type: object
+      properties:
+        loan_id: { type: string, format: uuid }
+        community_id: { type: string, format: uuid }
+        event_type:
+          type: string
+          enum: [repayment, default]
+        amount: { type: string, nullable: true }
+        on_time: { type: boolean }
+        occurred_at: { type: string, format: date-time }
     ReputationSummary:
       type: object
       properties:

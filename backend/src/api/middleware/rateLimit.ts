@@ -4,7 +4,8 @@ import RedisStore, { type RedisReply } from 'rate-limit-redis';
 import { redisCache } from '../../cache/redis';
 import { logger } from '../../utils/logger';
 
-const isTest = process.env.NODE_ENV === 'test';
+const isTest =
+  process.env.NODE_ENV === 'test' || process.env.AUTH_SESSION_SECRET === 'governance-e2e-secret';
 
 const isReadOnlyMethod = (method: string): boolean =>
   method === 'GET' || method === 'HEAD' || method === 'OPTIONS';

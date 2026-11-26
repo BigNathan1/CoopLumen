@@ -249,6 +249,27 @@ export interface FormSubmitProps extends ComponentPropsWithoutRef<'button'> {
   pendingLabel?: ReactNode;
 }
 
+/** Props for a plain text-like input wired through {@link FormField}. */
+export interface FormInputProps extends Omit<ComponentPropsWithoutRef<'input'>, 'id'> {
+  /** Field props handed back by {@link FormField}'s render prop. */
+  field: FormFieldRenderProps;
+}
+
+/**
+ * Convenience input for the common case of a single-line text control inside a
+ * {@link FormField}. It spreads the accessibility wiring from the render prop
+ * and adds the shared control styling, so callers do not repeat either.
+ */
+export function FormInput({ field, className, ...inputProps }: FormInputProps) {
+  return (
+    <input
+      {...inputProps}
+      {...field}
+      className={[styles.input, className].filter(Boolean).join(' ')}
+    />
+  );
+}
+
 /**
  * Submit button that disables itself while the handler is in flight, which
  * prevents a double submit, and reports the wait through `aria-busy`.

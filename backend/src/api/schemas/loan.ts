@@ -42,6 +42,16 @@ export const loanRequestSchema = z.object({
   interestRate: z.coerce.number().min(0).max(1000).optional(),
 });
 
+export const fundLoanSchema = z.object({
+  amount: amount.optional(),
+  stellarTxHash: z.string().trim().min(1).max(128).optional(),
+  note: z.string().trim().max(280).optional(),
+});
+
+export const loanParamsSchema = z.object({
+  id: z.string().uuid({ message: 'Loan ID must be a valid UUID' }),
+});
+
 export const disburseLoanSchema = z.object({
   stellarTxHash: z.string().trim().min(1).max(128).optional(),
   note: z.string().trim().max(280).optional(),
@@ -53,6 +63,51 @@ export const repayLoanSchema = z.object({
   note: z.string().trim().max(280).optional(),
 });
 
+/** Path params for `GET /api/v1/loans/borrower/:address`. */
+export const borrowerAddressParamSchema = z.object({
+  address: stellarPublicKey,
+});
+
+/** Optional pagination for the borrower loan listing. */
+export const borrowerLoansQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+
 export const defaultLoanSchema = z.object({
   note: z.string().trim().max(280).optional(),
+});
+
+/** Loan lifecycle statuses exposed by the list endpoint. */
+export const LOAN_LIST_STATUSES = ['pending', 'active', 'closed'] as const;
+export type LoanListStatus = (typeof LOAN_LIST_STATUSES)[number];
+
+/** Path params for `GET /api/v1/loans/:communityId`. */
+export const listLoansParamsSchema = z.object({
+  communityId: z.string().uuid(),
+});
+
+/**
+ * Query params for `GET /api/v1/loans/:communityId`.
+ * `status` is the public lifecycle bucket; the DB stores `repaid`, `defaulted`
+ * and `cancelled` separately, all of which map to the public `closed` bucket.
+ */
+export const listLoansQuerySchema = z.object({
+  status: z.enum(LOAN_LIST_STATUSES).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+  sortBy: z.enum(['createdAt', 'dueAt', 'amount']).default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+/** Path params for `GET /api/v1/reputation/:address`. */
+export const reputationAddressParamsSchema = z.object({
+  address: stellarPublicKey,
+});
+
+/** Query params for `GET /api/v1/reputation/:address`. */
+export const reputationQuerySchema = z.object({
+  communityId: z.string().uuid().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
 });
