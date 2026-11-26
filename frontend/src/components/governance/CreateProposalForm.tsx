@@ -21,6 +21,7 @@ export interface ProposalAction {
 }
 
 export interface CreateProposalPayload {
+  communityId: string;
   title: string;
   description: string;
   type: ProposalType;
@@ -147,7 +148,7 @@ function formErrors(issues: SchemaIssue[]): string[] {
 }
 
 export function CreateProposalForm({
-  communityId: _communityId,
+  communityId = '',
   onCreated,
   onCancel,
 }: CreateProposalFormProps): ReactNode {
@@ -218,12 +219,13 @@ export function CreateProposalForm({
 
   const payload = useMemo<CreateProposalPayload>(
     () => ({
+      communityId,
       title: title.trim(),
       description: description.trim(),
       type,
       actions: actions.map((a) => ({ type: a.type, params: a.params })),
     }),
-    [title, description, type, actions]
+    [communityId, title, description, type, actions]
   );
 
   const handleSubmit = useCallback(

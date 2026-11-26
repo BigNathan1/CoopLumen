@@ -49,9 +49,11 @@ async function getWorldIdStatus(address: string): Promise<WorldIdStatus> {
   return {
     verified: true,
     verifiedAt:
-      record.verified_at instanceof Date
-        ? record.verified_at.toISOString()
-        : String(record.verified_at),
+      record.verified_at == null
+        ? null
+        : record.verified_at instanceof Date
+          ? record.verified_at.toISOString()
+          : String(record.verified_at),
     verificationLevel: record.verification_level,
   };
 }

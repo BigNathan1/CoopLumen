@@ -42,7 +42,7 @@ const OPERATION_MESSAGES: Record<string, string> = {
   op_malformed: 'Operation parameters are malformed.',
 
   // Payment / path payment
-  op_underfunded: 'Insufficient balance to fund the escrow amount for this operation.',
+  op_underfunded: 'Insufficient balance to complete this operation.',
   op_no_trust: 'Destination account does not have a trustline for this asset.',
   op_line_full: "Destination account's trustline limit would be exceeded.",
   op_no_destination: 'Destination account does not exist.',

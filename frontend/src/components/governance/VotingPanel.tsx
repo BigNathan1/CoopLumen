@@ -30,10 +30,13 @@ export function VotingPanel({ proposalId, tally, status, onVoteRecorded }: Votin
     setMessage(null);
     setError(null);
     try {
-      const res = await api.post(`/proposals/${proposalId}/votes`, { choice });
+      const updated = await api.post<Record<string, unknown>>(
+        `/api/v1/proposals/${proposalId}/votes`,
+        { choice }
+      );
       setMessage('Vote recorded.');
-      if (onVoteRecorded && res.data) {
-        onVoteRecorded(res.data);
+      if (onVoteRecorded) {
+        onVoteRecorded(updated);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to cast vote';

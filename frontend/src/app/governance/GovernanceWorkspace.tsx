@@ -23,14 +23,6 @@ interface Proposal {
   voting_ends_at: string;
 }
 
-async function signVoteXdr(xdr: string): Promise<string> {
-  const { signTransaction } = await import('@stellar/freighter-api');
-  const res = await signTransaction(xdr);
-  if (typeof res === 'string') return res;
-  if (res && 'signedTxXdr' in res && res.signedTxXdr) return res.signedTxXdr;
-  throw new Error('Signing failed');
-}
-
 export function GovernanceWorkspace({
   initialCommunityId,
   communityId: propCommunityId,
@@ -51,15 +43,8 @@ export function GovernanceWorkspace({
     setError('');
 
     try {
-      // Votes are cast on-chain: the client builds and signs the vote XDR,
-      // then submits it to the proposal vote endpoint.
-      const { xdr } = await api.post<{ xdr: string }>(
-        `/api/v1/proposals/${proposal.id}/vote/build`,
-        { choice }
-      );
-      const signedXdr = await signVoteXdr(xdr);
-      const updated = await api.post<Proposal>(`/api/v1/proposals/${proposal.id}/vote`, {
-        signedXdr,
+      const updated = await api.post<Proposal>(`/api/v1/proposals/${proposal.id}/votes`, {
+        choice,
       });
       setProposal(updated);
       setMessage('Vote recorded.');
