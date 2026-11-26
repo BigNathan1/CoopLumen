@@ -25,7 +25,7 @@ export interface CreateProposalPayload {
   title: string;
   description: string;
   type: ProposalType;
-  actions: Array<{ type: ProposalActionType; params: Record<string, string> }>;
+  actions: Array<{ actionType: ProposalActionType; params: Record<string, string> }>;
 }
 
 export interface CreateProposalFormProps {
@@ -223,7 +223,7 @@ export function CreateProposalForm({
       title: title.trim(),
       description: description.trim(),
       type,
-      actions: actions.map((a) => ({ type: a.type, params: a.params })),
+      actions: actions.map((a) => ({ actionType: a.type, params: a.params })),
     }),
     [communityId, title, description, type, actions]
   );
