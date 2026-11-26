@@ -1,0 +1,9 @@
+Frontend Design (Dark Mode)
+
+Dashboard / App Page: A central workspace for viewing wallet balances, portfolio information, reputation, communities, loans, and recent account activity.
+FAQ Page: A structured help section addressing common questions about Stellar, wallet usage, community finance, security, testnet access, and project updates.
+Newsletter & Testnet Waitlist: A signup experience for collecting email addresses and Stellar public keys from users interested in announcements and testnet participation.
+Community Detail Page: A dedicated community view presenting its assets, membership, treasury movements, loan information, reputation, and available actions.
+
+
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&p=f&t=FZOUntChCPpWW4cJ-0
