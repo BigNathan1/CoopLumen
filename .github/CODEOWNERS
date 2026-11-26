@@ -21,3 +21,8 @@
 
 # Security-sensitive files — always require owner review
 /SECURITY.md               @BigNathan1
+
+# Malware indicator scan — a change here can switch the scan off for every
+# later pull request, so it always needs the maintainer.
+/scripts/security/         @BigNathan1
+/.github/malware-scan-allowlist.json @BigNathan1

@@ -27,7 +27,7 @@ All participants are expected to uphold our community standards:
 
 - **Be respectful.** Critique code, not people.
 - **Be inclusive.** Welcome contributors of all backgrounds and skill levels.
-- **Be patient.** Maintainers are volunteers; allow 72 hours for responses.
+- **Be patient.** The project has a single maintainer, BigNathan1; allow 72 hours for responses.
 - **Be constructive.** Explain _why_, not just _what_ when requesting changes.
 
 Violations may be reported to `conduct@cooplumen.org`. Serious violations result in temporary or permanent ban.
@@ -338,13 +338,13 @@ Closes #<issue_number>
 
 ### Review SLA
 
-- Maintainers aim to review within **72 hours** of opening
-- If no response in 5 business days, ping `@maintainers` in the PR comment
+- The maintainer, BigNathan1, aims to review within **72 hours** of opening
+- If no response in 5 business days, mention `@BigNathan1` in a PR comment
 
 ### Merge Strategy
 
 - **Squash and merge** is the default — keeps `main` history linear
-- Multi-commit PRs that tell a meaningful story may be **merge committed** at maintainer discretion
+- Multi-commit PRs that tell a meaningful story may be **merge committed** at the maintainer's discretion
 - **No force-pushes to `main`** ever
 
 ---

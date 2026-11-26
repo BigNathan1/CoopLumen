@@ -437,6 +437,9 @@ jobs:
       - name: Test chat notifications (payloads, skip and failure paths)
         run: bash scripts/deploy/test-notify.sh
 
+      - name: Test CI and security scripts (branch protection, malware scan)
+        run: node --test scripts/ci/__tests__/configure-branch-protection.test.js scripts/security/__tests__/malware-scan.test.js
+
       - name: Validate production compose file
         run: |
           touch .env.production

@@ -5,7 +5,7 @@
  * Configure or verify GitHub branch protection for CoopLumen.
  *
  * Enforces:
- * - Status check: "Quality gate" must pass
+ * - Status checks: "Quality gate" and "Malware indicator scan" must pass
  * - Strict up-to-date branch requirement (strict: true)
  * - Required approving reviews: at least 1
  * - Dismiss stale reviews on new pushes
@@ -19,7 +19,7 @@ function getBranchProtectionPayload() {
   return {
     required_status_checks: {
       strict: true,
-      contexts: ['Quality gate'],
+      contexts: ['Quality gate', 'Malware indicator scan'],
     },
     enforce_admins: false,
     required_pull_request_reviews: {
@@ -120,15 +120,17 @@ function verifyBranchProtection(options) {
 
     const checks = data.required_status_checks?.contexts || [];
     const hasQualityGate = checks.includes('Quality gate');
+    const hasMalwareScan = checks.includes('Malware indicator scan');
     const isStrict = Boolean(data.required_status_checks?.strict);
     const reviews = data.required_pull_request_reviews?.required_approving_review_count || 0;
     const hasApproval = reviews >= 1;
 
     console.log(`Status check 'Quality gate': ${hasQualityGate ? 'PASS' : 'FAIL'}`);
+    console.log(`Status check 'Malware indicator scan': ${hasMalwareScan ? 'PASS' : 'FAIL'}`);
     console.log(`Strict up-to-date required: ${isStrict ? 'PASS' : 'FAIL'}`);
     console.log(`Approving reviews required (>= 1): ${hasApproval ? `PASS (${reviews})` : 'FAIL'}`);
 
-    const valid = hasQualityGate && isStrict && hasApproval;
+    const valid = hasQualityGate && hasMalwareScan && isStrict && hasApproval;
     return { valid, data, checks, isStrict, reviews };
   } catch (err) {
     console.error(`Failed to verify branch protection: ${err.message}`);

@@ -8,7 +8,10 @@ test('getBranchProtectionPayload returns expected required status checks and rev
   const payload = getBranchProtectionPayload();
 
   assert.equal(payload.required_status_checks.strict, true);
-  assert.deepEqual(payload.required_status_checks.contexts, ['Quality gate']);
+  assert.deepEqual(payload.required_status_checks.contexts, [
+    'Quality gate',
+    'Malware indicator scan',
+  ]);
   assert.equal(payload.enforce_admins, false);
   assert.equal(payload.required_pull_request_reviews.required_approving_review_count, 1);
   assert.equal(payload.required_pull_request_reviews.dismiss_stale_reviews, true);

@@ -75,3 +75,38 @@ The following are **out of scope**:
 - Validate all user input at the API boundary
 - Keep dependencies up to date (`npm audit` runs in CI)
 - Follow the principle of least privilege in all new endpoints
+
+## Malware Indicator Scan on Pull Requests
+
+Every pull request, and every push to `main`, runs the **Malware indicator scan**
+workflow (`.github/workflows/malware-scan.yml`). It is a required status check:
+a pull request cannot merge until it passes. It reads the diff only — nothing
+from the pull request is installed, built or executed — and blocks on:
+
+- Hidden or obfuscated code: Unicode bidirectional or zero-width characters,
+  code pushed off-screen by whitespace, obfuscator output, long escape or
+  base64 blobs, and strings decoded then passed to `eval`/`Function`
+- Download-and-execute commands (`curl … | sh`, `Invoke-Expression`, …)
+- Reading SSH keys, cloud or registry credentials, browser profiles or crypto
+  wallets, dumping the whole environment, or calling cloud metadata addresses
+- Exfiltration endpoints (chat webhooks, paste sites, tunnels) and bare-IP URLs
+- Crypto miners, committed secrets (Stellar seeds, tokens, private keys)
+- `preinstall`/`postinstall` scripts, dependencies from git or URLs, lockfile
+  entries resolved outside `registry.npmjs.org`, typosquatted names, and new
+  packages that are missing from npm or less than 30 days old
+- Executables, unexpected binaries, symlinks and submodules
+- Risky workflow edits: `pull_request_target`, script injection through
+  pull-request text, secrets sent to network commands, unpinned actions
+- Any change to the scan itself, its allowlist or CODEOWNERS by anyone other
+  than the maintainer
+
+Medium findings (for example a changed workflow or a new `child_process`
+import) are shown as warnings for the reviewer without blocking. Run it locally
+before pushing:
+
+```bash
+node scripts/security/malware-scan.js --base origin/main --online
+```
+
+A reviewed false positive is recorded in `.github/malware-scan-allowlist.json`
+with a reason; only the maintainer can change that file.

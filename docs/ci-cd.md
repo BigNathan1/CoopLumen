@@ -160,7 +160,7 @@ configured by `sonar-project.properties` and called with
 gate and fails the job if the gate fails. `quality-gate` includes the job, so a
 failing gate blocks the PR.
 
-One-time setup (maintainers):
+One-time setup (maintainer):
 
 1. Import the repository at [sonarcloud.io](https://sonarcloud.io) and confirm
    `sonar.organization` and `sonar.projectKey` in `sonar-project.properties`
@@ -212,7 +212,7 @@ The suite validates:
 
 Triggered by manual approval via `workflow_dispatch` (with an optional `ref`).
 The deployment job targets the `production` GitHub Environment, allowing
-repository maintainers to enforce Environment Protection Rules (required
+the repository maintainer to enforce Environment Protection Rules (required
 reviewers) before any rollout begins.
 
 It builds the backend `production` image, pushes it to GHCR tagged `sha-<12 chars>`,
