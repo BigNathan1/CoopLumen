@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- PWA manifest (`frontend/src/app/manifest.ts`) with the app name, short name, 192px/512px icons and `display: standalone`, so CoopLumen can be installed to a home screen (#547).
+- USD equivalents beside native XLM balances on the wallet balance panel and the member profile, driven by the live XLM/USD price and omitted (rather than zeroed) when the price is unavailable (#546).
+- `KycStatusBadge` on the member profile and on community cards, reading `GET /api/v1/kyc/status/:address` and using the design-system badge variants with a screen-reader label (#542).
+
 - Added `POST /api/v1/multisig/:id/execute` endpoint to submit fully-signed XDR to Horizon or record transaction hash (#485).
 - Added `POST /api/v1/multisig/:id/sign` endpoint for cosigners submitting partial XDR signatures (#483).
 - Added `POST /api/v1/multisig/propose` endpoint to create a multi-sig transaction proposal (#482).

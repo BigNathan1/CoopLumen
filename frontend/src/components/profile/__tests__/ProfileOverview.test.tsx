@@ -2,16 +2,27 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ProfileOverview } from '@/components/profile/ProfileOverview';
 import { useBalances, type Balance } from '@/hooks/useBalances';
+import { useKycStatus } from '@/hooks/useKycStatus';
 import { useMemberships, type Membership } from '@/hooks/useMemberships';
 import { useWallet } from '@/hooks/useWallet';
+import { useXlmPrice } from '@/hooks/useXlmPrice';
 
 jest.mock('@/hooks/useWallet');
 jest.mock('@/hooks/useBalances');
 jest.mock('@/hooks/useMemberships');
+jest.mock('@/hooks/useKycStatus');
+// Only the price hook is stubbed; `toUsdEquivalent` stays real so the test
+// asserts on the same formatting the component uses.
+jest.mock('@/hooks/useXlmPrice', () => ({
+  ...jest.requireActual('@/hooks/useXlmPrice'),
+  useXlmPrice: jest.fn(),
+}));
 
 const mockUseWallet = useWallet as jest.Mock;
 const mockUseBalances = useBalances as jest.Mock;
 const mockUseMemberships = useMemberships as jest.Mock;
+const mockUseKycStatus = useKycStatus as jest.Mock;
+const mockUseXlmPrice = useXlmPrice as jest.Mock;
 
 const PUBLIC_KEY = `G${'A'.repeat(55)}`;
 const ECO_ISSUER = `G${'B'.repeat(55)}`;
@@ -81,6 +92,8 @@ beforeEach(() => {
   mockWallet();
   mockBalances();
   mockMemberships();
+  mockUseKycStatus.mockReturnValue({ data: undefined, error: undefined });
+  mockUseXlmPrice.mockReturnValue({ data: undefined, error: undefined });
 });
 
 describe('ProfileOverview', () => {
@@ -104,6 +117,32 @@ describe('ProfileOverview', () => {
 
     expect(screen.getByTitle(PUBLIC_KEY)).toHaveTextContent('GAAAAA...AAAAAA');
     expect(screen.getByLabelText('Stellar network: TESTNET')).toBeInTheDocument();
+  });
+
+  it('shows the USD equivalent beside a native XLM balance', () => {
+    mockWallet({ connected: true, publicKey: PUBLIC_KEY, network: 'TESTNET' });
+    mockBalances({ data: BALANCES });
+    mockMemberships({ data: [] });
+    mockUseXlmPrice.mockReturnValue({ data: { price: '0.2500000' }, error: undefined });
+    render(<ProfileOverview />);
+
+    expect(screen.getByLabelText('$25.00 USD equivalent')).toBeInTheDocument();
+    // Community tokens have no USD price, so only the XLM row carries one.
+    expect(screen.getAllByLabelText(/USD equivalent$/)).toHaveLength(1);
+  });
+
+  it('shows the KYC status for the connected wallet', () => {
+    mockWallet({ connected: true, publicKey: PUBLIC_KEY, network: 'TESTNET' });
+    mockBalances({ data: [] });
+    mockMemberships({ data: [] });
+    mockUseKycStatus.mockReturnValue({
+      data: { address: PUBLIC_KEY, status: 'approved', worldId: null },
+      error: undefined,
+    });
+    render(<ProfileOverview />);
+
+    expect(screen.getByText('KYC status')).toBeInTheDocument();
+    expect(screen.getByText('KYC verified')).toBeInTheDocument();
   });
 
   it('announces a network mismatch as an alert', () => {
