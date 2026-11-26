@@ -13,6 +13,10 @@ concurrency:
 env:
   REGISTRY: ghcr.io
 
+# Read-only by default; each publish job grants itself packages: write.
+permissions:
+  contents: read
+
 jobs:
   publish-backend:
     name: Publish backend container image

@@ -10,6 +10,10 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+# Read-only by default; the release job grants itself what it writes.
+permissions:
+  contents: read
+
 jobs:
   release:
     name: Publish GitHub release

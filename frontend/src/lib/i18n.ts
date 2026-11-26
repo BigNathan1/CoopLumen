@@ -13,6 +13,7 @@
 
 import en from '../../messages/en.json';
 import sw from '../../messages/sw.json';
+import { inlineJson } from './inlineJson';
 
 /** A leaf translation. */
 export type MessageValue = string;
@@ -154,8 +155,8 @@ export function applyLocale(locale: string): void {
  * Dependency-free and wrapped in try/catch: it runs before React and must never
  * be able to break the page.
  */
-export const LOCALE_INIT_SCRIPT = `(function(){try{var rtl=${JSON.stringify(
+export const LOCALE_INIT_SCRIPT = `(function(){try{var rtl=${inlineJson(
   RTL_LOCALES as unknown as string[]
-)};var e=document.documentElement;var s=localStorage.getItem(${JSON.stringify(
+)};var e=document.documentElement;var s=localStorage.getItem(${inlineJson(
   LOCALE_STORAGE_KEY
 )});if(s){e.lang=s;}var base=(s||e.lang||'en').toLowerCase().split('-')[0];e.dir=rtl.indexOf(base)>=0?'rtl':'ltr';}catch(e){}})();`;

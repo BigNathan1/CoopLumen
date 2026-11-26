@@ -196,9 +196,12 @@ jobs:
       name: staging
       url: ${{ needs.deploy-fly.outputs.staging_url || vars.STAGING_URL }}
     steps:
+      # The smoke test is tooling, not the code being deployed, and this job
+      # holds the environment, so it runs the workflow's own commit rather
+      # than a caller-chosen ref.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
+          persist-credentials: false
 
       - name: Run smoke tests
         env:

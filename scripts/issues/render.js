@@ -17,7 +17,7 @@ function renderTitle(issue) {
 }
 
 function renderAcceptanceCriteria(issue) {
-  const bullets = [`${issue.title.replace(/`/g, '`')} — implemented as described above.`];
+  const bullets = [`${issue.title} — implemented as described above.`];
   const seen = new Set();
   for (const label of LABEL_ORDER) {
     if (!issue.labels.includes(label)) continue;
