@@ -41,11 +41,11 @@ beforeEach(() => {
   mockQuery.mockResolvedValue([PROPOSAL]);
 });
 
-describe('GET /api/v1/proposals/:communityId', () => {
+describe('GET /api/v1/proposals/community/:communityId', () => {
   it('returns the cached proposals and reports the contract as the source', async () => {
     mockedFetchProposals.mockResolvedValue([]);
 
-    const res = await request(buildApp()).get(`/api/v1/proposals/${COMMUNITY_ID}`);
+    const res = await request(buildApp()).get(`/api/v1/proposals/community/${COMMUNITY_ID}`);
 
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual([PROPOSAL]);
@@ -56,7 +56,7 @@ describe('GET /api/v1/proposals/:communityId', () => {
   it('falls back to the DB cache when the contract call fails', async () => {
     mockedFetchProposals.mockRejectedValue(new Error('rpc down'));
 
-    const res = await request(buildApp()).get(`/api/v1/proposals/${COMMUNITY_ID}`);
+    const res = await request(buildApp()).get(`/api/v1/proposals/community/${COMMUNITY_ID}`);
 
     expect(res.status).toBe(200);
     expect(res.body.meta.source).toBe('cache');
@@ -64,7 +64,7 @@ describe('GET /api/v1/proposals/:communityId', () => {
   });
 
   it('rejects an invalid community id with a 400 envelope', async () => {
-    const res = await request(buildApp()).get('/api/v1/proposals/not-a-uuid');
+    const res = await request(buildApp()).get('/api/v1/proposals/community/not-a-uuid');
 
     expect(res.status).toBe(400);
     expect(res.body.error).toBeDefined();
@@ -75,7 +75,7 @@ describe('GET /api/v1/proposals/:communityId', () => {
     mockedFetchProposals.mockResolvedValue([]);
     mockQuery.mockRejectedValue(new Error('db down'));
 
-    const res = await request(buildApp()).get(`/api/v1/proposals/${COMMUNITY_ID}`);
+    const res = await request(buildApp()).get(`/api/v1/proposals/community/${COMMUNITY_ID}`);
 
     expect(res.status).toBe(500);
   });

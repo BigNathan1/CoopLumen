@@ -334,7 +334,7 @@ proposalRouter.post(
 );
 
 proposalRouter.get(
-  '/:communityId',
+  '/community/:communityId',
   validateParams(communityIdParamsSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {

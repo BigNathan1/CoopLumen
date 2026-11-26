@@ -218,7 +218,7 @@ loanRouter.get('/borrower/:address', async (req, res, next) => {
  * `:communityId` segment is not shadowed by the single-loan route.
  */
 loanRouter.get(
-  '/:communityId',
+  '/community/:communityId',
   validateParams(listLoansParamsSchema),
   validateQuery(listLoansQuerySchema),
   async (req: Request, res: Response, next: NextFunction) => {

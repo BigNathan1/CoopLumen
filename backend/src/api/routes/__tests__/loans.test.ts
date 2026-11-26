@@ -49,7 +49,7 @@ function mockListQueries(rows: Record<string, unknown>[], total: number): void {
   });
 }
 
-describe('GET /api/v1/loans/:communityId', () => {
+describe('GET /api/v1/loans/community/:communityId', () => {
   beforeEach(() => {
     mockQuery.mockReset();
   });
@@ -60,7 +60,7 @@ describe('GET /api/v1/loans/:communityId', () => {
       2
     );
 
-    const res = await request(buildApp()).get(`/api/v1/loans/${COMMUNITY_ID}`);
+    const res = await request(buildApp()).get(`/api/v1/loans/community/${COMMUNITY_ID}`);
 
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -77,7 +77,9 @@ describe('GET /api/v1/loans/:communityId', () => {
   it.each(['active', 'pending', 'closed'] as const)('filters by status=%s', async (status) => {
     mockListQueries([makeLoanRow({ status })], 1);
 
-    const res = await request(buildApp()).get(`/api/v1/loans/${COMMUNITY_ID}?status=${status}`);
+    const res = await request(buildApp()).get(
+      `/api/v1/loans/community/${COMMUNITY_ID}?status=${status}`
+    );
 
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
@@ -92,7 +94,7 @@ describe('GET /api/v1/loans/:communityId', () => {
   });
 
   it('rejects a non-UUID communityId with a 400 envelope', async () => {
-    const res = await request(buildApp()).get('/api/v1/loans/not-a-uuid');
+    const res = await request(buildApp()).get('/api/v1/loans/community/not-a-uuid');
 
     expect(res.status).toBe(400);
     expect(res.body.data).toBeNull();
@@ -102,7 +104,9 @@ describe('GET /api/v1/loans/:communityId', () => {
   it('paginates results and returns pagination meta', async () => {
     mockListQueries([makeLoanRow()], 5);
 
-    const res = await request(buildApp()).get(`/api/v1/loans/${COMMUNITY_ID}?page=2&limit=1`);
+    const res = await request(buildApp()).get(
+      `/api/v1/loans/community/${COMMUNITY_ID}?page=2&limit=1`
+    );
 
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
@@ -115,7 +119,7 @@ describe('GET /api/v1/loans/:communityId', () => {
   it('returns an empty list with zero total when no loans match', async () => {
     mockListQueries([], 0);
 
-    const res = await request(buildApp()).get(`/api/v1/loans/${COMMUNITY_ID}`);
+    const res = await request(buildApp()).get(`/api/v1/loans/community/${COMMUNITY_ID}`);
 
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual([]);
@@ -125,7 +129,7 @@ describe('GET /api/v1/loans/:communityId', () => {
   it('returns a 500 envelope when the database query fails', async () => {
     mockQuery.mockRejectedValueOnce(new Error('db down'));
 
-    const res = await request(buildApp()).get(`/api/v1/loans/${COMMUNITY_ID}`);
+    const res = await request(buildApp()).get(`/api/v1/loans/community/${COMMUNITY_ID}`);
 
     expect(res.status).toBe(500);
   });

@@ -49,7 +49,7 @@ export interface ProposalDetail extends Proposal {
 
 /** Envelope returned by `GET /api/v1/proposals/:id`. */
 interface ProposalDetailEnvelope {
-  data: ProposalDetail;
+  data: { proposal: Proposal; tally: Tally };
 }
 
 /** How often an open proposal's tally is refreshed from the backend. */
@@ -70,7 +70,7 @@ export function useProposal(id: string | null | undefined) {
     path,
     async () => {
       const response = await api.get<ProposalDetailEnvelope>(path as string, { auth: false });
-      return response.data;
+      return { ...response.data.proposal, tally: response.data.tally };
     },
     {
       refreshInterval: PROPOSAL_REFRESH_MS,
