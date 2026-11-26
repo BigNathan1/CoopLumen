@@ -1,17 +1,28 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import { PoolClient } from 'pg';
 import { db } from '../../db';
+import { logger } from '../../utils/logger';
+import { executeProposalOnChain } from '../../contracts/stellar';
 import { requireAuth } from '../middleware/auth';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate';
 import {
   castVoteSchema,
+  communityIdParamsSchema,
   createProposalSchema,
   CreateProposalInput,
   proposalIdParamsSchema,
   listProposalsQuerySchema,
   delegateProposalSchema,
   DelegateProposalInput,
+  submitVoteSchema,
+  SubmitVoteInput,
 } from '../schemas/proposal';
+import { validateXdr } from '../../contracts/xdrValidation';
+import {
+  fetchProposalTally,
+  fetchProposalsForCommunity,
+  submitVoteTransaction,
+} from '../../contracts/stellar';
 
 export const proposalRouter: Router = Router();
 
@@ -57,6 +68,102 @@ async function findProposal(id: string): Promise<Proposal | undefined> {
     id,
   ]);
   return proposal;
+}
+
+interface VoteTally {
+  for: string;
+  against: string;
+  abstain: string;
+  totalWeight: string;
+  counts: { for: number; against: number; abstain: number };
+}
+
+async function aggregateVoteTally(proposalId: string): Promise<VoteTally> {
+  const [row] = await db.query<{
+    votes_for: string;
+    votes_against: string;
+    votes_abstain: string;
+    total_weight: string;
+    count_for: string;
+    count_against: string;
+    count_abstain: string;
+  }>(
+    `SELECT
+       COALESCE(SUM(weight) FILTER (WHERE choice = 'for'), 0)::text AS votes_for,
+       COALESCE(SUM(weight) FILTER (WHERE choice = 'against'), 0)::text AS votes_against,
+       COALESCE(SUM(weight) FILTER (WHERE choice = 'abstain'), 0)::text AS votes_abstain,
+       COALESCE(SUM(weight), 0)::text AS total_weight,
+       COUNT(*) FILTER (WHERE choice = 'for')::text AS count_for,
+       COUNT(*) FILTER (WHERE choice = 'against')::text AS count_against,
+       COUNT(*) FILTER (WHERE choice = 'abstain')::text AS count_abstain
+     FROM votes
+     WHERE proposal_id = $1`,
+    [proposalId]
+  );
+  return {
+    for: row?.votes_for ?? '0',
+    against: row?.votes_against ?? '0',
+    abstain: row?.votes_abstain ?? '0',
+    totalWeight: row?.total_weight ?? '0',
+    counts: {
+      for: Number(row?.count_for ?? 0),
+      against: Number(row?.count_against ?? 0),
+      abstain: Number(row?.count_abstain ?? 0),
+    },
+  };
+}
+
+interface OnChainProposal {
+  id: string;
+  communityId: string;
+  proposerAddress: string;
+  title: string;
+  description: string | null;
+  type: string;
+  status: string;
+  quorumPercent: string;
+  metadata: Record<string, unknown> | null;
+  votingStartsAt: string;
+  votingEndsAt: string;
+  executedAt: string | null;
+  stellarTxHash: string | null;
+}
+
+async function upsertProposalFromChain(proposal: OnChainProposal): Promise<void> {
+  await db.query(
+    `INSERT INTO proposals (
+       id, community_id, proposer_address, title, description, type, status,
+       quorum_percent, metadata, voting_starts_at, voting_ends_at, executed_at, stellar_tx_hash
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+     ON CONFLICT (id) DO UPDATE SET
+       title = EXCLUDED.title,
+       description = EXCLUDED.description,
+       type = EXCLUDED.type,
+       status = EXCLUDED.status,
+       quorum_percent = EXCLUDED.quorum_percent,
+       metadata = EXCLUDED.metadata,
+       voting_starts_at = EXCLUDED.voting_starts_at,
+       voting_ends_at = EXCLUDED.voting_ends_at,
+       executed_at = EXCLUDED.executed_at,
+       stellar_tx_hash = EXCLUDED.stellar_tx_hash,
+       updated_at = NOW()`,
+    [
+      proposal.id,
+      proposal.communityId,
+      proposal.proposerAddress,
+      proposal.title,
+      proposal.description,
+      proposal.type,
+      proposal.status,
+      proposal.quorumPercent,
+      proposal.metadata ? JSON.stringify(proposal.metadata) : null,
+      proposal.votingStartsAt,
+      proposal.votingEndsAt,
+      proposal.executedAt,
+      proposal.stellarTxHash,
+    ]
+  );
 }
 
 async function isActiveMember(communityId: string, address: string): Promise<boolean> {
@@ -173,31 +280,123 @@ async function saveDelegation(
 }
 
 proposalRouter.post(
-  '/:id/delegate',
+  '/:id/execute',
   requireAuth,
   validateParams(proposalIdParamsSchema),
-  validateBody(delegateProposalSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const delegatorAddress = req.auth!.address;
-    const { delegateeAddress } = req.body as DelegateProposalInput;
-    if (delegatorAddress === delegateeAddress) {
-      res.status(400).json({ data: null, error: 'Cannot delegate voting power to yourself' });
-      return;
-    }
-
     try {
-      const delegation = await db.transaction((client) =>
-        saveDelegation(client, req.params.id, delegatorAddress, delegateeAddress)
-      );
-      res.status(200).json({
-        data: {
-          proposalId: delegation.proposal_id,
-          delegatorAddress: delegation.delegator_address,
-          delegateeAddress: delegation.delegatee_address,
-          createdAt: delegation.created_at,
-          updatedAt: delegation.updated_at,
-        },
+      const proposal = await findProposal(req.params.id);
+      if (!proposal) {
+        res.status(404).json({ data: null, error: 'Proposal not found' });
+        return;
+      }
+
+      if (proposal.status === 'executed') {
+        res.status(409).json({ data: null, error: 'Proposal has already been executed' });
+        return;
+      }
+      if (proposal.status === 'rejected' || proposal.status === 'cancelled') {
+        res.status(409).json({
+          data: null,
+          error: `Proposal cannot be executed because it is ${proposal.status}`,
+        });
+        return;
+      }
+      if (
+        proposal.status === 'active' &&
+        new Date(proposal.voting_ends_at).getTime() > Date.now()
+      ) {
+        res.status(409).json({ data: null, error: 'Voting period has not ended yet' });
+        return;
+      }
+
+      const { txHash } = await executeProposalOnChain({
+        proposalId: proposal.id,
+        communityId: proposal.community_id,
+        proposerAddress: proposal.proposer_address,
       });
+
+      await db.query(
+        `UPDATE proposals
+            SET status = 'executed',
+                executed_at = NOW(),
+                stellar_tx_hash = $2,
+                updated_at = NOW()
+          WHERE id = $1`,
+        [proposal.id, txHash]
+      );
+
+      res.status(200).json({ data: await findProposal(proposal.id) });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+proposalRouter.get(
+  '/:id',
+  validateParams(proposalIdParamsSchema),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const proposal = await findProposal(req.params.id);
+      if (!proposal) {
+        return next();
+      }
+
+      await aggregateVoteTally(proposal.id);
+
+      try {
+        await fetchProposalTally(proposal.id);
+      } catch (chainError) {
+        logger.warn('Failed to fetch on-chain proposal tally', { err: chainError });
+      }
+
+      res.json({ data: proposal });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+proposalRouter.get(
+  '/:communityId',
+  validateParams(communityIdParamsSchema),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { communityId } = req.params;
+      let source: 'chain' | 'cache' = 'cache';
+
+      try {
+        const onChainProposals = await fetchProposalsForCommunity(communityId);
+        for (const proposal of onChainProposals) {
+          await upsertProposalFromChain(proposal);
+        }
+        source = 'chain';
+      } catch (chainError) {
+        // Fall back to the DB cache when the contract is unreachable.
+        logger.warn('Failed to refresh proposals from contract', { err: chainError });
+      }
+
+      const proposals = await db.query<Proposal>(
+        `${PROPOSAL_SELECT}
+          WHERE p.community_id = $1
+          GROUP BY p.id
+          ORDER BY p.created_at DESC`,
+        [communityId]
+      );
+
+      if (proposals.length === 0) {
+        const [community] = await db.query<{ id: string }>(
+          'SELECT id FROM communities WHERE id = $1 AND deleted_at IS NULL',
+          [communityId]
+        );
+        if (!community) {
+          res.status(404).json({ data: null, error: 'Proposal not found' });
+          return;
+        }
+      }
+
+      res.json({ data: proposals, meta: { count: proposals.length, source } });
     } catch (error) {
       next(error);
     }
@@ -222,23 +421,6 @@ proposalRouter.get(
         [communityId, status ?? null]
       );
       res.json({ data: proposals });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-proposalRouter.get(
-  '/:id',
-  validateParams(proposalIdParamsSchema),
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const proposal = await findProposal(req.params.id);
-      if (!proposal) {
-        res.status(404).json({ data: null, error: 'Proposal not found' });
-        return;
-      }
-      res.json({ data: proposal });
     } catch (error) {
       next(error);
     }
@@ -293,6 +475,70 @@ proposalRouter.post(
 
       const proposal = await findProposal(created.id);
       res.status(201).json({ data: proposal });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+proposalRouter.post(
+  '/:id/vote',
+  requireAuth,
+  validateParams(proposalIdParamsSchema),
+  validateBody(submitVoteSchema),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const body = req.body as SubmitVoteInput & { xdr?: string };
+      const xdr = body.signedXdr ?? body.xdr ?? '';
+      const proposalId = req.params.id;
+
+      const validation = validateXdr(xdr);
+      if (!validation.valid) {
+        res.status(400).json({ data: null, error: validation.error ?? 'Malformed XDR' });
+        return;
+      }
+      if (!validation.targetsVoteMethod || validation.proposalId !== proposalId) {
+        res.status(400).json({
+          data: null,
+          error: 'XDR does not target the governance vote method for this proposal',
+        });
+        return;
+      }
+
+      const proposal = await findProposal(proposalId);
+      if (!proposal) {
+        res.status(404).json({ data: null, error: 'Proposal not found' });
+        return;
+      }
+
+      const submission = await submitVoteTransaction(xdr);
+
+      try {
+        await db.query(
+          `INSERT INTO votes (proposal_id, voter_address, choice, weight, reason, tx_hash)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            proposalId,
+            req.auth!.address,
+            validation.choice,
+            validation.weight ?? '1',
+            null,
+            submission.txHash,
+          ]
+        );
+      } catch (error) {
+        const databaseError = error as DatabaseError;
+        if (
+          databaseError.code === '23505' &&
+          databaseError.constraint === 'votes_unique_per_voter'
+        ) {
+          res.status(409).json({ data: null, error: 'This member has already voted' });
+          return;
+        }
+        throw error;
+      }
+
+      res.status(201).json({ data: { txHash: submission.txHash, status: submission.status } });
     } catch (error) {
       next(error);
     }

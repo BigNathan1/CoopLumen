@@ -41,6 +41,7 @@ function runTransaction(rowsByQuery: object[][] = []): void {
 
 beforeEach(() => {
   jest.resetAllMocks();
+  mockDb.query.mockResolvedValue([]);
 });
 
 describe('GET /api/v1/loans', () => {
@@ -65,21 +66,23 @@ describe('GET /api/v1/loans', () => {
 
 describe('GET /api/v1/loans/:id', () => {
   it('returns 404 when not found', async () => {
-    mockDb.query.mockResolvedValueOnce([]);
+    mockDb.query.mockResolvedValue([]);
     const res = await request(app).get(`/api/v1/loans/${loanId}`);
     expect(res.status).toBe(404);
   });
 
-  it('enriches a loan with events and outstanding balance', async () => {
+  it('enriches a loan with events, repayments and outstanding balance', async () => {
     mockDb.query
       .mockResolvedValueOnce([
         { id: loanId, amount: '100.0000000', amount_repaid: '40.0000000', status: 'active' },
       ])
-      .mockResolvedValueOnce([{ id: 'ev-1', event_type: 'created' }]);
+      .mockResolvedValueOnce([{ id: 'ev-1', event_type: 'created' }])
+      .mockResolvedValueOnce([{ id: 'rep-1', amount: '40.0000000' }]);
     const res = await request(app).get(`/api/v1/loans/${loanId}`);
     expect(res.status).toBe(200);
     expect(res.body.data.outstanding).toBe('60.0000000');
     expect(res.body.data.events).toHaveLength(1);
+    expect(res.body.data.repayments).toBeDefined();
   });
 });
 
@@ -175,6 +178,72 @@ describe('POST /api/v1/loans', () => {
       });
     expect(res.status).toBe(201);
     expect(res.body.data.status).toBe('pending');
+  });
+});
+
+describe('POST /api/v1/loans/:id/fund', () => {
+  it('rejects an unauthenticated request', async () => {
+    const res = await request(app).post(`/api/v1/loans/${loanId}/fund`).send({});
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 404 when loan does not exist', async () => {
+    mockDb.query.mockResolvedValueOnce([]);
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/fund`)
+      .set('Authorization', authHeader(lender))
+      .send({});
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Loan not found');
+  });
+
+  it('prevents borrower from funding their own loan', async () => {
+    mockDb.query.mockResolvedValueOnce([
+      { id: loanId, borrower_address: borrower, status: 'pending' },
+    ]);
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/fund`)
+      .set('Authorization', authHeader(borrower))
+      .send({});
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('Borrower cannot fund their own loan');
+  });
+
+  it('rejects funding when loan is not pending', async () => {
+    mockDb.query.mockResolvedValueOnce([
+      { id: loanId, borrower_address: borrower, status: 'active' },
+    ]);
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/fund`)
+      .set('Authorization', authHeader(lender))
+      .send({});
+    expect(res.status).toBe(409);
+    expect(res.body.error).toContain('Cannot fund a loan in status "active"');
+  });
+
+  it('funds a pending loan request', async () => {
+    mockDb.query.mockResolvedValueOnce([
+      { id: loanId, borrower_address: borrower, amount: '100.0000000', status: 'pending' },
+    ]);
+    runTransaction([
+      [{ id: loanId, borrower_address: borrower, amount: '100.0000000', status: 'pending' }],
+      [
+        {
+          id: loanId,
+          borrower_address: borrower,
+          lender_address: lender,
+          amount: '100.0000000',
+          status: 'active',
+          amount_repaid: '0',
+        },
+      ],
+    ]);
+    const res = await request(app)
+      .post(`/api/v1/loans/${loanId}/fund`)
+      .set('Authorization', authHeader(lender))
+      .send({ note: 'Happy to fund' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.status).toBe('active');
   });
 });
 
@@ -447,6 +516,47 @@ describe('loan interest', () => {
       .send({ amount: '10' });
     expect(res.status).toBe(200);
     expect(res.body.data.status).toBe('repaid');
+  });
+});
+
+describe('POST /api/v1/loans/detect-defaults', () => {
+  it('rejects an unauthenticated request', async () => {
+    const res = await request(app).post('/api/v1/loans/detect-defaults').send({});
+    expect(res.status).toBe(401);
+  });
+
+  it('runs detection and returns defaulted loans', async () => {
+    mockDb.query.mockResolvedValueOnce([
+      {
+        id: loanId,
+        community_id: communityId,
+        borrower_address: borrower,
+        lender_address: lender,
+        amount: '100.0000000',
+        due_at: '2026-01-01T00:00:00Z',
+      },
+    ]);
+    runTransaction([
+      [
+        {
+          id: loanId,
+          community_id: communityId,
+          borrower_address: borrower,
+          lender_address: lender,
+          amount: '100.0000000',
+          due_at: '2026-01-01T00:00:00Z',
+        },
+      ],
+      [{ on_time_repayments: 0, defaults: 1 }],
+    ]);
+
+    const res = await request(app)
+      .post('/api/v1/loans/detect-defaults')
+      .set('Authorization', authHeader(lender))
+      .send({});
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.meta.count).toBe(1);
   });
 });
 

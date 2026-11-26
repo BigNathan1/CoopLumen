@@ -1,0 +1,10 @@
+Frontend Design (Dark Mode)
+
+Sections Implemented
+
+Discover Communities: Designed the community directory with community profiles, search, filters, pagination, and community creation actions.
+Contact Us: Designed the contact section with inquiry forms and dedicated communication channels for general inquiries, partnerships, and security.
+Final CTA Band: Designed the final call-to-action section encouraging testnet participation and direct contact while displaying the active network.
+Contribution & Bounty Spotlight: Designed the contribution section highlighting contribution workflows, development conventions, review processes, and available open-source opportunities.
+
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&p=f&t=FZOUntChCPpWW4cJ-0

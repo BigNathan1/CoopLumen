@@ -522,6 +522,7 @@ jobs:
         build,
         docker-build,
         trivy-scan,
+        security-audit,
         deploy-scripts,
         sonarcloud,
         commitlint,
