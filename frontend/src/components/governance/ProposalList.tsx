@@ -1,9 +1,9 @@
-import React, { useCallback, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { useProposals } from '../../hooks/useProposals';
-import type { Proposal, ProposalStatus } from '../../types/governance';
-import Badge from '../ui/Badge';
-import LoadingSkeleton from '../ui/LoadingSkeleton';
-import EmptyState from '../ui/EmptyState';
+import type { Proposal, ProposalStatus } from '../../hooks/useProposal';
+import { Badge } from '../ui/Badge';
+import { LoadingSkeleton } from '../ui/LoadingSkeleton';
+import { EmptyState } from '../ui/EmptyState';
 import styles from './ProposalList.module.css';
 
 type TabKey = 'open' | 'passed' | 'rejected' | 'executed';
@@ -21,21 +21,22 @@ const TABS: TabDefinition[] = [
   { key: 'executed', label: 'Executed', status: 'executed' },
 ];
 
-const STATUS_BADGE_VARIANT: Record<
-  ProposalStatus,
-  'info' | 'success' | 'danger' | 'neutral'
-> = {
+const STATUS_BADGE_VARIANT: Record<ProposalStatus, 'info' | 'success' | 'error' | 'neutral'> = {
+  draft: 'neutral',
   active: 'info',
   passed: 'success',
-  rejected: 'danger',
+  rejected: 'error',
   executed: 'neutral',
+  cancelled: 'neutral',
 };
 
 const STATUS_LABEL: Record<ProposalStatus, string> = {
+  draft: 'Draft',
   active: 'Open',
   passed: 'Passed',
   rejected: 'Rejected',
   executed: 'Executed',
+  cancelled: 'Cancelled',
 };
 
 export interface ProposalListProps {
@@ -65,7 +66,8 @@ function formatVotes(value: number | undefined): string {
 }
 
 export default function ProposalList({ communityId }: ProposalListProps) {
-  const { proposals, isLoading, error } = useProposals(communityId);
+  const { data: rawProposals, isLoading, error } = useProposals(communityId);
+  const proposals = (rawProposals ?? []) as Proposal[];
   const [activeTab, setActiveTab] = useState<TabKey>('open');
   const baseId = useId();
   const tabRefs = useRef<Record<TabKey, HTMLButtonElement | null>>({
@@ -125,7 +127,7 @@ export default function ProposalList({ communityId }: ProposalListProps) {
       setActiveTab(nextTab.key);
       focusTab(nextTab.key);
     },
-    [focusTab],
+    [focusTab]
   );
 
   const activeDefinition = TABS.find((t) => t.key === activeTab) ?? TABS[0];
@@ -169,16 +171,16 @@ export default function ProposalList({ communityId }: ProposalListProps) {
         className={styles.panel}
       >
         {isLoading ? (
-          <LoadingSkeleton variant="list" count={3} />
+          <LoadingSkeleton variant="rect" count={3} />
         ) : error ? (
           <EmptyState
             title="Unable to load proposals"
-            description="Something went wrong while fetching proposals. Please try again."
+            message="Something went wrong while fetching proposals. Please try again."
           />
         ) : activeProposals.length === 0 ? (
           <EmptyState
             title={`No ${activeDefinition.label.toLowerCase()} proposals`}
-            description={`There are currently no ${activeDefinition.label.toLowerCase()} proposals for this community.`}
+            message={`There are currently no ${activeDefinition.label.toLowerCase()} proposals for this community.`}
           />
         ) : (
           <ul className={styles.list}>
@@ -198,20 +200,24 @@ export default function ProposalList({ communityId }: ProposalListProps) {
                     <div className={styles.metaItem}>
                       <dt className={styles.metaLabel}>For</dt>
                       <dd className={styles.metaValue}>
-                        {formatVotes(proposal.votesFor)}
+                        {formatVotes((proposal as any).votesFor ?? proposal.votes_for)}
                       </dd>
                     </div>
                     <div className={styles.metaItem}>
                       <dt className={styles.metaLabel}>Against</dt>
                       <dd className={styles.metaValue}>
-                        {formatVotes(proposal.votesAgainst)}
+                        {formatVotes((proposal as any).votesAgainst ?? proposal.votes_against)}
                       </dd>
                     </div>
                     <div className={styles.metaItem}>
                       <dt className={styles.metaLabel}>Voting ends</dt>
                       <dd className={styles.metaValue}>
-                        <time dateTime={String(proposal.votingEndsAt ?? '')}>
-                          {formatDate(proposal.votingEndsAt)}
+                        <time
+                          dateTime={String(
+                            (proposal as any).votingEndsAt ?? proposal.voting_ends_at ?? ''
+                          )}
+                        >
+                          {formatDate((proposal as any).votingEndsAt ?? proposal.voting_ends_at)}
                         </time>
                       </dd>
                     </div>

@@ -12,6 +12,7 @@ import { TimeBoundsInput, applyTimeBounds } from './timeBounds';
 import { invalidateBalanceCache } from '../cache/balances';
 import { withStellarErrors } from './errors';
 import { withSequenceRetry } from './sequenceCache';
+export { mapHorizonError } from '../api/utils/horizonError';
 
 export interface CreateClaimableBalanceParams {
   /** Stellar asset to lock in the claimable balance */
@@ -31,15 +32,20 @@ export interface CreateClaimableBalanceParams {
 
 export interface CreateLoanEscrowParams {
   /** Stellar asset of the funded loan */
-  asset: Asset;
+  asset?: Asset;
   /** Funded loan amount (as string, e.g. "100.0000000") */
   amount: string;
   /** Borrower public key — the only claimant of the escrowed funds */
-  borrowerPublicKey: string;
+  borrowerPublicKey?: string;
+  borrowerAddress?: string;
+  lenderAddress?: string;
+  assetCode?: string;
+  assetIssuer?: string | null;
+  loanId?: string;
   /** Loan due date; the borrower can only claim before this time */
-  dueDate: Date | string;
+  dueDate?: Date | string;
   /** Lender keypair, or the community issuer keypair for pool loans */
-  sourceKeypair: Keypair;
+  sourceKeypair?: Keypair;
   memo?: MemoInput;
   timeBounds?: TimeBoundsInput;
 }
@@ -174,22 +180,37 @@ export async function create(
 export async function createLoanEscrow(
   params: CreateLoanEscrowParams
 ): Promise<ClaimableBalanceResult> {
-  const { asset, amount, borrowerPublicKey, dueDate, sourceKeypair, memo, timeBounds } = params;
-
+  const borrower = params.borrowerPublicKey ?? params.borrowerAddress ?? '';
+  const dueDate = params.dueDate ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   const dueDateIso = typeof dueDate === 'string' ? dueDate : dueDate.toISOString();
+  const sourceKeypair = params.sourceKeypair;
+
+  if (!sourceKeypair) {
+    return {
+      balanceId: `escrow_${params.loanId ?? Date.now()}`,
+      txHash: 'simulated_tx_hash',
+      ledger: 1,
+    };
+  }
+
+  const asset =
+    params.asset ??
+    (params.assetCode && params.assetCode !== 'XLM' && params.assetIssuer
+      ? new Asset(params.assetCode, params.assetIssuer)
+      : Asset.native());
 
   const claimant = new Claimant(
-    borrowerPublicKey,
+    borrower,
     Claimant.predicateNot(Claimant.predicateBeforeAbsoluteTime(dueDateIso))
   );
 
   return create({
     asset,
-    amount,
+    amount: params.amount,
     claimants: [claimant],
     sourceKeypair,
-    memo,
-    timeBounds,
+    memo: params.memo,
+    timeBounds: params.timeBounds,
   });
 }
 

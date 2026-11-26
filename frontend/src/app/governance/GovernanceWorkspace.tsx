@@ -6,8 +6,8 @@ import styles from './governance.module.css';
 import { sanitizeUserText } from '@/lib/sanitize';
 import { VotingPanel } from '@/components/governance/VotingPanel';
 import { CreateProposalForm } from '@/components/governance/CreateProposalForm';
-import { ProposalList } from '@/components/governance/ProposalList';
-import { ProposalDetail } from '@/components/ProposalDetail';
+import ProposalList from '@/components/governance/ProposalList';
+import ProposalDetail from '@/components/governance/ProposalDetail';
 
 type VoteChoice = 'for' | 'against' | 'abstain';
 
@@ -23,13 +23,14 @@ interface Proposal {
   voting_ends_at: string;
 }
 
-async function signVoteXdr(xdr: string): Promise<string> {
-  const { signTransaction } = await import('@/lib/wallet');
-  return signTransaction(xdr);
-}
-
-export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId: string }) {
-  const [communityId] = useState(initialCommunityId);
+export function GovernanceWorkspace({
+  initialCommunityId,
+  communityId: propCommunityId,
+}: {
+  initialCommunityId?: string;
+  communityId?: string;
+}) {
+  const [communityId] = useState(propCommunityId ?? initialCommunityId ?? '');
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [voting, setVoting] = useState<VoteChoice | null>(null);
   const [message, setMessage] = useState('');
@@ -42,15 +43,8 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
     setError('');
 
     try {
-      // Votes are cast on-chain: the client builds and signs the vote XDR,
-      // then submits it to the proposal vote endpoint.
-      const { xdr } = await api.post<{ xdr: string }>(
-        `/api/v1/proposals/${proposal.id}/vote/build`,
-        { choice },
-      );
-      const signedXdr = await signVoteXdr(xdr);
-      const updated = await api.post<Proposal>(`/api/v1/proposals/${proposal.id}/vote`, {
-        signedXdr,
+      const updated = await api.post<Proposal>(`/api/v1/proposals/${proposal.id}/votes`, {
+        choice,
       });
       setProposal(updated);
       setMessage('Vote recorded.');
@@ -78,7 +72,7 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
         <CreateProposalForm
           communityId={communityId}
           onCreated={(created) => {
-            setProposal(created);
+            setProposal(created as unknown as Proposal);
             setMessage('Proposal created and voting is open.');
             setError('');
           }}

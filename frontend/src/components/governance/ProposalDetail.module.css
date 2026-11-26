@@ -202,7 +202,9 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background-color 150ms ease, border-color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
 }
 
 .button:hover {
@@ -244,8 +246,8 @@
   .tallyRow {
     grid-template-columns: 1fr auto;
     grid-template-areas:
-      "label value"
-      "track track";
+      'label value'
+      'track track';
     row-gap: var(--space-1);
   }
 

@@ -42,8 +42,7 @@ const OPERATION_MESSAGES: Record<string, string> = {
   op_malformed: 'Operation parameters are malformed.',
 
   // Payment / path payment
-  op_underfunded:
-    'Insufficient balance to fund the escrow amount for this operation.',
+  op_underfunded: 'Insufficient balance to complete this operation.',
   op_no_trust: 'Destination account does not have a trustline for this asset.',
   op_line_full: "Destination account's trustline limit would be exceeded.",
   op_no_destination: 'Destination account does not exist.',
@@ -57,8 +56,7 @@ const OPERATION_MESSAGES: Record<string, string> = {
 
   // Change trust
   op_invalid_limit: 'Trustline limit must be greater than the current balance.',
-  op_low_reserve:
-    'Source account does not hold enough XLM to cover the claimable balance reserve.',
+  op_low_reserve: 'Source account does not hold enough XLM to cover the claimable balance reserve.',
   op_trust_not_required:
     'A trustline is not required for this asset (it is issued by this account).',
   op_cant_delete: 'Trustline cannot be removed while it still holds a balance or has open offers.',
@@ -166,7 +164,7 @@ export function mapHorizonError(err: unknown, details?: InsufficientBalanceDetai
  */
 export function mapLoanEscrowError(
   err: unknown,
-  details?: InsufficientBalanceDetails,
+  details?: InsufficientBalanceDetails
 ): MappedError {
   const mapped = mapHorizonError(err, details);
 
@@ -175,7 +173,9 @@ export function mapLoanEscrowError(
     const detail = horizonErr?.response?.data?.detail ?? horizonErr?.response?.data?.title;
     return {
       status: mapped.status,
-      message: detail ? `Loan escrow failed: ${detail}` : 'Loan escrow failed. Please try again later.',
+      message: detail
+        ? `Loan escrow failed: ${detail}`
+        : 'Loan escrow failed. Please try again later.',
     };
   }
 

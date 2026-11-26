@@ -1,16 +1,16 @@
-import React from 'react';
 import { render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import ProposalDetail from '../ProposalDetail';
+import ProposalDetail from '../governance/ProposalDetail';
 
 // Mock the useProposal hook following existing component test patterns.
+const mockUseProposal = jest.fn();
 jest.mock('../../hooks/useProposal', () => ({
   __esModule: true,
-  default: jest.fn(),
+  useProposal: (...args: unknown[]) => mockUseProposal(...args),
+  default: (...args: unknown[]) => mockUseProposal(...args),
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const useProposal = require('../../hooks/useProposal').default as jest.Mock;
+const useProposal = mockUseProposal;
 
 const baseProposal = {
   id: 'prop-1',
@@ -39,11 +39,9 @@ describe('ProposalDetail', () => {
     render(<ProposalDetail proposalId="prop-1" />);
 
     expect(
-      screen.getByRole('heading', { name: /increase community treasury allocation/i }),
+      screen.getByRole('heading', { name: /increase community treasury allocation/i })
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/a proposal to increase the treasury allocation/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/a proposal to increase the treasury allocation/i)).toBeInTheDocument();
     expect(screen.getByText(/active/i)).toBeInTheDocument();
   });
 
