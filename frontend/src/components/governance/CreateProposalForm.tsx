@@ -2,28 +2,26 @@
 
 import { useCallback, useId, useState } from 'react';
 import { api } from '../../lib/api';
-import { createProposalFormSchema } from '../../lib/schemas';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import styles from './CreateProposalForm.module.css';
 
-export type ProposalType = 'treasury' | 'parameter' | 'membership' | 'general';
-
-export type ProposalActionType =
-  | 'transfer'
-  | 'mint'
-  | 'burn'
-  | 'set_parameter'
-  | 'add_member'
-  | 'remove_member';
+export type ProposalType =
+  | 'general'
+  | 'loan_approval'
+  | 'member_removal'
+  | 'treasury_spend'
+  | 'settings_change'
+  | 'token_issuance';
 
 export interface CreateProposalPayload {
   communityId: string;
   title: string;
-  description: string;
+  description?: string;
   type: ProposalType;
-  actions: Array<{ type: ProposalActionType; params: Record<string, string> }>;
+  quorumPercent: number;
+  votingDurationHours: number;
 }
 
 export interface CreateProposalFormProps {
@@ -33,101 +31,50 @@ export interface CreateProposalFormProps {
 }
 
 const PROPOSAL_TYPE_OPTIONS = [
-  { value: 'treasury', label: 'Treasury' },
-  { value: 'parameter', label: 'Parameter change' },
-  { value: 'membership', label: 'Membership' },
   { value: 'general', label: 'General' },
+  { value: 'treasury_spend', label: 'Treasury spend' },
+  { value: 'loan_approval', label: 'Loan approval' },
+  { value: 'member_removal', label: 'Member removal' },
+  { value: 'settings_change', label: 'Settings change' },
+  { value: 'token_issuance', label: 'Token issuance' },
 ];
-
-const ACTION_TYPE_OPTIONS = [
-  { value: 'transfer', label: 'Transfer tokens' },
-  { value: 'mint', label: 'Mint tokens' },
-  { value: 'burn', label: 'Burn tokens' },
-  { value: 'set_parameter', label: 'Set parameter' },
-  { value: 'add_member', label: 'Add member' },
-  { value: 'remove_member', label: 'Remove member' },
-];
-
-interface ActionParamField {
-  key: string;
-  label: string;
-  placeholder?: string;
-}
-
-const ACTION_PARAM_FIELDS: Record<ProposalActionType, ActionParamField[]> = {
-  transfer: [
-    { key: 'recipient', label: 'Recipient address', placeholder: 'G…' },
-    { key: 'amount', label: 'Amount', placeholder: '0' },
-  ],
-  mint: [
-    { key: 'recipient', label: 'Recipient address', placeholder: 'G…' },
-    { key: 'amount', label: 'Amount', placeholder: '0' },
-  ],
-  burn: [
-    { key: 'holder', label: 'Holder address', placeholder: 'G…' },
-    { key: 'amount', label: 'Amount', placeholder: '0' },
-  ],
-  set_parameter: [
-    { key: 'name', label: 'Parameter name', placeholder: 'quorum' },
-    { key: 'value', label: 'Parameter value', placeholder: '0' },
-  ],
-  add_member: [{ key: 'member', label: 'Member address', placeholder: 'G…' }],
-  remove_member: [{ key: 'member', label: 'Member address', placeholder: 'G…' }],
-};
 
 /**
- * Creates a community proposal: a title, description and one on-chain action.
- *
- * Validation runs through the shared `createProposalFormSchema` so the form
- * rejects the same payloads the API does, and the first issue per field is
- * rendered under that control.
+ * Creates a community proposal. The payload matches `createProposalSchema` on
+ * the backend, which owns the defaults for quorum and voting duration.
  */
 export function CreateProposalForm({ communityId, onCreated, onCancel }: CreateProposalFormProps) {
   const formId = useId();
-  const titleId = `${formId}-title`;
   const descriptionId = `${formId}-description`;
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState<ProposalType>('general');
-  const [actionType, setActionType] = useState<ProposalActionType>('transfer');
-  const [params, setParams] = useState<Record<string, string>>({});
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [quorumPercent, setQuorumPercent] = useState('50');
+  const [votingDurationHours, setVotingDurationHours] = useState('24');
+  const [titleError, setTitleError] = useState('');
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  const handleActionChange = useCallback((value: string) => {
-    setActionType(value as ProposalActionType);
-    setParams({});
-  }, []);
 
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      setFieldErrors({});
+      setTitleError('');
       setFormError('');
+
+      if (title.trim().length === 0) {
+        setTitleError('Title is required');
+        return;
+      }
 
       const payload: CreateProposalPayload = {
         communityId,
         title: title.trim(),
-        description: description.trim(),
+        description: description.trim() || undefined,
         type,
-        actions: [{ type: actionType, params }],
+        quorumPercent: Number(quorumPercent),
+        votingDurationHours: Number(votingDurationHours),
       };
-
-      const result = createProposalFormSchema.safeParse(payload);
-      if (!result.success) {
-        const next: Record<string, string> = {};
-        for (const issue of result.error.issues) {
-          const key = issue.path.join('.');
-          if (key && !next[key]) next[key] = issue.message;
-        }
-        setFieldErrors(next);
-        if (!next.title && !next.description && !next.type && !next.actions) {
-          setFormError(result.error.issues[0]?.message ?? 'Check the form and try again.');
-        }
-        return;
-      }
 
       setSubmitting(true);
       try {
@@ -135,7 +82,6 @@ export function CreateProposalForm({ communityId, onCreated, onCancel }: CreateP
         onCreated?.(response);
         setTitle('');
         setDescription('');
-        setParams({});
       } catch (error) {
         setFormError(
           error instanceof Error ? error.message : 'Failed to create the proposal. Try again.'
@@ -144,7 +90,7 @@ export function CreateProposalForm({ communityId, onCreated, onCancel }: CreateP
         setSubmitting(false);
       }
     },
-    [actionType, communityId, description, onCreated, params, title, type]
+    [communityId, description, onCreated, quorumPercent, title, type, votingDurationHours]
   );
 
   return (
@@ -168,13 +114,13 @@ export function CreateProposalForm({ communityId, onCreated, onCancel }: CreateP
       )}
 
       <Input
-        id={titleId}
+        id={`${formId}-title`}
         label="Title"
         value={title}
         onChange={(event) => setTitle(event.target.value)}
         maxLength={200}
         required
-        error={fieldErrors.title}
+        error={titleError}
         placeholder="Short summary of the proposal"
       />
 
@@ -189,11 +135,6 @@ export function CreateProposalForm({ communityId, onCreated, onCancel }: CreateP
         maxLength={10000}
         placeholder="What should change, and why?"
       />
-      {fieldErrors.description && (
-        <p className={styles.hint} role="alert">
-          {fieldErrors.description}
-        </p>
-      )}
 
       <Select
         label="Proposal type"
@@ -202,32 +143,25 @@ export function CreateProposalForm({ communityId, onCreated, onCancel }: CreateP
         onChange={(value) => setType(value as ProposalType)}
       />
 
-      <Select
-        label="Action"
-        options={ACTION_TYPE_OPTIONS}
-        value={actionType}
-        onChange={handleActionChange}
+      <Input
+        id={`${formId}-quorum`}
+        label="Quorum (%)"
+        type="number"
+        min={0}
+        max={100}
+        value={quorumPercent}
+        onChange={(event) => setQuorumPercent(event.target.value)}
       />
 
-      {ACTION_PARAM_FIELDS[actionType].map((field) => (
-        <Input
-          key={field.key}
-          id={`${formId}-${field.key}`}
-          label={field.label}
-          value={params[field.key] ?? ''}
-          onChange={(event) =>
-            setParams((current) => ({ ...current, [field.key]: event.target.value }))
-          }
-          placeholder={field.placeholder}
-          required
-        />
-      ))}
-
-      {fieldErrors.actions && (
-        <p className={styles.hint} role="alert">
-          {fieldErrors.actions}
-        </p>
-      )}
+      <Input
+        id={`${formId}-duration`}
+        label="Voting duration (hours)"
+        type="number"
+        min={1}
+        max={720}
+        value={votingDurationHours}
+        onChange={(event) => setVotingDurationHours(event.target.value)}
+      />
 
       <div className={styles.field}>
         <Button type="submit" isLoading={submitting} loadingLabel="Creating proposal">

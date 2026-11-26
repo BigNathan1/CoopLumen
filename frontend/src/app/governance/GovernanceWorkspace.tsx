@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { api } from '@/lib/api';
 import { sanitizeUserText } from '@/lib/sanitize';
-import { useFreighterSign } from '@/hooks/useFreighterSign';
 import type { Proposal } from '@/hooks/useProposal';
 import { CreateProposalForm } from '@/components/governance/CreateProposalForm';
 import { ProposalList } from '@/components/governance/ProposalList';
@@ -22,7 +21,6 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
   const [voting, setVoting] = useState<VoteChoice | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const { sign } = useFreighterSign();
 
   async function castVote(choice: VoteChoice) {
     if (!proposal) return;
@@ -31,13 +29,8 @@ export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId
     setError('');
 
     try {
-      const { xdr } = await api.post<{ xdr: string }>(
-        `/api/v1/proposals/${proposal.id}/vote/build`,
-        { choice }
-      );
-      const signedXdr = await sign(xdr);
-      const updated = await api.post<Proposal>(`/api/v1/proposals/${proposal.id}/vote`, {
-        signedXdr,
+      const updated = await api.post<Proposal>(`/api/v1/proposals/${proposal.id}/votes`, {
+        choice,
       });
       setProposal(updated);
       setMessage('Vote recorded.');
