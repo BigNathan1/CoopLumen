@@ -100,6 +100,11 @@ export async function createProposal(
       overrides.votingEndsAt ?? new Date(now + 60 * 60 * 1000),
       overrides.executedAt ?? null,
       overrides.stellarTxHash ?? null,
+    ]
+  );
+  return result.rows[0];
+}
+
 export interface TestLoan {
   id: string;
   community_id: string;
