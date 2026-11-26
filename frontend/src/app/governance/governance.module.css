@@ -205,3 +205,152 @@
     display: grid;
   }
 }
+
+/* VotingPanel component styles (frontend/src/components/governance/VotingPanel.module.css) */
+
+.votingPanel {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.votingPanel h2 {
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+
+.tallyGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.tallyItem {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+.tallyItem dt {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.tallyItem dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.voteGroup {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.voteGroup legend {
+  padding: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.voteActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.voteButton {
+  min-height: 44px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.voteButton[data-vote='for'] {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.voteButton[data-vote='against'] {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.voteButton[data-vote='abstain'] {
+  border-color: var(--color-border-strong);
+  color: var(--color-text-muted);
+}
+
+.voteButton:hover:not(:disabled) {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-text-on-primary);
+}
+
+.voteButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.voteButton:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.feedback {
+  min-height: 1.5rem;
+}
+
+.success,
+.error {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+}
+
+.success {
+  background: var(--color-success-subtle);
+  color: var(--color-success);
+}
+
+.error {
+  background: var(--color-error-subtle);
+  color: var(--color-error);
+}
+
+@media (max-width: 540px) {
+  .votingPanel {
+    padding: var(--space-4);
+  }
+
+  .tallyGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .voteActions {
+    display: grid;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voteButton {
+    transition: none;
+  }
+}

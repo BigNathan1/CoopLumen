@@ -1,0 +1,43 @@
+name: OWASP ZAP Baseline
+
+on:
+  workflow_run:
+    workflows: [Staging]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zap-baseline:
+    name: ZAP staging baseline
+    if: >-
+      vars.STAGING_URL != '' &&
+      (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Run ZAP baseline against staging
+        env:
+          STAGING_URL: ${{ vars.STAGING_URL }}
+        run: |
+          mkdir -p zap-report
+          docker run --rm \
+            -v "$PWD/zap-report:/zap/wrk/:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t "$STAGING_URL" -m 5 -I \
+            -J report.json -r report.html -w report.md
+
+      - name: Fail on medium or higher findings
+        run: node scripts/security/check-zap-report.js zap-report/report.json
+
+      - name: Upload ZAP reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-report
+          path: zap-report/
+          retention-days: 30
