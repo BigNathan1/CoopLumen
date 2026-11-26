@@ -9,6 +9,113 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Mainnet Launch Readiness (Issues #577, #578)
+
+**Security Audit Readiness (Issue #577)**
+
+- `AUDIT_READINESS.md` — Comprehensive security audit readiness documentation covering:
+  - Architecture and trust boundaries
+  - Security controls inventory (authentication, authorization, input validation, transaction security, secrets management, rate limiting, error handling, network configuration)
+  - Smart contract security analysis (authorization controls, vote integrity, proposal lifecycle, known limitations)
+  - Backend API security (authentication routes, RBAC middleware, input validation, transaction submission, webhook verification)
+  - Frontend security (wallet connection, session tokens, CSP headers, error handling)
+  - Threat model with attack scenarios and mitigations
+  - Known limitations and outstanding risks
+  - Security testing evidence (unit/integration tests, smart contract tests, E2E tests, dependency scanning, container scanning)
+  - External audit engagement process and timeline
+
+- `docs/security-audit-engagement.md` — Complete guide for engaging independent security auditors:
+  - Audit scope definition (in-scope and out-of-scope components)
+  - Auditor selection criteria and recommended firms
+  - Six-phase engagement process (Preparation, Kickoff, Main Audit, Reporting, Remediation, Retest & Closure)
+  - Communication and escalation procedures
+  - Deliverables and sign-off criteria
+  - Risk management for critical findings
+  - SOW template for audit engagement
+
+- Enhanced `backend/src/index.ts` with production environment validation:
+  - New `PRODUCTION_REQUIRED_ENV_VARS` array enforcing `AUTH_SESSION_SECRET` and `ADMIN_ADDRESSES` in production
+  - `validateMainnetConfig()` function for Mainnet-specific validation warnings
+  - Network selection validation ensuring only `testnet` or `mainnet` are allowed
+  - Clear error messages on missing required configuration
+  - Startup failure on critical configuration errors (prevents misconfiguration in production)
+
+- Updated `backend/.env.example` with comprehensive documentation:
+  - Added detailed comments for production-specific requirements
+  - Clarified that `AUTH_SESSION_SECRET` and `ADMIN_ADDRESSES` are required in production
+  - Added Mainnet-specific configuration placeholders (`STELLAR_MAINNET_GOVERNANCE_CONTRACT_ID`, `STELLAR_MAINNET_ISSUER_PUBLIC_KEY`)
+  - Included example command for generating secure secrets
+  - Explained fallback behavior and safety considerations for each environment variable
+
+**Mainnet Launch Readiness (Issue #578)**
+
+- `docs/mainnet-configuration.md` — Stellar Mainnet configuration guide:
+  - Clean network separation between local/Testnet/Mainnet
+  - Environment variable reference and validation procedures
+  - Startup validation checklist and process
+  - Deployment procedures with step-by-step instructions
+  - Rollback procedures for critical failures
+  - FAQ addressing common configuration questions
+
+- `docs/mainnet-issuer-setup.md` — Issuer account setup guide:
+  - Keypair generation and secure storage procedures
+  - Mainnet funding methods (Laboratory, CLI, JavaScript SDK, exchange/custodian)
+  - Account verification on Stellar Mainnet
+  - Safe credential management and security checklist
+  - Emergency procedures for key compromise or account drainage
+  - Detailed troubleshooting guide
+
+- `docs/governance-contract-mainnet-deployment.md` — Smart contract deployment guide:
+  - Prerequisites and tools setup
+  - Contract build and test procedures
+  - Testnet deployment (pre-production validation)
+  - Mainnet deployment with explicit authorization
+  - Contract verification and initialization
+  - Application configuration updates
+  - Smoke testing procedures
+  - Rollback and recovery options
+  - Comprehensive troubleshooting guide
+  - Deployment log template for audit trail
+
+- `docs/production-monitoring.md` — Production monitoring and observability guide:
+  - Health check endpoint specification (GET `/api/v1/health`)
+  - Structured logging implementation and critical event documentation
+  - Metrics to monitor (application, Stellar-specific, database, governance contract)
+  - Alerting guidelines (critical, high, medium, low priority)
+  - Manual alert setup with bash script example
+  - Incident response procedures
+  - Common scenarios and resolution steps
+  - Integration options (Datadog, New Relic, Prometheus + Grafana, ELK Stack)
+  - Incident runbooks (high CPU usage, memory leaks, database connection issues)
+
+- `LAUNCH_ANNOUNCEMENT.md` — Publication-ready Mainnet launch announcement:
+  - Press release text covering CoopLumen features and launch details
+  - Social media posts (Twitter, LinkedIn)
+  - Press kit references (logo, branding, company boilerplate)
+  - Key statistics placeholders
+  - Launch day checklist and schedule template
+  - FAQ for public communication
+  - Crisis communication plan for incident response
+  - Post-launch monitoring schedule
+  - Messaging guidelines (what to say/avoid)
+
+- `MAINNET_GO_LIVE_CHECKLIST.md` — Comprehensive pre-launch verification checklist:
+  - Phase 1: Security & Audit verification
+  - Phase 2: Stellar Mainnet configuration validation
+  - Phase 3: Issuer account funding verification
+  - Phase 4: Governance contract deployment verification
+  - Phase 5: Backend deployment readiness
+  - Phase 6: Frontend deployment readiness
+  - Phase 7: Testing & verification (smoke tests, network verification, performance tests)
+  - Phase 8: Production monitoring setup verification
+  - Phase 9: Documentation completeness
+  - Phase 10: Launch preparation (announcement, team readiness, deployment)
+  - Phase 11: Final verification (24 hours before launch)
+  - Phase 12: Launch approval and sign-off
+  - Post-launch monitoring checklist
+
+- `IMPLEMENTATION_PLAN.md` — Detailed implementation roadmap for Issues #577 and #578
+
 ### Added
 
 - Added `POST /api/v1/multisig/:id/execute` endpoint to submit fully-signed XDR to Horizon or record transaction hash (#485).
