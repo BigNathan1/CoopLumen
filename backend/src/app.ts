@@ -9,8 +9,17 @@ import { communityWriteLimiter } from './api/middleware/rateLimit';
 import { csrfProtection } from './api/middleware/csrf';
 import { db } from './db';
 import { StellarService } from './contracts/stellar';
+import { auditStateChange } from './api/middleware/auditLog';
 
 const app: Application = express();
+
+app.use((_req, res, next) => {
+  res.setHeader(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=(), accelerometer=(), gyroscope=(), magnetometer=(), browsing-topics=()'
+  );
+  next();
+});
 
 // Behind a load balancer every request otherwise appears to come from the proxy,
 // so per-IP rate limits would throttle all clients as one. Opt in with the
@@ -20,7 +29,36 @@ if (process.env.TRUST_PROXY) {
   app.set('trust proxy', Number.isInteger(hops) ? hops : process.env.TRUST_PROXY);
 }
 
-app.use(helmet());
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'production' && !req.secure) {
+    res.redirect(308, `https://${req.get('host')}${req.originalUrl}`);
+    return;
+  }
+  next();
+});
+app.use(
+  helmet({
+    hsts: { maxAge: 63_072_000, includeSubDomains: true, preload: true },
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'none'"],
+        baseUri: ["'none'"],
+        frameAncestors: ["'none'"],
+        formAction: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: [
+          "'self'",
+          process.env.STELLAR_HORIZON_URL ?? 'https://horizon-testnet.stellar.org',
+        ],
+        objectSrc: ["'none'"],
+        upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
+      },
+    },
+    referrerPolicy: { policy: 'no-referrer' },
+  })
+);
 app.use(cors({ origin: process.env.FRONTEND_URL ?? 'http://localhost:3000' }));
 // Captures the exact bytes received so webhook signature verification can
 // HMAC over the same payload the client signed, before JSON parsing/
@@ -44,6 +82,7 @@ app.use((req, res, next) => {
   parser(req, res, next);
 });
 app.use(requestLogger);
+app.use(auditStateChange);
 
 const healthHandler = (_req: Request, res: Response, next: NextFunction): void => {
   Promise.allSettled([db.ping(), StellarService.ping()])

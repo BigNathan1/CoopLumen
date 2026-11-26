@@ -110,6 +110,11 @@ describe('POST /api/v1/tokens/submit with refreshSupply', () => {
 
     expect(res.status).toBe(200);
     expect(getTotalSupply).not.toHaveBeenCalled();
-    expect(db.query).not.toHaveBeenCalled();
+    // The audit middleware still records the mutation; what must not happen is
+    // a write to the stored supply.
+    expect(db.query).not.toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE tokens'),
+      expect.anything()
+    );
   });
 });

@@ -19,6 +19,7 @@ export const MULTISIG_STATUSES = [
 ] as const;
 
 export const createMultiSigRequestSchema = z.object({
+  community_id: z.string().uuid('Invalid community ID').optional(),
   action: z.enum(MULTISIG_ACTIONS),
   title: z.string().min(1, 'Title is required').max(255),
   description: z.string().max(1000).optional().nullable(),
@@ -39,7 +40,15 @@ export const rejectMultiSigRequestSchema = z.object({
 });
 
 export const executeMultiSigRequestSchema = z.object({
-  stellar_tx_hash: z.string().min(1, 'Stellar transaction hash is required'),
+  // An empty hash is treated as absent by the route, which then submits a
+  // signed XDR instead, so it is rejected here rather than silently ignored.
+  stellar_tx_hash: z
+    .string()
+    .trim()
+    .min(1, 'stellar_tx_hash must not be empty')
+    .optional()
+    .nullable(),
+  signed_xdr: z.string().trim().min(1, 'signed_xdr must not be empty').optional().nullable(),
 });
 
 export const getMultiSigQuerySchema = z.object({

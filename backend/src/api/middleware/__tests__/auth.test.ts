@@ -28,38 +28,38 @@ beforeEach(() => {
 describe('requireAuth (session cookie)', () => {
   const address = 'GABC';
 
-  it('rejects a request with neither cookie nor Authorization header', () => {
+  it('rejects a request with neither cookie nor Authorization header', async () => {
     const req = { headers: {} } as Request;
     const res = mockRes();
     const next = jest.fn();
 
-    requireAuth(req, res, next);
+    await requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({ data: null, error: 'Authentication required' });
     expect(next).not.toHaveBeenCalled();
   });
 
-  it('accepts a valid session cookie and sets req.auth', () => {
+  it('accepts a valid session cookie and sets req.auth', async () => {
     const { token } = createSessionToken(address);
     const req = { headers: { cookie: `other=1; ${AUTH_COOKIE_NAME}=${token}` } } as Request;
     const res = mockRes();
     const next = jest.fn();
 
-    requireAuth(req, res, next);
+    await requireAuth(req, res, next);
 
     expect(next).toHaveBeenCalledTimes(1);
     expect(req.auth).toEqual({ address });
     expect(res.status).not.toHaveBeenCalled();
   });
 
-  it('rejects a tampered cookie token', () => {
+  it('rejects a tampered cookie token', async () => {
     const { token } = createSessionToken(address);
     const req = { headers: { cookie: `${AUTH_COOKIE_NAME}=${token}x` } } as Request;
     const res = mockRes();
     const next = jest.fn();
 
-    requireAuth(req, res, next);
+    await requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.json).toHaveBeenCalledWith({
@@ -70,42 +70,42 @@ describe('requireAuth (session cookie)', () => {
     expect(req.auth).toBeUndefined();
   });
 
-  it('rejects an expired cookie token', () => {
+  it('rejects an expired cookie token', async () => {
     const { token } = createSessionToken(address, -10);
     const req = { headers: { cookie: `${AUTH_COOKIE_NAME}=${token}` } } as Request;
     const res = mockRes();
     const next = jest.fn();
 
-    requireAuth(req, res, next);
+    await requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
   });
 
-  it('ignores unrelated cookies', () => {
+  it('ignores unrelated cookies', async () => {
     const req = { headers: { cookie: 'session=abc; theme=dark' } } as Request;
     const res = mockRes();
     const next = jest.fn();
 
-    requireAuth(req, res, next);
+    await requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
   });
 
-  it('falls back to a Bearer token when there is no cookie', () => {
+  it('falls back to a Bearer token when there is no cookie', async () => {
     const { token } = createSessionToken(address);
     const req = { headers: { authorization: `Bearer ${token}` } } as Request;
     const res = mockRes();
     const next = jest.fn();
 
-    requireAuth(req, res, next);
+    await requireAuth(req, res, next);
 
     expect(next).toHaveBeenCalledTimes(1);
     expect(req.auth).toEqual({ address });
   });
 
-  it('does not let a valid Bearer token rescue an invalid cookie', () => {
+  it('does not let a valid Bearer token rescue an invalid cookie', async () => {
     const { token } = createSessionToken(address);
     const req = {
       headers: { cookie: `${AUTH_COOKIE_NAME}=garbage`, authorization: `Bearer ${token}` },
@@ -113,7 +113,7 @@ describe('requireAuth (session cookie)', () => {
     const res = mockRes();
     const next = jest.fn();
 
-    requireAuth(req, res, next);
+    await requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
@@ -121,58 +121,58 @@ describe('requireAuth (session cookie)', () => {
 });
 
 describe('requireAuth (Bearer token)', () => {
-  it('rejects a request with no Authorization header', () => {
+  it('rejects a request with no Authorization header', async () => {
     const req = { headers: {} } as Request;
     const res = mockRes();
     const next = jest.fn();
 
-    requireAuth(req, res, next);
+    await requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
   });
 
-  it('rejects a header that is not a Bearer token', () => {
+  it('rejects a header that is not a Bearer token', async () => {
     const req = { headers: { authorization: 'Basic abc' } } as Request;
     const res = mockRes();
     const next = jest.fn();
 
-    requireAuth(req, res, next);
+    await requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
   });
 
-  it('rejects an invalid token', () => {
+  it('rejects an invalid token', async () => {
     const req = { headers: { authorization: 'Bearer not-a-real-token' } } as Request;
     const res = mockRes();
     const next = jest.fn();
 
-    requireAuth(req, res, next);
+    await requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
   });
 
-  it('rejects an expired token', () => {
+  it('rejects an expired token', async () => {
     const address = 'GABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTU';
     const { token } = createSessionToken(address, -10);
     const req = { headers: { authorization: `Bearer ${token}` } } as Request;
     const res = mockRes();
     const next = jest.fn();
 
-    requireAuth(req, res, next);
+    await requireAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
   });
 
-  it('sets req.auth and calls next for a valid token', () => {
+  it('sets req.auth and calls next for a valid token', async () => {
     const address = 'GABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTU';
     const { token } = createSessionToken(address);
     const req = { headers: { authorization: `Bearer ${token}` } } as Request;
     const res = mockRes();
     const next = jest.fn();
 
-    requireAuth(req, res, next);
+    await requireAuth(req, res, next);
 
     expect(req.auth).toEqual({ address });
     expect(next).toHaveBeenCalled();

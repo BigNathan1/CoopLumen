@@ -1,3 +1,5 @@
+// frontend/src/app/governance/page.tsx
+import { GovernanceDashboard } from '@/components/governance/GovernanceDashboard';
 import { GovernanceWorkspace } from './GovernanceWorkspace';
 
 interface PageProps {
@@ -6,5 +8,10 @@ interface PageProps {
 
 export default async function GovernancePage({ searchParams }: PageProps) {
   const { communityId = '' } = await searchParams;
-  return <GovernanceWorkspace initialCommunityId={communityId} />;
+  return (
+    <>
+      <GovernanceDashboard communityId={communityId} />
+      <GovernanceWorkspace initialCommunityId={communityId} />
+    </>
+  );
 }

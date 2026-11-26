@@ -20,6 +20,10 @@ export interface ValidateXdrOptions {
 export interface XdrValidationResult {
   valid: boolean;
   error?: string;
+  targetsVoteMethod?: boolean;
+  proposalId?: string;
+  choice?: string;
+  weight?: string;
 }
 
 function invalid(error: string): XdrValidationResult {
