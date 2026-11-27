@@ -1,5 +1,5 @@
 import { Account, Asset, Claimant, Keypair, Networks } from '@stellar/stellar-sdk';
-import { claim, create } from '../claimableBalance';
+import { claim, create, createLoanEscrow } from '../claimableBalance';
 import { StellarService } from '../stellar';
 import { SequenceCache } from '../sequenceCache';
 import { invalidateBalanceCache } from '../../cache/balances';
@@ -92,8 +92,14 @@ describe('claimableBalance.create', () => {
 
     expect(result.txHash).toBe('abc123def456');
     expect(result.ledger).toBe(1234);
-    expect(result.balanceId).toBe('balance-id-xyz-123456789');
     expect(mockSubmitTransaction).toHaveBeenCalledTimes(1);
+
+    // The balance ID comes from the submitted transaction, never from the
+    // response `id`, which Horizon sets to the transaction hash.
+    const submittedTx = mockSubmitTransaction.mock.calls[0][0];
+    expect(result.balanceId).toBe(submittedTx.getClaimableBalanceId(0));
+    expect(result.balanceId).toMatch(/^00000000[0-9a-f]{64}$/);
+    expect(result.balanceId).not.toBe('balance-id-xyz-123456789');
   });
 
   it('uses CreateClaimableBalance operation', async () => {
@@ -312,9 +318,12 @@ describe('claimableBalance.create', () => {
       sourceKeypair,
     });
 
-    // Should succeed on retry
+    // Should succeed on retry, reporting the balance created by the retried transaction
     expect(result.txHash).toBe('tx-hash-retry');
     expect(mockSubmitTransaction).toHaveBeenCalledTimes(2);
+    const [[firstTx], [retriedTx]] = mockSubmitTransaction.mock.calls;
+    expect(result.balanceId).toBe(retriedTx.getClaimableBalanceId(0));
+    expect(result.balanceId).not.toBe(firstTx.getClaimableBalanceId(0));
   });
 
   it('throws StellarError when tx_insufficient_fee is returned', async () => {
@@ -463,5 +472,66 @@ describe('claimableBalance.create', () => {
     });
 
     expect(invalidateBalanceCache).toHaveBeenCalledWith([sourceKeypair.publicKey()]);
+  });
+});
+
+describe('claimableBalance.createLoanEscrow', () => {
+  const sourceKeypair = Keypair.random();
+  const borrower = Keypair.random().publicKey();
+  const mockLoadAccount = StellarService.loadAccount as jest.Mock;
+  const mockSubmitTransaction = StellarService.submitTransaction as jest.Mock;
+
+  beforeEach(() => {
+    mockLoadAccount.mockReset();
+    mockSubmitTransaction.mockReset();
+    (SequenceCache as unknown as { cache: Map<string, unknown> }).cache.clear();
+    (SequenceCache as unknown as { queues: Map<string, unknown> }).queues.clear();
+    mockLoadAccount.mockResolvedValue(new Account(sourceKeypair.publicKey(), '300'));
+    mockSubmitTransaction.mockResolvedValue({ hash: 'escrow-tx', ledger: 42 });
+  });
+
+  async function escrowPredicate(dueDate: Date | string) {
+    await createLoanEscrow({
+      asset: Asset.native(),
+      amount: '100',
+      borrowerPublicKey: borrower,
+      dueDate,
+      sourceKeypair,
+    });
+    const [operation] = mockSubmitTransaction.mock.calls[0][0].operations;
+    expect(operation.type).toBe('createClaimableBalance');
+    expect(operation.claimants).toHaveLength(1);
+    expect(operation.claimants[0].destination).toBe(borrower);
+    return operation.claimants[0].predicate;
+  }
+
+  it('lets the borrower claim only before the due date, in Unix seconds', async () => {
+    const dueDate = new Date('2027-03-01T12:00:00Z');
+
+    const predicate = await escrowPredicate(dueDate);
+
+    expect(predicate.switch().name).toBe('claimPredicateBeforeAbsoluteTime');
+    expect(predicate.absBefore().toString()).toBe(String(dueDate.getTime() / 1000));
+  });
+
+  it('accepts the due date as an ISO string', async () => {
+    const predicate = await escrowPredicate('2027-03-01T12:00:00.000Z');
+
+    expect(predicate.absBefore().toString()).toBe(
+      String(Date.parse('2027-03-01T12:00:00Z') / 1000)
+    );
+  });
+
+  it('rejects a due date that is not a date', async () => {
+    await expect(
+      createLoanEscrow({
+        asset: Asset.native(),
+        amount: '100',
+        borrowerPublicKey: borrower,
+        dueDate: 'next week',
+        sourceKeypair,
+      })
+    ).rejects.toThrow('Invalid loan due date');
+    expect(mockSubmitTransaction).not.toHaveBeenCalled();
   });
 });

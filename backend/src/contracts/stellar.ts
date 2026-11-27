@@ -178,7 +178,10 @@ class StellarServiceClass {
 
     this.network = NETWORK_PASSPHRASES[env];
     this.networkPassphrase = NETWORK_PASSPHRASES[env];
-    this.server = new Horizon.Server(horizonUrl);
+    // Plain http is only ever a local stand-in, such as the E2E stack's fake Horizon.
+    this.server = new Horizon.Server(horizonUrl, {
+      allowHttp: horizonUrl.startsWith('http://'),
+    });
     this.sorobanServer = new SorobanRpc.Server(sorobanUrl, {
       allowHttp: sorobanUrl.startsWith('http://'),
     });

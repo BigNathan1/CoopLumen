@@ -12,6 +12,30 @@ services:
       # The browser reaches the app through the E2E gateway, so the app's
       # origin is the gateway's.
       FRONTEND_URL: http://127.0.0.1:3100
+      # Balances and submitted transactions go to the fake Horizon below, so
+      # flows that move funds run without a funded testnet account.
+      STELLAR_HORIZON_URL: http://horizon:8000
+      # A throwaway key generated per run by frontend/e2e/support/escrow-key.mjs.
+      ESCROW_SOURCE_SECRET: ${E2E_ESCROW_SECRET:-}
+    depends_on:
+      horizon:
+        condition: service_healthy
+
+  horizon:
+    image: node:24-alpine
+    command: node /fake-horizon/fake-horizon.mjs
+    volumes:
+      - ./frontend/e2e/support:/fake-horizon:ro
+    environment:
+      PORT: 8000
+      FAKE_HORIZON_ACCOUNTS: ${E2E_ESCROW_ADDRESS:-}
+    ports:
+      - '8100:8000'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8000/ || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   frontend:
     build:
