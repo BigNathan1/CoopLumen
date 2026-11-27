@@ -149,6 +149,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Recorded deployed governance contract testnet address and configuration in documentation (#510).
 - Added comprehensive Soroban governance contract unit tests using `soroban-sdk` test utilities (#509).
 
+- Comprehensive unit tests for all loan route handlers covering happy paths, Zod validation errors, domain/state edge cases (404, 401/403, 409), and DB failure handling (#463, #385).
 - Borrower-only `POST /api/v1/loans/request` endpoint for authenticated active members requesting loans from their community pool, with OpenAPI documentation (#451).
 - `POST /api/v1/loans/:id/repay` lets the borrower submit a partial or full repayment against an active loan, with Zod-validated input, the standard `{ data, meta?, error? }` envelope, and OpenAPI documentation (#455).
 - `GET /api/v1/loans/borrower/:address` lists every loan borrowed by a Stellar address, with pagination metadata and OpenAPI documentation (#457).
