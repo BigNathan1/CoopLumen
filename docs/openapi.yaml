@@ -43,6 +43,8 @@ tags:
     description: Account identity verification flows
   - name: Auth
     description: Wallet sign-in (challenge, signature, session cookie)
+  - name: Analytics
+    description: Aggregated loan metrics per community
 
 paths:
   /api/v1/multisig/{id}/reject:
@@ -127,7 +129,7 @@ paths:
                     items:
                       $ref: '#/components/schemas/MultiSigRequest'
                   meta:
-                    $ref: '#/components/schemas/PaginationMeta'
+                    $ref: '#/components/schemas/PageMeta'
         '400':
           $ref: '#/components/responses/ValidationError'
         '404':
@@ -1715,15 +1717,9 @@ paths:
       tags: [Loans]
       summary: Request a loan from the community pool
       description: >
-        Creates a pending loan for the authenticated active member. The API
-        derives the borrower from the session and the lender and asset from the
-        community pool.
+        Creates a pending loan for the authenticated active member. The API derives the borrower from the session and the lender and asset from the community pool.
 
-        The maximum loan amount is enforced via a loan-to-value (LTV) limit
-        based on the borrower's community token holdings. The LTV limit is
-        configured in the community settings (`ltvLimit`, default 0.5). The
-        maximum loan amount equals `tokenBalance * ltvLimit`. Requests exceeding
-        this limit are rejected with a 400 response containing the limit details.
+        The maximum loan amount is enforced via a loan-to-value (LTV) limit based on the borrower's community token holdings. The LTV limit is configured in the community settings (`ltvLimit`, default 0.5). The maximum loan amount equals `tokenBalance * ltvLimit`. Requests exceeding this limit are rejected with a 400 response containing the limit details.
       security:
         - SessionToken: []
         - SessionCookie: []
@@ -2162,6 +2158,29 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/v1/analytics/{communityId}:
+    get:
+      summary: Get community loan analytics
+      tags: [Analytics]
+      parameters:
+        - name: communityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: assetCode
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Aggregated loan metrics for the community
+        '400':
+          $ref: '#/components/responses/ValidationError'
+      description: Loan totals for a community, optionally limited to one asset. Outstanding is principal plus flat interest minus repayments on active loans; the repayment rate is repaid over closed (repaid or defaulted) loans, or null when none have closed.
 components:
   parameters:
     CommunityId:
@@ -2195,6 +2214,12 @@ components:
             $ref: '#/components/schemas/ValidationErrorResponse'
     NotFound:
       description: Requested resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Authentication required, or the session token is missing or expired
       content:
         application/json:
           schema:
@@ -3215,25 +3240,3 @@ components:
       in: cookie
       name: cooplumen_csrf
       description: Cookie storing the client CSRF token for double-submit cookie validation.
-
-/api/v1/analytics/{communityId}:
-  get:
-    summary: Get community loan analytics
-    tags: [Analytics]
-    parameters:
-      - name: communityId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - name: assetCode
-        in: query
-        required: false
-        schema:
-          type: string
-    responses:
-      '200':
-        description: Aggregated loan metrics for the community
-      '400':
-        description: Validation error
