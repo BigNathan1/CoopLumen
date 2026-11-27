@@ -1,19 +1,34 @@
-import request from 'supertest';
 import { PoolClient } from 'pg';
 import { Keypair } from '@stellar/stellar-sdk';
-import app from '../../../app';
-import { db } from '../../../db';
-import { createSessionToken } from '../../utils/sessionToken';
+import { StellarService } from '../../../contracts/stellar';
 
-jest.mock('../../../db', () => ({
+jest.mock('@/db', () => ({
   db: {
     connect: jest.fn().mockResolvedValue(undefined),
-    query: jest.fn(),
+    query: jest.fn().mockResolvedValue({ rows: [] }),
     transaction: jest.fn(),
+    end: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
+// Mock auditLog middleware to avoid db connection issues in tests
+jest.mock('@/api/middleware/auditLog', () => ({
+  auditStateChange: (_req: any, _res: any, next: any) => next(),
+}));
+
+jest.mock('../../../contracts/stellar', () => ({
+  StellarService: {
+    getAccountBalance: jest.fn(),
+  },
+}));
+
+import request from 'supertest';
+import app from '../../../app';
+import { db } from '@/db';
+import { createSessionToken } from '../../utils/sessionToken';
+
 const mockDb = db as jest.Mocked<typeof db>;
+const mockStellar = StellarService as jest.Mocked<typeof StellarService>;
 const borrower = Keypair.random().publicKey();
 const lender = Keypair.random().publicKey();
 const stranger = Keypair.random().publicKey();
@@ -638,5 +653,190 @@ describe('DELETE /api/v1/loans/:id', () => {
       .delete(`/api/v1/loans/${loanId}`)
       .set('Authorization', authHeader(borrower));
     expect(res.status).toBe(404);
+  });
+});
+
+describe('POST /api/v1/loans/request LTV limit enforcement', () => {
+  const mockCommunity = {
+    issuer_public_key: lender,
+    asset_code: 'ECO',
+    asset_issuer: lender,
+  };
+  const tokenBalances = [
+    { asset_type: 'native', balance: '100.0000000' },
+    {
+      asset_type: 'credit_alphanum4',
+      asset_code: 'ECO',
+      asset_issuer: lender,
+      balance: '5000.0000000',
+    },
+  ];
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    mockStellar.getAccountBalance.mockResolvedValue(tokenBalances as any);
+  });
+
+  function setupCommunityMocks(settings: Record<string, unknown> = {}) {
+    mockDb.query
+      .mockResolvedValueOnce([mockCommunity]) // community lookup
+      .mockResolvedValueOnce([{ settings }]); // community settings lookup
+  }
+
+  it('allows a loan request within the default LTV limit (50%)', async () => {
+    // 5000 * 0.5 = 2500 max, request 1000
+    setupCommunityMocks({});
+    runTransaction([
+      [
+        {
+          id: loanId,
+          status: 'pending',
+          amount: '1000.0000000',
+          interest_rate: '0',
+          amount_repaid: '0',
+        },
+      ],
+    ]);
+
+    const res = await request(app)
+      .post('/api/v1/loans/request')
+      .set('Authorization', authHeader(borrower))
+      .send({
+        communityId,
+        amount: '1000',
+        dueAt: new Date(Date.now() + 86400000).toISOString(),
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.status).toBe('pending');
+  });
+
+  it('rejects a loan request exceeding the default LTV limit', async () => {
+    // 5000 * 0.5 = 2500 max, request 3000
+    setupCommunityMocks({});
+    const res = await request(app)
+      .post('/api/v1/loans/request')
+      .set('Authorization', authHeader(borrower))
+      .send({
+        communityId,
+        amount: '3000',
+        dueAt: new Date(Date.now() + 86400000).toISOString(),
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Loan request exceeds loan-to-value limit');
+    expect(res.body.meta.maxLoanAmount).toBe('2500.0000000');
+    expect(res.body.meta.tokenBalance).toBe('5000.0000000');
+    expect(res.body.meta.ltvLimit).toBe(0.5);
+  });
+
+  it('uses custom LTV limit from community settings', async () => {
+    // Override community settings with custom LTV limit (80%)
+    setupCommunityMocks({ ltvLimit: 0.8 });
+    // 5000 * 0.8 = 4000 max, request 3500
+    runTransaction([
+      [
+        {
+          id: loanId,
+          status: 'pending',
+          amount: '3500.0000000',
+          interest_rate: '0',
+          amount_repaid: '0',
+        },
+      ],
+    ]);
+
+    const res = await request(app)
+      .post('/api/v1/loans/request')
+      .set('Authorization', authHeader(borrower))
+      .send({
+        communityId,
+        amount: '3500',
+        dueAt: new Date(Date.now() + 86400000).toISOString(),
+      });
+
+    expect(res.status).toBe(201);
+  });
+
+  it('rejects a loan request exceeding custom LTV limit', async () => {
+    setupCommunityMocks({ ltvLimit: 0.8 });
+    // 5000 * 0.8 = 4000 max, request 4500
+    const res = await request(app)
+      .post('/api/v1/loans/request')
+      .set('Authorization', authHeader(borrower))
+      .send({
+        communityId,
+        amount: '4500',
+        dueAt: new Date(Date.now() + 86400000).toISOString(),
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Loan request exceeds loan-to-value limit');
+    expect(res.body.meta.maxLoanAmount).toBe('4000.0000000');
+    expect(res.body.meta.ltvLimit).toBe(0.8);
+  });
+
+  it('rejects loan request when borrower has zero token balance', async () => {
+    const zeroBalances = [
+      { asset_type: 'native', balance: '100.0000000' },
+      {
+        asset_type: 'credit_alphanum4',
+        asset_code: 'ECO',
+        asset_issuer: lender,
+        balance: '0.0000000',
+      },
+    ];
+    setupCommunityMocks({});
+    mockStellar.getAccountBalance.mockResolvedValueOnce(zeroBalances as any);
+
+    const res = await request(app)
+      .post('/api/v1/loans/request')
+      .set('Authorization', authHeader(borrower))
+      .send({
+        communityId,
+        amount: '100',
+        dueAt: new Date(Date.now() + 86400000).toISOString(),
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Loan request exceeds loan-to-value limit');
+    expect(res.body.meta.maxLoanAmount).toBe('0.0000000');
+  });
+
+  it('returns 502 when Stellar Horizon is unavailable', async () => {
+    setupCommunityMocks({});
+    mockStellar.getAccountBalance.mockRejectedValueOnce({
+      response: { status: 503, data: { detail: 'Service Unavailable' } },
+    });
+
+    const res = await request(app)
+      .post('/api/v1/loans/request')
+      .set('Authorization', authHeader(borrower))
+      .send({
+        communityId,
+        amount: '1000',
+        dueAt: new Date(Date.now() + 86400000).toISOString(),
+      });
+
+    expect(res.status).toBe(502);
+    expect(res.body.error).toBe('Unable to verify token balance. Please try again later.');
+  });
+
+  it('rejects loan request for non-member borrower', async () => {
+    mockDb.query.mockResolvedValueOnce([]); // community lookup fails
+
+    const res = await request(app)
+      .post('/api/v1/loans/request')
+      .set('Authorization', authHeader(borrower))
+      .send({
+        communityId,
+        amount: '1000',
+        dueAt: new Date(Date.now() + 86400000).toISOString(),
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe(
+      'An active community membership is required to request a pool loan'
+    );
   });
 });

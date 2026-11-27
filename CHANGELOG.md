@@ -143,6 +143,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Per-community threshold configuration support in community settings and multisig request creation (#487).
 - `POST /api/v1/multisig/:id/reject` endpoint allowing cosigners to reject a pending multi-signature proposal with an optional reason (#486).
 - `GET /api/v1/multisig/:communityId` endpoint to list multi-signature proposals and signature status for a community (#484).
+- Loan-to-value (LTV) limit enforcement for community pool loan requests based on borrower token holdings, with configurable limit via `community_settings.ltvLimit` (default 50%) (#462, #384).
 
 - Borrower-only `POST /api/v1/loans/request` endpoint for authenticated active members requesting loans from their community pool, with OpenAPI documentation (#451).
 - `POST /api/v1/loans/:id/repay` lets the borrower submit a partial or full repayment against an active loan, with Zod-validated input, the standard `{ data, meta?, error? }` envelope, and OpenAPI documentation (#455).

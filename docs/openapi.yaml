@@ -1715,7 +1715,15 @@ paths:
       tags: [Loans]
       summary: Request a loan from the community pool
       description: >
-        Creates a pending loan for the authenticated active member. The API derives the borrower from the session and the lender and asset from the community pool.
+        Creates a pending loan for the authenticated active member. The API
+        derives the borrower from the session and the lender and asset from the
+        community pool.
+
+        The maximum loan amount is enforced via a loan-to-value (LTV) limit
+        based on the borrower's community token holdings. The LTV limit is
+        configured in the community settings (`ltvLimit`, default 0.5). The
+        maximum loan amount equals `tokenBalance * ltvLimit`. Requests exceeding
+        this limit are rejected with a 400 response containing the limit details.
       security:
         - SessionToken: []
         - SessionCookie: []
@@ -1734,11 +1742,30 @@ paths:
                 properties:
                   data: { $ref: '#/components/schemas/Loan' }
                   error: { nullable: true }
-        '400': { $ref: '#/components/responses/ValidationError' }
+        '400':
+          oneOf:
+            - $ref: '#/components/responses/ValidationError'
+            - description: Loan request exceeds loan-to-value limit
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      data: { type: 'null' }
+                      error: { type: 'string', example: 'Loan request exceeds loan-to-value limit' }
+                      meta:
+                        type: object
+                        properties:
+                          requestedAmount: { type: 'string', example: '3000.0000000' }
+                          maxLoanAmount: { type: 'string', example: '2500.0000000' }
+                          tokenBalance: { type: 'string', example: '5000.0000000' }
+                          ltvLimit: { type: 'number', example: 0.5 }
         '401':
           description: Authentication required
         '403':
           description: Active community membership required
+        '502':
+          description: Unable to verify token balance (Stellar Horizon unavailable)
 
   /api/v1/loans/{id}/events:
     parameters:
@@ -2564,7 +2591,16 @@ components:
       properties:
         name: { type: string, minLength: 2, maxLength: 64 }
         description: { type: string, nullable: true, maxLength: 500 }
-        settings: { type: object, additionalProperties: true }
+        settings:
+          type: object
+          properties:
+            ltvLimit:
+              type: number
+              minimum: 0
+              maximum: 1
+              default: 0.5
+              description: Loan-to-value limit for community pool loans (0-1, default 0.5)
+          additionalProperties: true
     PageMeta:
       type: object
       properties:
