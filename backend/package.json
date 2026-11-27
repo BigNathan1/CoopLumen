@@ -59,6 +59,7 @@
     "typescript": "^5.5.3"
   },
   "overrides": {
-    "toml": "^5.0.1"
+    "toml": "^5.0.1",
+    "minimatch": "^11.0.1"
   }
 }
