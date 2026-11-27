@@ -14,6 +14,7 @@ import { Table, type TableColumn } from '@/components/ui/Table';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Spinner } from '@/components/ui/Spinner';
+import { api, isApiError } from '@/lib/api';
 import { formatAmount, truncateAddress } from '@/lib/format';
 import styles from './LoansPage.module.css';
 
@@ -245,34 +246,22 @@ export function LoansPage({ communityId }: { communityId: string }) {
     setRequestSubmitting(true);
 
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/v1/loans/request`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            communityId,
-            amount,
-            purpose: purpose || undefined,
-            dueAt,
-            interestRate: interestRate > 0 ? interestRate : undefined,
-          }),
-        }
-      );
-
-      const body = (await res.json().catch(() => ({}))) as {
-        data?: Loan;
-        error?: string;
-        meta?: { maxLoanAmount?: string };
-      };
-
-      if (!res.ok) {
-        if (body.meta?.maxLoanAmount && res.status === 400) {
+      try {
+        await api.post<Loan>('/api/v1/loans/request', {
+          communityId,
+          amount,
+          purpose: purpose || undefined,
+          dueAt,
+          interestRate: interestRate > 0 ? interestRate : undefined,
+        });
+      } catch (err) {
+        const maxLoanAmount = isApiError(err) ? err.meta?.maxLoanAmount : undefined;
+        if (typeof maxLoanAmount === 'string') {
           throw new Error(
-            `Loan request exceeds loan-to-value limit. Maximum: ${formatAmount(body.meta.maxLoanAmount)} ${community.asset_code}`
+            `Loan request exceeds loan-to-value limit. Maximum: ${formatAmount(maxLoanAmount)} ${community.asset_code}`
           );
         }
-        throw new Error(body.error ?? 'Failed to request loan');
+        throw err;
       }
 
       setIsRequestOpen(false);
@@ -309,20 +298,7 @@ export function LoansPage({ communityId }: { communityId: string }) {
     }
 
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/v1/loans/${repayLoan.id}/repay`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount }),
-        }
-      );
-
-      const body = (await res.json().catch(() => ({}))) as { data?: Loan; error?: string };
-
-      if (!res.ok) {
-        throw new Error(body.error ?? 'Failed to repay loan');
-      }
+      await api.post<Loan>(`/api/v1/loans/${repayLoan.id}/repay`, { amount });
 
       setRepayLoan(null);
       setRepayAmount('');
@@ -348,20 +324,7 @@ export function LoansPage({ communityId }: { communityId: string }) {
     }
 
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/v1/loans/${endpoint}`,
-        {
-          method: type === 'cancel' ? 'DELETE' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        }
-      );
-
-      const body = (await res.json().catch(() => ({}))) as { data?: Loan; error?: string };
-
-      if (!res.ok) {
-        throw new Error(body.error ?? `Failed to ${type} loan`);
-      }
+      await api.request<Loan>(type === 'cancel' ? 'DELETE' : 'POST', `/api/v1/loans/${endpoint}`);
 
       setConfirmAction(null);
       void refreshLoans();

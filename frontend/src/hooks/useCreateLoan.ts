@@ -1,8 +1,7 @@
 import { useState, useCallback } from 'react';
 import { mutate } from 'swr';
+import { api } from '@/lib/api';
 import type { Loan } from './useLoans';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 export interface CreateLoanInput {
   communityId: string;
@@ -29,19 +28,11 @@ export function useCreateLoan() {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/api/v1/loans`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
-      const body = (await res.json().catch(() => ({}))) as { data?: Loan; error?: string };
-      if (!res.ok) {
-        throw new Error(body.error ?? 'Failed to create loan');
-      }
+      const loan = await api.post<Loan>('/api/v1/loans', input);
       await mutate((key) => typeof key === 'string' && key.includes('/api/v1/loans'), undefined, {
         revalidate: true,
       });
-      return body.data ?? null;
+      return loan ?? null;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create loan');
       return null;
