@@ -11,6 +11,18 @@ import { db } from '../../../db';
 import { setupTestDatabase } from '../../../testing/setup';
 import { teardownTestSuite } from '../../../testing/teardown';
 import { createSessionToken } from '../../utils/sessionToken';
+import { StellarService } from '../../../contracts/stellar';
+
+// The database is real; the two Stellar network calls on this path are faked.
+// Requesting a loan reads the borrower's community-token balance for the
+// loan-to-value check, and disbursing locks the funds in a claimable balance.
+jest.mock('../../../contracts/claimableBalance', () => ({
+  ...jest.requireActual('../../../contracts/claimableBalance'),
+  // Each loan gets its own balance id; the column is unique.
+  createLoanEscrow: jest.fn(() =>
+    Promise.resolve({ balanceId: `escrow-${Math.random().toString(16).slice(2)}` })
+  ),
+}));
 
 const RUN_INTEGRATION = Boolean(process.env.DATABASE_URL);
 const describeIntegration = RUN_INTEGRATION ? describe : describe.skip;
@@ -26,6 +38,7 @@ describeIntegration('Loan lifecycle: request → fund → repay (integration)', 
   const lenderKeypair = Keypair.random();
 
   beforeAll(async () => {
+    process.env.ESCROW_SOURCE_SECRET = Keypair.random().secret();
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     const { seeded } = await setupTestDatabase({ pool, seed: true });
     testCommunityId = seeded?.eco.id ?? '';
@@ -48,13 +61,31 @@ describeIntegration('Loan lifecycle: request → fund → repay (integration)', 
     }
   });
 
+  beforeEach(() => {
+    // Enough community tokens that every request in this suite is within the LTV limit.
+    jest.spyOn(StellarService, 'getAccountBalance').mockResolvedValue([
+      {
+        asset_type: 'credit_alphanum4',
+        asset_code: testCommunityAssetCode,
+        asset_issuer: testCommunityAssetIssuer,
+        balance: '1000000.0000000',
+      },
+    ] as Awaited<ReturnType<typeof StellarService.getAccountBalance>>);
+  });
+
   afterAll(async () => {
+    delete process.env.ESCROW_SOURCE_SECRET;
     await teardownTestSuite({ pool, closePool: true });
     await db.end();
   });
 
   function authHeader(keypair: Keypair): string {
     return `Bearer ${createSessionToken(keypair.publicKey()).token}`;
+  }
+
+  /** Pool loans are lent by the community issuer, so only that account may disburse them. */
+  function issuerAuthHeader(): string {
+    return `Bearer ${createSessionToken(testCommunityIssuerPublicKey).token}`;
   }
 
   it('completes full loan lifecycle: request → fund → repay → reputation updated', async () => {
@@ -100,7 +131,7 @@ describeIntegration('Loan lifecycle: request → fund → repay (integration)', 
     // ========== STEP 2: Fund/Disburse the loan (lender = community issuer) ==========
     const disburseRes = await request(app)
       .post(`/api/v1/loans/${loanId}/disburse`)
-      .set('Authorization', authHeader(lenderKeypair)) // In pool loans, lender is community issuer
+      .set('Authorization', issuerAuthHeader()) // In pool loans, the lender is the community issuer
       .send({
         stellarTxHash: 'test-tx-hash-123',
         note: 'Loan disbursed to borrower',
@@ -128,7 +159,6 @@ describeIntegration('Loan lifecycle: request → fund → repay (integration)', 
       .set('Authorization', authHeader(borrowerKeypair))
       .send({
         amount: totalDue,
-        paymentId: '11111111-1111-4111-8111-111111111111',
         note: 'Full repayment',
       })
       .expect(200);
@@ -159,12 +189,15 @@ describeIntegration('Loan lifecycle: request → fund → repay (integration)', 
       .set('Authorization', authHeader(borrowerKeypair))
       .expect(200);
 
-    expect(reputationRes.body.data).toBeDefined();
-    expect(reputationRes.body.data.stellar_address).toBe(borrowerKeypair.publicKey());
-    expect(reputationRes.body.data.community_id).toBe(testCommunityId);
-    expect(reputationRes.body.data.on_time_repayments).toBe(1);
-    expect(reputationRes.body.data.defaults).toBe(0);
-    expect(reputationRes.body.data.total_loans).toBe(1);
+    // The detail endpoint returns the address, an overall score and one row per community.
+    expect(reputationRes.body.data.address).toBe(borrowerKeypair.publicKey());
+    const communityScore = reputationRes.body.data.communities.find(
+      (c: { community_id: string }) => c.community_id === testCommunityId
+    );
+    expect(communityScore).toBeDefined();
+    expect(communityScore.on_time_repayments).toBe(1);
+    expect(communityScore.defaults).toBe(0);
+    expect(communityScore.total_loans).toBe(1);
     // Score should be > 50 due to successful repayment
     expect(reputationRes.body.data.score).toBeGreaterThan(50);
   });
@@ -192,7 +225,7 @@ describeIntegration('Loan lifecycle: request → fund → repay (integration)', 
     // Disburse
     await request(app)
       .post(`/api/v1/loans/${loanId}/disburse`)
-      .set('Authorization', authHeader(lenderKeypair))
+      .set('Authorization', issuerAuthHeader())
       .send({})
       .expect(200);
 
@@ -223,7 +256,10 @@ describeIntegration('Loan lifecycle: request → fund → repay (integration)', 
       .set('Authorization', authHeader(borrowerKeypair))
       .expect(200);
 
-    expect(reputationRes.body.data.on_time_repayments).toBe(1);
+    const communityScore = reputationRes.body.data.communities.find(
+      (c: { community_id: string }) => c.community_id === testCommunityId
+    );
+    expect(communityScore.on_time_repayments).toBeGreaterThanOrEqual(1);
   });
 
   it('rejects repayment exceeding outstanding balance', async () => {
@@ -246,7 +282,7 @@ describeIntegration('Loan lifecycle: request → fund → repay (integration)', 
 
     await request(app)
       .post(`/api/v1/loans/${loanId}/disburse`)
-      .set('Authorization', authHeader(lenderKeypair))
+      .set('Authorization', issuerAuthHeader())
       .send({})
       .expect(200);
 

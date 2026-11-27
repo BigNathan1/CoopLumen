@@ -21,13 +21,17 @@ export const createCommunitySchema = z.object({
   assetIssuer: stellarPublicKey,
 });
 
-const communitySettingsSchema = z.object({
-  ltvLimit: z
-    .number()
-    .min(0, { message: 'ltvLimit must be greater than or equal to 0' })
-    .max(1, { message: 'ltvLimit must be less than or equal to 1' })
-    .optional(),
-});
+// Settings is an open JSON object; only the keys the API acts on are checked,
+// and every other key is kept as the caller sent it.
+const communitySettingsSchema = z
+  .object({
+    ltvLimit: z
+      .number()
+      .min(0, { message: 'ltvLimit must be greater than or equal to 0' })
+      .max(1, { message: 'ltvLimit must be less than or equal to 1' })
+      .optional(),
+  })
+  .passthrough();
 
 export const updateCommunitySchema = z
   .object({

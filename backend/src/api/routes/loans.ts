@@ -833,7 +833,7 @@ loanRouter.post(
         return;
       }
 
-      res.json({ data: updated });
+      res.json({ data: withTotals(updated!) });
     } catch (err) {
       next(err);
     }
@@ -982,7 +982,7 @@ loanRouter.post(
         return;
       }
 
-      res.json({ data: updated });
+      res.json({ data: withTotals(updated!) });
     } catch (err) {
       next(err);
     }
@@ -1090,7 +1090,7 @@ loanRouter.post(
         return;
       }
 
-      res.json({ data: updated });
+      res.json({ data: withTotals(updated!) });
     } catch (err) {
       next(err);
     }
