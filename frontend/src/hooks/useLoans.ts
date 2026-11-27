@@ -2,10 +2,7 @@ import useSWR from 'swr';
 import { fetcher } from '@/lib/swr';
 
 export type LoanStatus = 'pending' | 'active' | 'repaid' | 'defaulted' | 'cancelled';
-export function useLoan(id: string | null | undefined, enabled = true) {
-  const key = enabled && id ? `/api/v1/loans/${encodeURIComponent(id)}` : null;
-  return useSWR<LoanDetail>(key, fetcher);
-}
+
 export interface Loan {
   id: string;
   community_id: string;
@@ -51,21 +48,44 @@ export interface LoanFilters {
   limit?: number;
 }
 
-/** Paginated loan list, newest first. Optional filters map to API query params. */
-export function useLoans(filters: LoanFilters = {}) {
+export type CommunityLoanFilters = Omit<LoanFilters, 'communityId'>;
+
+/**
+ * Paginated loan list, newest first. Call it as `useLoans(communityId, filters)`
+ * or `useLoans(filters)`; a `null` or empty community id defers the request.
+ */
+export function useLoans(
+  communityId: string | null,
+  filters?: CommunityLoanFilters
+): ReturnType<typeof useSWR<Loan[]>>;
+export function useLoans(filters?: LoanFilters): ReturnType<typeof useSWR<Loan[]>>;
+export function useLoans(
+  communityIdOrFilters?: string | null | LoanFilters,
+  maybeFilters?: CommunityLoanFilters
+) {
+  const deferred = communityIdOrFilters === null || communityIdOrFilters === '';
+
+  const filters: LoanFilters =
+    typeof communityIdOrFilters === 'string'
+      ? { ...maybeFilters, communityId: communityIdOrFilters }
+      : (communityIdOrFilters ?? {});
+
   const params = new URLSearchParams({ limit: String(filters.limit ?? 10) });
   if (filters.communityId) params.set('communityId', filters.communityId);
   if (filters.borrower) params.set('borrower', filters.borrower);
   if (filters.lender) params.set('lender', filters.lender);
   if (filters.status) params.set('status', filters.status);
-  return useSWR<Loan[]>(`/api/v1/loans?${params.toString()}`, fetcher);
+
+  // One unconditional useSWR call keeps the hook order stable across renders.
+  return useSWR<Loan[]>(deferred ? null : `/api/v1/loans?${params.toString()}`, fetcher);
 }
 
 /**
- * A single loan with its outstanding balance and full event history. Pass
- * `enabled: false` to defer the request until the caller needs it (e.g. only
- * when a card's history is expanded).
+ * A single loan with its outstanding balance and full event history. A
+ * missing id, or `enabled: false`, defers the request until the caller needs
+ * it (e.g. only when a card's history is expanded).
  */
-export function useLoan(id: string, enabled = true) {
-  return useSWR<LoanDetail>(enabled ? `/api/v1/loans/${id}` : null, fetcher);
+export function useLoan(id: string | null | undefined, enabled = true) {
+  const key = enabled && id ? `/api/v1/loans/${encodeURIComponent(id)}` : null;
+  return useSWR<LoanDetail>(key, fetcher);
 }
