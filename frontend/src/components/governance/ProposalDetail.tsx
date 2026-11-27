@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useProposal } from '../../hooks/useProposal';
+import { useProposal } from '@/hooks/useProposal';
 import styles from './ProposalDetail.module.css';
 
 export interface ProposalDetailProps {
