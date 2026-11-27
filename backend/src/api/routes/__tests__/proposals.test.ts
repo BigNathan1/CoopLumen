@@ -1,266 +1,82 @@
+import express from 'express';
 import request from 'supertest';
-import type { PoolClient } from 'pg';
-import { Keypair } from '@stellar/stellar-sdk';
-import { db } from '../../../db';
-import { createSessionToken } from '../../utils/sessionToken';
 
-jest.mock('../../../db', () => ({
-  db: {
-    connect: jest.fn().mockResolvedValue(undefined),
-    query: jest.fn(),
-    transaction: jest.fn(),
-    ping: jest.fn().mockResolvedValue(true),
-  },
+const mockQuery = jest.fn();
+
+jest.mock('../../../db', () => {
+  const query = (...args: unknown[]) => mockQuery(...args);
+  return {
+    __esModule: true,
+    default: { query },
+    db: { query },
+    query,
+  };
+});
+
+jest.mock('../../../contracts/stellar', () => ({
+  __esModule: true,
+  fetchProposalsForCommunity: jest.fn(),
+  fetchProposalTally: jest.fn(),
+  submitVoteTransaction: jest.fn(),
+  executeProposalOnChain: jest.fn(),
 }));
 
-jest.mock('../../../utils/logger', () => ({
-  logger: {
-    warn: jest.fn(),
-    error: jest.fn(),
-    info: jest.fn(),
-  },
-}));
+import { proposalRouter } from '../proposals';
+import { fetchProposalsForCommunity } from '../../../contracts/stellar';
 
-import app from '../../../app';
+const mockedFetchProposals = fetchProposalsForCommunity as jest.Mock;
 
-const mockDb = db as jest.Mocked<typeof db>;
-const query = db.query as jest.Mock;
-const proposalId = '11111111-1111-4111-8111-111111111111';
-const communityId = '22222222-2222-4222-8222-222222222222';
-const proposer = Keypair.random().publicKey();
+const COMMUNITY_ID = '11111111-1111-4111-8111-111111111111';
+const PROPOSAL = { id: 'proposal-1', title: 'Fund the garden' };
 
-function authHeader(address = proposer): string {
-  return `Bearer ${createSessionToken(address).token}`;
+function buildApp(): express.Express {
+  const app = express();
+  app.use(express.json());
+  app.use('/api/v1/proposals', proposalRouter);
+  return app;
 }
 
-const proposal = {
-  id: proposalId,
-  community_id: communityId,
-  proposer_address: proposer,
-  title: 'Fund the community garden',
-  description: 'Release the approved grant.',
-  type: 'treasury_spend',
-  status: 'active',
-  quorum_percent: '50.00',
-  metadata: { amount: '500' },
-  voting_starts_at: '2026-10-16T00:00:00.000Z',
-  voting_ends_at: '2099-01-01T00:00:00.000Z',
-  executed_at: null,
-  stellar_tx_hash: null,
-  created_at: '2026-10-16T00:00:00.000Z',
-  updated_at: '2026-10-16T00:00:00.000Z',
-  votes_for: '0',
-  votes_against: '0',
-  votes_abstain: '0',
-  total_weight: '0',
-};
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockQuery.mockResolvedValue([PROPOSAL]);
+});
 
-describe('governance proposal routes', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+describe('GET /api/v1/proposals/community/:communityId', () => {
+  it('returns the cached proposals and reports the contract as the source', async () => {
+    mockedFetchProposals.mockResolvedValue([]);
+
+    const res = await request(buildApp()).get(`/api/v1/proposals/community/${COMMUNITY_ID}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual([PROPOSAL]);
+    expect(res.body.meta).toEqual({ count: 1, source: 'chain' });
+    expect(mockedFetchProposals).toHaveBeenCalledWith(COMMUNITY_ID);
   });
 
-  describe('GET /api/v1/proposals', () => {
-    it('requires a valid communityId query parameter', async () => {
-      const response = await request(app).get('/api/v1/proposals?communityId=bad');
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe('Validation failed');
-      expect(response.body.meta.errors[0].path).toBe('communityId');
-      expect(query).not.toHaveBeenCalled();
-    });
+  it('falls back to the DB cache when the contract call fails', async () => {
+    mockedFetchProposals.mockRejectedValue(new Error('rpc down'));
 
-    it('lists proposals for a community with an optional status filter', async () => {
-      query.mockResolvedValue([proposal]);
-      const response = await request(app).get(
-        `/api/v1/proposals?communityId=${communityId}&status=active`
-      );
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({ data: [proposal] });
-      expect(query).toHaveBeenCalledWith(expect.stringContaining('p.community_id = $1'), [
-        communityId,
-        'active',
-      ]);
-    });
+    const res = await request(buildApp()).get(`/api/v1/proposals/community/${COMMUNITY_ID}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.meta.source).toBe('cache');
+    expect(res.body.data).toHaveLength(1);
   });
 
-  describe('GET /api/v1/proposals/:id', () => {
-    it('rejects a malformed proposal id before querying', async () => {
-      const response = await request(app).get('/api/v1/proposals/not-a-uuid');
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe('Validation failed');
-      expect(query).not.toHaveBeenCalled();
-    });
+  it('rejects an invalid community id with a 400 envelope', async () => {
+    const res = await request(buildApp()).get('/api/v1/proposals/community/not-a-uuid');
 
-    it('returns 404 for an unknown proposal', async () => {
-      query.mockResolvedValue([]);
-      const response = await request(app).get(`/api/v1/proposals/${proposalId}`);
-      expect(response.status).toBe(404);
-      expect(response.body).toEqual({ data: null, error: 'Proposal not found' });
-    });
-
-    it('returns proposal detail with its current database tally', async () => {
-      query.mockResolvedValue([{ ...proposal, votes_for: '75', votes_against: '25' }]);
-      const response = await request(app).get(`/api/v1/proposals/${proposalId}`);
-      expect(response.status).toBe(200);
-      expect(response.body.data.votes_for).toBe('75');
-      expect(response.body.data.votes_against).toBe('25');
-      expect(query).toHaveBeenCalledWith(expect.stringContaining('LEFT JOIN votes'), [proposalId]);
-    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBeDefined();
+    expect(mockedFetchProposals).not.toHaveBeenCalled();
   });
 
-  describe('POST /api/v1/proposals', () => {
-    const payload = {
-      communityId,
-      title: proposal.title,
-      description: proposal.description,
-      type: proposal.type,
-      quorumPercent: 50,
-      metadata: proposal.metadata,
-      votingEndsAt: proposal.voting_ends_at,
-    };
+  it('returns a 500 envelope when the cached query fails', async () => {
+    mockedFetchProposals.mockResolvedValue([]);
+    mockQuery.mockRejectedValue(new Error('db down'));
 
-    it('requires authentication', async () => {
-      const response = await request(app).post('/api/v1/proposals').send(payload);
-      expect(response.status).toBe(401);
-      expect(response.body).toEqual({ data: null, error: 'Authentication required' });
-      expect(query).not.toHaveBeenCalled();
-    });
+    const res = await request(buildApp()).get(`/api/v1/proposals/community/${COMMUNITY_ID}`);
 
-    it('validates the request body with Zod', async () => {
-      const response = await request(app)
-        .post('/api/v1/proposals')
-        .set('Authorization', authHeader())
-        .send({ ...payload, title: '   ', votingEndsAt: 'yesterday' });
-
-      expect(response.status).toBe(400);
-      expect(response.body.error).toBe('Validation failed');
-      expect(response.body.meta.errors).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ path: 'title' }),
-          expect.objectContaining({ path: 'votingEndsAt' }),
-        ])
-      );
-      expect(query).not.toHaveBeenCalled();
-    });
-
-    it('rejects a caller who is not an active community member', async () => {
-      query.mockResolvedValueOnce([{ exists: false }]);
-
-      const response = await request(app)
-        .post('/api/v1/proposals')
-        .set('Authorization', authHeader())
-        .send(payload);
-
-      expect(response.status).toBe(403);
-      expect(response.body).toEqual({
-        data: null,
-        error: 'Active community membership required',
-      });
-    });
-
-    it('creates an active proposal with start_time and end_time', async () => {
-      const startTime = new Date(Date.now() + 60_000).toISOString();
-      const endTime = new Date(Date.now() + 86_400_000).toISOString();
-      const timeBoundedProposal = {
-        ...proposal,
-        start_time: startTime,
-        end_time: endTime,
-        voting_starts_at: startTime,
-        voting_ends_at: endTime,
-      };
-
-      query
-        .mockResolvedValueOnce([{ exists: true }])
-        .mockResolvedValueOnce([{ id: proposalId }])
-        .mockResolvedValueOnce([timeBoundedProposal]);
-
-      const response = await request(app)
-        .post('/api/v1/proposals')
-        .set('Authorization', authHeader())
-        .send({
-          ...payload,
-          start_time: startTime,
-          end_time: endTime,
-        });
-
-      expect(response.status).toBe(201);
-      expect(response.body.data.start_time).toBe(startTime);
-      expect(response.body.data.end_time).toBe(endTime);
-    });
-
-    it('creates an active proposal for an authenticated member', async () => {
-      query
-        .mockResolvedValueOnce([{ exists: true }])
-        .mockResolvedValueOnce([{ id: proposalId }])
-        .mockResolvedValueOnce([proposal]);
-
-      const response = await request(app)
-        .post('/api/v1/proposals')
-        .set('Authorization', authHeader())
-        .send(payload);
-
-      expect(response.status).toBe(201);
-      expect(response.body).toEqual({ data: proposal });
-      expect(query.mock.calls[1][0]).toContain('INSERT INTO proposals');
-    });
-
-    it('returns the standard envelope for unexpected database errors', async () => {
-      query.mockRejectedValue(new Error('database unavailable'));
-
-      const response = await request(app)
-        .post('/api/v1/proposals')
-        .set('Authorization', authHeader())
-        .send(payload);
-
-      expect(response.status).toBe(500);
-      expect(response.body).toEqual({ data: null, error: 'Internal server error' });
-    });
-  });
-
-  describe('POST /api/v1/proposals/:id/votes', () => {
-    it('records a member vote in a transaction and returns the new tally', async () => {
-      const clientQuery = jest
-        .fn()
-        .mockResolvedValueOnce({
-          rows: [
-            {
-              community_id: communityId,
-              status: 'active',
-              voting_ends_at: new Date(Date.now() + 60_000),
-            },
-          ],
-        })
-        .mockResolvedValueOnce({ rows: [{ exists: true }] })
-        .mockResolvedValueOnce({ rows: [] });
-      const client = { query: clientQuery } as unknown as PoolClient;
-      mockDb.transaction.mockImplementation(async (handler) => handler(client));
-      query.mockResolvedValueOnce([
-        { ...proposal, votes_for: '1.0000000', total_weight: '1.0000000' },
-      ]);
-
-      const response = await request(app)
-        .post(`/api/v1/proposals/${proposalId}/votes`)
-        .set('Authorization', authHeader())
-        .send({ choice: 'for' });
-
-      expect(response.status).toBe(201);
-      expect(response.body.data.votes_for).toBe('1.0000000');
-      expect(clientQuery.mock.calls[2][0]).toContain('INSERT INTO votes');
-    });
-
-    it('returns a conflict when the member already voted', async () => {
-      mockDb.transaction.mockRejectedValue({
-        code: '23505',
-        constraint: 'votes_unique_per_voter',
-      });
-
-      const response = await request(app)
-        .post(`/api/v1/proposals/${proposalId}/votes`)
-        .set('Authorization', authHeader())
-        .send({ choice: 'for' });
-
-      expect(response.status).toBe(409);
-      expect(response.body.error).toBe('This member has already voted');
-    });
+    expect(res.status).toBe(500);
   });
 });

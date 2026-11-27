@@ -1,7 +1,6 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import { PoolClient } from 'pg';
 import { db } from '../../db';
-import { logger } from '../../utils/logger';
 import { executeProposalOnChain } from '../../contracts/stellar';
 import { requireAuth } from '../middleware/auth';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate';
@@ -17,7 +16,8 @@ import {
   submitVoteSchema,
   SubmitVoteInput,
 } from '../schemas/proposal';
-import { validateXdr } from '../../contracts/xdrValidation';
+import { inspectVoteXdr, validateXdr } from '../../contracts/xdrValidation';
+import { logger } from '../../utils/logger';
 import {
   fetchProposalTally,
   fetchProposalsForCommunity,
@@ -38,8 +38,6 @@ interface Proposal {
   metadata: Record<string, unknown> | null;
   voting_starts_at: string;
   voting_ends_at: string;
-  start_time?: string;
-  end_time?: string;
   executed_at: string | null;
   stellar_tx_hash: string | null;
   created_at: string;
@@ -57,8 +55,6 @@ interface DatabaseError extends Error {
 
 const PROPOSAL_SELECT = `
   SELECT p.*,
-    p.voting_starts_at AS start_time,
-    p.voting_ends_at AS end_time,
     COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'for'), 0)::text AS votes_for,
     COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'against'), 0)::text AS votes_against,
     COALESCE(SUM(v.weight) FILTER (WHERE v.choice = 'abstain'), 0)::text AS votes_abstain,
@@ -338,32 +334,7 @@ proposalRouter.post(
 );
 
 proposalRouter.get(
-  '/:id',
-  validateParams(proposalIdParamsSchema),
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const proposal = await findProposal(req.params.id);
-      if (!proposal) {
-        return next();
-      }
-
-      await aggregateVoteTally(proposal.id);
-
-      try {
-        await fetchProposalTally(proposal.id);
-      } catch (chainError) {
-        logger.warn('Failed to fetch on-chain proposal tally', { err: chainError });
-      }
-
-      res.json({ data: proposal });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-proposalRouter.get(
-  '/:communityId',
+  '/community/:communityId',
   validateParams(communityIdParamsSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -372,13 +343,28 @@ proposalRouter.get(
 
       try {
         const onChainProposals = await fetchProposalsForCommunity(communityId);
+        const now = new Date().toISOString();
         for (const proposal of onChainProposals) {
-          await upsertProposalFromChain(proposal);
+          await upsertProposalFromChain({
+            id: proposal.id,
+            communityId: proposal.communityId,
+            proposerAddress: proposal.proposer,
+            title: proposal.title,
+            description: proposal.description ?? null,
+            type: 'general',
+            status: 'active',
+            quorumPercent: '0',
+            metadata: null,
+            votingStartsAt: now,
+            votingEndsAt: now,
+            executedAt: null,
+            stellarTxHash: null,
+          });
         }
         source = 'chain';
       } catch (chainError) {
         // Fall back to the DB cache when the contract is unreachable.
-        logger.warn('Failed to refresh proposals from contract', { err: chainError });
+        logger.warn('Failed to refresh proposals from contract', { error: chainError });
       }
 
       const proposals = await db.query<Proposal>(
@@ -388,18 +374,6 @@ proposalRouter.get(
           ORDER BY p.created_at DESC`,
         [communityId]
       );
-
-      if (proposals.length === 0) {
-        const [community] = await db.query<{ id: string }>(
-          'SELECT id FROM communities WHERE id = $1 AND deleted_at IS NULL',
-          [communityId]
-        );
-        if (!community) {
-          res.status(404).json({ data: null, error: 'Proposal not found' });
-          return;
-        }
-      }
-
       res.json({ data: proposals, meta: { count: proposals.length, source } });
     } catch (error) {
       next(error);
@@ -431,6 +405,34 @@ proposalRouter.get(
   }
 );
 
+proposalRouter.get(
+  '/:id',
+  validateParams(proposalIdParamsSchema),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const proposal = await findProposal(req.params.id);
+      if (!proposal) {
+        res.status(404).json({ data: null, error: 'Proposal not found' });
+        return;
+      }
+
+      const tally = await aggregateVoteTally(proposal.id);
+
+      // Cross-check against the contract tally when available; the DB remains
+      // the source of truth for the response so the endpoint stays resilient.
+      try {
+        await fetchProposalTally(proposal.id);
+      } catch (chainError) {
+        logger.warn('Failed to fetch on-chain proposal tally', { error: chainError });
+      }
+
+      res.json({ data: { proposal, tally } });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 proposalRouter.post(
   '/',
   requireAuth,
@@ -445,13 +447,8 @@ proposalRouter.post(
         quorumPercent,
         votingDurationHours,
         votingEndsAt,
-        start_time,
-        end_time,
         metadata,
-      } = req.body as CreateProposalInput & {
-        start_time?: Date | string;
-        end_time?: Date | string;
-      };
+      } = req.body as CreateProposalInput;
 
       if (!(await isActiveMember(communityId, req.auth!.address))) {
         res.status(403).json({
@@ -461,17 +458,13 @@ proposalRouter.post(
         return;
       }
 
-      const effectiveEndsAt = end_time ?? votingEndsAt;
-      const effectiveStartsAt = start_time ?? null;
-
       const [created] = await db.query<{ id: string }>(
         `INSERT INTO proposals (
            community_id, proposer_address, title, description, type, status,
            quorum_percent, metadata, voting_starts_at, voting_ends_at
          )
-         VALUES ($1, $2, $3, $4, $5, 'active', $6, $7,
-                 COALESCE($8::timestamptz, NOW()),
-                 COALESCE($9::timestamptz, NOW() + ($10 * INTERVAL '1 hour')))
+         VALUES ($1, $2, $3, $4, $5, 'active', $6, $7, NOW(),
+                 COALESCE($8::timestamptz, NOW() + ($9 * INTERVAL '1 hour')))
          RETURNING id`,
         [
           communityId,
@@ -481,8 +474,7 @@ proposalRouter.post(
           type,
           quorumPercent,
           metadata ? JSON.stringify(metadata) : null,
-          effectiveStartsAt ? new Date(effectiveStartsAt).toISOString() : null,
-          effectiveEndsAt ? new Date(effectiveEndsAt).toISOString() : null,
+          votingEndsAt ? new Date(votingEndsAt).toISOString() : null,
           votingDurationHours ?? 24,
         ]
       );
@@ -502,16 +494,16 @@ proposalRouter.post(
   validateBody(submitVoteSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const body = req.body as SubmitVoteInput & { xdr?: string };
-      const xdr = body.signedXdr ?? body.xdr ?? '';
+      const { signedXdr } = req.body as SubmitVoteInput;
       const proposalId = req.params.id;
 
-      const validation = validateXdr(xdr);
+      const validation = validateXdr(signedXdr);
       if (!validation.valid) {
         res.status(400).json({ data: null, error: validation.error ?? 'Malformed XDR' });
         return;
       }
-      if (!validation.targetsVoteMethod || validation.proposalId !== proposalId) {
+      const vote = inspectVoteXdr(signedXdr);
+      if (!vote.targetsVoteMethod || vote.proposalId !== proposalId) {
         res.status(400).json({
           data: null,
           error: 'XDR does not target the governance vote method for this proposal',
@@ -525,20 +517,13 @@ proposalRouter.post(
         return;
       }
 
-      const submission = await submitVoteTransaction(xdr);
+      const submission = await submitVoteTransaction({ signedXdr });
 
       try {
         await db.query(
           `INSERT INTO votes (proposal_id, voter_address, choice, weight, reason, tx_hash)
            VALUES ($1, $2, $3, $4, $5, $6)`,
-          [
-            proposalId,
-            req.auth!.address,
-            validation.choice,
-            validation.weight ?? '1',
-            null,
-            submission.txHash,
-          ]
+          [proposalId, req.auth!.address, vote.choice, vote.weight ?? '1', null, submission.hash]
         );
       } catch (error) {
         const databaseError = error as DatabaseError;
@@ -552,7 +537,7 @@ proposalRouter.post(
         throw error;
       }
 
-      res.status(201).json({ data: { txHash: submission.txHash, status: submission.status } });
+      res.status(201).json({ data: { txHash: submission.hash, status: submission.status } });
     } catch (error) {
       next(error);
     }

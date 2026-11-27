@@ -39,10 +39,12 @@ function formatTimestamp(value: string): string {
   });
 }
 
+/** A due date is a calendar date, so it is shown in UTC rather than shifted by the viewer's zone. */
 function formatDateOnly(value: string | null): string {
   if (!value) return '—';
   return new Date(value).toLocaleDateString(undefined, {
     dateStyle: 'medium',
+    timeZone: 'UTC',
   });
 }
 

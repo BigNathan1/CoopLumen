@@ -78,20 +78,15 @@ const SOROBAN_RPC_URLS: Record<StellarNetwork, string> = {
 export interface OnChainProposal {
   id: string;
   communityId: string;
-  proposerAddress: string;
   title: string;
-  description: string | null;
-  type: string;
+  description: string;
+  proposer: string;
   status: string;
-  quorumPercent: string;
-  metadata: Record<string, unknown> | null;
-  votingStartsAt: string;
-  votingEndsAt: string;
-  executedAt: string | null;
-  stellarTxHash: string | null;
-  votesFor?: string;
-  votesAgainst?: string;
-  votesAbstain?: string;
+  createdAt: number;
+  votingEndsAt: number;
+  votesFor: string;
+  votesAgainst: string;
+  votesAbstain: string;
 }
 
 export interface SubmitVoteResult {
@@ -245,12 +240,11 @@ class StellarServiceClass {
       );
     }
 
-    const success = simulation;
-    if (!success.result) {
+    if (!('result' in simulation) || !simulation.result) {
       return null;
     }
 
-    return scValToNative(success.result.retval);
+    return scValToNative(simulation.result.retval);
   }
 
   private decodeProposal(raw: unknown): OnChainProposal {
@@ -266,25 +260,26 @@ class StellarServiceClass {
       if (value === undefined || value === null) return '0';
       if (typeof value === 'string') return value;
       if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
-        return value.toString();
+        return String(value);
       }
       return JSON.stringify(value);
+    };
+
+    const asNumber = (value: unknown): number => {
+      if (value === undefined || value === null) return 0;
+      const num = typeof value === 'number' ? value : Number(value);
+      return Number.isFinite(num) ? num : 0;
     };
 
     return {
       id: asString(pick('id', 'proposal_id', 'proposalId')),
       communityId: asString(pick('community_id', 'communityId')),
-      proposerAddress: asString(pick('proposer_address', 'proposerAddress', 'proposer', 'creator')),
       title: asString(pick('title')),
-      description: (pick('description') as string | null) ?? null,
-      type: asString(pick('type')) || 'general',
-      status: asString(pick('status', 'state')) || 'active',
-      quorumPercent: asString(pick('quorum_percent', 'quorumPercent')) || '50',
-      metadata: (pick('metadata') as Record<string, unknown> | null) ?? null,
-      votingStartsAt: new Date().toISOString(),
-      votingEndsAt: new Date(Date.now() + 86400000).toISOString(),
-      executedAt: null,
-      stellarTxHash: null,
+      description: asString(pick('description')),
+      proposer: asString(pick('proposer', 'creator')),
+      status: asString(pick('status', 'state')),
+      createdAt: asNumber(pick('created_at', 'createdAt')),
+      votingEndsAt: asNumber(pick('voting_ends_at', 'votingEndsAt', 'ends_at', 'endsAt')),
       votesFor: asString(pick('votes_for', 'votesFor')),
       votesAgainst: asString(pick('votes_against', 'votesAgainst')),
       votesAbstain: asString(pick('votes_abstain', 'votesAbstain')),
@@ -596,25 +591,74 @@ class StellarServiceClass {
 
 export const StellarService = new StellarServiceClass();
 
+/** Parameters for executing a passed governance proposal on chain. */
+export interface ExecuteProposalParams {
+  proposalId: string;
+  communityId: string;
+  proposerAddress: string;
+}
+
+/** Reads every governance proposal for a community from the contract. */
 export async function fetchProposalsForCommunity(communityId: string): Promise<OnChainProposal[]> {
   return StellarService.getProposalsForCommunity(communityId);
 }
 
+/** Reads a single governance proposal, including its on-chain vote tally. */
 export async function fetchProposalTally(proposalId: string): Promise<OnChainProposal | null> {
   return StellarService.getProposalById(proposalId);
 }
 
-export async function submitVoteTransaction(
-  signedXdr: string
-): Promise<{ txHash: string; status: string }> {
-  const result = await StellarService.submitVoteTransaction({ signedXdr });
-  return { txHash: result.hash, status: result.status };
+/** Submits an already-signed Soroban vote transaction envelope. */
+export async function submitVoteTransaction(params: SubmitVoteParams): Promise<SubmitVoteResult> {
+  return StellarService.submitVoteTransaction(params);
 }
 
+/**
+ * Invokes the governance contract's `execute` method for a proposal whose
+ * voting period has ended.
+ *
+ * The transaction is simulated, assembled and signed by the funded account in
+ * GOVERNANCE_SIGNER_SECRET; the resulting hash is what the route records.
+ */
 export async function executeProposalOnChain(
-  params: string | { proposalId: string; communityId?: string; proposerAddress?: string }
+  params: ExecuteProposalParams
 ): Promise<{ txHash: string }> {
-  await Promise.resolve();
-  const id = typeof params === 'string' ? params : params.proposalId;
-  return { txHash: `exec_${id}` };
+  const contractId = process.env.GOVERNANCE_CONTRACT_ID;
+  if (!contractId) {
+    throw new StellarNetworkError('GOVERNANCE_CONTRACT_ID is not configured');
+  }
+
+  const signerSecret = process.env.GOVERNANCE_SIGNER_SECRET;
+  if (!signerSecret) {
+    throw new StellarNetworkError('GOVERNANCE_SIGNER_SECRET is not configured');
+  }
+
+  const signer = Keypair.fromSecret(signerSecret);
+  const account = await StellarService.loadAccount(signer.publicKey());
+  const contract = new Contract(contractId);
+  const transaction = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: StellarService.getNetworkPassphrase(),
+  })
+    .addOperation(contract.call('execute', nativeToScVal(params.proposalId, { type: 'string' })))
+    .setTimeout(30)
+    .build();
+
+  const server = StellarService.getSorobanServer();
+  const simulation = await server.simulateTransaction(transaction);
+  if (SorobanRpc.Api.isSimulationError(simulation)) {
+    throw new StellarNetworkError(`Proposal execution simulation failed: ${simulation.error}`);
+  }
+
+  const prepared = SorobanRpc.assembleTransaction(transaction, simulation).build();
+  prepared.sign(signer);
+  const response = await server.sendTransaction(prepared);
+
+  if (response.status === 'ERROR') {
+    throw new StellarNetworkError(
+      `Soroban rejected proposal execution: ${response.errorResult?.toXDR('base64') ?? 'unknown error'}`
+    );
+  }
+
+  return { txHash: response.hash };
 }

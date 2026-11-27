@@ -3,6 +3,13 @@ import { LoanDetail } from '../LoanDetail';
 import type { LoanDetail as LoanDetailType } from '@/hooks/useLoans';
 import * as loansHook from '@/hooks/useLoans';
 
+// Dates render in the runtime's locale, so expectations use the same formatting.
+const dueDate = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium', timeZone: 'UTC' });
+const localDate = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
+const textOf = (s: string) => new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+
 const baseLoan: LoanDetailType = {
   id: 'loan-1',
   community_id: 'community-1',
@@ -154,14 +161,14 @@ describe('LoanDetail', () => {
 
   it('renders due date when present', () => {
     render(<LoanDetail loanId="loan-1" />);
-    expect(screen.getByText(/1 Jan 2027/)).toBeInTheDocument();
+    expect(screen.getByText(textOf(dueDate(baseLoan.due_at as string)))).toBeInTheDocument();
   });
 
   it('renders created, disbursed, and closed dates', () => {
     render(<LoanDetail loanId="loan-1" />);
-    const createdDates = screen.getAllByText(/1 Jan 2026/);
+    const createdDates = screen.getAllByText(textOf(localDate('2026-01-01T00:00:00.000Z')));
     expect(createdDates.length).toBeGreaterThanOrEqual(1);
-    const disbursedDates = screen.getAllByText(/15 Jan 2026/);
+    const disbursedDates = screen.getAllByText(textOf(localDate('2026-01-15T10:00:00.000Z')));
     expect(disbursedDates.length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText(/Closed/)).not.toBeInTheDocument();
   });
@@ -177,7 +184,9 @@ describe('LoanDetail', () => {
     } as ReturnType<typeof loansHook.useLoan>);
 
     render(<LoanDetail loanId="loan-1" />);
-    expect(screen.getByText(/1 Jun 2026/)).toBeInTheDocument();
+    expect(
+      screen.getAllByText(textOf(localDate('2026-06-01T00:00:00.000Z'))).length
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it('renders purpose when present', () => {

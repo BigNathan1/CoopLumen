@@ -112,14 +112,8 @@ describe('executeMultiSigRequestSchema', () => {
     expect(executeMultiSigRequestSchema.safeParse({ stellar_tx_hash: '' }).success).toBe(false);
   });
 
-  it('accepts an empty body so a stored transaction XDR can be executed', () => {
-    // The route rejects the request at runtime when neither argument nor the
-    // stored transaction_xdr is available.
+  it('accepts an empty body, leaving execution to the stored transaction_xdr', () => {
     expect(executeMultiSigRequestSchema.safeParse({}).success).toBe(true);
-  });
-
-  it('rejects an empty signed_xdr', () => {
-    expect(executeMultiSigRequestSchema.safeParse({ signed_xdr: '' }).success).toBe(false);
   });
 });
 

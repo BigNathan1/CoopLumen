@@ -1,228 +1,84 @@
-import React, { useId, useState } from 'react';
-import type { Loan } from '@/hooks/useLoans';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { RepayLoanForm, type RepayLoanFormProps } from '../RepayLoanForm';
 
-export interface RepayLoanFormProps {
-  loan: Pick<Loan, 'id' | 'outstanding' | 'total_due' | 'amount_repaid' | 'asset_code'>;
-  minRepayment?: string;
-  isSubmitting?: boolean;
-  onSubmit: (payload: {
-    loanId: string;
-    amount: string;
-    isFullRepayment: boolean;
-  }) => Promise<void> | void;
-  onCancel?: () => void;
-}
-
-const STELLAR_PRECISION = 7;
-
-function formatStellarAmount(value: number): string {
-  return value.toFixed(STELLAR_PRECISION).replace(/\.?0+$/, '');
-}
-
-export const RepayLoanForm: React.FC<RepayLoanFormProps> = ({
-  loan,
-  minRepayment = '0.0000001',
-  isSubmitting = false,
-  onSubmit,
-  onCancel,
-}) => {
-  const [amountInput, setAmountInput] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
-
-  const amountId = useId();
-  const hintId = useId();
-  const errorId = useId();
-
-  const outstanding = Number(loan.outstanding);
-  const minAmount = Number(minRepayment);
-  const trimmedInput = amountInput.trim();
-  const parsedAmount = Number(trimmedInput);
-
-  const isDisabled = isSubmitting || !Number.isFinite(outstanding) || outstanding <= 0;
-  const isFullRepayment =
-    trimmedInput !== '' &&
-    (trimmedInput === loan.outstanding.trim() ||
-      (Number.isFinite(parsedAmount) && parsedAmount >= outstanding));
-
-  const setPresetPercent = (ratio: number) => {
-    if (ratio === 1) {
-      // Preserve exact server-computed string to avoid floating-point drift
-      setAmountInput(loan.outstanding);
-    } else {
-      const value = Math.min(outstanding * ratio, outstanding);
-      setAmountInput(formatStellarAmount(value));
-    }
-    setError(null);
-  };
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError(null);
-
-    if (!trimmedInput || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      setError('Enter a valid repayment amount.');
-      return;
-    }
-    if (parsedAmount < minAmount) {
-      setError(`Minimum repayment is ${minRepayment} ${loan.asset_code}.`);
-      return;
-    }
-    if (parsedAmount > outstanding) {
-      setError(`Amount cannot exceed remaining balance (${loan.outstanding} ${loan.asset_code}).`);
-      return;
-    }
-
-    const exactFull = trimmedInput === loan.outstanding.trim() || parsedAmount === outstanding;
-
-    try {
-      await onSubmit({
-        loanId: loan.id,
-        amount: exactFull ? loan.outstanding : trimmedInput,
-        isFullRepayment: exactFull,
-      });
-      setAmountInput('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit repayment.');
-    }
-  };
-
-  return (
-    <form
-      onSubmit={handleSubmit}
-      noValidate
-      aria-label="Repay loan"
-      style={{
-        backgroundColor: 'var(--color-surface, #ffffff)',
-        color: 'var(--color-text-primary, #111827)',
-        border: '1px solid var(--color-border, #e5e7eb)',
-        borderRadius: 'var(--radius-md, 0.5rem)',
-        padding: 'var(--space-4, 1rem)',
-      }}
-    >
-      <div style={{ marginBottom: 'var(--space-3, 0.75rem)' }}>
-        <label htmlFor={amountId} style={{ display: 'block', fontWeight: 600 }}>
-          Repayment amount ({loan.asset_code})
-        </label>
-        <p
-          id={hintId}
-          style={{ color: 'var(--color-text-secondary, #4b5563)', fontSize: '0.875rem' }}
-        >
-          Remaining balance: {loan.outstanding} {loan.asset_code} (repaid {loan.amount_repaid} of{' '}
-          {loan.total_due})
-        </p>
-
-        <div
-          role="group"
-          aria-label="Quick repayment presets"
-          style={{
-            display: 'flex',
-            gap: 'var(--space-2, 0.5rem)',
-            marginBlock: 'var(--space-2, 0.5rem)',
-          }}
-        >
-          {[
-            { label: '25%', ratio: 0.25 },
-            { label: '50%', ratio: 0.5 },
-            { label: 'Full', ratio: 1 },
-          ].map((preset) => (
-            <button
-              key={preset.label}
-              type="button"
-              disabled={isDisabled}
-              onClick={() => setPresetPercent(preset.ratio)}
-              style={{
-                backgroundColor: 'var(--color-surface-muted, #f3f4f6)',
-                color: 'var(--color-text-primary, #111827)',
-                border: '1px solid var(--color-border, #d1d5db)',
-                borderRadius: 'var(--radius-sm, 0.375rem)',
-                padding: '0.25rem 0.75rem',
-                cursor: isDisabled ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
-
-        <input
-          id={amountId}
-          name="amount"
-          type="number"
-          inputMode="decimal"
-          step="0.0000001"
-          min={minRepayment}
-          max={loan.outstanding}
-          value={amountInput}
-          disabled={isDisabled}
-          aria-describedby={error ? `${hintId} ${errorId}` : hintId}
-          aria-invalid={Boolean(error)}
-          onChange={(e) => {
-            setAmountInput(e.target.value);
-            if (error) setError(null);
-          }}
-          style={{
-            width: '100%',
-            backgroundColor: 'var(--color-input-bg, transparent)',
-            color: 'var(--color-text-primary, inherit)',
-            border: '1px solid var(--color-border, #d1d5db)',
-            borderRadius: 'var(--radius-sm, 0.375rem)',
-            padding: '0.5rem',
-          }}
-        />
-      </div>
-
-      {error && (
-        <p
-          id={errorId}
-          role="alert"
-          style={{
-            color: 'var(--color-danger, #dc2626)',
-            fontSize: '0.875rem',
-            marginBottom: 'var(--space-3, 0.75rem)',
-          }}
-        >
-          {error}
-        </p>
-      )}
-
-      <div style={{ display: 'flex', gap: 'var(--space-2, 0.5rem)' }}>
-        <button
-          type="submit"
-          disabled={isDisabled}
-          style={{
-            backgroundColor: 'var(--color-primary, #2563eb)',
-            color: 'var(--color-on-primary, #ffffff)',
-            border: 'none',
-            borderRadius: 'var(--radius-sm, 0.375rem)',
-            padding: '0.5rem 1rem',
-            cursor: isDisabled ? 'not-allowed' : 'pointer',
-          }}
-        >
-          {isSubmitting
-            ? 'Submitting...'
-            : isFullRepayment
-              ? 'Pay Full Balance'
-              : 'Submit Partial Repayment'}
-        </button>
-
-        {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isSubmitting}
-            style={{
-              backgroundColor: 'transparent',
-              color: 'var(--color-text-secondary, #4b5563)',
-              border: '1px solid var(--color-border, #d1d5db)',
-              borderRadius: 'var(--radius-sm, 0.375rem)',
-              padding: '0.5rem 1rem',
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
-            }}
-          >
-            Cancel
-          </button>
-        )}
-      </div>
-    </form>
-  );
+const loan: RepayLoanFormProps['loan'] = {
+  id: 'loan-1',
+  outstanding: '100.0000000',
+  total_due: '105.0000000',
+  amount_repaid: '5.0000000',
+  asset_code: 'ECO',
 };
+
+function setup(props: Partial<RepayLoanFormProps> = {}) {
+  const onSubmit = jest.fn().mockResolvedValue(undefined);
+  const user = userEvent.setup();
+  render(<RepayLoanForm loan={loan} onSubmit={onSubmit} {...props} />);
+  const input = screen.getByLabelText(/Repayment amount/i);
+  return { onSubmit, user, input };
+}
+
+describe('RepayLoanForm', () => {
+  it('shows the remaining balance', () => {
+    setup();
+    expect(screen.getByText(/Remaining balance: 100.0000000 ECO/)).toBeInTheDocument();
+  });
+
+  it('submits a partial repayment', async () => {
+    const { onSubmit, user, input } = setup();
+    await user.type(input, '40');
+    await user.click(screen.getByRole('button', { name: 'Submit Partial Repayment' }));
+    expect(onSubmit).toHaveBeenCalledWith({
+      loanId: 'loan-1',
+      amount: '40',
+      isFullRepayment: false,
+    });
+  });
+
+  it('sends the exact server balance for a full repayment', async () => {
+    const { onSubmit, user } = setup();
+    await user.click(screen.getByRole('button', { name: 'Full' }));
+    await user.click(screen.getByRole('button', { name: 'Pay Full Balance' }));
+    expect(onSubmit).toHaveBeenCalledWith({
+      loanId: 'loan-1',
+      amount: '100.0000000',
+      isFullRepayment: true,
+    });
+  });
+
+  it('fills a percentage preset', async () => {
+    const { user, input } = setup();
+    await user.click(screen.getByRole('button', { name: '25%' }));
+    expect(input).toHaveValue(25);
+  });
+
+  it('rejects an amount above the remaining balance', async () => {
+    const { onSubmit, user, input } = setup();
+    await user.type(input, '150');
+    await user.click(screen.getByRole('button', { name: 'Pay Full Balance' }));
+    expect(screen.getByRole('alert')).toHaveTextContent(/cannot exceed remaining balance/i);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('rejects an amount below the minimum', async () => {
+    const { onSubmit, user, input } = setup({ minRepayment: '1' });
+    await user.type(input, '0.5');
+    await user.click(screen.getByRole('button', { name: 'Submit Partial Repayment' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Minimum repayment is 1 ECO.');
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('shows the error when submission fails', async () => {
+    const { user, input } = setup({
+      onSubmit: jest.fn().mockRejectedValue(new Error('Horizon down')),
+    });
+    await user.type(input, '10');
+    await user.click(screen.getByRole('button', { name: 'Submit Partial Repayment' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Horizon down');
+  });
+
+  it('disables the form when nothing is outstanding', () => {
+    setup({ loan: { ...loan, outstanding: '0' } });
+    expect(screen.getByLabelText(/Repayment amount/i)).toBeDisabled();
+  });
+});

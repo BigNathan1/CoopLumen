@@ -9,14 +9,6 @@ export function redactSensitive(value: unknown, key = ''): unknown {
       .replace(/Bearer\s+[A-Za-z0-9._~-]+/gi, 'Bearer [REDACTED]')
       .replace(/S[A-Z2-7]{55}/g, '[STELLAR_SECRET_REDACTED]');
   }
-  if (value instanceof Error) {
-    // message and stack are non-enumerable, so spreading the error on its own
-    // would drop the only useful parts of the entry.
-    return redactSensitive(
-      { ...value, name: value.name, message: value.message, stack: value.stack },
-      key
-    );
-  }
   if (Array.isArray(value)) return value.map((item) => redactSensitive(item));
   if (value && typeof value === 'object') {
     return Object.fromEntries(
@@ -29,17 +21,19 @@ export function redactSensitive(value: unknown, key = ''): unknown {
   return value;
 }
 
+/**
+ * Redacts the message and metadata in place.
+ *
+ * The info object carries winston's level and message under symbol keys, so it
+ * must be mutated rather than rebuilt: replacing it with a plain object drops
+ * those symbols and winston then discards the entry instead of writing it.
+ */
 const redactFormat = winston.format((info) => {
-  const redacted = redactSensitive(info) as winston.Logform.TransformableInfo;
-  // Winston tags every entry with symbols (the level among them). The plain
-  // copy above drops them, and a transport cannot level an entry without the
-  // tag, so it is discarded before it is formatted or written.
-  for (const symbol of Object.getOwnPropertySymbols(info)) {
-    (redacted as unknown as Record<symbol, unknown>)[symbol] = (
-      info as unknown as Record<symbol, unknown>
-    )[symbol];
+  const entry = info as unknown as Record<string, unknown>;
+  for (const [key, value] of Object.entries(entry)) {
+    entry[key] = redactSensitive(value, key);
   }
-  return redacted;
+  return info;
 });
 
 export const logger = winston.createLogger({

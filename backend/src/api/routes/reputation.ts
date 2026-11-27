@@ -173,60 +173,59 @@ reputationRouter.get(
       const params: unknown[] = [address];
       const communityClause = communityId ? `AND community_id = $${params.push(communityId)}` : '';
 
-      const scores =
-        (await db.query<ReputationScore>(
-          `SELECT * FROM reputation_scores
+      const scores = await db.query<ReputationScore>(
+        `SELECT * FROM reputation_scores
          WHERE stellar_address = $1 ${communityClause}
          ORDER BY score DESC`,
-          params
-        )) ?? [];
-
-      if (!scores || scores.length === 0) {
-        res.status(404).json({ data: null, error: 'No reputation found for this address' });
-        return;
-      }
-
-      const summary = scores.reduce(
-        (acc, s) => ({
-          total_loans: acc.total_loans + Number(s.total_loans ?? 0),
-          on_time_repayments: acc.on_time_repayments + Number(s.on_time_repayments ?? 0),
-          defaults: acc.defaults + Number(s.defaults ?? 0),
-        }),
-        { total_loans: 0, on_time_repayments: 0, defaults: 0 }
+        params
       );
-
-      const totalLoans = summary.total_loans;
-      const onTime = summary.on_time_repayments;
-      const score =
-        totalLoans === 0 ? NEUTRAL_SCORE : Math.round((onTime / totalLoans) * 100 * 100) / 100;
 
       const historyParams: unknown[] = [address];
       const historyCommunityClause = communityId
         ? `AND l.community_id = $${historyParams.push(communityId)}`
         : '';
 
-      let history: RepaymentHistoryRow[] = [];
-      try {
-        const historyRows = await db.query<RepaymentHistoryRow>(
-          `SELECT r.id,
-                  r.loan_id,
-                  l.community_id,
-                  r.amount,
-                  r.paid_at,
-                  l.due_at,
-                  (l.due_at IS NOT NULL AND r.paid_at <= l.due_at) AS on_time
-           FROM loan_repayments r
-           JOIN loans l ON l.id = r.loan_id
-           WHERE l.borrower_address = $1 ${historyCommunityClause}
-           ORDER BY r.paid_at DESC
-           LIMIT 50`,
-          historyParams
+      const history = await db.query<RepaymentHistoryRow>(
+        `SELECT r.id,
+                r.loan_id,
+                l.community_id,
+                r.amount,
+                r.paid_at,
+                l.due_at,
+                (l.due_at IS NOT NULL AND r.paid_at <= l.due_at) AS on_time
+         FROM loan_repayments r
+         JOIN loans l ON l.id = r.loan_id
+         WHERE l.borrower_address = $1 ${historyCommunityClause}
+         ORDER BY r.paid_at DESC
+         LIMIT 50`,
+        historyParams
+      );
+
+      if (scores.length === 0 && history.length === 0) {
+        res.status(404).json({ data: null, error: 'No reputation found for this address' });
+        return;
+      }
+
+      // Recompute the score for the requested scope so the response is fresh.
+      let score: number;
+      if (communityId) {
+        const calc = await calculateReputationScore(db, communityId, address);
+        score = calc.score;
+      } else {
+        const communityIds = Array.from(
+          new Set([...scores.map((s) => s.community_id), ...history.map((h) => h.community_id)])
         );
-        if (Array.isArray(historyRows)) {
-          history = historyRows;
+        if (communityIds.length === 0) {
+          score = NEUTRAL_SCORE;
+        } else {
+          const calcs = await Promise.all(
+            communityIds.map((id) => calculateReputationScore(db, id, address))
+          );
+          const totalLoans = calcs.reduce((acc, c) => acc + c.totalLoans, 0);
+          const onTime = calcs.reduce((acc, c) => acc + c.onTimeRepayments, 0);
+          score =
+            totalLoans === 0 ? NEUTRAL_SCORE : Math.round((onTime / totalLoans) * 100 * 100) / 100;
         }
-      } catch {
-        history = [];
       }
 
       res.json({
@@ -234,7 +233,6 @@ reputationRouter.get(
           address,
           score,
           communities: scores,
-          summary,
           history,
         },
       });

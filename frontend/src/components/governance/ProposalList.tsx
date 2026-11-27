@@ -1,9 +1,11 @@
-import { useCallback, useId, useMemo, useRef, useState } from 'react';
+'use client';
+
+import { useMemo, useState } from 'react';
+import { Badge, type BadgeVariant } from '../ui/Badge';
+import { EmptyState } from '../ui/EmptyState';
+import { LoadingSkeleton } from '../ui/LoadingSkeleton';
 import { useProposals } from '../../hooks/useProposals';
 import type { Proposal, ProposalStatus } from '../../hooks/useProposal';
-import { Badge } from '../ui/Badge';
-import { LoadingSkeleton } from '../ui/LoadingSkeleton';
-import { EmptyState } from '../ui/EmptyState';
 import styles from './ProposalList.module.css';
 
 type TabKey = 'open' | 'passed' | 'rejected' | 'executed';
@@ -21,7 +23,7 @@ const TABS: TabDefinition[] = [
   { key: 'executed', label: 'Executed', status: 'executed' },
 ];
 
-const STATUS_BADGE_VARIANT: Record<ProposalStatus, 'info' | 'success' | 'error' | 'neutral'> = {
+const STATUS_BADGE_VARIANT: Record<ProposalStatus, BadgeVariant> = {
   draft: 'neutral',
   active: 'info',
   passed: 'success',
@@ -39,18 +41,21 @@ const STATUS_LABEL: Record<ProposalStatus, string> = {
   cancelled: 'Cancelled',
 };
 
+const TAB_BADGE_CLASS: Record<TabKey, string> = {
+  open: styles.badgeOpen,
+  passed: styles.badgePassed,
+  rejected: styles.badgeRejected,
+  executed: styles.badgeExecuted,
+};
+
 export interface ProposalListProps {
   communityId: string;
 }
 
-function formatDate(value: string | number | Date | undefined): string {
-  if (value === undefined || value === null) {
-    return '—';
-  }
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return '—';
-  }
+function formatDate(value: string | undefined): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'short',
@@ -58,171 +63,112 @@ function formatDate(value: string | number | Date | undefined): string {
   });
 }
 
-function formatVotes(value: number | undefined): string {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
-    return '0';
-  }
-  return value.toLocaleString();
+function formatWeight(value: string | undefined): string {
+  const asNumber = Number(value);
+  if (!Number.isFinite(asNumber)) return '0';
+  return asNumber.toLocaleString();
 }
 
-export default function ProposalList({ communityId }: ProposalListProps) {
-  const { data: rawProposals, isLoading, error } = useProposals(communityId);
-  const proposals = (rawProposals ?? []) as Proposal[];
+/**
+ * A community's proposals, grouped into the lifecycle buckets a voter cares
+ * about. Filtering is client-side over the single `useProposals` response so
+ * switching tabs never triggers another request.
+ */
+export function ProposalList({ communityId }: ProposalListProps) {
+  const { data: proposals, isLoading, error } = useProposals(communityId);
   const [activeTab, setActiveTab] = useState<TabKey>('open');
-  const baseId = useId();
-  const tabRefs = useRef<Record<TabKey, HTMLButtonElement | null>>({
-    open: null,
-    passed: null,
-    rejected: null,
-    executed: null,
-  });
 
-  const proposalsByTab = useMemo(() => {
-    const grouped: Record<TabKey, Proposal[]> = {
+  const grouped = useMemo(() => {
+    const buckets: Record<TabKey, Proposal[]> = {
       open: [],
       passed: [],
       rejected: [],
       executed: [],
     };
-    if (!proposals) {
-      return grouped;
+    for (const proposal of proposals ?? []) {
+      const tab = TABS.find((candidate) => candidate.status === proposal.status);
+      if (tab) buckets[tab.key].push(proposal);
     }
-    for (const proposal of proposals) {
-      const tab = TABS.find((t) => t.status === proposal.status);
-      if (tab) {
-        grouped[tab.key].push(proposal);
-      }
-    }
-    return grouped;
+    return buckets;
   }, [proposals]);
 
-  const focusTab = useCallback((key: TabKey) => {
-    const el = tabRefs.current[key];
-    if (el) {
-      el.focus();
-    }
-  }, []);
+  const counts: Record<TabKey, number> = {
+    open: grouped.open.length,
+    passed: grouped.passed.length,
+    rejected: grouped.rejected.length,
+    executed: grouped.executed.length,
+  };
 
-  const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
-      let nextIndex: number | null = null;
-      switch (event.key) {
-        case 'ArrowRight':
-          nextIndex = (index + 1) % TABS.length;
-          break;
-        case 'ArrowLeft':
-          nextIndex = (index - 1 + TABS.length) % TABS.length;
-          break;
-        case 'Home':
-          nextIndex = 0;
-          break;
-        case 'End':
-          nextIndex = TABS.length - 1;
-          break;
-        default:
-          return;
-      }
-      event.preventDefault();
-      const nextTab = TABS[nextIndex];
-      setActiveTab(nextTab.key);
-      focusTab(nextTab.key);
-    },
-    [focusTab]
-  );
-
-  const activeDefinition = TABS.find((t) => t.key === activeTab) ?? TABS[0];
-  const activeProposals = proposalsByTab[activeDefinition.key];
+  const visible = grouped[activeTab];
 
   return (
-    <section className={styles.container} aria-label="Proposals">
+    <section className={styles.container} aria-label="Community proposals">
       <div className={styles.tablist} role="tablist" aria-label="Proposal status">
-        {TABS.map((tab, index) => {
-          const isSelected = tab.key === activeTab;
-          return (
-            <button
-              key={tab.key}
-              ref={(el) => {
-                tabRefs.current[tab.key] = el;
-              }}
-              type="button"
-              role="tab"
-              id={`${baseId}-tab-${tab.key}`}
-              aria-selected={isSelected}
-              aria-controls={`${baseId}-panel-${tab.key}`}
-              tabIndex={isSelected ? 0 : -1}
-              className={`${styles.tab} ${isSelected ? styles.tabActive : ''}`}
-              onClick={() => setActiveTab(tab.key)}
-              onKeyDown={(event) => handleKeyDown(event, index)}
-            >
-              {tab.label}
-              <span className={styles.tabCount} aria-hidden="true">
-                {proposalsByTab[tab.key].length}
-              </span>
-            </button>
-          );
-        })}
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            role="tab"
+            id={`proposal-tab-${tab.key}`}
+            aria-selected={activeTab === tab.key}
+            aria-controls={`proposal-panel-${tab.key}`}
+            className={styles.tab}
+            onClick={() => setActiveTab(tab.key)}
+          >
+            {tab.label}
+            <span className={styles.tabCount}>{counts[tab.key]}</span>
+          </button>
+        ))}
       </div>
 
       <div
+        className={styles.tabpanel}
         role="tabpanel"
-        id={`${baseId}-panel-${activeDefinition.key}`}
-        aria-labelledby={`${baseId}-tab-${activeDefinition.key}`}
-        tabIndex={0}
-        className={styles.panel}
+        id={`proposal-panel-${activeTab}`}
+        aria-labelledby={`proposal-tab-${activeTab}`}
       >
-        {isLoading ? (
-          <LoadingSkeleton variant="rect" count={3} />
-        ) : error ? (
+        {isLoading && (
+          <div role="status" aria-live="polite">
+            <LoadingSkeleton variant="text" count={3} label="Loading proposals" />
+          </div>
+        )}
+
+        {!isLoading && Boolean(error) && (
+          <p className={styles.error} role="alert">
+            Could not load proposals. Please try again.
+          </p>
+        )}
+
+        {!isLoading && !error && visible.length === 0 && (
           <EmptyState
-            title="Unable to load proposals"
-            message="Something went wrong while fetching proposals. Please try again."
+            title={`No ${activeTab} proposals`}
+            message="There are no proposals in this state yet."
           />
-        ) : activeProposals.length === 0 ? (
-          <EmptyState
-            title={`No ${activeDefinition.label.toLowerCase()} proposals`}
-            message={`There are currently no ${activeDefinition.label.toLowerCase()} proposals for this community.`}
-          />
-        ) : (
+        )}
+
+        {!isLoading && !error && visible.length > 0 && (
           <ul className={styles.list}>
-            {activeProposals.map((proposal) => (
-              <li key={proposal.id} className={styles.item}>
-                <article className={styles.card}>
-                  <header className={styles.cardHeader}>
-                    <h3 className={styles.title}>{proposal.title}</h3>
-                    <Badge variant={STATUS_BADGE_VARIANT[proposal.status]}>
-                      {STATUS_LABEL[proposal.status]}
-                    </Badge>
-                  </header>
-                  {proposal.description ? (
-                    <p className={styles.description}>{proposal.description}</p>
-                  ) : null}
-                  <dl className={styles.meta}>
-                    <div className={styles.metaItem}>
-                      <dt className={styles.metaLabel}>For</dt>
-                      <dd className={styles.metaValue}>
-                        {formatVotes((proposal as any).votesFor ?? proposal.votes_for)}
-                      </dd>
-                    </div>
-                    <div className={styles.metaItem}>
-                      <dt className={styles.metaLabel}>Against</dt>
-                      <dd className={styles.metaValue}>
-                        {formatVotes((proposal as any).votesAgainst ?? proposal.votes_against)}
-                      </dd>
-                    </div>
-                    <div className={styles.metaItem}>
-                      <dt className={styles.metaLabel}>Voting ends</dt>
-                      <dd className={styles.metaValue}>
-                        <time
-                          dateTime={String(
-                            (proposal as any).votingEndsAt ?? proposal.voting_ends_at ?? ''
-                          )}
-                        >
-                          {formatDate((proposal as any).votingEndsAt ?? proposal.voting_ends_at)}
-                        </time>
-                      </dd>
-                    </div>
-                  </dl>
-                </article>
+            {visible.map((proposal) => (
+              <li key={proposal.id} className={styles.card}>
+                <div className={styles.cardHeader}>
+                  <h3 className={styles.cardTitle}>{proposal.title}</h3>
+                  <Badge
+                    variant={STATUS_BADGE_VARIANT[proposal.status]}
+                    size="sm"
+                    className={`${styles.badge} ${TAB_BADGE_CLASS[activeTab]}`}
+                  >
+                    {STATUS_LABEL[proposal.status]}
+                  </Badge>
+                </div>
+
+                <p className={styles.cardMeta}>
+                  Voting closes {formatDate(proposal.voting_ends_at)} ·{' '}
+                  {formatWeight(proposal.total_weight)} votes cast
+                </p>
+
+                {proposal.description && (
+                  <p className={styles.cardDescription}>{proposal.description}</p>
+                )}
               </li>
             ))}
           </ul>
@@ -231,3 +177,5 @@ export default function ProposalList({ communityId }: ProposalListProps) {
     </section>
   );
 }
+
+export default ProposalList;

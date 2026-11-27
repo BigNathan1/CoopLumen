@@ -2,35 +2,21 @@
 
 import { useState } from 'react';
 import { api } from '@/lib/api';
-import styles from './governance.module.css';
 import { sanitizeUserText } from '@/lib/sanitize';
-import { VotingPanel } from '@/components/governance/VotingPanel';
+import type { Proposal } from '@/hooks/useProposal';
 import { CreateProposalForm } from '@/components/governance/CreateProposalForm';
-import ProposalList from '@/components/governance/ProposalList';
-import ProposalDetail from '@/components/governance/ProposalDetail';
+import { ProposalList } from '@/components/governance/ProposalList';
+import styles from './governance.module.css';
 
 type VoteChoice = 'for' | 'against' | 'abstain';
 
-interface Proposal {
-  id: string;
-  title: string;
-  description: string | null;
-  status: string;
-  votes_for: string;
-  votes_against: string;
-  votes_abstain: string;
-  total_weight: string;
-  voting_ends_at: string;
-}
-
-export function GovernanceWorkspace({
-  initialCommunityId,
-  communityId: propCommunityId,
-}: {
-  initialCommunityId?: string;
-  communityId?: string;
-}) {
-  const [communityId] = useState(propCommunityId ?? initialCommunityId ?? '');
+/**
+ * Creates proposals for a community and casts token-weighted votes on the
+ * selected ballot. Votes are built by the API, signed in Freighter, and
+ * submitted back as a signed envelope.
+ */
+export function GovernanceWorkspace({ initialCommunityId }: { initialCommunityId: string }) {
+  const [communityId] = useState(initialCommunityId);
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [voting, setVoting] = useState<VoteChoice | null>(null);
   const [message, setMessage] = useState('');
@@ -55,11 +41,6 @@ export function GovernanceWorkspace({
     }
   }
 
-  function handleVoteRecorded(updated: Proposal) {
-    setProposal(updated);
-    setMessage('Vote recorded.');
-  }
-
   return (
     <main className={styles.page}>
       <div className={styles.inner}>
@@ -72,7 +53,7 @@ export function GovernanceWorkspace({
         <CreateProposalForm
           communityId={communityId}
           onCreated={(created) => {
-            setProposal(created as unknown as Proposal);
+            setProposal(created as Proposal);
             setMessage('Proposal created and voting is open.');
             setError('');
           }}
@@ -92,18 +73,6 @@ export function GovernanceWorkspace({
             {proposal.description && (
               <p className={styles.description}>{sanitizeUserText(proposal.description)}</p>
             )}
-
-            <VotingPanel
-              proposalId={proposal.id}
-              tally={{
-                votes_for: proposal.votes_for,
-                votes_against: proposal.votes_against,
-                votes_abstain: proposal.votes_abstain,
-                total_weight: proposal.total_weight,
-              }}
-              status={proposal.status}
-              onVoteRecorded={handleVoteRecorded}
-            />
 
             <dl className={styles.tally} aria-label="Live vote tally">
               <div>
@@ -138,8 +107,6 @@ export function GovernanceWorkspace({
                 </button>
               </div>
             </fieldset>
-
-            <ProposalDetail proposalId={proposal.id} />
           </section>
         )}
 

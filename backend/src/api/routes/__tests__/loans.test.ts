@@ -2,7 +2,7 @@ import { PoolClient } from 'pg';
 import { Keypair } from '@stellar/stellar-sdk';
 import { StellarService } from '../../../contracts/stellar';
 
-jest.mock('@/db', () => ({
+jest.mock('../../../db', () => ({
   db: {
     connect: jest.fn().mockResolvedValue(undefined),
     query: jest.fn().mockResolvedValue({ rows: [] }),
@@ -12,8 +12,14 @@ jest.mock('@/db', () => ({
 }));
 
 // Mock auditLog middleware to avoid db connection issues in tests
-jest.mock('@/api/middleware/auditLog', () => ({
+jest.mock('../../middleware/auditLog', () => ({
   auditStateChange: (_req: any, _res: any, next: any) => next(),
+}));
+
+// Disbursing locks the funds in a Stellar claimable balance; the network call is faked.
+jest.mock('../../../contracts/claimableBalance', () => ({
+  ...jest.requireActual('../../../contracts/claimableBalance'),
+  createLoanEscrow: jest.fn(),
 }));
 
 jest.mock('../../../contracts/stellar', () => ({
@@ -24,8 +30,11 @@ jest.mock('../../../contracts/stellar', () => ({
 
 import request from 'supertest';
 import app from '../../../app';
-import { db } from '@/db';
+import { db } from '../../../db';
 import { createSessionToken } from '../../utils/sessionToken';
+import { createLoanEscrow } from '../../../contracts/claimableBalance';
+
+const mockCreateLoanEscrow = createLoanEscrow as jest.MockedFunction<typeof createLoanEscrow>;
 
 const mockDb = db as jest.Mocked<typeof db>;
 const mockStellar = StellarService as jest.Mocked<typeof StellarService>;
@@ -41,7 +50,7 @@ function authHeader(address: string): string {
 
 /** Runs the route's transaction callback against a fake client returning rows. */
 function runTransaction(rowsByQuery: object[][] = []): void {
-  mockDb.transaction.mockImplementation((fn) => {
+  mockDb.transaction.mockImplementation((fn: (client: PoolClient) => Promise<unknown>) => {
     let call = 0;
     const client = {
       // Explicit rows for the leading queries; later queries (events, audit,
@@ -54,9 +63,20 @@ function runTransaction(rowsByQuery: object[][] = []): void {
   });
 }
 
+beforeAll(() => {
+  process.env.ESCROW_SOURCE_SECRET = Keypair.random().secret();
+});
+
+afterAll(() => {
+  delete process.env.ESCROW_SOURCE_SECRET;
+});
+
 beforeEach(() => {
   jest.resetAllMocks();
   mockDb.query.mockResolvedValue([]);
+  mockCreateLoanEscrow.mockResolvedValue({ balanceId: 'escrow-balance-1' } as Awaited<
+    ReturnType<typeof createLoanEscrow>
+  >);
 });
 
 describe('GET /api/v1/loans', () => {
@@ -1172,6 +1192,15 @@ describe('POST /api/v1/loans/request - DB error handling', () => {
         { issuer_public_key: lender, asset_code: 'ECO', asset_issuer: lender },
       ])
       .mockResolvedValueOnce([{ settings: {} }]);
+    // Enough community tokens that the LTV check passes and the transaction runs.
+    mockStellar.getAccountBalance.mockResolvedValue([
+      {
+        asset_type: 'credit_alphanum4',
+        asset_code: 'ECO',
+        asset_issuer: lender,
+        balance: '5000.0000000',
+      },
+    ] as Awaited<ReturnType<typeof StellarService.getAccountBalance>>);
     mockDb.transaction.mockRejectedValueOnce(new Error('Transaction failed'));
     const res = await request(app)
       .post('/api/v1/loans/request')

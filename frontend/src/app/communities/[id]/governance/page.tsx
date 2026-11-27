@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-import { CommunityGovernanceWorkspace } from '@/components/governance/CommunityGovernanceWorkspace';
+import { GovernanceWorkspace } from '@/app/governance/GovernanceWorkspace';
 
 interface CommunityGovernancePageProps {
   params: Promise<{ id: string }>;
@@ -27,16 +27,16 @@ export default async function CommunityGovernancePage({ params }: CommunityGover
   }
 
   return (
-    <main className="community-governance-page">
-      <header className="community-governance-page__header">
-        <h1 className="community-governance-page__title">Governance</h1>
-        <p className="community-governance-page__subtitle">
+    <main>
+      <header>
+        <h1>Governance</h1>
+        <p>
           Create proposals and vote on community decisions. Votes are token-weighted and recorded
           on-chain.
         </p>
       </header>
 
-      <CommunityGovernanceWorkspace communityId={id} />
+      <GovernanceWorkspace initialCommunityId={id} />
     </main>
   );
 }

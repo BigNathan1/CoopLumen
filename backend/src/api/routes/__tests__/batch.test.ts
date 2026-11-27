@@ -20,10 +20,6 @@ const SENDER_PUBLIC = SENDER_KEYPAIR.publicKey();
 const DEST1 = Keypair.random().publicKey();
 const DEST2 = Keypair.random().publicKey();
 
-// Disbursing requires a session for the signing account; the route checks the
-// secret's public key against the authenticated address.
-const AUTH_HEADER = `Bearer ${createSessionToken(SENDER_PUBLIC).token}`;
-
 describe('Batch Payments Endpoints (/api/v1/batch)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -35,7 +31,7 @@ describe('Batch Payments Endpoints (/api/v1/batch)', () => {
 
       const res = await request(app)
         .post('/api/v1/batch/disburse')
-        .set('Authorization', AUTH_HEADER)
+        .set('Authorization', `Bearer ${createSessionToken(SENDER_PUBLIC).token}`)
         .send({
           senderSecret: SENDER_SECRET,
           payments: [
@@ -65,7 +61,7 @@ describe('Batch Payments Endpoints (/api/v1/batch)', () => {
     it('returns 400 for validation errors', async () => {
       const res = await request(app)
         .post('/api/v1/batch/disburse')
-        .set('Authorization', AUTH_HEADER)
+        .set('Authorization', `Bearer ${createSessionToken(SENDER_PUBLIC).token}`)
         .send({
           senderSecret: 'invalid-secret',
           payments: [],

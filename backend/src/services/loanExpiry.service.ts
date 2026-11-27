@@ -1,30 +1,37 @@
-import { logger } from '../utils/logger';
 import { detectLoanDefaults } from '../jobs/loanDefaults';
+import { logger } from '../utils/logger';
 
 let timer: NodeJS.Timeout | null = null;
+let running = false;
 
-export async function checkAndExpireLoans(): Promise<void> {
+async function tick(): Promise<void> {
+  if (running) return;
+  running = true;
   try {
-    const expired = await detectLoanDefaults();
-    if (expired.length > 0) {
-      logger.info(`Expired/defaulted ${expired.length} loans`);
+    const defaulted = await detectLoanDefaults();
+    if (defaulted.length > 0) {
+      logger.info(`Loan expiry job defaulted ${defaulted.length} loan(s)`);
     }
-  } catch (err) {
-    logger.error('Error during loan expiry check', err);
+  } catch (error) {
+    logger.error('Loan expiry job failed', { error });
+  } finally {
+    running = false;
   }
 }
 
+/**
+ * Starts the periodic overdue-loan sweep. The timer is unref'd so it never
+ * keeps the process alive on its own, and a slow sweep is never overlapped.
+ */
 export function startLoanExpiryJob(intervalMs: number): void {
   if (timer) return;
-  timer = setInterval(() => {
-    void checkAndExpireLoans();
-  }, intervalMs);
+  timer = setInterval(() => void tick(), intervalMs);
   timer.unref();
 }
 
+/** Stops the sweep, waiting for no in-flight run (the tick finishes itself). */
 export function stopLoanExpiryJob(): void {
-  if (timer) {
-    clearInterval(timer);
-    timer = null;
-  }
+  if (!timer) return;
+  clearInterval(timer);
+  timer = null;
 }
