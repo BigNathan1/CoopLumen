@@ -51,12 +51,17 @@ The issuer account has two keys:
 
 **Important:** The private key is needed to sign transactions that issue tokens. Store it securely:
 
-- ✅ Hardware security module (HSM)
-- ✅ Vault (HashiCorp, AWS Secrets Manager, etc.)
-- ✅ Encrypted secrets file (not committed to git)
-- ❌ Plain text in code
-- ❌ Environment variables in CI/CD logs
-- ❌ Shared chat or email
+Acceptable:
+
+- Hardware security module (HSM)
+- Vault (HashiCorp, AWS Secrets Manager, etc.)
+- Encrypted secrets file (not committed to git)
+
+Never:
+
+- Plain text in code
+- Environment variables in CI/CD logs
+- Shared chat or email
 
 ---
 
@@ -89,7 +94,7 @@ const { Keypair } = require('@stellar/stellar-sdk');
 const keypair = Keypair.random();
 console.log('Public Key:', keypair.publicKey());
 console.log('Seed:', keypair.secret());
-console.log('⚠️ SAVE THE SEED SECURELY. Never commit to git.');
+console.log('SAVE THE SEED SECURELY. Never commit to git.');
 "
 ```
 
@@ -233,10 +238,10 @@ async function fundIssuer() {
     tx.sign(fundingKeypair);
 
     const result = await server.submitTransaction(tx);
-    console.log('✅ Issuer account funded!');
+    console.log('Issuer account funded!');
     console.log(`Transaction hash: ${result.hash}`);
   } catch (error) {
-    console.error('❌ Funding failed:', error.message);
+    console.error('Funding failed:', error.message);
   }
 }
 
@@ -301,10 +306,10 @@ const server = new Server('https://horizon.stellar.org');
 async function verifyIssuer() {
   try {
     const account = await server.loadAccount(issuerPublicKey);
-    console.log('✅ Account found on Mainnet');
+    console.log('Account found on Mainnet');
     console.log(`XLM balance: ${account.balances[0].balance}`);
   } catch (error) {
-    console.error('❌ Account not found:', error.message);
+    console.error('Account not found:', error.message);
   }
 }
 

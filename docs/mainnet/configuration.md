@@ -174,17 +174,17 @@ When the backend starts, it performs the following checks:
 
 ### All Environments
 
-1. ✅ `STELLAR_NETWORK` is `testnet` or `mainnet`
-2. ✅ `STELLAR_HORIZON_URL` is a non-empty string
-3. ✅ `FRONTEND_URL` is a non-empty string
-4. ✅ `DATABASE_URL` is a non-empty string
+1. `STELLAR_NETWORK` is `testnet` or `mainnet`
+2. `STELLAR_HORIZON_URL` is a non-empty string
+3. `FRONTEND_URL` is a non-empty string
+4. `DATABASE_URL` is a non-empty string
 
 If any check fails, the application logs an error and exits with status 1.
 
 ### Production (`NODE_ENV=production`) Only
 
-1. ✅ `AUTH_SESSION_SECRET` is non-empty
-2. ✅ `ADMIN_ADDRESSES` is non-empty (at least one address)
+1. `AUTH_SESSION_SECRET` is non-empty
+2. `ADMIN_ADDRESSES` is non-empty (at least one address)
 
 If any check fails, the application logs an error and exits with status 1.
 
@@ -192,8 +192,8 @@ If any check fails, the application logs an error and exits with status 1.
 
 If `STELLAR_NETWORK=mainnet`:
 
-1. ⚠️ If `AUTH_SESSION_SECRET` is empty or a placeholder: **Warning logged** (not fatal)
-2. ⚠️ If `ADMIN_ADDRESSES` is empty: **Warning logged** (operator routes will be blocked)
+1. If `AUTH_SESSION_SECRET` is empty or a placeholder: **Warning logged** (not fatal)
+2. If `ADMIN_ADDRESSES` is empty: **Warning logged** (operator routes will be blocked)
 
 ---
 

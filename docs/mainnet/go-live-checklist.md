@@ -271,14 +271,14 @@ This checklist ensures CoopLumen is secure, operational, and ready for productio
 
 **Do not launch if any of the following are true:**
 
-- ❌ Critical security vulnerabilities are unresolved
-- ❌ External audit indicates severe issues requiring redesign
-- ❌ Database cannot be backed up or restored
-- ❌ Mainnet connectivity is unavailable
-- ❌ Team is not available for 24-hour post-launch monitoring
-- ❌ Announcement has not been reviewed and approved
-- ❌ Incident response procedure is not practiced
-- ❌ Any core functionality fails smoke test
+- Critical security vulnerabilities are unresolved
+- External audit indicates severe issues requiring redesign
+- Database cannot be backed up or restored
+- Mainnet connectivity is unavailable
+- Team is not available for 24-hour post-launch monitoring
+- Announcement has not been reviewed and approved
+- Incident response procedure is not practiced
+- Any core functionality fails smoke test
 
 ---
 

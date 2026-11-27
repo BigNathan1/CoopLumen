@@ -41,7 +41,7 @@ function validateMainnetConfig(): void {
   }
 
   if (issues.length > 0) {
-    logger.warn('⚠️ Mainnet configuration warnings:', { issues });
+    logger.warn('Mainnet configuration warnings', { issues });
   }
 }
 

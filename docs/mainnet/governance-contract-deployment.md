@@ -24,21 +24,21 @@ The governance contract is a Soroban smart contract that powers on-chain proposa
 
 ### Tools
 
-- ✅ **soroban-cli** installed and up-to-date
+- **soroban-cli** installed and up-to-date
 
   ```bash
   soroban --version
   # Should be ≥ v21.0.0
   ```
 
-- ✅ **Rust toolchain** (for compiling contract)
+- **Rust toolchain** (for compiling contract)
 
   ```bash
   rustup --version
   cargo --version
   ```
 
-- ✅ **CoopLumen repository** cloned locally
+- **CoopLumen repository** cloned locally
   ```bash
   git clone https://github.com/BigNathan1/CoopLumen.git
   cd CoopLumen
@@ -46,17 +46,17 @@ The governance contract is a Soroban smart contract that powers on-chain proposa
 
 ### Accounts & Funding
 
-- ✅ **Deployment account:** A Stellar account on Mainnet with:
+- **Deployment account:** A Stellar account on Mainnet with:
   - 1-2 XLM (for deployment fee + buffer)
   - Private key accessible to signer (HSM, Vault, or temporary env var)
 
-- ✅ **Issuer account:** Already created and funded (see `issuer-setup.md`)
+- **Issuer account:** Already created and funded (see `issuer-setup.md`)
 
 ### Configuration
 
-- ✅ **Smart contract compiled** and artifact ready (`contracts/governance/`)
-- ✅ **Testnet deployment tested** (same process, smaller risk)
-- ✅ **Go/no-go approval** from core team
+- **Smart contract compiled** and artifact ready (`contracts/governance/`)
+- **Testnet deployment tested** (same process, smaller risk)
+- **Go/no-go approval** from core team
 
 ---
 
@@ -242,7 +242,7 @@ MAINNET_CONTRACT_ID=$(soroban contract deploy \
   --key mainnet-deploy \
   --network mainnet)
 
-echo "✅ Mainnet Contract ID: $MAINNET_CONTRACT_ID"
+echo "Mainnet Contract ID: $MAINNET_CONTRACT_ID"
 # Output example: CABC123...XYZ
 ```
 
