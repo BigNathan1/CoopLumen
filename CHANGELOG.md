@@ -139,6 +139,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Claimable-balance escrow for funded loan amounts: disbursement now locks the principal in a Stellar claimable balance the borrower can claim, Horizon result codes are mapped to actionable messages, unit tests mock Horizon, and a testnet verification script confirms the flow against real testnet (#454).
 - Reputation score calculation — `(on-time repayments / total loans) * 100` — recomputed from loan outcomes and persisted to `reputation_scores`, with unit and integration coverage (#460).
 - `GET /api/v1/reputation/:address` returning a member's reputation score alongside their repayment history, with Zod-validated input, the standard response envelope and OpenAPI documentation (#461).
+- Time-bounded voting period support (`start_time`, `end_time`) in proposal creation and read models (#508).
+- Per-community threshold configuration support in community settings and multisig request creation (#487).
+- `POST /api/v1/multisig/:id/reject` endpoint allowing cosigners to reject a pending multi-signature proposal with an optional reason (#486).
+- `GET /api/v1/multisig/:communityId` endpoint to list multi-signature proposals and signature status for a community (#484).
+
 - Borrower-only `POST /api/v1/loans/request` endpoint for authenticated active members requesting loans from their community pool, with OpenAPI documentation (#451).
 - `POST /api/v1/loans/:id/repay` lets the borrower submit a partial or full repayment against an active loan, with Zod-validated input, the standard `{ data, meta?, error? }` envelope, and OpenAPI documentation (#455).
 - `GET /api/v1/loans/borrower/:address` lists every loan borrowed by a Stellar address, with pagination metadata and OpenAPI documentation (#457).

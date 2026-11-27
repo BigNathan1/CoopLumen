@@ -121,14 +121,28 @@ async function createMultiSigRequest(req: Request, res: Response): Promise<void>
     expires_at,
   } = body;
 
-  const communityRows = await db.query<{ id: string }>(
-    'SELECT id FROM communities WHERE id = $1 AND deleted_at IS NULL',
+  const communityRows = await db.query<{ id: string; settings?: Record<string, unknown> }>(
+    `SELECT c.id, COALESCE(cs.settings, '{}'::jsonb) AS settings
+     FROM communities c
+     LEFT JOIN community_settings cs ON cs.community_id = c.id
+     WHERE c.id = $1 AND c.deleted_at IS NULL`,
     [communityId]
   );
   if (communityRows.length === 0) {
     res.status(404).json({ data: null, error: 'Community not found' });
     return;
   }
+
+  const communitySettings = communityRows[0].settings ?? {};
+  const configThreshold =
+    typeof communitySettings.threshold === 'number'
+      ? communitySettings.threshold
+      : typeof (communitySettings.multisig as Record<string, unknown> | undefined)?.threshold ===
+          'number'
+        ? ((communitySettings.multisig as Record<string, unknown>).threshold as number)
+        : undefined;
+
+  const effectiveRequiredSignatures = required_signatures ?? configThreshold ?? 2;
 
   const result = await db.query<MultiSigRow>(
     `INSERT INTO multisig_requests (
@@ -145,7 +159,7 @@ async function createMultiSigRequest(req: Request, res: Response): Promise<void>
       description ?? null,
       JSON.stringify(payload ?? {}),
       transaction_xdr ?? null,
-      required_signatures ?? 2,
+      effectiveRequiredSignatures,
       expires_at ? new Date(expires_at) : null,
     ]
   );
@@ -307,6 +321,13 @@ async function executeMultiSigRequest(req: Request, res: Response): Promise<void
 
 // Routes
 multisigRouter.get(
+  '/:communityId',
+  validateParams(communityIdParamSchema),
+  validateQuery(getMultiSigQuerySchema),
+  getCommunityMultiSigRequests
+);
+
+multisigRouter.get(
   '/community/:communityId',
   validateParams(communityIdParamSchema),
   validateQuery(getMultiSigQuerySchema),
@@ -335,6 +356,13 @@ multisigRouter.post(
   validateBody(approveMultiSigRequestSchema),
   approveMultiSigRequest
 );
+multisigRouter.post(
+  '/:id/reject',
+  validateParams(uuidParamSchema),
+  validateBody(rejectMultiSigRequestSchema),
+  rejectMultiSigRequest
+);
+
 multisigRouter.post(
   '/requests/:id/reject',
   validateParams(uuidParamSchema),

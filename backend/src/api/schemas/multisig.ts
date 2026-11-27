@@ -25,7 +25,7 @@ export const createMultiSigRequestSchema = z.object({
   description: z.string().max(1000).optional().nullable(),
   payload: z.record(z.string(), z.unknown()).optional().default({}),
   transaction_xdr: z.string().optional().nullable(),
-  required_signatures: z.number().int().min(1).optional().default(2),
+  required_signatures: z.number().int().min(1).optional(),
   proposer_address: z.string().min(1, 'Proposer address is required'),
   expires_at: z.string().optional().nullable(),
 });

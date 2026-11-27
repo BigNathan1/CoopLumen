@@ -25,6 +25,42 @@ beforeEach(() => {
 });
 
 describe('MultiSig Endpoint Handlers', () => {
+  describe('GET /api/v1/multisig/:communityId', () => {
+    it('returns 200 with list of requests when queried at /api/v1/multisig/:communityId', async () => {
+      const mockRequests = [
+        {
+          id: validRequestID,
+          community_id: validUUID,
+          proposer_address: validStellarAddress,
+          action: 'payment',
+          title: 'Disburse Community Funds',
+          description: 'Batch payout to members',
+          payload: { recipients: [] },
+          transaction_xdr: 'AAAA...',
+          required_signatures: 2,
+          current_signatures: 1,
+          status: 'pending',
+          stellar_tx_hash: null,
+          rejection_reason: null,
+          expires_at: null,
+          executed_at: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ];
+
+      mockDb.query
+        .mockResolvedValueOnce([{ id: validUUID }]) // community check
+        .mockResolvedValueOnce([{ total: '1' }]) // count query
+        .mockResolvedValueOnce(mockRequests); // data query
+
+      const res = await request(app).get(`/api/v1/multisig/${validUUID}`);
+      expect(res.status).toBe(200);
+      expect(res.body.data).toEqual(mockRequests);
+      expect(res.body.meta).toEqual(expect.objectContaining({ total: 1, page: 1, limit: 20 }));
+    });
+  });
+
   describe('GET /api/v1/multisig/community/:communityId', () => {
     it('returns 400 when :communityId is not a valid UUID', async () => {
       const res = await request(app).get('/api/v1/multisig/community/invalid-uuid');
@@ -171,6 +207,41 @@ describe('MultiSig Endpoint Handlers', () => {
       expect(res.status).toBe(201);
       expect(res.body.data).toEqual(newRequest);
     });
+
+    it('uses configured community threshold when required_signatures is not specified', async () => {
+      const customRequest = {
+        id: validRequestID,
+        community_id: validUUID,
+        proposer_address: validStellarAddress,
+        action: 'payment',
+        title: 'Threshold Test',
+        description: null,
+        payload: {},
+        transaction_xdr: null,
+        required_signatures: 3,
+        current_signatures: 0,
+        status: 'pending',
+        stellar_tx_hash: null,
+        rejection_reason: null,
+        expires_at: null,
+        executed_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      mockDb.query
+        .mockResolvedValueOnce([{ id: validUUID, settings: { threshold: 3 } }]) // community check with threshold
+        .mockResolvedValueOnce([customRequest]); // insert
+
+      const res = await request(app).post(`/api/v1/multisig/community/${validUUID}`).send({
+        action: 'payment',
+        title: 'Threshold Test',
+        proposer_address: validStellarAddress,
+      });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.required_signatures).toBe(3);
+    });
   });
 
   describe('GET /api/v1/multisig/requests/:id', () => {
@@ -286,6 +357,24 @@ describe('MultiSig Endpoint Handlers', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.status).toBe('approved');
       expect(res.body.data.current_signatures).toBe(2);
+    });
+  });
+
+  describe('POST /api/v1/multisig/:id/reject', () => {
+    it('rejects pending request and records reason via /:id/reject alias', async () => {
+      mockDb.query
+        .mockResolvedValueOnce([{ id: validRequestID, status: 'pending' }])
+        .mockResolvedValueOnce([
+          { id: validRequestID, status: 'rejected', rejection_reason: 'Cosigner rejection' },
+        ]);
+
+      const res = await request(app)
+        .post(`/api/v1/multisig/${validRequestID}/reject`)
+        .send({ reason: 'Cosigner rejection' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.status).toBe('rejected');
+      expect(res.body.data.rejection_reason).toBe('Cosigner rejection');
     });
   });
 
