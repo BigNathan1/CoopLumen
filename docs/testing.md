@@ -38,6 +38,9 @@ frontend/
 ### Running them
 
 ```bash
+# A throwaway escrow key for the loan-funding spec, generated per run
+export $(node frontend/e2e/support/escrow-key.mjs)
+
 # Start the stack the suite runs against
 docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d --build --wait
 
@@ -57,11 +60,32 @@ suite uses.
 
 The suite talks to the stack on these ports:
 
-| Service    | Origin                  | Purpose                          |
-| ---------- | ----------------------- | -------------------------------- |
-| App        | `http://127.0.0.1:3000` | The Next.js frontend             |
-| API        | `http://127.0.0.1:4000` | The backend                      |
-| E2E origin | `http://127.0.0.1:3100` | What the browser loads and calls |
+| Service    | Origin                  | Purpose                           |
+| ---------- | ----------------------- | --------------------------------- |
+| App        | `http://127.0.0.1:3000` | The Next.js frontend              |
+| API        | `http://127.0.0.1:4000` | The backend                       |
+| E2E origin | `http://127.0.0.1:3100` | What the browser loads and calls  |
+| Horizon    | `http://127.0.0.1:8100` | The fake Horizon the backend uses |
+
+### The fake Horizon
+
+On the real testnet the suite's addresses are unfunded, so a flow that reads a
+token balance or moves funds could not run. In the E2E stack the backend talks
+to `frontend/e2e/support/fake-horizon.mjs` instead. It answers the Horizon
+endpoints those flows use (accounts, fee stats, transaction submission) and
+behaves like the real network where it matters: unknown accounts are a 404,
+and a transaction must carry its source account's next sequence number.
+
+A spec arranges balances and inspects what the backend sent through two
+control endpoints:
+
+- `PUT /_e2e/accounts/:id` with `{ "balances": [{ "asset_code", "asset_issuer", "balance" }] }`
+  registers an account.
+- `GET /_e2e/transactions` lists the envelopes submitted so far.
+
+The backend signs loan escrows with `ESCROW_SOURCE_SECRET`. `escrow-key.mjs`
+generates a fresh keypair for each run and the Compose file registers its
+address with the fake Horizon, so no secret seed is committed.
 
 ### Why the suite has its own origin
 
@@ -133,6 +157,7 @@ A few conventions keep the suite honest:
 | `PLAYWRIGHT_GATEWAY_PORT` | `3100`                  | The port the gateway listens on          |
 | `PLAYWRIGHT_APP_URL`      | `http://127.0.0.1:3000` | The frontend the gateway serves          |
 | `PLAYWRIGHT_API_URL`      | `http://127.0.0.1:4000` | The backend the gateway relays to        |
+| `PLAYWRIGHT_HORIZON_URL`  | `http://127.0.0.1:8100` | The fake Horizon's control endpoints     |
 | `AUTH_SESSION_SECRET`     | `governance-e2e-secret` | The secret the backend signs tokens with |
 
 `AUTH_SESSION_SECRET` must match the value the backend runs with; the E2E
