@@ -170,7 +170,6 @@ describeIf('PUT /api/v1/communities/:id (update, not found, unauthorized)', () =
     });
 
     it('preserves fields not included in update request', async () => {
-      // First get the current state
       const before = await request(app).get(`/api/v1/communities/${testCommunityId}`);
       const originalAssetCode = before.body.data.community.asset_code;
 

@@ -58,19 +58,27 @@ describe('useEstimateFee', () => {
   });
 
   it('reads the fee stats and estimates the fee for the given operations', async () => {
-    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ data: STATS }) });
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ data: STATS }),
+    });
 
     const operations = [{ type: 'payment' }, { type: 'payment' }];
     const { result } = renderHook(() => useEstimateFee(operations), { wrapper });
 
     await waitFor(() => expect(result.current.estimatedFee).toBe('500'));
-    expect(fetchMock).toHaveBeenCalledWith('http://localhost:4000/api/v1/fees/estimate');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:4000/api/v1/fees/estimate',
+      expect.anything()
+    );
   });
 
   it('surfaces API errors', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: false,
-      json: async () => ({ error: 'Horizon unavailable' }),
+      status: 502,
+      text: async () => JSON.stringify({ error: 'Horizon unavailable' }),
     });
 
     const { result } = renderHook(() => useEstimateFee([{ type: 'payment' }]), { wrapper });

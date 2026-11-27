@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react';
 import useSWR from 'swr';
 import { fetcher } from '@/lib/swr';
-import { useLoan } from '../useLoan';
+import { useLoan } from '../useLoans';
 
 jest.mock('swr', () => ({ __esModule: true, default: jest.fn() }));
 jest.mock('@/lib/swr', () => ({ fetcher: jest.fn() }));

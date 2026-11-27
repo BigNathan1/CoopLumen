@@ -97,7 +97,7 @@ watch -n 10 'curl -s http://localhost:4000/api/v1/health | jq .status'
 while true; do
   status=$(curl -s http://localhost:4000/api/v1/health | jq -r '.status')
   if [[ "$status" != "ok" ]]; then
-    echo "⚠️ Health check failed: $status"
+    echo "Health check failed: $status"
     # Send alert
   fi
   sleep 30
@@ -374,14 +374,14 @@ while true; do
 
   if [[ "$status" != "200" ]]; then
     ((consecutive_failures++))
-    echo "❌ Health check failed (HTTP $status) — $consecutive_failures consecutive failures"
+    echo "Health check failed (HTTP $status) — $consecutive_failures consecutive failures"
 
     if [[ $consecutive_failures -ge $ALERT_THRESHOLD ]]; then
       # Send alert to Slack
       curl -X POST "$SLACK_WEBHOOK" \
         -H 'Content-Type: application/json' \
         -d "{
-          \"text\": \"🚨 CoopLumen API is down\",
+          \"text\": \"CoopLumen API is down\",
           \"attachments\": [{
             \"color\": \"danger\",
             \"text\": \"Health check failed: HTTP $status\n$consecutive_failures consecutive failures\",
@@ -394,12 +394,12 @@ while true; do
     fi
   else
     if [[ $consecutive_failures -gt 0 ]]; then
-      echo "✅ Health check recovered"
+      echo "Health check recovered"
       # Send recovery alert
       curl -X POST "$SLACK_WEBHOOK" \
         -H 'Content-Type: application/json' \
         -d "{
-          \"text\": \"✅ CoopLumen API recovered\",
+          \"text\": \"CoopLumen API recovered\",
           \"attachments\": [{
             \"color\": \"good\",
             \"text\": \"Service is back online\",

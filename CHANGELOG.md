@@ -9,115 +9,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Added — Mainnet Launch Readiness (Issues #577, #578)
-
-**Security Audit Readiness (Issue #577)**
-
-- `AUDIT_READINESS.md` — Comprehensive security audit readiness documentation covering:
-  - Architecture and trust boundaries
-  - Security controls inventory (authentication, authorization, input validation, transaction security, secrets management, rate limiting, error handling, network configuration)
-  - Smart contract security analysis (authorization controls, vote integrity, proposal lifecycle, known limitations)
-  - Backend API security (authentication routes, RBAC middleware, input validation, transaction submission, webhook verification)
-  - Frontend security (wallet connection, session tokens, CSP headers, error handling)
-  - Threat model with attack scenarios and mitigations
-  - Known limitations and outstanding risks
-  - Security testing evidence (unit/integration tests, smart contract tests, E2E tests, dependency scanning, container scanning)
-  - External audit engagement process and timeline
-
-- `docs/security-audit-engagement.md` — Complete guide for engaging independent security auditors:
-  - Audit scope definition (in-scope and out-of-scope components)
-  - Auditor selection criteria and recommended firms
-  - Six-phase engagement process (Preparation, Kickoff, Main Audit, Reporting, Remediation, Retest & Closure)
-  - Communication and escalation procedures
-  - Deliverables and sign-off criteria
-  - Risk management for critical findings
-  - SOW template for audit engagement
-
-- Enhanced `backend/src/index.ts` with production environment validation:
-  - New `PRODUCTION_REQUIRED_ENV_VARS` array enforcing `AUTH_SESSION_SECRET` and `ADMIN_ADDRESSES` in production
-  - `validateMainnetConfig()` function for Mainnet-specific validation warnings
-  - Network selection validation ensuring only `testnet` or `mainnet` are allowed
-  - Clear error messages on missing required configuration
-  - Startup failure on critical configuration errors (prevents misconfiguration in production)
-
-- Updated `backend/.env.example` with comprehensive documentation:
-  - Added detailed comments for production-specific requirements
-  - Clarified that `AUTH_SESSION_SECRET` and `ADMIN_ADDRESSES` are required in production
-  - Added Mainnet-specific configuration placeholders (`STELLAR_MAINNET_GOVERNANCE_CONTRACT_ID`, `STELLAR_MAINNET_ISSUER_PUBLIC_KEY`)
-  - Included example command for generating secure secrets
-  - Explained fallback behavior and safety considerations for each environment variable
-
-**Mainnet Launch Readiness (Issue #578)**
-
-- `docs/mainnet-configuration.md` — Stellar Mainnet configuration guide:
-  - Clean network separation between local/Testnet/Mainnet
-  - Environment variable reference and validation procedures
-  - Startup validation checklist and process
-  - Deployment procedures with step-by-step instructions
-  - Rollback procedures for critical failures
-  - FAQ addressing common configuration questions
-
-- `docs/mainnet-issuer-setup.md` — Issuer account setup guide:
-  - Keypair generation and secure storage procedures
-  - Mainnet funding methods (Laboratory, CLI, JavaScript SDK, exchange/custodian)
-  - Account verification on Stellar Mainnet
-  - Safe credential management and security checklist
-  - Emergency procedures for key compromise or account drainage
-  - Detailed troubleshooting guide
-
-- `docs/governance-contract-mainnet-deployment.md` — Smart contract deployment guide:
-  - Prerequisites and tools setup
-  - Contract build and test procedures
-  - Testnet deployment (pre-production validation)
-  - Mainnet deployment with explicit authorization
-  - Contract verification and initialization
-  - Application configuration updates
-  - Smoke testing procedures
-  - Rollback and recovery options
-  - Comprehensive troubleshooting guide
-  - Deployment log template for audit trail
-
-- `docs/production-monitoring.md` — Production monitoring and observability guide:
-  - Health check endpoint specification (GET `/api/v1/health`)
-  - Structured logging implementation and critical event documentation
-  - Metrics to monitor (application, Stellar-specific, database, governance contract)
-  - Alerting guidelines (critical, high, medium, low priority)
-  - Manual alert setup with bash script example
-  - Incident response procedures
-  - Common scenarios and resolution steps
-  - Integration options (Datadog, New Relic, Prometheus + Grafana, ELK Stack)
-  - Incident runbooks (high CPU usage, memory leaks, database connection issues)
-
-- `LAUNCH_ANNOUNCEMENT.md` — Publication-ready Mainnet launch announcement:
-  - Press release text covering CoopLumen features and launch details
-  - Social media posts (Twitter, LinkedIn)
-  - Press kit references (logo, branding, company boilerplate)
-  - Key statistics placeholders
-  - Launch day checklist and schedule template
-  - FAQ for public communication
-  - Crisis communication plan for incident response
-  - Post-launch monitoring schedule
-  - Messaging guidelines (what to say/avoid)
-
-- `MAINNET_GO_LIVE_CHECKLIST.md` — Comprehensive pre-launch verification checklist:
-  - Phase 1: Security & Audit verification
-  - Phase 2: Stellar Mainnet configuration validation
-  - Phase 3: Issuer account funding verification
-  - Phase 4: Governance contract deployment verification
-  - Phase 5: Backend deployment readiness
-  - Phase 6: Frontend deployment readiness
-  - Phase 7: Testing & verification (smoke tests, network verification, performance tests)
-  - Phase 8: Production monitoring setup verification
-  - Phase 9: Documentation completeness
-  - Phase 10: Launch preparation (announcement, team readiness, deployment)
-  - Phase 11: Final verification (24 hours before launch)
-  - Phase 12: Launch approval and sign-off
-  - Post-launch monitoring checklist
-
-- `IMPLEMENTATION_PLAN.md` — Detailed implementation roadmap for Issues #577 and #578
-
 ### Added
 
+- Mainnet launch documentation in `docs/mainnet/`: a go-live checklist, configuration, issuer account setup, governance contract deployment, audit readiness (controls and threat model), a security audit engagement guide and a launch announcement (#577, #578).
+- Production startup validation: `AUTH_SESSION_SECRET` and `ADMIN_ADDRESSES` are required in production, `STELLAR_NETWORK` must be `testnet` or `mainnet`, and Mainnet-specific configuration problems are logged as warnings.
 - `POST /api/v1/loans/:id/fund` endpoint allowing lenders to fund pending loan requests with Zod validation, response envelope, unit tests, and OpenAPI documentation (#453).
 - Repayment history support in `GET /api/v1/loans/:id` activating `loan_repayments` alongside loan events with Zod param validation and OpenAPI documentation (#456).
 - Compliance model and limitations documentation (`docs/compliance.md`) detailing SEP-12 KYC alignment, daily transaction limits, Sybil resistance, and technical boundaries (#543).
@@ -435,13 +330,17 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Documentation is grouped by topic: mainnet launch material in `docs/mainnet/`, the security model, reviews, authentication and rate limiting in `docs/security/`, each with an index linked from the README.
 - The Compose stack runs PostgreSQL 18 and Redis 8. PostgreSQL 18 keeps its data in a new `pg18_data` volume, so an existing local database has to be moved across with a dump and restore; see `docs/database-operations.md`. CI's backend tests run against the same versions.
-- Frontend components are grouped by feature: the top-level components move into `layout/`, `community/`, `dashboard/`, `profile/`, `tokens/`, `transactions/`, `treasury/` and `multisig/`, each with its own `__tests__/`, and page tests sit beside their pages. Member hooks (`useCommunityMembers`, `useAddMember`, `useRemoveMember`) live in one module with a single `CommunityMember` type that matches the API. The SWR fetcher and provider move to `lib/swr.tsx`. Imports use the `@/` alias throughout, and decorative divider comments and emoji are gone.
+- Frontend components are grouped by feature: the top-level components move into `layout/`, `community/`, `dashboard/`, `profile/`, `tokens/`, `transactions/`, `treasury/` and `multisig/`, each with its own `__tests__/`, and route tests sit in a `__tests__` folder beside their pages. Member hooks (`useCommunityMembers`, `useAddMember`, `useRemoveMember`) live in one module with a single `CommunityMember` type that matches the API. The SWR fetcher and provider move to `lib/swr.tsx`. Imports use the `@/` alias throughout, and decorative divider comments and emoji are gone.
 - Repository layout and hygiene pass. Backend: the market price feed moved out of `contracts/` (which is the Stellar layer) into `services/`, manual testnet verification scripts moved from `src/contracts/__tests__/` to `backend/scripts/`, `src/test/` became `src/testing/`, and the duplicate halves of the price feed and the price cache were folded into one implementation each. Frontend: components are grouped into `ui/`, `loans/`, `reputation/` and `wallet/`, every `ui/` suite sits beside its component, and the generic primitives (Modal, ConfirmDialog, LoadingSkeleton, Form, ErrorBoundary) joined the design system. Testnet suites share one filename convention and one `STELLAR_TESTNET_E2E` switch instead of two. Emoji and box-drawing decoration are gone from script output and component icons, which are drawn as inline SVG. `.kiro/` and `.claude/` tooling directories are no longer tracked, `morgan`, `express-validator` and two stale `@types` packages are removed, and CI checks formatting across the whole repository rather than three directories.
 - Loan totals are now computed once, server-side: `GET /api/v1/loans` (the list) returns `total_due` and `outstanding` on every loan just like `GET /api/v1/loans/:id` already did, via a shared `withTotals` helper. The frontend loan card and repay control consume those fields instead of re-deriving `amount × (1 + rate)` client-side, so the interest formula lives in exactly one place. The OpenAPI `Loan` schema documents both fields.
 
 ### Fixed
 
+- Updating a community dropped every setting except `ltvLimit`; other keys are kept again.
+- Disbursing a loan wrote `loans.escrow_balance_id`, which no migration created, so it failed on any real database; migration `030` adds the column.
+- Disburse, repay and default responses now carry `total_due` and `outstanding` like the other loan responses.
 - Repaired `main` after the October merge batch. Duplicated proposal schemas, imports, a duplicated OpenAPI path and a doubled `schema` key are removed. The API registered two SIGTERM handlers that both closed the server; one handler now drains, closes the database pool and exits. A failing `ROLLBACK` no longer replaces the error that caused it. `TokenCard` formats supply with BigInt so large fixed-point values keep every digit. `requireRole` answers 404 for an unknown community and 400 for a malformed id instead of 403 and 500. Community names are unique only among live communities, compared trimmed and case-insensitively (migration `027`), so a soft-deleted community's name can be reused. Tests now use checksummed Stellar keys, commit integration fixtures where the app can see them, send the CSRF token on cookie-authenticated writes, and follow admin-only member removal (#358). `next` is bumped to 15.5.28 for the image-optimizer RCE advisory, alongside `@playwright/test` 1.59.1, `toml` ^5.0.1 and patched `follow-redirects` and `ip-address`.
 - `useEstimateFee` POSTed to `/api/v1/fees/estimate`, which is a GET route, so every estimate failed; it now reads the fee stats and estimates client-side. Removing a member called a non-existent unversioned route with a member id the API never returns; it now calls `DELETE /api/v1/communities/:id/members/:address` through the authenticated client. Frontend and backend lint run with no warnings, and Jest stubs stylesheets imported through the `@/` alias.
 - Restored `main` after a batch of overlapping merges left it unable to install, compile or test. `frontend/package-lock.json` was invalid JSON, and `frontend/package.json` declared `react`, `react-dom`, `@types/react` and `@types/react-dom` twice with conflicting majors, which resolved to React 19 with ReactDOM 18. It now runs React 19 throughout, with `jest-environment-jsdom` 30 to match Jest 30. `@stellar/freighter-api` is pinned back to 2.x until the wallet hooks move off the removed `getPublicKey` API and onto the v6 result objects. The backend TypeScript 7 bump is rolled back to 5.9 because `@typescript-eslint` 8 does not support it and `npm ci` refused to install. `useCreateCommunity` had two implementations spliced together (#803): it keeps the `submit`/`loading`/`error` contract that `CreateCommunityForm` depends on and gains the optimistic insert and rollback from #803. The `useEstimateFee` hook and test from #812 had their TypeScript generics and JSX stripped; both are restored. #810 added `useXLMPrice.ts` next to the existing `useXlmPrice.ts`, two paths that differ only in case and collide on Windows and macOS checkouts, so the duplicate is removed.
@@ -479,6 +378,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Security
 
+- Every pull request and every push to `main` runs a malware indicator scan (`scripts/security/malware-scan.js`, required by branch protection). It reads the diff without running it and blocks hidden or obfuscated code, download-and-execute commands, credential and wallet harvesting, exfiltration endpoints, install scripts, dependencies from outside the npm registry, typosquatted or brand-new packages, committed executables and risky workflow edits; see `SECURITY.md`.
+- Loan writes from the community loans page, `useLoanActions`, `useCreateLoan`, and every SWR read (the default fetcher and `useMultiSig`) called `fetch` directly and so went out without the session header and CSRF token the shared API client adds. They now go through `lib/api`.
 - `requireAdmin` now authorises. It previously called `next()` for every request while guarding routes that list every token in the system and, until this release, two that accepted a raw secret key - so anyone who could reach the API could call them. It requires an authenticated session (`requireAuth` runs first) whose address appears in `ADMIN_ADDRESSES`, and fails closed: an unset list rejects everyone with 403 rather than admitting everyone.
 - Added a client-sign flow for issuing tokens and establishing trustlines, so a wallet's secret key no longer has to travel to the server in plaintext for these actions. `buildUnsignedIssueAsset()` (`backend/src/contracts/assets.ts`) builds an unsigned issuance payment from the issuer's public key; combined with the existing `buildUnsignedTrustline()`, both are now exposed as `POST /api/v1/tokens/build-issue` and `POST /api/v1/tokens/build-trustline`. A wallet (e.g. Freighter) signs the returned XDR locally and submits it through the new `POST /api/v1/tokens/submit`, which wires up the previously-unused `submitSignedXdr()` helper. The existing secret-key endpoints, `POST /api/v1/tokens/issue` and `POST /api/v1/tokens/trustline`, are now gated behind `requireAdmin` and their doc comments updated to steer callers to the new flow; removing them from the public API surface entirely is tracked as a follow-up once `requireAdmin` is a real auth check rather than a placeholder (see the separately-filed auth-bypass issue). `POST /api/v1/tokens/burn` and `POST /api/v1/tokens/airdrop` accept the same kind of raw secret key and were not in scope of this change; they should be tracked separately.
 

@@ -3,7 +3,13 @@ import { SWRConfig } from 'swr';
 import { useBalances } from '../useBalances';
 
 function jsonResponse(status: number, body: unknown) {
-  return { ok: status >= 200 && status < 300, status, json: async () => body };
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  };
 }
 
 const fetchMock = jest.fn();

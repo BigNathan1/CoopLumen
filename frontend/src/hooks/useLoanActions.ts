@@ -1,8 +1,7 @@
 import { useState, useCallback } from 'react';
 import { mutate } from 'swr';
+import { api } from '@/lib/api';
 import type { Loan } from './useLoans';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 /** Revalidate every cached loan list and reputation view after a lifecycle change. */
 function revalidate(): Promise<unknown> {
@@ -15,17 +14,9 @@ function revalidate(): Promise<unknown> {
   );
 }
 
-async function send(path: string, method: 'POST' | 'DELETE', body?: unknown): Promise<Loan> {
-  const res = await fetch(`${API_URL}/api/v1/loans/${path}`, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const parsed = (await res.json().catch(() => ({}))) as { data?: Loan; error?: string };
-  if (!res.ok) {
-    throw new Error(parsed.error ?? `Request failed (${res.status})`);
-  }
-  return parsed.data as Loan;
+/** Sends one lifecycle request; the shared client adds the session and CSRF headers. */
+function send(path: string, method: 'POST' | 'DELETE', body?: unknown): Promise<Loan> {
+  return api.request<Loan>(method, `/api/v1/loans/${path}`, { body });
 }
 
 /**

@@ -101,7 +101,6 @@ export function MultiSigProposalList({
 
   return (
     <div className={styles.container} data-testid="multisig-proposal-list">
-      {/* Accessible Tab List */}
       <div role="tablist" aria-label="MultiSig Proposal Status Filter" className={styles.tabList}>
         {TABS.map(({ key, label }) => {
           const isActive = activeTab === key;
@@ -137,7 +136,6 @@ export function MultiSigProposalList({
         })}
       </div>
 
-      {/* Tab Panel */}
       <div
         id={`${baseId}-panel-${activeTab}`}
         role="tabpanel"
@@ -213,7 +211,6 @@ export function MultiSigProposalList({
                     </div>
                   </div>
 
-                  {/* Actions for Pending Proposals */}
                   {proposal.status === 'pending' && (
                     <div className={styles.actions}>
                       {onReject && (

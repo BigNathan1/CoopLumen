@@ -284,14 +284,16 @@ The end-to-end suite drives a browser against the whole stack. See
 - [Architecture](docs/architecture.md) — how the frontend, API, database and Stellar fit together
 - [Database](docs/database.md) — schema, conventions and migrations
 - [API reference](docs/openapi.yaml) — OpenAPI specification for every endpoint
-- [Wallet authentication](docs/auth-flow.md) — challenge and verify, session tokens, RBAC and 401 handling
-- [Rate limiting](docs/rate-limiting.md) — per-route limits and graduated slowdown
+- [Wallet authentication](docs/security/auth-flow.md) — challenge and verify, session tokens, RBAC and 401 handling
+- [Security](docs/security/README.md) — security model, authentication and transaction-signing reviews
+- [Rate limiting](docs/security/rate-limiting.md) — per-route limits and graduated slowdown
 - [Governance](docs/governance.md) — Soroban proposals, token-weighted voting, quorum and execution
 - [Governance contract](docs/governance-contract.md) — contract types, functions, errors, events and deployment
 - [Multi-signature and batch operations](docs/multisig.md) — treasury signing lifecycle and batch payments
 - [SEP-12 KYC](docs/kyc.md) — provider integration, status mapping, privacy and security
 - [Compliance model and limitations](docs/compliance.md) — regulatory model, SEP-12 KYC alignment, transaction limits, Sybil resistance, and limitations
 - [P2P Lending API & Escrow](docs/lending.md) — loan lifecycle, escrow, reputation scoring and API reference
+- [Mainnet launch](docs/mainnet/README.md) — go-live checklist, configuration, issuer setup, contract deployment and audit readiness
 - [Testing](docs/testing.md) — unit, component and Playwright end-to-end suites
 - [CI/CD](docs/ci-cd.md) — the CI jobs, quality gate, releases and deploy workflows
 - [Staging](docs/staging.md) — the staging environment and its configuration

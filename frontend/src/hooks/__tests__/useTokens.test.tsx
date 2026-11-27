@@ -4,7 +4,13 @@ import { useCommunityTokens } from '../useTokens';
 
 /** Minimal stand-in for a fetch Response (jsdom provides no global fetch). */
 function jsonResponse(status: number, body: unknown) {
-  return { ok: status >= 200 && status < 300, status, json: async () => body };
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  };
 }
 
 const fetchMock = jest.fn();
@@ -69,6 +75,6 @@ describe('useCommunityTokens', () => {
     const { result } = renderHook(() => useCommunityTokens('community-1'), { wrapper });
 
     await waitFor(() => expect(result.current.error).toBeDefined());
-    expect((result.current.error as Error).message).toBe('Request failed');
+    expect((result.current.error as Error).message).toMatch(/^Request failed/);
   });
 });

@@ -4,8 +4,8 @@ import { useMemo, useState } from 'react';
 import { Badge, type BadgeVariant } from '../ui/Badge';
 import { EmptyState } from '../ui/EmptyState';
 import { LoadingSkeleton } from '../ui/LoadingSkeleton';
-import { useProposals } from '../../hooks/useProposals';
-import type { Proposal, ProposalStatus } from '../../hooks/useProposal';
+import { useProposals } from '@/hooks/useProposals';
+import type { Proposal, ProposalStatus } from '@/hooks/useProposal';
 import styles from './ProposalList.module.css';
 
 type TabKey = 'open' | 'passed' | 'rejected' | 'executed';

@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import CommunityTreasuryPage, { metadata } from './page';
+import CommunityTreasuryPage, { metadata } from '../page';
 import * as treasuryHook from '@/hooks/useTreasury';
 import * as communityHook from '@/hooks/useCommunities';
 

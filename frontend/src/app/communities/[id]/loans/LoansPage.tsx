@@ -14,6 +14,7 @@ import { Table, type TableColumn } from '@/components/ui/Table';
 import { Modal } from '@/components/ui/Modal';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Spinner } from '@/components/ui/Spinner';
+import { api, isApiError } from '@/lib/api';
 import { formatAmount, truncateAddress } from '@/lib/format';
 import styles from './LoansPage.module.css';
 
@@ -55,13 +56,13 @@ export function LoansPage({ communityId }: { communityId: string }) {
     data: loans,
     error: loansError,
     isLoading: loansLoading,
+    mutate: refreshLoans,
   } = useLoans({
     communityId,
     limit: 20,
   });
   const { publicKey } = useWallet();
 
-  // State for request loan modal
   const [isRequestOpen, setIsRequestOpen] = useState(false);
   const [requestAmount, setRequestAmount] = useState('');
   const [requestPurpose, setRequestPurpose] = useState('');
@@ -70,13 +71,12 @@ export function LoansPage({ communityId }: { communityId: string }) {
   const [requestError, setRequestError] = useState<string | null>(null);
   const [requestSubmitting, setRequestSubmitting] = useState(false);
 
-  // State for repay modal
   const [repayLoan, setRepayLoan] = useState<Loan | null>(null);
   const [repayAmount, setRepayAmount] = useState('');
   const [repayError, setRepayError] = useState<string | null>(null);
 
-  // State for confirm dialogs
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const amountInputId = useId();
   const purposeInputId = useId();
@@ -84,7 +84,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
   const dueAtInputId = useId();
   const repayAmountInputId = useId();
 
-  // Community loading state
   if (communityLoading) {
     return (
       <main className={styles.page} aria-label="Community loans">
@@ -120,7 +119,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
   // Determine user role in this community (from wallet)
   const isMember = Boolean(publicKey);
 
-  // Table columns
   const columns: TableColumn<LoanRow>[] = [
     {
       key: 'borrower_address',
@@ -216,7 +214,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
     },
   ];
 
-  // Request loan handler
   const handleRequestLoan = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setRequestError(null);
@@ -249,34 +246,22 @@ export function LoansPage({ communityId }: { communityId: string }) {
     setRequestSubmitting(true);
 
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/v1/loans/request`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            communityId,
-            amount,
-            purpose: purpose || undefined,
-            dueAt,
-            interestRate: interestRate > 0 ? interestRate : undefined,
-          }),
-        }
-      );
-
-      const body = (await res.json().catch(() => ({}))) as {
-        data?: Loan;
-        error?: string;
-        meta?: { maxLoanAmount?: string };
-      };
-
-      if (!res.ok) {
-        if (body.meta?.maxLoanAmount && res.status === 400) {
+      try {
+        await api.post<Loan>('/api/v1/loans/request', {
+          communityId,
+          amount,
+          purpose: purpose || undefined,
+          dueAt,
+          interestRate: interestRate > 0 ? interestRate : undefined,
+        });
+      } catch (err) {
+        const maxLoanAmount = isApiError(err) ? err.meta?.maxLoanAmount : undefined;
+        if (typeof maxLoanAmount === 'string') {
           throw new Error(
-            `Loan request exceeds loan-to-value limit. Maximum: ${formatAmount(body.meta.maxLoanAmount)} ${community.asset_code}`
+            `Loan request exceeds loan-to-value limit. Maximum: ${formatAmount(maxLoanAmount)} ${community.asset_code}`
           );
         }
-        throw new Error(body.error ?? 'Failed to request loan');
+        throw err;
       }
 
       setIsRequestOpen(false);
@@ -285,8 +270,7 @@ export function LoansPage({ communityId }: { communityId: string }) {
       setRequestInterestRate(0);
       setRequestDueAt('');
 
-      // Revalidate loans list
-      window.location.reload();
+      void refreshLoans();
     } catch (err) {
       setRequestError(err instanceof Error ? err.message : 'Failed to request loan');
     } finally {
@@ -294,7 +278,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
     }
   };
 
-  // Repay handler
   const handleRepay = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setRepayError(null);
@@ -315,34 +298,21 @@ export function LoansPage({ communityId }: { communityId: string }) {
     }
 
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/v1/loans/${repayLoan.id}/repay`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount }),
-        }
-      );
-
-      const body = (await res.json().catch(() => ({}))) as { data?: Loan; error?: string };
-
-      if (!res.ok) {
-        throw new Error(body.error ?? 'Failed to repay loan');
-      }
+      await api.post<Loan>(`/api/v1/loans/${repayLoan.id}/repay`, { amount });
 
       setRepayLoan(null);
       setRepayAmount('');
-      window.location.reload();
+      void refreshLoans();
     } catch (err) {
       setRepayError(err instanceof Error ? err.message : 'Failed to repay loan');
     }
   };
 
-  // Confirm action handler
   const handleConfirmAction = async () => {
     if (!confirmAction) return;
 
     const { type, loan } = confirmAction;
+    setActionError(null);
     let endpoint = '';
 
     if (type === 'disburse') {
@@ -354,32 +324,19 @@ export function LoansPage({ communityId }: { communityId: string }) {
     }
 
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'}/api/v1/loans/${endpoint}`,
-        {
-          method: type === 'cancel' ? 'DELETE' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        }
-      );
-
-      const body = (await res.json().catch(() => ({}))) as { data?: Loan; error?: string };
-
-      if (!res.ok) {
-        throw new Error(body.error ?? `Failed to ${type} loan`);
-      }
+      await api.request<Loan>(type === 'cancel' ? 'DELETE' : 'POST', `/api/v1/loans/${endpoint}`);
 
       setConfirmAction(null);
-      window.location.reload();
+      void refreshLoans();
     } catch (err) {
-      alert(err instanceof Error ? err.message : `Failed to ${type} loan`);
+      setConfirmAction(null);
+      setActionError(err instanceof Error ? err.message : `Failed to ${type} loan`);
     }
   };
 
   return (
     <main className={styles.page} aria-label={`${community.name} loans`}>
       <div className={styles.inner}>
-        {/* Back navigation */}
         <Link href={`/communities/${communityId}`} className={styles.backLink}>
           <span className={styles.backArrow} aria-hidden="true" />
           Back to {community.name}
@@ -400,7 +357,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
           )}
         </header>
 
-        {/* Loans table section */}
         <section aria-labelledby="loans-heading" className={styles.section}>
           <h2 id="loans-heading" className={styles.sectionHeading}>
             Community Pool Loans
@@ -415,6 +371,12 @@ export function LoansPage({ communityId }: { communityId: string }) {
             <div className={styles.tableWrapper} aria-label="Loans loading">
               <LoadingSkeleton variant="rect" height={44} count={5} gap={8} label="Loading loans" />
             </div>
+          )}
+
+          {actionError && (
+            <Alert variant="error" title="Loan action failed">
+              {actionError}
+            </Alert>
           )}
 
           {loansError && (
@@ -446,7 +408,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
           )}
         </section>
 
-        {/* Request Loan Modal */}
         <Modal
           isOpen={isRequestOpen}
           onClose={() => setIsRequestOpen(false)}
@@ -557,7 +518,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
           </form>
         </Modal>
 
-        {/* Repay Modal */}
         <Modal isOpen={Boolean(repayLoan)} onClose={() => setRepayLoan(null)} title="Repay Loan">
           <p className={styles.modalDescription}>Repay loan #{repayLoan?.id.slice(0, 8)}…</p>
           <form onSubmit={handleRepay} noValidate className={styles.form}>
@@ -608,7 +568,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
           </form>
         </Modal>
 
-        {/* Confirm Action Modal */}
         <ConfirmDialog
           isOpen={Boolean(confirmAction)}
           title={

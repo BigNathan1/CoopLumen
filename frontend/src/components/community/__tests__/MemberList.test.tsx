@@ -4,8 +4,6 @@ import { api } from '@/lib/api';
 import { MemberList } from '@/components/community/MemberList';
 import type { CommunityMember } from '@/hooks/useCommunityMembers';
 
-// Fixtures
-
 function makeMember(overrides: Partial<CommunityMember> = {}): CommunityMember {
   return {
     stellar_address: 'GABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCDEF',

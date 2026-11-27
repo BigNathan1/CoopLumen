@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+import { getBaseUrl } from '@/lib/api';
 
 /** Connection state of the payments stream. */
 export type TransactionsConnectionState =
@@ -30,7 +29,7 @@ export interface UseTransactionsOptions {
   cursor?: string;
   /** Maximum number of payments retained in memory. */
   maxItems?: number;
-  /** Override for the backend origin. Defaults to `NEXT_PUBLIC_API_URL`. */
+  /** Override for the backend origin. Defaults to the shared API client's base URL. */
   baseUrl?: string;
   /** Override the `EventSource` construction, primarily for tests. */
   eventSourceFactory?: EventSourceFactory;
@@ -92,7 +91,7 @@ export function useTransactions({
   publicKey,
   cursor = 'now',
   maxItems = 50,
-  baseUrl = API_URL,
+  baseUrl = getBaseUrl(),
   eventSourceFactory,
 }: UseTransactionsOptions): UseTransactionsResult {
   const [transactions, setTransactions] = useState<StreamedPayment[]>([]);

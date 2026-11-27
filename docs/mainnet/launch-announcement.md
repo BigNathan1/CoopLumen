@@ -84,11 +84,11 @@ Learn more: [stellar.org](https://stellar.org)
 **Standard Post:**
 
 ```
-🚀 CoopLumen is now live on Stellar Mainnet!
+CoopLumen is now live on Stellar Mainnet!
 
 Communities can now issue tokens, govern on-chain, and manage peer-to-peer lending — no intermediaries, no high fees.
 
-🌍 Decentralized community finance is here.
+Decentralized community finance is here.
 
 Get started: cooplumen.org
 Docs: docs.cooplumen.org
@@ -101,9 +101,9 @@ Docs: docs.cooplumen.org
 ```
 For developers: CoopLumen smart contracts are live on Stellar Mainnet.
 
-🔗 Governance contract: [Contract ID]
-📖 ABI & docs: github.com/BigNathan1/CoopLumen
-🛠️ Integration guide: docs.cooplumen.org/developers
+Governance contract: [Contract ID]
+ABI & docs: github.com/BigNathan1/CoopLumen
+Integration guide: docs.cooplumen.org/developers
 
 #Soroban #StellarDev #OpenSource
 ```
@@ -129,10 +129,10 @@ CoopLumen is a decentralized community finance platform that enables organizatio
 This launch marks a significant step toward financial inclusion for underserved communities worldwide.
 
 Key capabilities:
-✅ Community-owned tokens (native Stellar assets)
-✅ On-chain governance (Soroban smart contracts)
-✅ Peer-to-peer lending (transparent, auditable)
-✅ Global reach (Stellar network, 3-5s finality)
+Community-owned tokens (native Stellar assets)
+On-chain governance (Soroban smart contracts)
+Peer-to-peer lending (transparent, auditable)
+Global reach (Stellar network, 3-5s finality)
 
 Available now at cooplumen.org
 
@@ -299,19 +299,19 @@ A: Yes. CoopLumen is open to any group. Get started at cooplumen.org.
 
 ### What We Say
 
-✅ "Decentralized community finance"  
-✅ "On-chain governance"  
-✅ "Community-owned tokens"  
-✅ "Near-zero fees"  
-✅ "Secure and audited"
+- "Decentralized community finance"
+- "On-chain governance"
+- "Community-owned tokens"
+- "Near-zero fees"
+- "Secure and audited"
 
 ### What We Avoid
 
-❌ "Get rich quick" or "lambo" language  
-❌ "Crypto" (use "blockchain" or "Stellar network")  
-❌ "Guaranteed returns"  
-❌ Unverified security claims  
-❌ Hyperbole ("world-changing", "revolutionary")
+- "Get rich quick" or "lambo" language
+- "Crypto" (use "blockchain" or "Stellar network")
+- "Guaranteed returns"
+- Unverified security claims
+- Hyperbole ("world-changing", "revolutionary")
 
 ---
 

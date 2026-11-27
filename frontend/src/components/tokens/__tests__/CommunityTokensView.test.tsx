@@ -12,7 +12,6 @@ const mockCommunity = {
   updated_at: '2024-01-01T00:00:00Z',
 };
 
-// Mock the useCommunity hook
 interface MockCommunityResult {
   data: (Omit<typeof mockCommunity, 'name'> & { name: string | null }) | null;
   error: Error | null;

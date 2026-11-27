@@ -85,7 +85,7 @@ STELLAR_MAINNET_ISSUER_PUBLIC_KEY=GBBBB...  # Mainnet issuer account
 - [ ] **Horizon URL Correct:** `STELLAR_HORIZON_URL=https://horizon.stellar.org` (official endpoint)
 - [ ] **Auth Secret Set:** `AUTH_SESSION_SECRET` is a random, 32-byte secret (not empty, not default)
 - [ ] **Admin Addresses Set:** `ADMIN_ADDRESSES` contains the Mainnet admin public keys (comma-separated)
-- [ ] **Issuer Account Ready:** Mainnet issuer account funded and verified (see `mainnet-issuer-setup.md`)
+- [ ] **Issuer Account Ready:** Mainnet issuer account funded and verified (see `issuer-setup.md`)
 - [ ] **Contract Deployed:** Governance contract deployed to Mainnet; address recorded in `STELLAR_MAINNET_GOVERNANCE_CONTRACT_ID`
 - [ ] **No Testnet Artifacts:** All contract addresses, issuer keys, and assets are Mainnet-native
 - [ ] **No Placeholder Values:** No configuration values are left as example/placeholder text
@@ -174,17 +174,17 @@ When the backend starts, it performs the following checks:
 
 ### All Environments
 
-1. ✅ `STELLAR_NETWORK` is `testnet` or `mainnet`
-2. ✅ `STELLAR_HORIZON_URL` is a non-empty string
-3. ✅ `FRONTEND_URL` is a non-empty string
-4. ✅ `DATABASE_URL` is a non-empty string
+1. `STELLAR_NETWORK` is `testnet` or `mainnet`
+2. `STELLAR_HORIZON_URL` is a non-empty string
+3. `FRONTEND_URL` is a non-empty string
+4. `DATABASE_URL` is a non-empty string
 
 If any check fails, the application logs an error and exits with status 1.
 
 ### Production (`NODE_ENV=production`) Only
 
-1. ✅ `AUTH_SESSION_SECRET` is non-empty
-2. ✅ `ADMIN_ADDRESSES` is non-empty (at least one address)
+1. `AUTH_SESSION_SECRET` is non-empty
+2. `ADMIN_ADDRESSES` is non-empty (at least one address)
 
 If any check fails, the application logs an error and exits with status 1.
 
@@ -192,8 +192,8 @@ If any check fails, the application logs an error and exits with status 1.
 
 If `STELLAR_NETWORK=mainnet`:
 
-1. ⚠️ If `AUTH_SESSION_SECRET` is empty or a placeholder: **Warning logged** (not fatal)
-2. ⚠️ If `ADMIN_ADDRESSES` is empty: **Warning logged** (operator routes will be blocked)
+1. If `AUTH_SESSION_SECRET` is empty or a placeholder: **Warning logged** (not fatal)
+2. If `ADMIN_ADDRESSES` is empty: **Warning logged** (operator routes will be blocked)
 
 ---
 
@@ -389,7 +389,7 @@ See `docs/production-monitoring.md` for detailed monitoring setup.
 
 - [Stellar Horizon API — Public Mainnet](https://developers.stellar.org/api)
 - [Stellar Network Information](https://developers.stellar.org/reference/testnet)
-- `AUDIT_READINESS.md` — Security controls and network configuration
-- `mainnet-issuer-setup.md` — Issuer account preparation
-- `governance-contract-mainnet-deployment.md` — Contract deployment
-- `production-monitoring.md` — Monitoring and alerting
+- `audit-readiness.md` — Security controls and network configuration
+- `issuer-setup.md` — Issuer account preparation
+- `governance-contract-deployment.md` — Contract deployment
+- `docs/production-monitoring.md` — Monitoring and alerting

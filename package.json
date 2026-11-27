@@ -51,6 +51,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^17.0.7",
     "prettier": "^3.8.4",
-    "semantic-release": "^25.0.9"
+    "semantic-release": "^25.0.9",
+    "yaml": "^2.9.1"
   }
 }

@@ -82,18 +82,15 @@ export function CommunityDetailPage({ communityId }: Props) {
   return (
     <main className={styles.page} aria-label={`${community.name} community detail`}>
       <div className={styles.inner}>
-        {/* Back navigation */}
         <Link href="/communities" className={styles.backLink}>
           <span className={styles.backArrow} aria-hidden="true" />
           Back to communities
         </Link>
 
         <div className={styles.grid}>
-          {/* Left column: hero card */}
           <div>
             <Card>
               <div className={styles.heroCard}>
-                {/* Heading + token badge */}
                 <div className={styles.heroHeader}>
                   <h1 className={styles.communityName}>{sanitizeUserText(community.name)}</h1>
                   <span className={styles.assetBadge} aria-label={`Token: ${community.asset_code}`}>
@@ -101,12 +98,10 @@ export function CommunityDetailPage({ communityId }: Props) {
                   </span>
                 </div>
 
-                {/* Optional description */}
                 {community.description && (
                   <p className={styles.description}>{sanitizeUserText(community.description)}</p>
                 )}
 
-                {/* Key stats */}
                 <dl className={styles.statsRow}>
                   <div className={styles.stat}>
                     <dt className={styles.statLabel}>Created</dt>
@@ -148,7 +143,6 @@ export function CommunityDetailPage({ communityId }: Props) {
             </Card>
           </div>
 
-          {/* Right column: member roster */}
           <div>
             <Card>
               <MemberList
