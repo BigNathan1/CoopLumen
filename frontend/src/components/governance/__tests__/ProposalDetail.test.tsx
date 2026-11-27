@@ -1,12 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import ProposalDetail from '../governance/ProposalDetail';
+import ProposalDetail from '../ProposalDetail';
 
-jest.mock('../../hooks/useProposal', () => ({
+jest.mock('@/hooks/useProposal', () => ({
   useProposal: jest.fn(),
 }));
 
-import { useProposal } from '../../hooks/useProposal';
+import { useProposal } from '@/hooks/useProposal';
 
 const mockedUseProposal = useProposal as jest.MockedFunction<typeof useProposal>;
 
