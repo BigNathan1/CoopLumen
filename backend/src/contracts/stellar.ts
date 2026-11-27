@@ -388,7 +388,7 @@ class StellarServiceClass {
   }
 
   /**
-   * Loads an account from Horizon with comprehensive error handling.
+   * Loads an account from Horizon, translating its failures into domain errors.
    * Returns the account on success, or throws a domain-specific error:
    * - UnfundedAccountError: Account does not exist on the network
    * - InvalidPublicKeyError: Public key is malformed

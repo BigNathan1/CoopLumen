@@ -71,8 +71,7 @@ export interface ProgressBarProps extends ComponentPropsWithoutRef<'div'> {
 }
 
 /**
- * A flexible, accessible progress bar component designed for loan repayment schedules,
- * treasury utilization, and governance quorum tracking.
+ * Progress bar for loan repayment schedules, treasury balances and governance quorum.
  *
  * Accessibility notes:
  * - Implements WAI-ARIA `role="progressbar"` with `aria-valuenow`, `aria-valuemin`,
