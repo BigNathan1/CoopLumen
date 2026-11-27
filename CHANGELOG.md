@@ -150,6 +150,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Added comprehensive Soroban governance contract unit tests using `soroban-sdk` test utilities (#509).
 
 - Comprehensive unit tests for all loan route handlers covering happy paths, Zod validation errors, domain/state edge cases (404, 401/403, 409), and DB failure handling (#463, #385).
+- Community loans page at `/communities/[id]/loans` with loan listing, request/disburse/repay actions, and LTV limit enforcement (#465, #387).
 - Integration tests for full loan lifecycle (request → fund → repay) with reputation scoring, using real database when DATABASE_URL is configured (#464, #386).
 - Borrower-only `POST /api/v1/loans/request` endpoint for authenticated active members requesting loans from their community pool, with OpenAPI documentation (#451).
 - `POST /api/v1/loans/:id/repay` lets the borrower submit a partial or full repayment against an active loan, with Zod-validated input, the standard `{ data, meta?, error? }` envelope, and OpenAPI documentation (#455).
