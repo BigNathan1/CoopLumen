@@ -162,8 +162,12 @@ export async function createLoanEscrow(
   params: CreateLoanEscrowParams
 ): Promise<ClaimableBalanceResult> {
   const borrower = params.borrowerPublicKey ?? params.borrowerAddress ?? '';
-  const dueDate = params.dueDate ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-  const dueDateIso = typeof dueDate === 'string' ? dueDate : dueDate.toISOString();
+  const dueDate = new Date(params.dueDate ?? Date.now() + 30 * 24 * 60 * 60 * 1000);
+  if (Number.isNaN(dueDate.getTime())) {
+    throw new Error(`Invalid loan due date: ${String(params.dueDate)}`);
+  }
+  // Stellar time predicates take Unix seconds.
+  const dueSeconds = String(Math.floor(dueDate.getTime() / 1000));
   const sourceKeypair = params.sourceKeypair;
 
   if (!sourceKeypair) {
@@ -180,10 +184,8 @@ export async function createLoanEscrow(
       ? new Asset(params.assetCode, params.assetIssuer)
       : Asset.native());
 
-  const claimant = new Claimant(
-    borrower,
-    Claimant.predicateNot(Claimant.predicateBeforeAbsoluteTime(dueDateIso))
-  );
+  // Claimable until the due date; from then on the loan is in default.
+  const claimant = new Claimant(borrower, Claimant.predicateBeforeAbsoluteTime(dueSeconds));
 
   return create({
     asset,

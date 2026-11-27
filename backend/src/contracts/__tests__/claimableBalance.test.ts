@@ -1,5 +1,5 @@
 import { Account, Asset, Claimant, Keypair, Networks } from '@stellar/stellar-sdk';
-import { claim, create } from '../claimableBalance';
+import { claim, create, createLoanEscrow } from '../claimableBalance';
 import { StellarService } from '../stellar';
 import { SequenceCache } from '../sequenceCache';
 import { invalidateBalanceCache } from '../../cache/balances';
@@ -472,5 +472,66 @@ describe('claimableBalance.create', () => {
     });
 
     expect(invalidateBalanceCache).toHaveBeenCalledWith([sourceKeypair.publicKey()]);
+  });
+});
+
+describe('claimableBalance.createLoanEscrow', () => {
+  const sourceKeypair = Keypair.random();
+  const borrower = Keypair.random().publicKey();
+  const mockLoadAccount = StellarService.loadAccount as jest.Mock;
+  const mockSubmitTransaction = StellarService.submitTransaction as jest.Mock;
+
+  beforeEach(() => {
+    mockLoadAccount.mockReset();
+    mockSubmitTransaction.mockReset();
+    (SequenceCache as unknown as { cache: Map<string, unknown> }).cache.clear();
+    (SequenceCache as unknown as { queues: Map<string, unknown> }).queues.clear();
+    mockLoadAccount.mockResolvedValue(new Account(sourceKeypair.publicKey(), '300'));
+    mockSubmitTransaction.mockResolvedValue({ hash: 'escrow-tx', ledger: 42 });
+  });
+
+  async function escrowPredicate(dueDate: Date | string) {
+    await createLoanEscrow({
+      asset: Asset.native(),
+      amount: '100',
+      borrowerPublicKey: borrower,
+      dueDate,
+      sourceKeypair,
+    });
+    const [operation] = mockSubmitTransaction.mock.calls[0][0].operations;
+    expect(operation.type).toBe('createClaimableBalance');
+    expect(operation.claimants).toHaveLength(1);
+    expect(operation.claimants[0].destination).toBe(borrower);
+    return operation.claimants[0].predicate;
+  }
+
+  it('lets the borrower claim only before the due date, in Unix seconds', async () => {
+    const dueDate = new Date('2027-03-01T12:00:00Z');
+
+    const predicate = await escrowPredicate(dueDate);
+
+    expect(predicate.switch().name).toBe('claimPredicateBeforeAbsoluteTime');
+    expect(predicate.absBefore().toString()).toBe(String(dueDate.getTime() / 1000));
+  });
+
+  it('accepts the due date as an ISO string', async () => {
+    const predicate = await escrowPredicate('2027-03-01T12:00:00.000Z');
+
+    expect(predicate.absBefore().toString()).toBe(
+      String(Date.parse('2027-03-01T12:00:00Z') / 1000)
+    );
+  });
+
+  it('rejects a due date that is not a date', async () => {
+    await expect(
+      createLoanEscrow({
+        asset: Asset.native(),
+        amount: '100',
+        borrowerPublicKey: borrower,
+        dueDate: 'next week',
+        sourceKeypair,
+      })
+    ).rejects.toThrow('Invalid loan due date');
+    expect(mockSubmitTransaction).not.toHaveBeenCalled();
   });
 });
