@@ -55,6 +55,7 @@ export function LoansPage({ communityId }: { communityId: string }) {
     data: loans,
     error: loansError,
     isLoading: loansLoading,
+    mutate: refreshLoans,
   } = useLoans({
     communityId,
     limit: 20,
@@ -74,6 +75,7 @@ export function LoansPage({ communityId }: { communityId: string }) {
   const [repayError, setRepayError] = useState<string | null>(null);
 
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const amountInputId = useId();
   const purposeInputId = useId();
@@ -279,8 +281,7 @@ export function LoansPage({ communityId }: { communityId: string }) {
       setRequestInterestRate(0);
       setRequestDueAt('');
 
-      // Revalidate loans list
-      window.location.reload();
+      void refreshLoans();
     } catch (err) {
       setRequestError(err instanceof Error ? err.message : 'Failed to request loan');
     } finally {
@@ -325,7 +326,7 @@ export function LoansPage({ communityId }: { communityId: string }) {
 
       setRepayLoan(null);
       setRepayAmount('');
-      window.location.reload();
+      void refreshLoans();
     } catch (err) {
       setRepayError(err instanceof Error ? err.message : 'Failed to repay loan');
     }
@@ -335,6 +336,7 @@ export function LoansPage({ communityId }: { communityId: string }) {
     if (!confirmAction) return;
 
     const { type, loan } = confirmAction;
+    setActionError(null);
     let endpoint = '';
 
     if (type === 'disburse') {
@@ -362,9 +364,10 @@ export function LoansPage({ communityId }: { communityId: string }) {
       }
 
       setConfirmAction(null);
-      window.location.reload();
+      void refreshLoans();
     } catch (err) {
-      alert(err instanceof Error ? err.message : `Failed to ${type} loan`);
+      setConfirmAction(null);
+      setActionError(err instanceof Error ? err.message : `Failed to ${type} loan`);
     }
   };
 
@@ -405,6 +408,12 @@ export function LoansPage({ communityId }: { communityId: string }) {
             <div className={styles.tableWrapper} aria-label="Loans loading">
               <LoadingSkeleton variant="rect" height={44} count={5} gap={8} label="Loading loans" />
             </div>
+          )}
+
+          {actionError && (
+            <Alert variant="error" title="Loan action failed">
+              {actionError}
+            </Alert>
           )}
 
           {loansError && (
