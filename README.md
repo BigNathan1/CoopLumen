@@ -291,6 +291,7 @@ The end-to-end suite drives a browser against the whole stack. See
 - [Multi-signature and batch operations](docs/multisig.md) — treasury signing lifecycle and batch payments
 - [SEP-12 KYC](docs/kyc.md) — provider integration, status mapping, privacy and security
 - [Compliance model and limitations](docs/compliance.md) — regulatory model, SEP-12 KYC alignment, transaction limits, Sybil resistance, and limitations
+- [P2P Lending API & Escrow](docs/lending.md) — loan lifecycle, escrow, reputation scoring and API reference
 - [Testing](docs/testing.md) — unit, component and Playwright end-to-end suites
 - [CI/CD](docs/ci-cd.md) — the CI jobs, quality gate, releases and deploy workflows
 - [Staging](docs/staging.md) — the staging environment and its configuration
