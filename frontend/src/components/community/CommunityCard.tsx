@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { KycStatusBadge } from '@/components/profile/KycStatusBadge';
 import type { Community } from '@/hooks/useCommunities';
+import { useKycStatus } from '@/hooks/useKycStatus';
 import styles from './CommunityCard.module.css';
 import { sanitizeUserText } from '@/lib/sanitize';
 
@@ -22,6 +24,8 @@ interface Props {
 
 export function CommunityCard({ community, onJoin }: Props): React.JSX.Element {
   const createdDate = new Date(community.created_at).toLocaleDateString();
+  // The issuer's KYC outcome; the badge is omitted while it is unknown.
+  const { data: kycData } = useKycStatus(community.issuer_public_key);
 
   // Fall back to the issuer key while the API is still filling in ids.
   const communityId = community.id || community.issuer_public_key;
@@ -44,6 +48,7 @@ export function CommunityCard({ community, onJoin }: Props): React.JSX.Element {
         <div className={styles.header}>
           <h3 className={styles.name}>{sanitizeUserText(community.name)}</h3>
           <span className={styles.token}>{community.asset_code}</span>
+          {kycData && <KycStatusBadge status={kycData.status} />}
         </div>
 
         {community.description && (

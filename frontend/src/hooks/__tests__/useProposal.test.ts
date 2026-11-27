@@ -88,10 +88,11 @@ describe('useProposal', () => {
   });
 
   it('uses the public proposal endpoint fetcher', async () => {
-    const get = jest.spyOn(api, 'get').mockResolvedValue(PROPOSAL);
+    const tally = { for: '600', against: '100', abstain: '0', totalWeight: '700' };
+    const get = jest.spyOn(api, 'get').mockResolvedValue({ data: { proposal: PROPOSAL, tally } });
     renderHook(() => useProposal('proposal-1'));
 
-    await expect(lastCall?.fetcher()).resolves.toEqual(PROPOSAL);
+    await expect(lastCall?.fetcher()).resolves.toEqual({ ...PROPOSAL, tally });
     expect(get).toHaveBeenCalledWith('/api/v1/proposals/proposal-1', { auth: false });
   });
 });

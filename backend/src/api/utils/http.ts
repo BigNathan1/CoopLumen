@@ -25,9 +25,19 @@ export function queryString(value: unknown, fallback = ''): string {
 }
 
 /** Parse `page` and `limit` query params into safe, bounded pagination values. */
+/** Reads a numeric query parameter that may already have been coerced. */
+function numericQuery(value: unknown, fallback: number): number {
+  const raw: unknown = Array.isArray(value) ? (value[0] as unknown) : value;
+  if (typeof raw === 'number') return raw;
+  if (typeof raw === 'string') return parseInt(raw, 10);
+  return fallback;
+}
+
 export function parsePagination(req: Request, defaultLimit = 20, maxLimit = 100): PageParams {
-  const pageRaw = parseInt(queryString(req.query.page, '1'), 10);
-  const limitRaw = parseInt(queryString(req.query.limit, String(defaultLimit)), 10);
+  // Validation middleware replaces req.query with coerced numbers, so accept
+  // both the raw string and the parsed value here.
+  const pageRaw = numericQuery(req.query.page, 1);
+  const limitRaw = numericQuery(req.query.limit, defaultLimit);
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
   const limit =
     Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, maxLimit) : defaultLimit;

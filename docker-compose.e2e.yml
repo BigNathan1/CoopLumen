@@ -3,6 +3,9 @@ services:
     build:
       target: dev
     environment:
+      # Rate limiters are intentionally inert in the test environment; the
+      # suite creates more communities per minute than a person would.
+      NODE_ENV: test
       # The suite mints session tokens with the same secret, so a token the
       # test signs is a token the backend verifies.
       AUTH_SESSION_SECRET: governance-e2e-secret

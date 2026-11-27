@@ -1,4 +1,9 @@
-import { FeeBumpTransaction, Transaction, TransactionBuilder } from '@stellar/stellar-sdk';
+import {
+  FeeBumpTransaction,
+  Transaction,
+  TransactionBuilder,
+  scValToNative,
+} from '@stellar/stellar-sdk';
 import { StellarService } from './stellar';
 
 /** Base64 alphabet with optional `=` padding; anything else cannot be an XDR envelope. */
@@ -123,4 +128,65 @@ export function validateXdr(xdr: unknown, options: ValidateXdrOptions = {}): Xdr
 
   const nowSeconds = options.nowSeconds ?? Math.floor(Date.now() / 1000);
   return validateEnvelope(transaction, nowSeconds);
+}
+
+/** Renders a decoded contract argument as the string the API compares on. */
+function voteParam(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value);
+  }
+  return JSON.stringify(value);
+}
+
+/** Governance vote invocation read out of an envelope. */
+export interface VoteXdrDetails {
+  targetsVoteMethod: boolean;
+  proposalId?: string;
+  choice?: string;
+  weight?: string;
+}
+
+/**
+ * Reads the `vote` contract invocation out of an envelope that already passed
+ * {@link validateXdr}, so a route can check the memo-targeted proposal and vote
+ * choice without decoding the XDR itself.
+ */
+export function inspectVoteXdr(
+  signedXdr: string,
+  options: ValidateXdrOptions = {}
+): VoteXdrDetails {
+  const networkPassphrase = options.networkPassphrase ?? StellarService.getNetwork();
+
+  let transaction: Transaction | FeeBumpTransaction;
+  try {
+    transaction = TransactionBuilder.fromXDR(signedXdr.trim(), networkPassphrase);
+  } catch {
+    return { targetsVoteMethod: false };
+  }
+
+  const inner =
+    transaction instanceof FeeBumpTransaction ? transaction.innerTransaction : transaction;
+  const operation = inner.operations[0];
+  if (operation?.type !== 'invokeHostFunction') {
+    return { targetsVoteMethod: false };
+  }
+
+  try {
+    const invocation = operation.func.invokeContract();
+    if (String(invocation.functionName()) !== 'vote') {
+      return { targetsVoteMethod: false };
+    }
+
+    const args: unknown[] = invocation.args().map((arg) => scValToNative(arg) as unknown);
+    return {
+      targetsVoteMethod: true,
+      proposalId: voteParam(args[0]),
+      choice: voteParam(args[1]),
+      weight: voteParam(args[2]),
+    };
+  } catch {
+    return { targetsVoteMethod: false };
+  }
 }

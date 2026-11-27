@@ -8,6 +8,9 @@ module.exports = {
   moduleNameMapper: {
     // Stylesheets first, so aliased CSS module imports are stubbed too.
     '\\.(css|less|sass|scss)$': '<rootDir>/__mocks__/styleMock.js',
+    // jsdom 29's ESM-only dependencies break Jest's require; the jsdom test
+    // environment can run DOMPurify directly instead.
+    '^isomorphic-dompurify$': '<rootDir>/__mocks__/isomorphic-dompurify.js',
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   transform: {

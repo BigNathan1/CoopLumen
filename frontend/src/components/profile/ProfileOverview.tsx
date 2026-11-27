@@ -7,9 +7,12 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 import { NetworkBadge } from '@/components/ui/NetworkBadge';
 import { StellarAddress } from '@/components/ui/StellarAddress';
+import { KycStatusBadge } from '@/components/profile/KycStatusBadge';
 import { useBalances, type Balance } from '@/hooks/useBalances';
+import { useKycStatus } from '@/hooks/useKycStatus';
 import { useMemberships, type Membership } from '@/hooks/useMemberships';
 import { useWallet } from '@/hooks/useWallet';
+import { useXlmPrice, toUsdEquivalent } from '@/hooks/useXlmPrice';
 import styles from './ProfileOverview.module.css';
 
 /** How a member's role is coloured. Admin stands out; the rest are neutral. */
@@ -96,6 +99,10 @@ export function ProfileOverview() {
     error: membershipsError,
     mutate: reloadMemberships,
   } = useMemberships(connected ? publicKey : null);
+  // Live XLM price for the USD equivalent on each native balance. A failed
+  // lookup is non-blocking: the row simply renders without a USD line.
+  const { data: priceData } = useXlmPrice();
+  const { data: kycData } = useKycStatus(connected ? publicKey : null);
 
   if (!connected || !publicKey) {
     return (
@@ -156,6 +163,13 @@ export function ProfileOverview() {
               </dd>
             </div>
           )}
+
+          <div className={styles.detail}>
+            <dt className={styles.detailLabel}>KYC status</dt>
+            <dd className={styles.detailValue}>
+              {kycData ? <KycStatusBadge status={kycData.status} /> : 'Checking…'}
+            </dd>
+          </div>
         </dl>
 
         <h3 className={styles.subsectionTitle}>Balances</h3>
@@ -185,13 +199,25 @@ export function ProfileOverview() {
           <ul className={styles.balanceList}>
             {balances?.map((balance) => {
               const code = assetCodeOf(balance);
+              const usd =
+                balance.asset_type === 'native'
+                  ? toUsdEquivalent(balance.balance, priceData?.price)
+                  : null;
+
               return (
                 <li
                   key={`${code}:${balance.asset_issuer ?? 'native'}`}
                   className={styles.balanceItem}
                 >
                   <span className={styles.balanceAsset}>{code}</span>
-                  <span className={styles.balanceAmount}>{formatBalance(balance.balance)}</span>
+                  <span className={styles.balanceValues}>
+                    <span className={styles.balanceAmount}>{formatBalance(balance.balance)}</span>
+                    {usd !== null && (
+                      <span className={styles.usdEquivalent} aria-label={`${usd} USD equivalent`}>
+                        {usd}
+                      </span>
+                    )}
+                  </span>
                 </li>
               );
             })}

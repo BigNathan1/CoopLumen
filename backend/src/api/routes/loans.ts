@@ -20,7 +20,9 @@ import {
 } from '../schemas/loan';
 import { detectLoanDefaults } from '../../jobs/loanDefaults';
 import { validateParams, validateQuery } from '../middleware/validate';
-import { createLoanEscrow, mapHorizonError } from '../../contracts/claimableBalance';
+import { Asset, Keypair } from '@stellar/stellar-sdk';
+import { createLoanEscrow } from '../../contracts/claimableBalance';
+import { mapHorizonError } from '../utils/horizonError';
 
 export const loanRouter: Router = Router();
 
@@ -263,7 +265,7 @@ loanRouter.get(
  * returns every loan in the community.
  */
 loanRouter.get(
-  '/:communityId',
+  '/community/:communityId',
   validateParams(listLoansParamsSchema),
   validateQuery(listLoansQuerySchema),
   async (req: Request, res: Response, next: NextFunction) => {
@@ -700,13 +702,16 @@ loanRouter.post(
       // messages rather than surfaced raw.
       let escrowBalanceId: string;
       try {
+        const escrowSourceSecret = process.env.ESCROW_SOURCE_SECRET;
+        if (!escrowSourceSecret) {
+          throw new Error('ESCROW_SOURCE_SECRET is not configured');
+        }
         const escrow = await createLoanEscrow({
-          lenderAddress: loan.lender_address,
-          borrowerAddress: loan.borrower_address,
+          asset: loan.asset_issuer ? new Asset(loan.asset_code, loan.asset_issuer) : Asset.native(),
           amount: loan.amount,
-          assetCode: loan.asset_code,
-          assetIssuer: loan.asset_issuer,
-          loanId: loan.id,
+          borrowerPublicKey: loan.borrower_address,
+          dueDate: loan.due_at ?? new Date(),
+          sourceKeypair: Keypair.fromSecret(escrowSourceSecret),
         });
         escrowBalanceId = escrow.balanceId;
       } catch (err) {
