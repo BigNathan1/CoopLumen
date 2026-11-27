@@ -3215,3 +3215,25 @@ components:
       in: cookie
       name: cooplumen_csrf
       description: Cookie storing the client CSRF token for double-submit cookie validation.
+
+/api/v1/analytics/{communityId}:
+  get:
+    summary: Get community loan analytics
+    tags: [Analytics]
+    parameters:
+      - name: communityId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: assetCode
+        in: query
+        required: false
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Aggregated loan metrics for the community
+      '400':
+        description: Validation error
