@@ -1,4 +1,5 @@
 import React from 'react';
+import styles from './ReputationScore.module.css';
 
 export interface ReputationScoreProps {
   score: number | null | undefined;
@@ -6,11 +7,11 @@ export interface ReputationScoreProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
-function getTier(clamped: number): { name: string; colorVar: string } {
-  if (clamped >= 80) return { name: 'Excellent', colorVar: 'var(--color-success, #16a34a)' };
-  if (clamped >= 60) return { name: 'Good', colorVar: 'var(--color-primary, #2563eb)' };
-  if (clamped >= 40) return { name: 'Fair', colorVar: 'var(--color-warning, #d97706)' };
-  return { name: 'Building', colorVar: 'var(--color-danger, #dc2626)' };
+function getTier(clamped: number): { name: string; className: string } {
+  if (clamped >= 80) return { name: 'Excellent', className: styles.excellent };
+  if (clamped >= 60) return { name: 'Good', className: styles.good };
+  if (clamped >= 40) return { name: 'Fair', className: styles.fair };
+  return { name: 'Building', className: styles.building };
 }
 
 export const ReputationScore: React.FC<ReputationScoreProps> = ({
@@ -21,38 +22,19 @@ export const ReputationScore: React.FC<ReputationScoreProps> = ({
   const hasScore = typeof score === 'number' && Number.isFinite(score);
   const clamped = hasScore ? Math.max(0, Math.min(100, Math.round(score))) : 0;
   const tier = getTier(clamped);
-
-  const barHeight = size === 'sm' ? '0.375rem' : size === 'lg' ? '0.75rem' : '0.5rem';
+  const trackSize = size === 'sm' ? styles.sm : size === 'lg' ? styles.lg : '';
 
   return (
-    <section
-      aria-label={label}
-      style={{
-        backgroundColor: 'var(--color-surface, #ffffff)',
-        color: 'var(--color-text-primary, #111827)',
-        border: '1px solid var(--color-border, #e5e7eb)',
-        borderRadius: 'var(--radius-md, 0.5rem)',
-        padding: 'var(--space-3, 0.75rem)',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'baseline',
-          marginBottom: '0.5rem',
-        }}
-      >
-        <span style={{ fontWeight: 600 }}>{label}</span>
+    <section aria-label={label} className={styles.card}>
+      <div className={styles.header}>
+        <span className={styles.label}>{label}</span>
         {hasScore ? (
           <span>
             <strong>{clamped}</strong> / 100{' '}
-            <span style={{ color: tier.colorVar, fontSize: '0.875rem' }}>({tier.name})</span>
+            <span className={`${styles.tier} ${tier.className}`}>({tier.name})</span>
           </span>
         ) : (
-          <span style={{ color: 'var(--color-text-secondary, #6b7280)', fontSize: '0.875rem' }}>
-            Not yet rated
-          </span>
+          <span className={styles.unrated}>Not yet rated</span>
         )}
       </div>
 
@@ -63,22 +45,9 @@ export const ReputationScore: React.FC<ReputationScoreProps> = ({
         aria-valuemax={100}
         aria-valuenow={hasScore ? clamped : undefined}
         aria-valuetext={hasScore ? `${clamped} out of 100 (${tier.name})` : 'Not yet rated'}
-        style={{
-          width: '100%',
-          height: barHeight,
-          backgroundColor: 'var(--color-surface-muted, #e5e7eb)',
-          borderRadius: '9999px',
-          overflow: 'hidden',
-        }}
+        className={`${styles.track} ${trackSize}`.trim()}
       >
-        <div
-          style={{
-            width: `${hasScore ? clamped : 0}%`,
-            height: '100%',
-            backgroundColor: tier.colorVar,
-            transition: 'width 200ms ease',
-          }}
-        />
+        <div className={`${styles.fill} ${tier.className}`} style={{ width: `${clamped}%` }} />
       </div>
     </section>
   );
