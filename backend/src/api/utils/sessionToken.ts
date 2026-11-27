@@ -62,9 +62,14 @@ export function verifySessionToken(token: string): SessionPayload | null {
       typeof payload.address !== 'string' ||
       typeof payload.iat !== 'number' ||
       typeof payload.exp !== 'number'
-    ) return null;
+    )
+      return null;
     const now = Math.floor(Date.now() / 1000);
-    if (payload.exp < now || payload.iat > now + 30 || payload.exp - payload.iat > DEFAULT_TTL_SECONDS) {
+    if (
+      payload.exp < now ||
+      payload.iat > now + 30 ||
+      payload.exp - payload.iat > DEFAULT_TTL_SECONDS
+    ) {
       return null;
     }
     return payload;

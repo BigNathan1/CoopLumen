@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import { PoolClient } from 'pg';
 import { db } from '../../db';
+import { logger } from '../../utils/logger';
 import { executeProposalOnChain } from '../../contracts/stellar';
 import { requireAuth } from '../middleware/auth';
 import { validateBody, validateParams, validateQuery } from '../middleware/validate';
@@ -333,6 +334,31 @@ proposalRouter.post(
 );
 
 proposalRouter.get(
+  '/:id',
+  validateParams(proposalIdParamsSchema),
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const proposal = await findProposal(req.params.id);
+      if (!proposal) {
+        return next();
+      }
+
+      await aggregateVoteTally(proposal.id);
+
+      try {
+        await fetchProposalTally(proposal.id);
+      } catch (chainError) {
+        logger.warn('Failed to fetch on-chain proposal tally', { err: chainError });
+      }
+
+      res.json({ data: proposal });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+proposalRouter.get(
   '/:communityId',
   validateParams(communityIdParamsSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -348,7 +374,7 @@ proposalRouter.get(
         source = 'chain';
       } catch (chainError) {
         // Fall back to the DB cache when the contract is unreachable.
-        req.log?.warn?.({ err: chainError }, 'Failed to refresh proposals from contract');
+        logger.warn('Failed to refresh proposals from contract', { err: chainError });
       }
 
       const proposals = await db.query<Proposal>(
@@ -358,6 +384,18 @@ proposalRouter.get(
           ORDER BY p.created_at DESC`,
         [communityId]
       );
+
+      if (proposals.length === 0) {
+        const [community] = await db.query<{ id: string }>(
+          'SELECT id FROM communities WHERE id = $1 AND deleted_at IS NULL',
+          [communityId]
+        );
+        if (!community) {
+          res.status(404).json({ data: null, error: 'Proposal not found' });
+          return;
+        }
+      }
+
       res.json({ data: proposals, meta: { count: proposals.length, source } });
     } catch (error) {
       next(error);
@@ -383,34 +421,6 @@ proposalRouter.get(
         [communityId, status ?? null]
       );
       res.json({ data: proposals });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-proposalRouter.get(
-  '/:id',
-  validateParams(proposalIdParamsSchema),
-  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const proposal = await findProposal(req.params.id);
-      if (!proposal) {
-        res.status(404).json({ data: null, error: 'Proposal not found' });
-        return;
-      }
-
-      const tally = await aggregateVoteTally(proposal.id);
-
-      // Cross-check against the contract tally when available; the DB remains
-      // the source of truth for the response so the endpoint stays resilient.
-      try {
-        await fetchProposalTally(proposal.id);
-      } catch (chainError) {
-        req.log?.warn?.({ err: chainError }, 'Failed to fetch on-chain proposal tally');
-      }
-
-      res.json({ data: { proposal, tally } });
     } catch (error) {
       next(error);
     }
@@ -478,7 +488,8 @@ proposalRouter.post(
   validateBody(submitVoteSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { xdr } = req.body as SubmitVoteInput;
+      const body = req.body as SubmitVoteInput & { xdr?: string };
+      const xdr = body.signedXdr ?? body.xdr ?? '';
       const proposalId = req.params.id;
 
       const validation = validateXdr(xdr);

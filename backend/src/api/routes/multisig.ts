@@ -94,7 +94,8 @@ async function getCommunityMultiSigRequests(req: Request, res: Response): Promis
  * Create a new multisig request.
  */
 async function createMultiSigRequest(req: Request, res: Response): Promise<void> {
-  const communityId = req.params.communityId ?? (req.body as { community_id?: string })?.community_id;
+  const communityId =
+    req.params.communityId ?? (req.body as { community_id?: string })?.community_id;
   if (!communityId) {
     res.status(400).json({ data: null, error: 'community_id is required' });
     return;
@@ -319,11 +320,7 @@ multisigRouter.post(
   createMultiSigRequest
 );
 
-multisigRouter.post(
-  '/propose',
-  validateBody(createMultiSigRequestSchema),
-  createMultiSigRequest
-);
+multisigRouter.post('/propose', validateBody(createMultiSigRequestSchema), createMultiSigRequest);
 
 multisigRouter.get('/requests/:id', validateParams(uuidParamSchema), getMultiSigRequest);
 multisigRouter.post(

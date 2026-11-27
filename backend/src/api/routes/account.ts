@@ -19,7 +19,7 @@ accountRouter.get(
   requireAuth,
   validateParams(accountParamsSchema),
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const { publicKey } = req.params as { publicKey: string };
+    const publicKey = req.params.publicKey;
 
     if (req.auth?.address !== publicKey) {
       res.status(403).json({ data: null, error: 'You may only export your own account data' });
@@ -48,10 +48,10 @@ accountRouter.get(
         ),
         db.query<ExportRow>(
           `SELECT event.*
-             FROM loan_events event
-             JOIN loans loan ON loan.id = event.loan_id
-             WHERE loan.borrower_address = $1 OR loan.lender_address = $1
-             ORDER BY event.created_at`,
+           FROM loan_events event
+           JOIN loans loan ON loan.id = event.loan_id
+           WHERE loan.borrower_address = $1 OR loan.lender_address = $1
+           ORDER BY event.created_at`,
           [publicKey]
         ),
         db.query<ExportRow>(

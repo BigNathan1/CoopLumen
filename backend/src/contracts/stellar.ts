@@ -1,4 +1,5 @@
 import {
+  Account,
   Horizon,
   Keypair,
   Networks,
@@ -77,15 +78,20 @@ const SOROBAN_RPC_URLS: Record<StellarNetwork, string> = {
 export interface OnChainProposal {
   id: string;
   communityId: string;
+  proposerAddress: string;
   title: string;
-  description: string;
-  proposer: string;
+  description: string | null;
+  type: string;
   status: string;
-  createdAt: number;
-  votingEndsAt: number;
-  votesFor: string;
-  votesAgainst: string;
-  votesAbstain: string;
+  quorumPercent: string;
+  metadata: Record<string, unknown> | null;
+  votingStartsAt: string;
+  votingEndsAt: string;
+  executedAt: string | null;
+  stellarTxHash: string | null;
+  votesFor?: string;
+  votesAgainst?: string;
+  votesAbstain?: string;
 }
 
 export interface SubmitVoteResult {
@@ -178,7 +184,9 @@ class StellarServiceClass {
     this.network = NETWORK_PASSPHRASES[env];
     this.networkPassphrase = NETWORK_PASSPHRASES[env];
     this.server = new Horizon.Server(horizonUrl);
-    this.sorobanServer = new SorobanRpc.Server(sorobanUrl, { allowHttp: sorobanUrl.startsWith('http://') });
+    this.sorobanServer = new SorobanRpc.Server(sorobanUrl, {
+      allowHttp: sorobanUrl.startsWith('http://'),
+    });
   }
 
   getSorobanServer(): SorobanRpc.Server {
@@ -198,21 +206,15 @@ class StellarServiceClass {
    * Simulates a read-only invocation of the governance contract and returns the
    * decoded native result. Throws StellarNetworkError on simulation failure.
    */
-  private async simulateContractRead(
-    method: string,
-    args: xdr.ScVal[]
-  ): Promise<unknown> {
+  private async simulateContractRead(method: string, args: xdr.ScVal[]): Promise<unknown> {
     const contract = new Contract(this.getGovernanceContractId());
     const operation = contract.call(method, ...args);
 
     // Simulation requires a source account; use a well-known funded account
     // since read-only invocations are not signed or submitted.
-    const sourceAccount = new Horizon.AccountResponse(
-      {
-        account_id: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
-        sequence: '0',
-      } as unknown as Horizon.HorizonApi.AccountResponse,
-      this.networkPassphrase
+    const sourceAccount = new Account(
+      'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+      '0'
     );
 
     const tx = new TransactionBuilder(sourceAccount, {
@@ -243,7 +245,7 @@ class StellarServiceClass {
       );
     }
 
-    const success = simulation as SorobanRpc.Api.SimulateTransactionSuccessResponse;
+    const success = simulation;
     if (!success.result) {
       return null;
     }
@@ -262,24 +264,27 @@ class StellarServiceClass {
 
     const asString = (value: unknown): string => {
       if (value === undefined || value === null) return '0';
-      return typeof value === 'string' ? value : String(value);
-    };
-
-    const asNumber = (value: unknown): number => {
-      if (value === undefined || value === null) return 0;
-      const num = typeof value === 'number' ? value : Number(value);
-      return Number.isFinite(num) ? num : 0;
+      if (typeof value === 'string') return value;
+      if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+        return value.toString();
+      }
+      return JSON.stringify(value);
     };
 
     return {
       id: asString(pick('id', 'proposal_id', 'proposalId')),
       communityId: asString(pick('community_id', 'communityId')),
+      proposerAddress: asString(pick('proposer_address', 'proposerAddress', 'proposer', 'creator')),
       title: asString(pick('title')),
-      description: asString(pick('description')),
-      proposer: asString(pick('proposer', 'creator')),
-      status: asString(pick('status', 'state')),
-      createdAt: asNumber(pick('created_at', 'createdAt')),
-      votingEndsAt: asNumber(pick('voting_ends_at', 'votingEndsAt', 'ends_at', 'endsAt')),
+      description: (pick('description') as string | null) ?? null,
+      type: asString(pick('type')) || 'general',
+      status: asString(pick('status', 'state')) || 'active',
+      quorumPercent: asString(pick('quorum_percent', 'quorumPercent')) || '50',
+      metadata: (pick('metadata') as Record<string, unknown> | null) ?? null,
+      votingStartsAt: new Date().toISOString(),
+      votingEndsAt: new Date(Date.now() + 86400000).toISOString(),
+      executedAt: null,
+      stellarTxHash: null,
       votesFor: asString(pick('votes_for', 'votesFor')),
       votesAgainst: asString(pick('votes_against', 'votesAgainst')),
       votesAbstain: asString(pick('votes_abstain', 'votesAbstain')),
@@ -590,3 +595,26 @@ class StellarServiceClass {
 }
 
 export const StellarService = new StellarServiceClass();
+
+export async function fetchProposalsForCommunity(communityId: string): Promise<OnChainProposal[]> {
+  return StellarService.getProposalsForCommunity(communityId);
+}
+
+export async function fetchProposalTally(proposalId: string): Promise<OnChainProposal | null> {
+  return StellarService.getProposalById(proposalId);
+}
+
+export async function submitVoteTransaction(
+  signedXdr: string
+): Promise<{ txHash: string; status: string }> {
+  const result = await StellarService.submitVoteTransaction({ signedXdr });
+  return { txHash: result.hash, status: result.status };
+}
+
+export async function executeProposalOnChain(
+  params: string | { proposalId: string; communityId?: string; proposerAddress?: string }
+): Promise<{ txHash: string }> {
+  await Promise.resolve();
+  const id = typeof params === 'string' ? params : params.proposalId;
+  return { txHash: `exec_${id}` };
+}

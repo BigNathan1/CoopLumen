@@ -1,8 +1,3 @@
-/api/v1/transactions/submit:
-  post:
-    tags: [Transactions]
-    summary: Submit a signed Stellar transaction
-    description: Accepts a base64-encoded signed XDR string (typically from Freighter) and submits it to Horizon. Maps Horizon errors to actionable client messages.
 openapi: 3.0.3
 info:
   title: CoopLumen API
@@ -80,10 +75,7 @@ paths:
       tags: [Proposals]
       summary: List proposals for a community from contract and DB cache
       description: >
-        Returns the community's governance proposals. Proposals are read from the
-        Soroban governance contract and merged with the database read model, so
-        tallies reflect on-chain state where available and the cached DB values
-        otherwise.
+        Returns the community's governance proposals. Proposals are read from the Soroban governance contract and merged with the database read model, so tallies reflect on-chain state where available and the cached DB values otherwise.
       parameters:
         - name: communityId
           in: path
@@ -224,9 +216,7 @@ paths:
       tags: [Proposals]
       summary: Get proposal detail and current tally
       description: >
-        Returns a single proposal with its vote tally. The tally is read from the
-        Soroban governance contract and falls back to the database cache when the
-        contract is unavailable.
+        Returns a single proposal with its vote tally. The tally is read from the Soroban governance contract and falls back to the database cache when the contract is unavailable.
       parameters:
         - name: id
           in: path
@@ -263,9 +253,7 @@ paths:
       tags: [Proposals]
       summary: Submit a signed vote transaction to Soroban
       description: >
-        Accepts a base64-encoded signed Soroban transaction XDR invoking the
-        governance contract's vote entry point and submits it to the network.
-        The vote weight is derived on-chain from the voter's token balance.
+        Accepts a base64-encoded signed Soroban transaction XDR invoking the governance contract's vote entry point and submits it to the network. The vote weight is derived on-chain from the voter's token balance.
       security:
         - SessionToken: []
       parameters:
@@ -304,29 +292,12 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
-        '409':
-          description: Proposal is not open for voting or the address has already voted
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ErrorResponse' }
-        '422':
-          description: The Stellar network rejected the signed vote transaction
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ErrorResponse' }
-        '502':
-          description: Soroban RPC is temporarily unavailable
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /api/v1/proposals/{id}/execute:
     post:
       tags: [Proposals]
       summary: Execute a passed proposal
       description: >
-        Triggers execution of a proposal once its voting period has closed and
-        it has passed. Proposals whose voting period is still open, that were
-        rejected, or that were already executed are rejected with 409.
+        Triggers execution of a proposal once its voting period has closed and it has passed. Proposals whose voting period is still open, that were rejected, or that were already executed are rejected with 409.
       security:
         - SessionToken: []
       parameters:
@@ -352,6 +323,16 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: Voting period is still open, the proposal was rejected, or it was already executed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '422':
+          description: The Stellar network rejected the signed vote transaction
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '502':
+          description: Soroban RPC is temporarily unavailable
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -402,8 +383,7 @@ paths:
       tags: [Auth]
       summary: Get CSRF token
       description: >
-        Returns a fresh CSRF token and sets the `cooplumen_csrf` cookie for double-submit
-        cookie CSRF protection.
+        Returns a fresh CSRF token and sets the `cooplumen_csrf` cookie for double-submit cookie CSRF protection.
       responses:
         '200':
           description: CSRF token issued
@@ -427,9 +407,7 @@ paths:
       tags: [Auth]
       summary: Log out by clearing the session cookie
       description: >
-        Expires the httpOnly `cooplumen_session` cookie. Idempotent and public: it returns 200
-        whether or not a cookie was sent. Session tokens are stateless, so a token copied elsewhere
-        remains valid until its own expiry; logout only removes it from the browser.
+        Expires the httpOnly `cooplumen_session` cookie. Idempotent and public: it returns 200 whether or not a cookie was sent. Session tokens are stateless, so a token copied elsewhere remains valid until its own expiry; logout only removes it from the browser.
       responses:
         '200':
           description: Session cookie cleared
@@ -446,11 +424,7 @@ paths:
       tags: [Auth]
       summary: Verify a signed challenge and start a session
       description: >
-        Verifies the Ed25519 signature over a challenge issued by
-        `POST /api/v1/auth/challenge`. On success the session token is set in an
-        httpOnly, SameSite=Strict cookie (`Secure` in production) and also returned
-        in the body for non-browser clients. Challenges are single-use: they are
-        consumed whether or not the signature is valid.
+        Verifies the Ed25519 signature over a challenge issued by `POST /api/v1/auth/challenge`. On success the session token is set in an httpOnly, SameSite=Strict cookie (`Secure` in production) and also returned in the body for non-browser clients. Challenges are single-use: they are consumed whether or not the signature is valid.
       requestBody:
         required: true
         content:
@@ -486,10 +460,7 @@ paths:
       tags: [Auth]
       summary: Refresh the session using a rotating refresh token
       description: >
-        Exchanges the httpOnly `cooplumen_refresh` cookie (set by `POST /api/v1/auth/verify`)
-        for a new session token, set in the `cooplumen_session` cookie and returned in the body.
-        Refresh tokens are single-use: the presented token is invalidated and a new one is set,
-        so replaying a used token returns 401.
+        Exchanges the httpOnly `cooplumen_refresh` cookie (set by `POST /api/v1/auth/verify`) for a new session token, set in the `cooplumen_session` cookie and returned in the body. Refresh tokens are single-use: the presented token is invalidated and a new one is set, so replaying a used token returns 401.
       security:
         - RefreshCookie: []
       responses:
@@ -606,8 +577,7 @@ paths:
       tags: [Auth]
       summary: Create a wallet challenge for a public key
       description: >
-        Returns a one-time authentication challenge string to be signed by the wallet
-        that controls `publicKey`. The challenge is single-use and expires after five minutes.
+        Returns a one-time authentication challenge string to be signed by the wallet that controls `publicKey`. The challenge is single-use and expires after five minutes.
       responses:
         '200':
           description: Authentication challenge issued successfully
@@ -629,8 +599,7 @@ paths:
       tags: [Prices]
       summary: Get XLM price
       description: >
-        Returns current XLM market price (default XLM/USD) fetched from public market data providers.
-        Responses may be served from a Redis cache for up to 30 seconds.
+        Returns current XLM market price (default XLM/USD) fetched from public market data providers. Responses may be served from a Redis cache for up to 30 seconds.
       parameters:
         - name: currency
           in: query
@@ -667,8 +636,7 @@ paths:
       tags: [Accounts]
       summary: Get full Stellar account details
       description: >
-        Returns full Stellar account details from Horizon for the given public key,
-        including sequence number, balances, signers, thresholds, flags, and account data entries.
+        Returns full Stellar account details from Horizon for the given public key, including sequence number, balances, signers, thresholds, flags, and account data entries.
       responses:
         '200':
           description: Full account details
@@ -697,9 +665,7 @@ paths:
       tags: [Balances]
       summary: Get account balances
       description: >
-        Returns all on-chain balances for a Stellar account. Successful responses
-        may be served from a Redis cache for up to 5 seconds; the response body
-        itself is unchanged.
+        Returns all on-chain balances for a Stellar account. Successful responses may be served from a Redis cache for up to 5 seconds; the response body itself is unchanged.
       responses:
         '200':
           description: Account balances
@@ -728,10 +694,7 @@ paths:
       tags: [Accounts]
       summary: List established trustlines
       description: >
-        Returns all non-native asset trustlines established by the account.
-        Fetched live from Horizon via loadAccount. Returns an empty array
-        when the account exists but has no trustlines. Horizon 429/503
-        errors are retried with exponential backoff before a 502 is returned.
+        Returns all non-native asset trustlines established by the account. Fetched live from Horizon via loadAccount. Returns an empty array when the account exists but has no trustlines. Horizon 429/503 errors are retried with exponential backoff before a 502 is returned.
       responses:
         '200':
           description: Established trustlines (empty array if none)
@@ -765,9 +728,7 @@ paths:
       tags: [Balances]
       summary: Get balance-change audit history
       description: >
-        Returns transactions_log audit entries associated with the Stellar
-        address, ordered newest first. Action-specific balance information is
-        preserved in each entry's metadata object.
+        Returns transactions_log audit entries associated with the Stellar address, ordered newest first. Action-specific balance information is preserved in each entry's metadata object.
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/Limit'
@@ -842,9 +803,7 @@ paths:
       tags: [Fees]
       summary: Estimate transaction fees
       description: >
-        Returns the current Stellar network base fee and key percentile fee
-        distribution fetched live from Horizon. Horizon 429/503 errors are
-        retried with exponential backoff before a 502 is returned.
+        Returns the current Stellar network base fee and key percentile fee distribution fetched live from Horizon. Horizon 429/503 errors are retried with exponential backoff before a 502 is returned.
       responses:
         '200':
           description: Current fee statistics
@@ -867,20 +826,7 @@ paths:
       tags: [Stream]
       summary: Stream payment operations for an account
       description: >
-        Opens a Server-Sent Events (`text/event-stream`) feed of payment
-        operations for a Stellar account, backed by Horizon's payment stream.
-        Frames are JSON in the same `{ data, meta?, error? }` envelope the rest
-        of the API uses, so a client parses one response shape whether a frame
-        carries a payment or a failure: `event: ready` echoes the account and
-        cursor once the subscription is live, `event: payment` carries
-        `{ data: <Horizon payment operation record> }`, and `event: error`
-        carries `{ data: null, error: <message> }` without closing the stream.
-        A comment-only keep-alive frame is written every 15 seconds so proxies
-        do not drop an idle connection, and a `retry: 3000` field tells the
-        browser how long to wait before reconnecting. Validation runs before
-        any header is flushed, so an invalid `publicKey` still receives the
-        standard `400` JSON envelope; once streaming has begun the status is
-        already `200` and failures arrive as `error` frames instead.
+        Opens a Server-Sent Events (`text/event-stream`) feed of payment operations for a Stellar account, backed by Horizon's payment stream. Frames are JSON in the same `{ data, meta?, error? }` envelope the rest of the API uses, so a client parses one response shape whether a frame carries a payment or a failure: `event: ready` echoes the account and cursor once the subscription is live, `event: payment` carries `{ data: <Horizon payment operation record> }`, and `event: error` carries `{ data: null, error: <message> }` without closing the stream. A comment-only keep-alive frame is written every 15 seconds so proxies do not drop an idle connection, and a `retry: 3000` field tells the browser how long to wait before reconnecting. Validation runs before any header is flushed, so an invalid `publicKey` still receives the standard `400` JSON envelope; once streaming has begun the status is already `200` and failures arrive as `error` frames instead.
       parameters:
         - name: publicKey
           in: query
@@ -891,16 +837,12 @@ paths:
           in: query
           required: false
           description: >
-            Horizon paging token to resume from. `now` streams only events from
-            this moment on, which is the default for a live feed.
+            Horizon paging token to resume from. `now` streams only events from this moment on, which is the default for a live feed.
           schema: { type: string, default: now, minLength: 1, maxLength: 128 }
       responses:
         '200':
           description: >
-            A Server-Sent Events stream. Frames are separated by a blank line
-            and each carries an `event:` name, a `data:` JSON envelope and a
-            trailing `meta` where applicable. Comment-only `: keep-alive`
-            frames are interleaved to hold the connection open.
+            A Server-Sent Events stream. Frames are separated by a blank line and each carries an `event:` name, a `data:` JSON envelope and a trailing `meta` where applicable. Comment-only `: keep-alive` frames are interleaved to hold the connection open.
           content:
             text/event-stream:
               schema:
@@ -921,10 +863,7 @@ paths:
       tags: [Transactions]
       summary: Submit a signed Stellar payment transaction
       description: >
-        Validates and submits a signed single-payment transaction. Community-token
-        transfers from accounts without a verified KYC record are limited to a
-        cumulative 100 tokens per UTC day. The source, asset, and amount are read
-        from the signed XDR rather than trusted from separate request fields.
+        Validates and submits a signed single-payment transaction. Community-token transfers from accounts without a verified KYC record are limited to a cumulative 100 tokens per UTC day. The source, asset, and amount are read from the signed XDR rather than trusted from separate request fields.
       requestBody:
         required: true
         content:
@@ -969,13 +908,7 @@ paths:
       tags: [Webhooks]
       summary: Receive a Stellar account/transaction event notification
       description: >
-        Accepts event notifications from a trusted Stellar webhook source
-        (e.g. a Horizon-event forwarder). The request must carry an
-        `X-Stellar-Webhook-Signature` header containing the hex-encoded
-        HMAC-SHA256 digest of the raw request body, keyed with the server's
-        `STELLAR_WEBHOOK_SECRET`. The signature is verified before the body
-        is validated, so a request with an invalid signature never reaches
-        payload validation.
+        Accepts event notifications from a trusted Stellar webhook source (e.g. a Horizon-event forwarder). The request must carry an `X-Stellar-Webhook-Signature` header containing the hex-encoded HMAC-SHA256 digest of the raw request body, keyed with the server's `STELLAR_WEBHOOK_SECRET`. The signature is verified before the body is validated, so a request with an invalid signature never reaches payload validation.
       parameters:
         - name: X-Stellar-Webhook-Signature
           in: header
@@ -1022,9 +955,7 @@ paths:
       tags: [Webhooks]
       summary: Receive a third-party KYC verification status callback
       description: >
-        Authenticates a provider-neutral KYC callback using an HMAC-SHA256
-        signature over the exact request bytes, then creates or updates the
-        community-scoped KYC record for the supplied Stellar address.
+        Authenticates a provider-neutral KYC callback using an HMAC-SHA256 signature over the exact request bytes, then creates or updates the community-scoped KYC record for the supplied Stellar address.
       parameters:
         - name: X-KYC-Webhook-Signature
           in: header
@@ -1069,9 +1000,7 @@ paths:
       tags: [Transactions]
       summary: Build an unsigned Stellar payment transaction
       description: >
-        Loads the source account and its current sequence number from Horizon,
-        then returns a single-operation payment transaction XDR for wallet signing.
-        The transaction is not signed or submitted by this endpoint.
+        Loads the source account and its current sequence number from Horizon, then returns a single-operation payment transaction XDR for wallet signing. The transaction is not signed or submitted by this endpoint.
       requestBody:
         required: true
         content:
@@ -1109,9 +1038,7 @@ paths:
       tags: [Transactions, Tokens]
       summary: Build an unsigned Stellar trustline establishment transaction
       description: >
-        Loads the account and its current sequence number from Horizon,
-        then returns a single-operation changeTrust transaction XDR for wallet signing.
-        The transaction is not signed or submitted by this endpoint.
+        Loads the account and its current sequence number from Horizon, then returns a single-operation changeTrust transaction XDR for wallet signing. The transaction is not signed or submitted by this endpoint.
       requestBody:
         required: true
         content:
@@ -1190,9 +1117,7 @@ paths:
       tags: [Tokens]
       summary: Build an unsigned token issuance transaction for client-side signing
       description: >-
-        Builds an unsigned XDR transaction for issuing a community token to a distributor
-        account, so the issuer's wallet (e.g. Freighter) can sign it client-side. Guarded
-        with `authenticateJWT` and requires `admin` or `treasurer` role in the community.
+        Builds an unsigned XDR transaction for issuing a community token to a distributor account, so the issuer's wallet (e.g. Freighter) can sign it client-side. Guarded with `authenticateJWT` and requires `admin` or `treasurer` role in the community.
       security:
         - SessionToken: []
         - SessionCookie: []
@@ -1238,9 +1163,7 @@ paths:
       tags: [Tokens]
       summary: Build an unsigned trustline transaction for client-side signing
       description: >-
-        Returns a base64-encoded XDR envelope establishing a trustline to the
-        given asset. The wallet signs it locally and submits it through
-        POST /api/v1/tokens/submit, so no secret key reaches the server.
+        Returns a base64-encoded XDR envelope establishing a trustline to the given asset. The wallet signs it locally and submits it through POST /api/v1/tokens/submit, so no secret key reaches the server.
       requestBody:
         required: true
         content:
@@ -1273,9 +1196,7 @@ paths:
       tags: [Tokens]
       summary: Build an unsigned airdrop transaction for client-side signing
       description: >-
-        Returns one base64-encoded XDR envelope paying an equal amount of the
-        community's token to every current member, for the issuer's wallet to
-        sign. The batch is atomic: every member is paid or none is.
+        Returns one base64-encoded XDR envelope paying an equal amount of the community's token to every current member, for the issuer's wallet to sign. The batch is atomic: every member is paid or none is.
       requestBody:
         required: true
         content:
@@ -1481,11 +1402,7 @@ paths:
       tags: [Tokens]
       summary: Build an unsigned burn transaction for client-side signing
       description: >-
-        Returns a base64-encoded XDR envelope returning tokens to their issuing
-        account, where they stop counting toward circulating supply. The
-        holder's wallet signs it locally and submits it through
-        POST /api/v1/tokens/submit with `refreshSupply` set, so no secret key
-        reaches the server.
+        Returns a base64-encoded XDR envelope returning tokens to their issuing account, where they stop counting toward circulating supply. The holder's wallet signs it locally and submits it through POST /api/v1/tokens/submit with `refreshSupply` set, so no secret key reaches the server.
       requestBody:
         required: true
         content:
@@ -1523,8 +1440,7 @@ paths:
       tags: [Tokens]
       summary: List all tokens (Admin)
       description: >
-        Admin endpoint to list all tokens across all communities.
-        Requires admin authentication. Supports pagination and sorting.
+        Admin endpoint to list all tokens across all communities. Requires admin authentication. Supports pagination and sorting.
       security:
         - AdminAuth: []
       parameters:
@@ -1644,9 +1560,7 @@ paths:
       tags: [Loans]
       summary: List loans in a community
       description: >
-        Returns the community's loans, optionally narrowed to a single status.
-        `closed` groups the terminal `repaid`, `defaulted`, and `cancelled`
-        states.
+        Returns the community's loans, optionally narrowed to a single status. `closed` groups the terminal `repaid`, `defaulted`, and `cancelled` states.
       parameters:
         - name: status
           in: query
@@ -1695,6 +1609,9 @@ paths:
                           events:
                             type: array
                             items: { $ref: '#/components/schemas/LoanEvent' }
+                          repayments:
+                            type: array
+                            items: { $ref: '#/components/schemas/LoanRepayment' }
         '404': { $ref: '#/components/responses/NotFound' }
     delete:
       tags: [Loans]
@@ -1711,9 +1628,7 @@ paths:
       tags: [Loans]
       summary: Request a loan from the community pool
       description: >
-        Creates a pending loan for the authenticated active member. The API
-        derives the borrower from the session and the lender and asset from the
-        community pool.
+        Creates a pending loan for the authenticated active member. The API derives the borrower from the session and the lender and asset from the community pool.
       security:
         - SessionToken: []
         - SessionCookie: []
@@ -1759,6 +1674,38 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/LoanEvent' }
                   meta: { $ref: '#/components/schemas/PageMeta' }
+
+  /api/v1/loans/{id}/fund:
+    parameters:
+      - $ref: '#/components/parameters/LoanId'
+    post:
+      tags: [Loans]
+      summary: Fund a loan request
+      description: Lender funds a pending loan request, transitioning it to active.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount: { type: string }
+                stellarTxHash: { type: string }
+                note: { type: string }
+      responses:
+        '200':
+          description: Loan funded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Loan' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '403':
+          description: Borrower cannot fund their own loan
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Loan is not in `pending` status
 
   /api/v1/loans/{id}/disburse:
     parameters:
@@ -1823,9 +1770,7 @@ paths:
       tags: [Loans]
       summary: Record a loan repayment
       description: >
-        Records a partial or full repayment submitted by the borrower. The
-        borrower is derived from the session. When the outstanding balance
-        reaches zero the loan is marked `repaid`.
+        Records a partial or full repayment submitted by the borrower. The borrower is derived from the session. When the outstanding balance reaches zero the loan is marked `repaid`.
       security:
         - SessionToken: []
         - SessionCookie: []
@@ -2072,9 +2017,7 @@ paths:
       tags: [Reputation]
       summary: Get a member's reputation score and history
       description: >
-        A member's reputation across every community they participate in, plus
-        an aggregate summary and the repayment history that produced it.
-        Optionally narrowed with `communityId`.
+        A member's reputation across every community they participate in, plus an aggregate summary and the repayment history that produced it. Optionally narrowed with `communityId`.
       parameters:
         - name: communityId
           in: query
@@ -2374,8 +2317,7 @@ components:
       type: object
       required: [asset_type, balance]
       description: >
-        A Horizon balance line. The account's native XLM balance is represented
-        by asset_type `native`; issued assets include asset_code and asset_issuer.
+        A Horizon balance line. The account's native XLM balance is represented by asset_type `native`; issued assets include asset_code and asset_issuer.
       properties:
         asset_type:
           type: string
@@ -2896,6 +2838,16 @@ components:
         payment_id: { type: string, format: uuid, nullable: true }
         note: { type: string, nullable: true }
         created_at: { type: string, format: date-time }
+    LoanRepayment:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        loan_id: { type: string, format: uuid }
+        payer_address: { $ref: '#/components/schemas/StellarKey' }
+        amount: { type: string }
+        stellar_tx_hash: { type: string, nullable: true }
+        paid_at: { type: string, format: date-time }
+        metadata: { type: object }
     CreateLoan:
       type: object
       required: [communityId, borrowerAddress, lenderAddress, amount, assetCode]
@@ -3092,8 +3044,7 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: >
-        Admin authentication using JWT tokens. 
-        Currently a placeholder - actual implementation pending.
+        Admin authentication using JWT tokens.  Currently a placeholder - actual implementation pending.
     CsrfToken:
       type: apiKey
       in: header

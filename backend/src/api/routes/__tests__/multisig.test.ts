@@ -320,9 +320,7 @@ describe('MultiSig Endpoint Handlers', () => {
           { id: validRequestID, status: 'executed', stellar_tx_hash: mockTxHash },
         ]);
 
-      const res = await request(app)
-        .post(`/api/v1/multisig/${validRequestID}/execute`)
-        .send({});
+      const res = await request(app).post(`/api/v1/multisig/${validRequestID}/execute`).send({});
 
       expect(res.status).toBe(200);
       expect(res.body.data.status).toBe('executed');
@@ -335,12 +333,12 @@ describe('MultiSig Endpoint Handlers', () => {
         { id: validRequestID, status: 'approved', transaction_xdr: null },
       ]);
 
-      const res = await request(app)
-        .post(`/api/v1/multisig/${validRequestID}/execute`)
-        .send({});
+      const res = await request(app).post(`/api/v1/multisig/${validRequestID}/execute`).send({});
 
       expect(res.status).toBe(400);
-      expect(res.body.error).toContain('Either stellar_tx_hash or a signed transaction_xdr is required');
+      expect(res.body.error).toContain(
+        'Either stellar_tx_hash or a signed transaction_xdr is required'
+      );
     });
   });
 

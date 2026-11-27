@@ -1,11 +1,8 @@
-import React, { useCallback, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api } from '../../lib/api';
 import { createProposalFormSchema } from '../../lib/schemas';
 import { Alert } from '../ui/Alert';
 import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
-import { Select } from '../ui/Select';
-import { FormField } from '../ui/FormField';
 
 export type ProposalType = 'treasury' | 'parameter' | 'membership' | 'general';
 
@@ -24,15 +21,41 @@ export interface ProposalAction {
 }
 
 export interface CreateProposalPayload {
+  communityId: string;
   title: string;
   description: string;
   type: ProposalType;
-  actions: Array<{ type: ProposalActionType; params: Record<string, string> }>;
+  actions: Array<{ actionType: ProposalActionType; params: Record<string, string> }>;
 }
 
 export interface CreateProposalFormProps {
+  communityId?: string;
   onCreated?: (proposal: unknown) => void;
   onCancel?: () => void;
+}
+
+interface FormFieldProps {
+  label: string;
+  htmlFor: string;
+  error?: string;
+  errorId?: string;
+  children: ReactNode;
+}
+
+function FormField({ label, htmlFor, error, errorId, children }: FormFieldProps) {
+  return (
+    <div className="form-field">
+      <label htmlFor={htmlFor} className="form-field__label">
+        {label}
+      </label>
+      {children}
+      {error && (
+        <p id={errorId} className="form-field__error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
 }
 
 const PROPOSAL_TYPE_OPTIONS: Array<{ value: ProposalType; label: string }> = [
@@ -101,14 +124,14 @@ interface SchemaResult {
 
 function runSchema(
   schema: { safeParse: (value: unknown) => SchemaResult },
-  value: unknown,
+  value: unknown
 ): SchemaResult {
   return schema.safeParse(value);
 }
 
 function setSchemaFieldErrors(
   issues: SchemaIssue[],
-  setFieldErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>,
+  setFieldErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>
 ): void {
   const next: Record<string, string> = {};
   for (const issue of issues) {
@@ -121,15 +144,14 @@ function setSchemaFieldErrors(
 }
 
 function formErrors(issues: SchemaIssue[]): string[] {
-  return issues
-    .filter((issue) => issue.path.length === 0)
-    .map((issue) => issue.message);
+  return issues.filter((issue) => issue.path.length === 0).map((issue) => issue.message);
 }
 
 export function CreateProposalForm({
+  communityId = '',
   onCreated,
   onCancel,
-}: CreateProposalFormProps): JSX.Element {
+}: CreateProposalFormProps): ReactNode {
   const formId = useId();
   const titleId = `${formId}-title`;
   const descriptionId = `${formId}-description`;
@@ -174,7 +196,7 @@ export function CreateProposalForm({
         }
       }
     },
-    [actions],
+    [actions]
   );
 
   const addAction = useCallback(() => {
@@ -186,27 +208,24 @@ export function CreateProposalForm({
   }, []);
 
   const updateActionType = useCallback((id: string, nextType: ProposalActionType) => {
-    setActions((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, type: nextType, params: {} } : a)),
-    );
+    setActions((prev) => prev.map((a) => (a.id === id ? { ...a, type: nextType, params: {} } : a)));
   }, []);
 
   const updateActionParam = useCallback((id: string, key: string, value: string) => {
     setActions((prev) =>
-      prev.map((a) =>
-        a.id === id ? { ...a, params: { ...a.params, [key]: value } } : a,
-      ),
+      prev.map((a) => (a.id === id ? { ...a, params: { ...a.params, [key]: value } } : a))
     );
   }, []);
 
   const payload = useMemo<CreateProposalPayload>(
     () => ({
+      communityId,
       title: title.trim(),
       description: description.trim(),
       type,
-      actions: actions.map((a) => ({ type: a.type, params: a.params })),
+      actions: actions.map((a) => ({ actionType: a.type, params: a.params })),
     }),
-    [title, description, type, actions],
+    [communityId, title, description, type, actions]
   );
 
   const handleSubmit = useCallback(
@@ -239,7 +258,7 @@ export function CreateProposalForm({
         setSubmitting(false);
       }
     },
-    [payload, focusFirstError, onCreated],
+    [payload, focusFirstError, onCreated]
   );
 
   const titleError = fieldErrors['title'];
@@ -268,15 +287,11 @@ export function CreateProposalForm({
         </Alert>
       )}
 
-      <FormField
-        label="Title"
-        htmlFor={titleId}
-        error={titleError}
-        errorId={`${titleId}-error`}
-      >
-        <Input
+      <FormField label="Title" htmlFor={titleId} error={titleError} errorId={`${titleId}-error`}>
+        <input
           id={titleId}
           ref={titleRef}
+          className="input"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           maxLength={200}
@@ -313,9 +328,10 @@ export function CreateProposalForm({
         error={typeError}
         errorId={`${typeId}-error`}
       >
-        <Select
+        <select
           id={typeId}
           ref={typeRef}
+          className="select"
           value={type}
           onChange={(e) => setType(e.target.value as ProposalType)}
           aria-invalid={typeError ? true : undefined}
@@ -326,7 +342,7 @@ export function CreateProposalForm({
               {option.label}
             </option>
           ))}
-        </Select>
+        </select>
       </FormField>
 
       <fieldset
@@ -348,9 +364,7 @@ export function CreateProposalForm({
             return (
               <li key={action.id} className="create-proposal-form__action">
                 <div className="create-proposal-form__action-header">
-                  <span className="create-proposal-form__action-index">
-                    Action {index + 1}
-                  </span>
+                  <span className="create-proposal-form__action-index">Action {index + 1}</span>
                   <Button
                     type="button"
                     variant="ghost"
@@ -363,11 +377,12 @@ export function CreateProposalForm({
                 </div>
 
                 <FormField label="Action type" htmlFor={actionTypeId}>
-                  <Select
+                  <select
                     id={actionTypeId}
-                    ref={(el) => {
+                    ref={(el: HTMLSelectElement | null) => {
                       actionRefs.current[action.id] = el;
                     }}
+                    className="select"
                     value={action.type}
                     onChange={(e) =>
                       updateActionType(action.id, e.target.value as ProposalActionType)
@@ -378,19 +393,18 @@ export function CreateProposalForm({
                         {option.label}
                       </option>
                     ))}
-                  </Select>
+                  </select>
                 </FormField>
 
                 {paramFields.map((field) => {
                   const paramId = `${formId}-action-${action.id}-${field.key}`;
                   return (
                     <FormField key={field.key} label={field.label} htmlFor={paramId}>
-                      <Input
+                      <input
                         id={paramId}
+                        className="input"
                         value={action.params[field.key] ?? ''}
-                        onChange={(e) =>
-                          updateActionParam(action.id, field.key, e.target.value)
-                        }
+                        onChange={(e) => updateActionParam(action.id, field.key, e.target.value)}
                         placeholder={field.placeholder}
                       />
                     </FormField>

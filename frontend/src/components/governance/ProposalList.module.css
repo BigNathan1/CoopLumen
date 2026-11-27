@@ -56,14 +56,14 @@
   outline-offset: 2px;
 }
 
-.tab[aria-selected="true"] {
+.tab[aria-selected='true'] {
   background-color: var(--color-surface-raised);
   color: var(--color-text);
 }
 
 /* Active-tab indicator */
-.tab[aria-selected="true"]::after {
-  content: "";
+.tab[aria-selected='true']::after {
+  content: '';
   position: absolute;
   left: var(--space-3);
   right: var(--space-3);
@@ -87,7 +87,7 @@
   line-height: 1.5;
 }
 
-.tab[aria-selected="true"] .tabCount {
+.tab[aria-selected='true'] .tabCount {
   background-color: var(--color-accent-subtle);
   color: var(--color-accent);
 }

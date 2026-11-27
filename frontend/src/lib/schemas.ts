@@ -221,7 +221,10 @@ export const worldIdVerifySchema = z.object({
     .string()
     .trim()
     .regex(/^0x[0-9a-fA-F]+$/, 'Nullifier hash must be a 0x-prefixed hex string'),
-  proof: z.string().trim().regex(/^0x[0-9a-fA-F]+$/, 'Proof must be a 0x-prefixed hex string'),
+  proof: z
+    .string()
+    .trim()
+    .regex(/^0x[0-9a-fA-F]+$/, 'Proof must be a 0x-prefixed hex string'),
   verification_level: z.enum(['orb', 'device'], {
     message: 'Verification level must be orb or device',
   }),
