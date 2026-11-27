@@ -2181,6 +2181,128 @@ paths:
         '400':
           $ref: '#/components/responses/ValidationError'
       description: Loan totals for a community, optionally limited to one asset. Outstanding is principal plus flat interest minus repayments on active loans; the repayment rate is repaid over closed (repaid or defaulted) loans, or null when none have closed.
+  /api/v1/tokens/holders/{assetCode}/{issuer}:
+    parameters:
+      - name: assetCode
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9]{1,12}$
+      - name: issuer
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StellarKey'
+    get:
+      tags:
+        - Tokens
+      summary: List accounts holding a token
+      description: Backed by Horizon's asset endpoint.
+      responses:
+        '200':
+          description: Accounts holding the asset
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        account:
+                          $ref: '#/components/schemas/StellarKey'
+                        balance:
+                          type: string
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          description: Horizon is temporarily unavailable
+  /api/v1/tokens/supply/{assetCode}/{issuer}:
+    parameters:
+      - name: assetCode
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9]{1,12}$
+      - name: issuer
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StellarKey'
+    get:
+      tags:
+        - Tokens
+      summary: Get circulating supply
+      description: Returns the circulating supply Horizon reports for the asset.
+      responses:
+        '200':
+          description: Circulating supply
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      assetCode:
+                        type: string
+                      issuer:
+                        $ref: '#/components/schemas/StellarKey'
+                      supply:
+                        type: string
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          description: Horizon is temporarily unavailable
+  /api/v1/tokens/history/{assetCode}/{issuer}:
+    parameters:
+      - name: assetCode
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9]{1,12}$
+      - name: issuer
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/StellarKey'
+    get:
+      tags:
+        - Tokens
+      summary: Get recent payment activity for a token
+      description: Horizon has no "payments for an asset" endpoint, so this reads the issuer account's 20 most recent payments and keeps those in the asset.
+      responses:
+        '200':
+          description: Recent payment activity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                  meta:
+                    type: object
+                    properties:
+                      assetCode:
+                        type: string
+                      issuer:
+                        $ref: '#/components/schemas/StellarKey'
+                      limit:
+                        type: integer
+                        example: 20
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          description: Horizon is temporarily unavailable
 components:
   parameters:
     CommunityId:
