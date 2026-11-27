@@ -464,5 +464,5 @@ docker-compose logs backend | grep -i "error\|critical"
 - [Stellar Payments](https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/operations-and-transactions#payment)
 - [Stellar Laboratory](https://laboratory.stellar.org/)
 - [Stellar Expert](https://stellar.expert/)
-- `mainnet-configuration.md` — Network configuration
-- `governance-contract-mainnet-deployment.md` — Contract deployment after issuer account is ready
+- `configuration.md` — Network configuration
+- `governance-contract-deployment.md` — Contract deployment after issuer account is ready

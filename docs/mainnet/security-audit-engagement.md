@@ -8,7 +8,7 @@
 
 ## Overview
 
-This guide outlines the process for commissioning an independent security audit of CoopLumen prior to Stellar Mainnet launch. The audit will validate the security controls documented in `AUDIT_READINESS.md` and identify any vulnerabilities requiring remediation.
+This guide outlines the process for commissioning an independent security audit of CoopLumen prior to Stellar Mainnet launch. The audit will validate the security controls documented in `audit-readiness.md` and identify any vulnerabilities requiring remediation.
 
 ---
 
@@ -104,7 +104,7 @@ Example firms with Stellar ecosystem experience:
    - Deployment architecture documentation (docker-compose, CI/CD)
    - API documentation (OpenAPI spec in docs/openapi.yaml)
    - Smart contract interface and ABI (docs/governance-contract.md)
-   - Threat model (AUDIT_READINESS.md)
+   - Threat model (audit-readiness.md)
 
 4. **Firm selection**
    - Reach out to 2–3 firms with RFPs
@@ -402,7 +402,7 @@ CoopLumen: _______________ Date: ___
 
 ## References
 
-- `AUDIT_READINESS.md` — Security controls and threat model
+- `audit-readiness.md` — Security controls and threat model
 - `CONTRIBUTING.md` — Code review process
 - `docs/architecture.md` — System design
 - `docs/governance-contract.md` — Contract interface

@@ -28,7 +28,7 @@ This checklist ensures CoopLumen is secure, operational, and ready for productio
 
 - [ ] **Security review completed** — Focused review of contracts, API, frontend (completed in-house)
 - [ ] **Vulnerabilities addressed** — Critical/High findings fixed or accepted
-- [ ] **AUDIT_READINESS.md created** — Security overview, threat model, controls documented
+- [ ] **audit-readiness.md created** — Security overview, threat model, controls documented
 - [ ] **Security audit engagement prepared** — Package ready to send to external auditor
 - [ ] **Dependency audit passing** — `npm audit` shows no high-severity production issues
 - [ ] **Container scan passing** — Trivy scan shows no critical vulnerabilities
@@ -181,10 +181,10 @@ This checklist ensures CoopLumen is secure, operational, and ready for productio
 
 ### Operational Documentation
 
-- [ ] **AUDIT_READINESS.md** — Security controls documented
-- [ ] **mainnet-configuration.md** — Network setup documented
-- [ ] **mainnet-issuer-setup.md** — Issuer account procedure documented
-- [ ] **governance-contract-mainnet-deployment.md** — Contract deployment documented
+- [ ] **audit-readiness.md** — Security controls documented
+- [ ] **configuration.md** — Network setup documented
+- [ ] **issuer-setup.md** — Issuer account procedure documented
+- [ ] **governance-contract-deployment.md** — Contract deployment documented
 - [ ] **production-monitoring.md** — Monitoring and alerting documented
 - [ ] **Incident response guide** — Procedures for common scenarios documented
 - [ ] **Rollback plan** — Steps to rollback documented and tested
@@ -201,7 +201,7 @@ This checklist ensures CoopLumen is secure, operational, and ready for productio
 
 ### Announcement
 
-- [ ] **LAUNCH_ANNOUNCEMENT.md written** — Publication-ready announcement
+- [ ] **launch-announcement.md written** — Publication-ready announcement
 - [ ] **Press release drafted** — Key messages documented
 - [ ] **Social media posts drafted** — Announcements ready to publish
 - [ ] **Blog post drafted** — Technical/community blog content ready

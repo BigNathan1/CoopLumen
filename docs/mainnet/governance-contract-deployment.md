@@ -50,7 +50,7 @@ The governance contract is a Soroban smart contract that powers on-chain proposa
   - 1-2 XLM (for deployment fee + buffer)
   - Private key accessible to signer (HSM, Vault, or temporary env var)
 
-- ✅ **Issuer account:** Already created and funded (see `mainnet-issuer-setup.md`)
+- ✅ **Issuer account:** Already created and funded (see `issuer-setup.md`)
 
 ### Configuration
 
@@ -390,7 +390,7 @@ In `backend/.env.production`:
 # Mainnet governance contract
 STELLAR_MAINNET_GOVERNANCE_CONTRACT_ID=CABC123...XYZ
 
-# Mainnet issuer (from mainnet-issuer-setup.md)
+# Mainnet issuer (from issuer-setup.md)
 STELLAR_MAINNET_ISSUER_PUBLIC_KEY=GXXXX...
 ```
 
@@ -614,6 +614,6 @@ Keep a record of deployment:
 
 - [Soroban Smart Contracts — Deploy](https://developers.stellar.org/docs/build/smart-contracts/deploy)
 - [Soroban CLI Reference](https://github.com/stellar/rs-soroban-cli)
-- [CoopLumen Governance Contract — Interface](governance-contract.md)
-- [Mainnet Configuration](mainnet-configuration.md)
-- [Issuer Account Setup](mainnet-issuer-setup.md)
+- [CoopLumen Governance Contract — Interface](../governance-contract.md)
+- [Mainnet Configuration](configuration.md)
+- [Issuer Account Setup](issuer-setup.md)
