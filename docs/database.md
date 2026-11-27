@@ -279,6 +279,7 @@ Rules the runner enforces:
 
 - **Naming.** Files must be `NNN_snake_case_name.sql`; a `.down.sql` sibling is the rollback script. Anything else in the directory that ends in `.sql` aborts the run rather than being silently skipped.
 - **Ordering.** Files are sorted by the numeric prefix (so `9_` runs before `10_`), with the filename as a tie-breaker when two files share a prefix.
+- **Unique prefixes.** A new migration takes the next unused three-digit number. Some older prefixes (`002`, `004`, `007`, `012`, `017`, `018`, `019`, `025`, `026`, `027`, `029`) are shared by several files that were merged from parallel branches; they stay as they are, because renaming an applied migration makes it run again. `src/db/__tests__/migrations.naming.test.ts` fails if a new file reuses a number or ships without a `.down.sql`.
 - **Idempotence.** Each applied filename is recorded in `schema_migrations`, so a second run is a no-op.
 - **Atomicity.** Every migration runs inside its own transaction and is rolled back on error, leaving `schema_migrations` untouched for that file.
 - **Concurrency.** The runner holds a PostgreSQL advisory lock for the whole run, so two processes starting at once cannot apply the same file twice.
