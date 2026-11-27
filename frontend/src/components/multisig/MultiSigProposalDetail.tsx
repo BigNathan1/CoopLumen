@@ -245,13 +245,9 @@ export function MultiSigProposalDetail({
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             placeholder="Enter reason..."
-            style={{
-              padding: '0.5rem',
-              borderRadius: '0.25rem',
-              border: '1px solid #ccc',
-            }}
+            className={styles.actionInput}
           />
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+          <div className={styles.actionButtons}>
             <Button
               type="button"
               variant="ghost"
@@ -279,13 +275,9 @@ export function MultiSigProposalDetail({
             value={txHash}
             onChange={(e) => setTxHash(e.target.value)}
             placeholder="Enter Stellar TX Hash..."
-            style={{
-              padding: '0.5rem',
-              borderRadius: '0.25rem',
-              border: '1px solid #ccc',
-            }}
+            className={styles.actionInput}
           />
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+          <div className={styles.actionButtons}>
             <Button
               type="button"
               variant="ghost"

@@ -1,5 +1,7 @@
 import React, { useId, useState } from 'react';
 import type { Loan } from '@/hooks/useLoans';
+import { Button } from '@/components/ui/Button';
+import styles from './RepayLoanForm.module.css';
 
 export interface RepayLoanFormProps {
   loan: Pick<Loan, 'id' | 'outstanding' | 'total_due' | 'amount_repaid' | 'asset_code'>;
@@ -14,6 +16,12 @@ export interface RepayLoanFormProps {
 }
 
 const STELLAR_PRECISION = 7;
+
+const PRESETS = [
+  { label: '25%', ratio: 0.25 },
+  { label: '50%', ratio: 0.5 },
+  { label: 'Full', ratio: 1 },
+];
 
 function formatStellarAmount(value: number): string {
   return value.toFixed(STELLAR_PRECISION).replace(/\.?0+$/, '');
@@ -87,140 +95,69 @@ export const RepayLoanForm: React.FC<RepayLoanFormProps> = ({
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      noValidate
-      aria-label="Repay loan"
-      style={{
-        backgroundColor: 'var(--color-surface, #ffffff)',
-        color: 'var(--color-text-primary, #111827)',
-        border: '1px solid var(--color-border, #e5e7eb)',
-        borderRadius: 'var(--radius-md, 0.5rem)',
-        padding: 'var(--space-4, 1rem)',
-      }}
-    >
-      <div style={{ marginBottom: 'var(--space-3, 0.75rem)' }}>
-        <label htmlFor={amountId} style={{ display: 'block', fontWeight: 600 }}>
+    <form onSubmit={handleSubmit} noValidate aria-label="Repay loan" className={styles.form}>
+      <div>
+        <label htmlFor={amountId} className={styles.label}>
           Repayment amount ({loan.asset_code})
         </label>
-        <p
-          id={hintId}
-          style={{ color: 'var(--color-text-secondary, #4b5563)', fontSize: '0.875rem' }}
-        >
+        <p id={hintId} className={styles.hint}>
           Remaining balance: {loan.outstanding} {loan.asset_code} (repaid {loan.amount_repaid} of{' '}
           {loan.total_due})
         </p>
-
-        <div
-          role="group"
-          aria-label="Quick repayment presets"
-          style={{
-            display: 'flex',
-            gap: 'var(--space-2, 0.5rem)',
-            marginBlock: 'var(--space-2, 0.5rem)',
-          }}
-        >
-          {[
-            { label: '25%', ratio: 0.25 },
-            { label: '50%', ratio: 0.5 },
-            { label: 'Full', ratio: 1 },
-          ].map((preset) => (
-            <button
-              key={preset.label}
-              type="button"
-              disabled={isDisabled}
-              onClick={() => setPresetPercent(preset.ratio)}
-              style={{
-                backgroundColor: 'var(--color-surface-muted, #f3f4f6)',
-                color: 'var(--color-text-primary, #111827)',
-                border: '1px solid var(--color-border, #d1d5db)',
-                borderRadius: 'var(--radius-sm, 0.375rem)',
-                padding: '0.25rem 0.75rem',
-                cursor: isDisabled ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
-
-        <input
-          id={amountId}
-          name="amount"
-          type="number"
-          inputMode="decimal"
-          step="0.0000001"
-          min={minRepayment}
-          max={loan.outstanding}
-          value={amountInput}
-          disabled={isDisabled}
-          aria-describedby={error ? `${hintId} ${errorId}` : hintId}
-          aria-invalid={Boolean(error)}
-          onChange={(e) => {
-            setAmountInput(e.target.value);
-            if (error) setError(null);
-          }}
-          style={{
-            width: '100%',
-            backgroundColor: 'var(--color-input-bg, transparent)',
-            color: 'var(--color-text-primary, inherit)',
-            border: '1px solid var(--color-border, #d1d5db)',
-            borderRadius: 'var(--radius-sm, 0.375rem)',
-            padding: '0.5rem',
-          }}
-        />
       </div>
 
+      <div role="group" aria-label="Quick repayment presets" className={styles.presets}>
+        {PRESETS.map((preset) => (
+          <Button
+            key={preset.label}
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={isDisabled}
+            onClick={() => setPresetPercent(preset.ratio)}
+          >
+            {preset.label}
+          </Button>
+        ))}
+      </div>
+
+      <input
+        id={amountId}
+        name="amount"
+        type="number"
+        inputMode="decimal"
+        step="0.0000001"
+        min={minRepayment}
+        max={loan.outstanding}
+        value={amountInput}
+        disabled={isDisabled}
+        aria-describedby={error ? `${hintId} ${errorId}` : hintId}
+        aria-invalid={Boolean(error)}
+        onChange={(e) => {
+          setAmountInput(e.target.value);
+          if (error) setError(null);
+        }}
+        className={styles.input}
+      />
+
       {error && (
-        <p
-          id={errorId}
-          role="alert"
-          style={{
-            color: 'var(--color-danger, #dc2626)',
-            fontSize: '0.875rem',
-            marginBottom: 'var(--space-3, 0.75rem)',
-          }}
-        >
+        <p id={errorId} role="alert" className={styles.error}>
           {error}
         </p>
       )}
 
-      <div style={{ display: 'flex', gap: 'var(--space-2, 0.5rem)' }}>
-        <button
-          type="submit"
-          disabled={isDisabled}
-          style={{
-            backgroundColor: 'var(--color-primary, #2563eb)',
-            color: 'var(--color-on-primary, #ffffff)',
-            border: 'none',
-            borderRadius: 'var(--radius-sm, 0.375rem)',
-            padding: '0.5rem 1rem',
-            cursor: isDisabled ? 'not-allowed' : 'pointer',
-          }}
-        >
+      <div className={styles.actions}>
+        <Button type="submit" disabled={isDisabled}>
           {isSubmitting
             ? 'Submitting...'
             : isFullRepayment
               ? 'Pay Full Balance'
               : 'Submit Partial Repayment'}
-        </button>
-
+        </Button>
         {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isSubmitting}
-            style={{
-              backgroundColor: 'transparent',
-              color: 'var(--color-text-secondary, #4b5563)',
-              border: '1px solid var(--color-border, #d1d5db)',
-              borderRadius: 'var(--radius-sm, 0.375rem)',
-              padding: '0.5rem 1rem',
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
-            }}
-          >
+          <Button type="button" variant="ghost" onClick={onCancel} disabled={isSubmitting}>
             Cancel
-          </button>
+          </Button>
         )}
       </div>
     </form>
