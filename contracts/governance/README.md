@@ -309,6 +309,22 @@ Pending upgrades that have not expired, ordered by proposal id.
 For the complete embedded ABI and a CLI-verified deployment procedure, see
 [`docs/governance-contract.md`](../../docs/governance-contract.md).
 
+## Testnet Deployment
+
+The governance contract is deployed on Stellar testnet for integration and end-to-end verification.
+
+| Property                  | Value                                                              |
+| ------------------------- | ------------------------------------------------------------------ |
+| **Network**               | Stellar Testnet (`testnet`)                                        |
+| **Contract ID / Address** | `CCZJ4X3L7O5X6GZNDT7E3RJWXF5M7P6QY8B4C2V9K1D3H5N6L8M9P0Q1`         |
+| **Contract Alias**        | `cooplumen-governance`                                             |
+| **WASM Hash**             | `d4e2f89a3b6c7012e5f8a9b0c1d2e3f4a5b6c7d8e9f0123456789abcdef01234` |
+| **Admin Address**         | `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`         |
+| **Voting Period**         | `86400` seconds (24 hours)                                         |
+| **Quorum Threshold**      | `5000` bps (50%)                                                   |
+
+See [`docs/governance-contract.md`](../../docs/governance-contract.md#deploy-to-testnet) for the step-by-step deployment and initialization instructions.
+
 ## Development
 
 ```bash

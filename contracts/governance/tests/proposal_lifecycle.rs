@@ -114,3 +114,127 @@ fn passed_proposal_below_quorum_cannot_execute() {
         ProposalStatus::Passed
     );
 }
+
+#[test]
+fn rejected_proposal_cannot_execute() {
+    let (env, token, contract) = configured_contract();
+    let client = GovernanceContractClient::new(&env, &contract);
+    let voter_for = Address::generate(&env);
+    let voter_against = Address::generate(&env);
+    let executor = Address::generate(&env);
+
+    let token_admin = StellarAssetClient::new(&env, &token);
+    token_admin.mint(&voter_for, &200);
+    token_admin.mint(&voter_against, &600);
+
+    let proposal_id = client.create_proposal(
+        &Address::generate(&env),
+        &String::from_str(&env, "Controversial proposal"),
+        &String::from_str(&env, "This proposal receives majority against votes"),
+        &vec![&env, String::from_str(&env, "action:noop")],
+    );
+
+    client.cast_vote(&proposal_id, &VoteChoice::For, &voter_for);
+    client.cast_vote(&proposal_id, &VoteChoice::Against, &voter_against);
+
+    env.ledger().set_timestamp(START_TIME + VOTING_PERIOD + 1);
+    assert_eq!(
+        client.finalize_proposal(&proposal_id),
+        ProposalStatus::Rejected
+    );
+
+    let error = client
+        .try_execute_proposal(&proposal_id, &executor)
+        .unwrap_err()
+        .unwrap();
+    assert_eq!(error, GovernanceError::ProposalExecutionFailed);
+    assert_eq!(
+        client.get_proposal(&proposal_id).status,
+        ProposalStatus::Rejected
+    );
+}
+
+#[test]
+fn delegation_and_undelegation_lifecycle() {
+    let (env, token, contract) = configured_contract();
+    let client = GovernanceContractClient::new(&env, &contract);
+    let delegator = Address::generate(&env);
+    let delegatee = Address::generate(&env);
+    let token_admin = StellarAssetClient::new(&env, &token);
+
+    token_admin.mint(&delegator, &300);
+    token_admin.mint(&delegatee, &200);
+
+    // Initial delegation
+    client.delegate(&delegator, &delegatee);
+    assert_eq!(client.get_delegation(&delegator), Some(delegatee.clone()));
+    assert_eq!(client.get_delegators(&delegatee), vec![&env, delegator.clone()]);
+
+    // Delegator revokes delegation
+    client.undelegate(&delegator);
+    assert_eq!(client.get_delegation(&delegator), None);
+    assert_eq!(client.get_delegators(&delegatee).len(), 0);
+
+    // Re-delegation works cleanly
+    client.delegate(&delegator, &delegatee);
+    assert_eq!(client.get_delegation(&delegator), Some(delegatee.clone()));
+    assert_eq!(client.get_delegators(&delegatee), vec![&env, delegator.clone()]);
+}
+
+#[test]
+fn proposal_creation_and_initialization_input_validation() {
+    let env = Env::default();
+    env.mock_all_auths();
+    env.ledger().set_timestamp(START_TIME);
+
+    let admin = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+    let token = env
+        .register_stellar_asset_contract_v2(token_admin)
+        .address();
+    let contract = env.register(GovernanceContract, ());
+    let client = GovernanceContractClient::new(&env, &contract);
+
+    // Invalid zero voting period rejected
+    let err_period = client
+        .try_initialize(&admin, &token, &0, &5_000, &1_000)
+        .unwrap_err()
+        .unwrap();
+    assert_eq!(err_period, GovernanceError::InvalidInput);
+
+    // Invalid quorum bps > 10000 rejected
+    let err_quorum = client
+        .try_initialize(&admin, &token, &VOTING_PERIOD, &10_001, &1_000)
+        .unwrap_err()
+        .unwrap();
+    assert_eq!(err_quorum, GovernanceError::InvalidInput);
+
+    // Invalid non-positive total supply rejected
+    let err_supply = client
+        .try_initialize(&admin, &token, &VOTING_PERIOD, &5_000, &0)
+        .unwrap_err()
+        .unwrap();
+    assert_eq!(err_supply, GovernanceError::InvalidInput);
+
+    // Successful initialization
+    client.initialize(&admin, &token, &VOTING_PERIOD, &5_000, &1_000);
+
+    // Re-initialization rejected
+    let err_reinit = client
+        .try_initialize(&admin, &token, &VOTING_PERIOD, &5_000, &1_000)
+        .unwrap_err()
+        .unwrap();
+    assert_eq!(err_reinit, GovernanceError::AlreadyInitialized);
+
+    // Proposal creation with empty title rejected
+    let err_title = client
+        .try_create_proposal(
+            &Address::generate(&env),
+            &String::from_str(&env, ""),
+            &String::from_str(&env, "Non-empty description"),
+            &vec![&env],
+        )
+        .unwrap_err()
+        .unwrap();
+    assert_eq!(err_title, GovernanceError::InvalidInput);
+}

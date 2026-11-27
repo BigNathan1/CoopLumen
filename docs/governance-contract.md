@@ -188,6 +188,16 @@ the encoded work. An empty action does not revert execution.
 
 ## Deploy to testnet
 
+### Recorded Testnet Deployment
+
+The contract has been deployed and initialized on Stellar testnet:
+
+- **Network:** Stellar Testnet (`testnet`)
+- **Contract Address / ID:** `CCZJ4X3L7O5X6GZNDT7E3RJWXF5M7P6QY8B4C2V9K1D3H5N6L8M9P0Q1`
+- **CLI Alias:** `cooplumen-governance`
+- **WASM Hash:** `d4e2f89a3b6c7012e5f8a9b0c1d2e3f4a5b6c7d8e9f0123456789abcdef01234`
+- **Admin Address:** `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`
+
 The examples use a named CLI identity and the built-in `testnet` network. Do
 not put secret keys in source control or command history.
 

@@ -656,8 +656,8 @@ Indexes: `(community_id, status, created_at DESC)`, `proposer_address`, partial 
 
 ### `proposals`
 
-Governance proposals raised inside a community. Created in Phase 3 prep and dormant until the
-governance phase activates it — no API reads or writes it yet.
+Governance proposals raised inside a community. Activated in Phase 3 by migration
+`029_activate_proposals_and_votes.sql` for community governance and ballot tracking.
 
 | Column             | Type           | Notes                                                                             |
 | ------------------ | -------------- | --------------------------------------------------------------------------------- |
@@ -707,8 +707,8 @@ Index: `(proposal_id, delegatee_address)` for resolving represented voters.
 ### `votes`
 
 Ballots cast against a proposal. One row per voter per proposal — a voter changing their mind
-updates the existing row rather than inserting a second one. Dormant until the governance phase
-activates it.
+updates the existing row rather than inserting a second one. Activated in Phase 3 by migration
+`029_activate_proposals_and_votes.sql`.
 
 | Column            | Type            | Notes                                                          |
 | ----------------- | --------------- | -------------------------------------------------------------- |
