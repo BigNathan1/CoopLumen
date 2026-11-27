@@ -73,6 +73,11 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
+      # Duplicate keys, a path outside `paths` and dangling $refs have each
+      # reached main through merges; prettier only catches the first.
+      - name: Check OpenAPI spec structure
+        run: node scripts/ci/check-openapi.js
+
   typecheck:
     name: Type-check
     runs-on: ubuntu-latest
@@ -455,7 +460,7 @@ jobs:
         run: bash scripts/deploy/test-notify.sh
 
       - name: Test CI and security scripts (branch protection, malware scan)
-        run: node --test scripts/ci/__tests__/configure-branch-protection.test.js scripts/security/__tests__/malware-scan.test.js
+        run: node --test scripts/ci/__tests__/configure-branch-protection.test.js scripts/ci/__tests__/check-openapi.test.js scripts/security/__tests__/malware-scan.test.js
 
       - name: Validate production compose file
         run: |
