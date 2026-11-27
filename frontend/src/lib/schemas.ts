@@ -374,8 +374,6 @@ export type ProposalTally = z.infer<typeof proposalTallySchema>;
 export type ProposalDetail = z.infer<typeof proposalDetailSchema>;
 export type ListQueryInput = z.infer<typeof listQuerySchema>;
 
-// Helpers
-
 /**
  * Flattens a `ZodError` into a `field -> message` map keyed by dotted path,
  * which is the shape form code wants when deciding what to render under each

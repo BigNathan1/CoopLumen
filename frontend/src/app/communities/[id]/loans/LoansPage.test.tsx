@@ -6,7 +6,6 @@ import { useLoans } from '@/hooks/useLoans';
 import { useWallet } from '@/hooks/useWallet';
 import { truncateAddress } from '@/lib/format';
 
-// Mock hooks
 jest.mock('@/hooks/useCommunities');
 jest.mock('@/hooks/useLoans');
 jest.mock('@/hooks/useWallet');

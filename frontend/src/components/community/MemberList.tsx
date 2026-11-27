@@ -312,7 +312,6 @@ export function MemberList({
     );
   }
 
-  // Error state
   if (effectiveError) {
     return (
       <section className={styles.section} aria-label={ariaLabel}>
@@ -330,7 +329,6 @@ export function MemberList({
     );
   }
 
-  // Empty state
   if (visibleMembers.length === 0 && !hasLocalData && !communityId) {
     return (
       <section className={styles.section} aria-label={ariaLabel}>

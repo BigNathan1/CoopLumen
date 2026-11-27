@@ -234,7 +234,6 @@ export function MultiSigProposalDetail({
         </div>
       )}
 
-      {/* Action Forms */}
       {showRejectForm && (
         <form onSubmit={handleRejectSubmit} className={styles.actionForm}>
           <label htmlFor="rejectReason" className={styles.metaLabel}>
@@ -302,7 +301,6 @@ export function MultiSigProposalDetail({
         </form>
       )}
 
-      {/* Actions toolbar */}
       {!showRejectForm && !showExecuteForm && (
         <div className={styles.actions}>
           {isPending && onReject && (

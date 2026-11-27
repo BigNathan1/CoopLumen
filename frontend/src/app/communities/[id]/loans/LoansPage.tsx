@@ -61,7 +61,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
   });
   const { publicKey } = useWallet();
 
-  // State for request loan modal
   const [isRequestOpen, setIsRequestOpen] = useState(false);
   const [requestAmount, setRequestAmount] = useState('');
   const [requestPurpose, setRequestPurpose] = useState('');
@@ -70,12 +69,10 @@ export function LoansPage({ communityId }: { communityId: string }) {
   const [requestError, setRequestError] = useState<string | null>(null);
   const [requestSubmitting, setRequestSubmitting] = useState(false);
 
-  // State for repay modal
   const [repayLoan, setRepayLoan] = useState<Loan | null>(null);
   const [repayAmount, setRepayAmount] = useState('');
   const [repayError, setRepayError] = useState<string | null>(null);
 
-  // State for confirm dialogs
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
 
   const amountInputId = useId();
@@ -84,7 +81,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
   const dueAtInputId = useId();
   const repayAmountInputId = useId();
 
-  // Community loading state
   if (communityLoading) {
     return (
       <main className={styles.page} aria-label="Community loans">
@@ -120,7 +116,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
   // Determine user role in this community (from wallet)
   const isMember = Boolean(publicKey);
 
-  // Table columns
   const columns: TableColumn<LoanRow>[] = [
     {
       key: 'borrower_address',
@@ -216,7 +211,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
     },
   ];
 
-  // Request loan handler
   const handleRequestLoan = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setRequestError(null);
@@ -294,7 +288,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
     }
   };
 
-  // Repay handler
   const handleRepay = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setRepayError(null);
@@ -338,7 +331,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
     }
   };
 
-  // Confirm action handler
   const handleConfirmAction = async () => {
     if (!confirmAction) return;
 
@@ -379,7 +371,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
   return (
     <main className={styles.page} aria-label={`${community.name} loans`}>
       <div className={styles.inner}>
-        {/* Back navigation */}
         <Link href={`/communities/${communityId}`} className={styles.backLink}>
           <span className={styles.backArrow} aria-hidden="true" />
           Back to {community.name}
@@ -400,7 +391,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
           )}
         </header>
 
-        {/* Loans table section */}
         <section aria-labelledby="loans-heading" className={styles.section}>
           <h2 id="loans-heading" className={styles.sectionHeading}>
             Community Pool Loans
@@ -446,7 +436,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
           )}
         </section>
 
-        {/* Request Loan Modal */}
         <Modal
           isOpen={isRequestOpen}
           onClose={() => setIsRequestOpen(false)}
@@ -557,7 +546,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
           </form>
         </Modal>
 
-        {/* Repay Modal */}
         <Modal isOpen={Boolean(repayLoan)} onClose={() => setRepayLoan(null)} title="Repay Loan">
           <p className={styles.modalDescription}>Repay loan #{repayLoan?.id.slice(0, 8)}…</p>
           <form onSubmit={handleRepay} noValidate className={styles.form}>
@@ -608,7 +596,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
           </form>
         </Modal>
 
-        {/* Confirm Action Modal */}
         <ConfirmDialog
           isOpen={Boolean(confirmAction)}
           title={

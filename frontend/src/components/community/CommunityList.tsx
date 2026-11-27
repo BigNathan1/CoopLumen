@@ -58,7 +58,6 @@ export function CommunityList({
 
   return (
     <div className="flex w-full flex-col gap-6">
-      {/* Search Input */}
       <div className="relative max-w-md">
         <label htmlFor="community-search" className="sr-only">
           Search communities
@@ -76,7 +75,6 @@ export function CommunityList({
         />
       </div>
 
-      {/* Empty State */}
       {filteredCommunities.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 py-16 text-center dark:border-gray-800">
           <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
@@ -88,14 +86,12 @@ export function CommunityList({
         </div>
       ) : (
         <>
-          {/* Community Grid */}
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {paginatedCommunities.map((community) => (
               <CommunityCard key={community.id} community={community} onJoin={onJoin} />
             ))}
           </div>
 
-          {/* Pagination */}
           {totalPages > 1 && (
             <div className="mt-8 flex items-center justify-center gap-4">
               <button

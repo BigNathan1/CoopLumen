@@ -89,7 +89,7 @@ describeIntegration('Loan lifecycle: request → fund → repay (integration)', 
   }
 
   it('completes full loan lifecycle: request → fund → repay → reputation updated', async () => {
-    // ========== STEP 1: Request a loan ==========
+    // Step 1: Request a loan
     const loanAmount = '1000';
     const dueAt = new Date(Date.now() + 86400000).toISOString(); // 1 day from now
 
@@ -128,7 +128,7 @@ describeIntegration('Loan lifecycle: request → fund → repay (integration)', 
     expect(eventsRes.body.data).toHaveLength(1);
     expect(eventsRes.body.data[0].event_type).toBe('created');
 
-    // ========== STEP 2: Fund/Disburse the loan (lender = community issuer) ==========
+    // Step 2: Fund/Disburse the loan (lender = community issuer)
     const disburseRes = await request(app)
       .post(`/api/v1/loans/${loanId}/disburse`)
       .set('Authorization', issuerAuthHeader()) // In pool loans, the lender is the community issuer
@@ -151,7 +151,7 @@ describeIntegration('Loan lifecycle: request → fund → repay (integration)', 
     expect(eventsAfterDisburse.body.data).toHaveLength(2);
     expect(eventsAfterDisburse.body.data[1].event_type).toBe('disbursed');
 
-    // ========== STEP 3: Repay the loan in full ==========
+    // Step 3: Repay the loan in full
     const totalDue = '1050.0000000'; // 1000 principal + 5% interest
 
     const repayRes = await request(app)
@@ -183,7 +183,7 @@ describeIntegration('Loan lifecycle: request → fund → repay (integration)', 
     expect(repaymentEvent.amount).toBe(totalDue);
     expect(closedEvent).toBeDefined();
 
-    // ========== STEP 4: Verify reputation score was updated ==========
+    // Step 4: Verify reputation score was updated
     const reputationRes = await request(app)
       .get(`/api/v1/reputation/${borrowerKeypair.publicKey()}`)
       .set('Authorization', authHeader(borrowerKeypair))

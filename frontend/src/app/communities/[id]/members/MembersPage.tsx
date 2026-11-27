@@ -63,7 +63,6 @@ interface Props {
  * - Confirm dialog is modal and focus-trapped (ConfirmDialog).
  */
 export function MembersPage({ communityId }: Props) {
-  // Data
   const {
     data: community,
     error: communityError,
@@ -77,13 +76,11 @@ export function MembersPage({ communityId }: Props) {
   const { addMember, submitting: adding, error: addError } = useAddMember(communityId);
   const { removeMember, submitting: removing, error: removeError } = useRemoveMember(communityId);
 
-  // Add-member form state
   const [address, setAddress] = useState('');
   const [role, setRole] = useState<MemberRole>('member');
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [addSuccess, setAddSuccess] = useState(false);
 
-  // Remove confirm state
   const [pendingRemove, setPendingRemove] = useState<CommunityMember | null>(null);
 
   const formId = useId();
@@ -116,7 +113,6 @@ export function MembersPage({ communityId }: Props) {
     );
   }
 
-  // Add member handler
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     setFieldError(null);
@@ -136,7 +132,6 @@ export function MembersPage({ communityId }: Props) {
     }
   };
 
-  // Remove confirm handler
   const handleRemoveConfirm = async () => {
     if (!pendingRemove) return;
     await removeMember(pendingRemove.stellar_address);
@@ -145,14 +140,12 @@ export function MembersPage({ communityId }: Props) {
 
   return (
     <div className={styles.content}>
-      {/* Back link */}
       <Link href={`/communities/${communityId}`} className={styles.backLink}>
         <span className={styles.backArrow} aria-hidden="true" />
         Back to {community.name}
       </Link>
 
       <div className={styles.grid}>
-        {/* Left: member roster */}
         <section aria-labelledby="members-heading" className={styles.section}>
           <h2 id="members-heading" className={styles.sectionHeading}>
             Members
@@ -163,7 +156,6 @@ export function MembersPage({ communityId }: Props) {
             )}
           </h2>
 
-          {/* Remove error */}
           {removeError && (
             <Alert variant="error" title="Could not remove member">
               {removeError}
@@ -236,7 +228,6 @@ export function MembersPage({ communityId }: Props) {
           )}
         </section>
 
-        {/* Right: add member form */}
         <section aria-labelledby="add-member-heading" className={styles.section}>
           <h2 id="add-member-heading" className={styles.sectionHeading}>
             Add a member
@@ -320,7 +311,6 @@ export function MembersPage({ communityId }: Props) {
         </section>
       </div>
 
-      {/* Remove confirm dialog */}
       <ConfirmDialog
         isOpen={Boolean(pendingRemove)}
         title="Remove member?"

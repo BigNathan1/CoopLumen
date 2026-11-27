@@ -1,8 +1,6 @@
 import { renderHook } from '@testing-library/react';
 import { useCommunities, useCommunity, type Community } from '../useCommunities';
 
-// Fixtures
-
 const MOCK_COMMUNITY: Community = {
   id: 'uuid-1',
   name: 'EcoDAO',

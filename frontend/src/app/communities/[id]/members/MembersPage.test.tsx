@@ -40,8 +40,6 @@ const mockUseCommunityMembers = useCommunityMembers as jest.MockedFunction<
 const mockUseAddMember = useAddMember as jest.MockedFunction<typeof useAddMember>;
 const mockUseRemoveMember = useRemoveMember as jest.MockedFunction<typeof useRemoveMember>;
 
-// Test fixtures
-
 const COMMUNITY: Community = {
   id: 'comm-1',
   name: 'Eco Coop Lagos',

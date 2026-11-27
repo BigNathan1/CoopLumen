@@ -19,8 +19,6 @@ describe('PageTransition', () => {
     jest.resetAllMocks();
   });
 
-  // Rendering
-
   describe('Rendering', () => {
     it('renders a wrapper element with the expected test id', () => {
       render(
