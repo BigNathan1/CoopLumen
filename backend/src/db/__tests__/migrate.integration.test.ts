@@ -262,6 +262,7 @@ describeIf('Migration integration', () => {
 
   it('all expected tables exist after migration', async () => {
     const expectedTables = [
+      'api_keys',
       'audit_log',
       'communities',
       'community_settings',
@@ -269,6 +270,7 @@ describeIf('Migration integration', () => {
       'idempotency_keys',
       'kyc_records',
       'loan_events',
+      'loan_repayments',
       'loans',
       'members',
       'multisig_requests',
@@ -282,6 +284,7 @@ describeIf('Migration integration', () => {
       'transactions_log',
       'trustlines',
       'votes',
+      'worldid_verifications',
     ];
 
     const { rows } = await pool.query<{ tablename: string }>(

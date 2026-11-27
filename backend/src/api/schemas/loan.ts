@@ -42,6 +42,16 @@ export const loanRequestSchema = z.object({
   interestRate: z.coerce.number().min(0).max(1000).optional(),
 });
 
+export const fundLoanSchema = z.object({
+  amount: amount.optional(),
+  stellarTxHash: z.string().trim().min(1).max(128).optional(),
+  note: z.string().trim().max(280).optional(),
+});
+
+export const loanParamsSchema = z.object({
+  id: z.string().uuid({ message: 'Loan ID must be a valid UUID' }),
+});
+
 export const disburseLoanSchema = z.object({
   stellarTxHash: z.string().trim().min(1).max(128).optional(),
   note: z.string().trim().max(280).optional(),

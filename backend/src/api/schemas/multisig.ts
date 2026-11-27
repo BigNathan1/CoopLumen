@@ -40,8 +40,15 @@ export const rejectMultiSigRequestSchema = z.object({
 });
 
 export const executeMultiSigRequestSchema = z.object({
-  stellar_tx_hash: z.string().optional().nullable(),
-  signed_xdr: z.string().optional().nullable(),
+  // An empty hash is treated as absent by the route, which then submits a
+  // signed XDR instead, so it is rejected here rather than silently ignored.
+  stellar_tx_hash: z
+    .string()
+    .trim()
+    .min(1, 'stellar_tx_hash must not be empty')
+    .optional()
+    .nullable(),
+  signed_xdr: z.string().trim().min(1, 'signed_xdr must not be empty').optional().nullable(),
 });
 
 export const getMultiSigQuerySchema = z.object({

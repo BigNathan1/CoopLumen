@@ -64,11 +64,11 @@ describe('detectLoanDefaults', () => {
       [overdueLoan.id]
     );
     expect(mockClient.query).toHaveBeenCalledWith(
-      expect.stringContaining("INSERT INTO loan_events (loan_id, event_type, note)"),
+      expect.stringContaining('INSERT INTO loan_events (loan_id, event_type, note)'),
       expect.any(Array)
     );
     expect(mockClient.query).toHaveBeenCalledWith(
-      expect.stringContaining("INSERT INTO reputation_scores"),
+      expect.stringContaining('INSERT INTO reputation_scores'),
       [overdueLoan.borrower_address, overdueLoan.community_id]
     );
   });

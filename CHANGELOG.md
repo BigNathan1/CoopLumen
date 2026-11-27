@@ -13,6 +13,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
 - Activate multisig_requests database migration for treasury multi-sig proposals (#481)
+- `POST /api/v1/loans/:id/fund` endpoint allowing lenders to fund pending loan requests with Zod validation, response envelope, unit tests, and OpenAPI documentation (#453).
+- Repayment history support in `GET /api/v1/loans/:id` activating `loan_repayments` alongside loan events with Zod param validation and OpenAPI documentation (#456).
+- Compliance model and limitations documentation (`docs/compliance.md`) detailing SEP-12 KYC alignment, daily transaction limits, Sybil resistance, and technical boundaries (#543).
+- Redis price caching with 30-second TTL on `GET /api/v1/prices/xlm` to prevent third-party rate limits (#545).
 - Added `POST /api/v1/multisig/:id/execute` endpoint to submit fully-signed XDR to Horizon or record transaction hash (#485).
 - Added `POST /api/v1/multisig/:id/sign` endpoint for cosigners submitting partial XDR signatures (#483).
 - Added `POST /api/v1/multisig/propose` endpoint to create a multi-sig transaction proposal (#482).

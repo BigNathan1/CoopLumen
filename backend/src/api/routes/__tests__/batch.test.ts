@@ -2,6 +2,7 @@ import request from 'supertest';
 import { Keypair } from '@stellar/stellar-sdk';
 import app from '../../../app';
 import { buildBatchPayment, submitBatchPayment } from '../../../contracts/batchPayments';
+import { createSessionToken } from '../../utils/sessionToken';
 
 jest.mock('../../../db', () => ({
   db: { query: jest.fn(), ping: jest.fn() },
@@ -19,6 +20,10 @@ const SENDER_PUBLIC = SENDER_KEYPAIR.publicKey();
 const DEST1 = Keypair.random().publicKey();
 const DEST2 = Keypair.random().publicKey();
 
+// Disbursing requires a session for the signing account; the route checks the
+// secret's public key against the authenticated address.
+const AUTH_HEADER = `Bearer ${createSessionToken(SENDER_PUBLIC).token}`;
+
 describe('Batch Payments Endpoints (/api/v1/batch)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -30,6 +35,7 @@ describe('Batch Payments Endpoints (/api/v1/batch)', () => {
 
       const res = await request(app)
         .post('/api/v1/batch/disburse')
+        .set('Authorization', AUTH_HEADER)
         .send({
           senderSecret: SENDER_SECRET,
           payments: [
@@ -57,10 +63,13 @@ describe('Batch Payments Endpoints (/api/v1/batch)', () => {
     });
 
     it('returns 400 for validation errors', async () => {
-      const res = await request(app).post('/api/v1/batch/disburse').send({
-        senderSecret: 'invalid-secret',
-        payments: [],
-      });
+      const res = await request(app)
+        .post('/api/v1/batch/disburse')
+        .set('Authorization', AUTH_HEADER)
+        .send({
+          senderSecret: 'invalid-secret',
+          payments: [],
+        });
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe('Validation failed');

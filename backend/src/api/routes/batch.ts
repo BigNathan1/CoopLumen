@@ -26,65 +26,72 @@ export const batchRouter = Router();
  *
  * @route POST /api/v1/batch/disburse
  */
-batchRouter.post('/disburse', requireAuth, writeLimiter, async (req: Request, res: Response): Promise<void> => {
-  const parsed = batchDisburseSchema.safeParse(req.body);
+batchRouter.post(
+  '/disburse',
+  requireAuth,
+  writeLimiter,
+  async (req: Request, res: Response): Promise<void> => {
+    const parsed = batchDisburseSchema.safeParse(req.body);
 
-  if (!parsed.success) {
-    res.status(400).json({
-      data: null,
-      meta: {
-        errors: parsed.error.issues.map((issue) => ({
-          path: issue.path.join('.'),
-          message: issue.message,
+    if (!parsed.success) {
+      res.status(400).json({
+        data: null,
+        meta: {
+          errors: parsed.error.issues.map((issue) => ({
+            path: issue.path.join('.'),
+            message: issue.message,
+          })),
+        },
+        error: 'Validation failed',
+      });
+      return;
+    }
+
+    const { senderSecret, payments, memo } = parsed.data;
+
+    if (Keypair.fromSecret(senderSecret).publicKey() !== req.auth!.address) {
+      res
+        .status(403)
+        .json({ data: null, error: 'The signing account must match the authenticated account' });
+      return;
+    }
+
+    res.setHeader('Cache-Control', 'no-store');
+
+    try {
+      const hash = await submitBatchPayment({
+        senderSecret,
+        payments: payments.map((p) => ({
+          destinationPublicKey: p.destinationPublicKey,
+          amount: p.amount,
+          assetCode: p.assetCode,
+          assetIssuer: p.assetIssuer ?? '',
         })),
-      },
-      error: 'Validation failed',
-    });
-    return;
+        memo,
+      });
+
+      const totalAmount = payments
+        .reduce((sum, p) => sum + Number(p.amount), 0)
+        .toFixed(7)
+        .replace(/\.?0+$/, '');
+
+      res.status(200).json({
+        data: {
+          hash,
+          paymentsCount: payments.length,
+          totalAmount,
+          memo: memo ?? null,
+        },
+      });
+    } catch (error) {
+      const mapped = mapHorizonError(error);
+      res.status(mapped.status).json({
+        data: null,
+        error: mapped.message,
+      });
+    }
   }
-
-  const { senderSecret, payments, memo } = parsed.data;
-
-  if (Keypair.fromSecret(senderSecret).publicKey() !== req.auth!.address) {
-    res.status(403).json({ data: null, error: 'The signing account must match the authenticated account' });
-    return;
-  }
-
-  res.setHeader('Cache-Control', 'no-store');
-
-  try {
-    const hash = await submitBatchPayment({
-      senderSecret,
-      payments: payments.map((p) => ({
-        destinationPublicKey: p.destinationPublicKey,
-        amount: p.amount,
-        assetCode: p.assetCode,
-        assetIssuer: p.assetIssuer ?? '',
-      })),
-      memo,
-    });
-
-    const totalAmount = payments
-      .reduce((sum, p) => sum + Number(p.amount), 0)
-      .toFixed(7)
-      .replace(/\.?0+$/, '');
-
-    res.status(200).json({
-      data: {
-        hash,
-        paymentsCount: payments.length,
-        totalAmount,
-        memo: memo ?? null,
-      },
-    });
-  } catch (error) {
-    const mapped = mapHorizonError(error);
-    res.status(mapped.status).json({
-      data: null,
-      error: mapped.message,
-    });
-  }
-});
+);
 
 /**
  * POST /api/v1/batch/preview

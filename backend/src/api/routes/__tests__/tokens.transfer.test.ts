@@ -17,6 +17,7 @@ jest.mock('redis', () => ({
 jest.mock('../../../db', () => ({
   db: {
     ping: jest.fn().mockResolvedValue(true),
+    query: jest.fn().mockResolvedValue([]),
   },
 }));
 

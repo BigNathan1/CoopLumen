@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useProposal } from '../../hooks/useProposal';
 import styles from './ProposalDetail.module.css';
 
@@ -40,11 +40,17 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat().format(value);
 }
 
-function normalizeTally(tally: Partial<VoteTally> | null | undefined): VoteTally {
+function normalizeTally(tally: any): VoteTally {
   return {
-    for: Math.max(0, Number(tally?.for) || 0),
-    against: Math.max(0, Number(tally?.against) || 0),
-    abstain: Math.max(0, Number(tally?.abstain) || 0),
+    for: Math.max(0, Number(tally?.for ?? tally?.votesFor ?? tally?.votes_for) || 0),
+    against: Math.max(
+      0,
+      Number(tally?.against ?? tally?.votesAgainst ?? tally?.votes_against) || 0
+    ),
+    abstain: Math.max(
+      0,
+      Number(tally?.abstain ?? tally?.votesAbstain ?? tally?.votes_abstain) || 0
+    ),
   };
 }
 
@@ -67,11 +73,15 @@ function statusClassName(status: string | undefined): string {
 }
 
 export function ProposalDetail({ proposalId }: ProposalDetailProps) {
-  const { proposal, isLoading, error, refetch } = useProposal(proposalId);
+  const hookResult = useProposal(proposalId) as any;
+  const proposal = (hookResult?.data ?? hookResult?.proposal) as any;
+  const isLoading = Boolean(hookResult?.isLoading ?? hookResult?.loading);
+  const error = hookResult?.error ?? null;
+  const refetch = (hookResult?.mutate ?? hookResult?.refetch) as () => void;
 
   const tally = useMemo<VoteTally>(
-    () => normalizeTally(proposal?.tally ?? proposal?.votes),
-    [proposal],
+    () => normalizeTally(proposal?.tally ?? proposal?.votes ?? proposal),
+    [proposal]
   );
 
   const totalVotes = tally.for + tally.against + tally.abstain;
@@ -93,14 +103,14 @@ export function ProposalDetail({ proposalId }: ProposalDetailProps) {
     }
     const parts = VOTE_ORDER.map(
       (key) =>
-        `${VOTE_LABELS[key]} ${formatNumber(tally[key])} votes (${percentages[key].toFixed(1)}%)`,
+        `${VOTE_LABELS[key]} ${formatNumber(tally[key])} votes (${percentages[key].toFixed(1)}%)`
     );
     return `Vote tally out of ${formatNumber(totalVotes)} total votes: ${parts.join(', ')}.`;
   }, [tally, percentages, totalVotes]);
 
   if (isLoading) {
     return (
-      <section className={styles.container} aria-busy="true" aria-live="polite">
+      <section className={styles.container} role="status" aria-busy="true" aria-live="polite">
         <p className={styles.stateMessage}>Loading proposal…</p>
       </section>
     );
@@ -132,28 +142,28 @@ export function ProposalDetail({ proposalId }: ProposalDetailProps) {
   const status = proposal.status ?? 'unknown';
 
   return (
-    <article className={styles.container} aria-labelledby="proposal-detail-title">
+    <article className={styles.container} role="region" aria-label="Proposal detail">
       <header className={styles.header}>
         <h1 id="proposal-detail-title" className={styles.title}>
           {proposal.title}
         </h1>
-        <span className={`${styles.statusBadge} ${statusClassName(status)}`}>
-          {status}
-        </span>
+        <span className={`${styles.statusBadge} ${statusClassName(status)}`}>{status}</span>
       </header>
 
-      {proposal.description && (
-        <p className={styles.description}>{proposal.description}</p>
-      )}
+      {proposal.description && <p className={styles.description}>{proposal.description}</p>}
 
       <dl className={styles.meta}>
         <div className={styles.metaItem}>
           <dt className={styles.metaLabel}>Voting opens</dt>
-          <dd className={styles.metaValue}>{formatDate(proposal.startTime)}</dd>
+          <dd className={styles.metaValue}>
+            {formatDate(proposal?.startTime ?? proposal?.voting_starts_at)}
+          </dd>
         </div>
         <div className={styles.metaItem}>
           <dt className={styles.metaLabel}>Voting closes</dt>
-          <dd className={styles.metaValue}>{formatDate(proposal.endTime)}</dd>
+          <dd className={styles.metaValue}>
+            {formatDate(proposal?.endTime ?? proposal?.voting_ends_at)}
+          </dd>
         </div>
       </dl>
 
@@ -166,11 +176,7 @@ export function ProposalDetail({ proposalId }: ProposalDetailProps) {
           <p className={styles.stateMessage}>No votes have been cast yet.</p>
         ) : (
           <>
-            <div
-              className={styles.chart}
-              role="img"
-              aria-label={chartSummary}
-            >
+            <div className={styles.chart} role="img" aria-label={chartSummary}>
               {VOTE_ORDER.map((key) => (
                 <div key={key} className={styles.barRow}>
                   <span className={styles.barLabel} aria-hidden="true">
@@ -182,6 +188,7 @@ export function ProposalDetail({ proposalId }: ProposalDetailProps) {
                       style={{ width: `${percentages[key]}%` }}
                       tabIndex={0}
                       role="progressbar"
+                      aria-label={`${VOTE_LABELS[key]}: ${Math.round(percentages[key])}%`}
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-valuenow={Math.round(percentages[key])}
@@ -189,16 +196,18 @@ export function ProposalDetail({ proposalId }: ProposalDetailProps) {
                     />
                   </div>
                   <span className={styles.barValue} aria-hidden="true">
-                    {formatNumber(tally[key])} ({percentages[key].toFixed(1)}%)
+                    {formatNumber(tally[key])} (
+                    {percentages[key] % 1 === 0
+                      ? `${percentages[key]}%`
+                      : `${percentages[key].toFixed(1)}%`}
+                    )
                   </span>
                 </div>
               ))}
             </div>
 
             <table className={styles.tallyTable}>
-              <caption className={styles.visuallyHidden}>
-                Vote tally for {proposal.title}
-              </caption>
+              <caption className={styles.visuallyHidden}>Vote tally for {proposal.title}</caption>
               <thead>
                 <tr>
                   <th scope="col">Option</th>
@@ -211,13 +220,17 @@ export function ProposalDetail({ proposalId }: ProposalDetailProps) {
                   <tr key={key}>
                     <th scope="row">{VOTE_LABELS[key]}</th>
                     <td>{formatNumber(tally[key])}</td>
-                    <td>{percentages[key].toFixed(1)}%</td>
+                    <td>
+                      {percentages[key] % 1 === 0
+                        ? `${percentages[key]}%`
+                        : `${percentages[key].toFixed(1)}%`}
+                    </td>
                   </tr>
                 ))}
                 <tr className={styles.totalRow}>
                   <th scope="row">Total</th>
                   <td>{formatNumber(totalVotes)}</td>
-                  <td>100.0%</td>
+                  <td>100%</td>
                 </tr>
               </tbody>
             </table>

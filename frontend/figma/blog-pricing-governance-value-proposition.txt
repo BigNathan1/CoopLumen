@@ -1,0 +1,19 @@
+Frontend Design (Dark Mode)
+
+
+What's Included
+
+1. Blog, Changelog & Release Notes Preview — #916
+Adds a development updates area where visitors can follow product announcements, browse recent improvements, review release highlights, and stay informed about the project's progress.
+
+2. Pricing & Community Plans — #911
+Introduces a community plans page that communicates available participation options, contribution opportunities, and relevant benefits. It also incorporates newsletter registration, changelog access, and clear actions that encourage visitors to get involved.
+
+3. DAO Governance & Soroban Proposals — #914
+Creates a governance interface for presenting DAO proposals and their voting information. The design highlights proposal status, voting weights, quorum progress, snapshot information, and the planned role of Soroban in governance.
+
+4. Three-Pillar Value Proposition — #913
+Establishes Issue, Lend, and Govern as CoopLumen's three central community finance pillars, making the relationship between these capabilities easier to understand through a focused visual presentation.
+
+
+https://www.figma.com/design/JjGsxDKrypd1f3svC9xWaz/Coop-Lumen-Designs?node-id=0-1&p=f&t=FZOUntChCPpWW4cJ-0
