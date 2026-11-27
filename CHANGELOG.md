@@ -131,6 +131,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Add `useLoan(id)` hook for fetching individual loan details (#472)
 - Add `useLoans(communityId, filters)` hook for filtered community loan listings (#473)
 - Add loan analytics endpoint GET /api/v1/analytics/:communityId (#478)
+- Add setAccountSigners(account, signers[]) helper for Stellar treasury multi-sig setup (#479)
 - Added `POST /api/v1/multisig/:id/execute` endpoint to submit fully-signed XDR to Horizon or record transaction hash (#485).
 - Added `POST /api/v1/multisig/:id/sign` endpoint for cosigners submitting partial XDR signatures (#483).
 - Added `POST /api/v1/multisig/propose` endpoint to create a multi-sig transaction proposal (#482).
