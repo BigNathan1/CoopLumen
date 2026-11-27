@@ -1,6 +1,7 @@
-import { Router, Request, Response } from 'express';
-import { z } from 'zod';
+import { NextFunction, Request, Response, Router } from 'express';
 import { db } from '../../db';
+import { validateParams, validateQuery } from '../middleware/validate';
+import { analyticsParamsSchema, analyticsQuerySchema } from '../schemas/analytics';
 
 interface LoanSummaryRow {
   total_loans: number;
@@ -13,93 +14,52 @@ interface LoanSummaryRow {
 }
 
 export const analyticsRouter: Router = Router();
-const router = analyticsRouter;
 
-const paramsSchema = z.object({
-  communityId: z.string().uuid('communityId must be a valid UUID'),
-});
+/**
+ * GET /api/v1/analytics/:communityId
+ * Loan totals for a community, optionally limited to one asset. Outstanding is
+ * principal plus flat interest minus repayments on active loans, the same
+ * figure the loan endpoints report; the repayment rate is repaid loans over
+ * closed (repaid or defaulted) loans, or null when none have closed.
+ */
+analyticsRouter.get(
+  '/:communityId',
+  validateParams(analyticsParamsSchema),
+  validateQuery(analyticsQuerySchema),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { communityId } = req.params as { communityId: string };
+      const assetCode = typeof req.query.assetCode === 'string' ? req.query.assetCode : undefined;
 
-const querySchema = z.object({
-  assetCode: z.string().min(1).max(12).optional(),
-});
+      const values: unknown[] = [communityId];
+      const assetFilter = assetCode ? `AND asset_code = $${values.push(assetCode)}` : '';
 
-router.get('/:communityId', async (req: Request, res: Response) => {
-  const parsedParams = paramsSchema.safeParse(req.params);
-  if (!parsedParams.success) {
-    return res.status(400).json({
-      data: null,
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid communityId parameter',
-        details: parsedParams.error.flatten(),
-      },
-    });
+      const [row] = await db.query<LoanSummaryRow>(
+        `SELECT
+           COUNT(*)::int AS total_loans,
+           COUNT(*) FILTER (WHERE status = 'active')::int AS active_loans,
+           COUNT(*) FILTER (WHERE status = 'repaid')::int AS repaid_loans,
+           COUNT(*) FILTER (WHERE status = 'defaulted')::int AS defaulted_loans,
+           COALESCE(SUM(amount), 0)::text AS total_disbursed,
+           COALESCE(SUM(amount_repaid), 0)::text AS total_repaid,
+           COALESCE(SUM(GREATEST(amount * (1 + COALESCE(interest_rate, 0) / 100) - amount_repaid, 0))
+             FILTER (WHERE status = 'active'), 0)::text AS total_outstanding
+         FROM loans
+         WHERE community_id = $1 ${assetFilter}`,
+        values
+      );
+
+      const closed = row.repaid_loans + row.defaulted_loans;
+      res.json({
+        data: {
+          community_id: communityId,
+          asset_code: assetCode ?? null,
+          ...row,
+          repayment_rate: closed > 0 ? Number((row.repaid_loans / closed).toFixed(4)) : null,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
   }
-
-  const parsedQuery = querySchema.safeParse(req.query);
-  if (!parsedQuery.success) {
-    return res.status(400).json({
-      data: null,
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'Invalid query parameters',
-        details: parsedQuery.error.flatten(),
-      },
-    });
-  }
-
-  const { communityId } = parsedParams.data;
-  const { assetCode } = parsedQuery.data;
-
-  try {
-    const values: unknown[] = [communityId];
-    const assetFilter = assetCode ? `AND asset_code = $2` : '';
-    if (assetCode) values.push(assetCode);
-
-    const rows = await db.query<LoanSummaryRow>(
-      `
-      SELECT
-        COUNT(*)::int AS total_loans,
-        COUNT(*) FILTER (WHERE status = 'active')::int AS active_loans,
-        COUNT(*) FILTER (WHERE status = 'repaid')::int AS repaid_loans,
-        COUNT(*) FILTER (WHERE status = 'defaulted')::int AS defaulted_loans,
-        COALESCE(SUM(amount), 0)::text AS total_disbursed,
-        COALESCE(SUM(amount_repaid), 0)::text AS total_repaid,
-        COALESCE(SUM(GREATEST(amount * (1 + COALESCE(interest_rate, 0) / 100) - amount_repaid, 0)) FILTER (WHERE status = 'active'), 0)::text AS total_outstanding
-      FROM loans
-      WHERE community_id = $1 ${assetFilter}
-      `,
-      values
-    );
-
-    const row = rows[0];
-    const closedCount = (row.repaid_loans ?? 0) + (row.defaulted_loans ?? 0);
-    const repaymentRate =
-      closedCount > 0 ? Number((row.repaid_loans / closedCount).toFixed(4)) : null;
-
-    return res.status(200).json({
-      data: {
-        community_id: communityId,
-        asset_code: assetCode ?? null,
-        total_loans: row.total_loans,
-        active_loans: row.active_loans,
-        repaid_loans: row.repaid_loans,
-        defaulted_loans: row.defaulted_loans,
-        total_disbursed: row.total_disbursed,
-        total_repaid: row.total_repaid,
-        total_outstanding: row.total_outstanding,
-        repayment_rate: repaymentRate,
-      },
-    });
-  } catch (err) {
-    return res.status(500).json({
-      data: null,
-      error: {
-        code: 'INTERNAL_ERROR',
-        message: err instanceof Error ? err.message : 'Failed to compute loan analytics',
-      },
-    });
-  }
-});
-
-export default router;
+);
