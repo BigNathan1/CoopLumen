@@ -284,8 +284,9 @@ The end-to-end suite drives a browser against the whole stack. See
 - [Architecture](docs/architecture.md) — how the frontend, API, database and Stellar fit together
 - [Database](docs/database.md) — schema, conventions and migrations
 - [API reference](docs/openapi.yaml) — OpenAPI specification for every endpoint
-- [Wallet authentication](docs/auth-flow.md) — challenge and verify, session tokens, RBAC and 401 handling
-- [Rate limiting](docs/rate-limiting.md) — per-route limits and graduated slowdown
+- [Wallet authentication](docs/security/auth-flow.md) — challenge and verify, session tokens, RBAC and 401 handling
+- [Security](docs/security/README.md) — security model, authentication and transaction-signing reviews
+- [Rate limiting](docs/security/rate-limiting.md) — per-route limits and graduated slowdown
 - [Governance](docs/governance.md) — Soroban proposals, token-weighted voting, quorum and execution
 - [Governance contract](docs/governance-contract.md) — contract types, functions, errors, events and deployment
 - [Multi-signature and batch operations](docs/multisig.md) — treasury signing lifecycle and batch payments
