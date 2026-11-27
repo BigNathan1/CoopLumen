@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import CommunityTransactionsPage, { metadata } from './page';
+import CommunityTransactionsPage, { metadata } from '../page';
 import * as txHook from '@/hooks/useCommunityTransactions';
 import * as communityHook from '@/hooks/useCommunities';
 

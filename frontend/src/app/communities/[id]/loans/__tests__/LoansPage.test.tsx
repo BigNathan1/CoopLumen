@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { LoansPage } from './LoansPage';
+import { LoansPage } from '../LoansPage';
 import { useCommunity } from '@/hooks/useCommunities';
 import { useLoans } from '@/hooks/useLoans';
 import { useWallet } from '@/hooks/useWallet';

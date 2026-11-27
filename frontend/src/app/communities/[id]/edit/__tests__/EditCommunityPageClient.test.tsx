@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { api } from '@/lib/api';
-import { EditCommunityPageClient } from './EditCommunityPageClient';
+import { EditCommunityPageClient } from '../EditCommunityPageClient';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ back: jest.fn() }),
