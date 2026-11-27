@@ -104,7 +104,8 @@ export function LoanDetail({ loanId }: LoanDetailProps) {
               <div className={styles.dlRow}>
                 <dt className={styles.dt}>Amount</dt>
                 <dd className={styles.dd}>
-                  {formatAmount(loan.amount)} <span className={styles.asset}>{loan.asset_code}</span>
+                  {formatAmount(loan.amount)}{' '}
+                  <span className={styles.asset}>{loan.asset_code}</span>
                 </dd>
               </div>
               {rate > 0 && (
@@ -116,13 +117,15 @@ export function LoanDetail({ loanId }: LoanDetailProps) {
               <div className={styles.dlRow}>
                 <dt className={styles.dt}>Total due</dt>
                 <dd className={styles.dd}>
-                  {formatAmount(loan.total_due)} <span className={styles.asset}>{loan.asset_code}</span>
+                  {formatAmount(loan.total_due)}{' '}
+                  <span className={styles.asset}>{loan.asset_code}</span>
                 </dd>
               </div>
               <div className={styles.dlRow}>
                 <dt className={styles.dt}>Outstanding</dt>
                 <dd className={styles.dd}>
-                  {formatAmount(loan.outstanding)} <span className={styles.asset}>{loan.asset_code}</span>
+                  {formatAmount(loan.outstanding)}{' '}
+                  <span className={styles.asset}>{loan.asset_code}</span>
                 </dd>
               </div>
               <div className={styles.dlRow}>
@@ -201,10 +204,16 @@ export function LoanDetail({ loanId }: LoanDetailProps) {
               <ol className={styles.timeline} aria-label="Repayment events">
                 {repaymentEvents.map((event) => (
                   <li key={event.id} className={styles.timelineItem}>
-                    <div className={styles.timelineMarker} style={{ backgroundColor: EVENT_COLOR[event.event_type] }} />
+                    <div
+                      className={styles.timelineMarker}
+                      style={{ backgroundColor: EVENT_COLOR[event.event_type] }}
+                    />
                     <div className={styles.timelineContent}>
                       <div className={styles.timelineRow}>
-                        <span className={styles.timelineType} style={{ color: EVENT_COLOR[event.event_type] }}>
+                        <span
+                          className={styles.timelineType}
+                          style={{ color: EVENT_COLOR[event.event_type] }}
+                        >
                           {EVENT_LABEL[event.event_type] ?? event.event_type}
                         </span>
                         {event.amount && (
@@ -232,7 +241,10 @@ export function LoanDetail({ loanId }: LoanDetailProps) {
               <ol className={styles.eventList} aria-label="All loan events">
                 {loan.events.map((event) => (
                   <li key={event.id} className={styles.eventItem}>
-                    <span className={styles.eventType} style={{ color: EVENT_COLOR[event.event_type] }}>
+                    <span
+                      className={styles.eventType}
+                      style={{ color: EVENT_COLOR[event.event_type] }}
+                    >
                       {EVENT_LABEL[event.event_type] ?? event.event_type}
                     </span>
                     {event.amount && (

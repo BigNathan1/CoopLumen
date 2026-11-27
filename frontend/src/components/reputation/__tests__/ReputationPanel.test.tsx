@@ -17,10 +17,10 @@ const mockScore: ReputationScore = {
   updated_at: '2026-01-01T00:00:00.000Z',
 };
 
-type UseReputationReturn = ReturnType<typeof hook.useReputation>;
+type UseReputationReturn = ReturnType<typeof hook.useReputationLeaderboard>;
 
 function mockUseReputation(value: Partial<UseReputationReturn>): void {
-  jest.spyOn(hook, 'useReputation').mockReturnValue(value as UseReputationReturn);
+  jest.spyOn(hook, 'useReputationLeaderboard').mockReturnValue(value as UseReputationReturn);
 }
 
 afterEach(() => {

@@ -17,6 +17,7 @@ This guide outlines the process for commissioning an independent security audit 
 ### In Scope
 
 **Smart Contracts:**
+
 - Soroban governance contract (Rust)
   - Authorization and role-based access
   - Vote counting and double-vote prevention
@@ -25,6 +26,7 @@ This guide outlines the process for commissioning an independent security audit 
   - Incident pause functionality
 
 **Backend API (Node.js/Express):**
+
 - Authentication via Freighter wallet challenge/verify
 - Session token generation and validation
 - RBAC guards (requireRole, requireAdmin)
@@ -35,12 +37,14 @@ This guide outlines the process for commissioning an independent security audit 
 - Error handling (no secret leakage)
 
 **Frontend (Next.js/React):**
+
 - Wallet connection and Freighter integration
 - Session token management (HttpOnly cookies)
 - User input validation and XSS prevention
 - CSP and CORS headers
 
 **Infrastructure:**
+
 - Environment variable management and secrets
 - Docker configurations
 - CI/CD pipeline
@@ -204,7 +208,7 @@ Example firms with Stellar ecosystem experience:
 
 3. **Preparation for retest**
    - Compile list of fixes with PR references
-   - Highlight any findings *not* being fixed (with justification)
+   - Highlight any findings _not_ being fixed (with justification)
    - Prepare for auditor walkthrough
 
 ### Phase 6: Retest & Closure (1 week)
@@ -246,11 +250,11 @@ Example firms with Stellar ecosystem experience:
 
 ### Escalation Path
 
-| Severity | Action                                          | Timeline |
-| -------- | ----------------------------------------------- | -------- |
-| Critical | Notify team immediately; emergency meeting     | <4 hours |
-| High     | Discuss at weekly sync; escalate if blocking   | <1 day   |
-| Medium   | Include in weekly update; plan remediation     | <1 week  |
+| Severity | Action                                        | Timeline |
+| -------- | --------------------------------------------- | -------- |
+| Critical | Notify team immediately; emergency meeting    | <4 hours |
+| High     | Discuss at weekly sync; escalate if blocking  | <1 day   |
+| Medium   | Include in weekly update; plan remediation    | <1 week  |
 | Low      | Document; address in following sprint/release | <30 days |
 
 ---
@@ -296,6 +300,7 @@ Example firms with Stellar ecosystem experience:
 **Action:** Do not deploy to Mainnet until fixed and retested
 
 **Process:**
+
 1. Immediately escalate to decision maker
 2. Convene emergency meeting with auditor and team
 3. Confirm: Is exploit possible? What is real-world impact?
@@ -308,6 +313,7 @@ Example firms with Stellar ecosystem experience:
 **Action:** Document rationale and accept risk formally
 
 **Process:**
+
 1. Team decides to fix, delay launch, or accept risk
 2. If not fixing: Document in permanent record (why it's acceptable)
 3. Auditor confirms understanding in final report
@@ -318,6 +324,7 @@ Example firms with Stellar ecosystem experience:
 **Action:** Scope change to engagement; adjust timeline
 
 **Process:**
+
 1. Auditor and team discuss required changes
 2. Estimate remediation effort
 3. Decide: Fix now (delay launch) or accept risk (proceed with caution)

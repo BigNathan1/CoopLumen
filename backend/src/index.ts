@@ -16,10 +16,7 @@ const REQUIRED_ENV_VARS = [
  * These guard against accidental misconfiguration that could lead to
  * security vulnerabilities or data loss (e.g., Mainnet transactions in a dev environment).
  */
-const PRODUCTION_REQUIRED_ENV_VARS = [
-  'AUTH_SESSION_SECRET',
-  'ADMIN_ADDRESSES',
-] as const;
+const PRODUCTION_REQUIRED_ENV_VARS = ['AUTH_SESSION_SECRET', 'ADMIN_ADDRESSES'] as const;
 
 /**
  * Network-specific configuration validation for Mainnet.
@@ -76,9 +73,7 @@ function validateEnv(): void {
   // Validate Stellar network selection
   const network = process.env.STELLAR_NETWORK?.toLowerCase();
   if (!network || !['testnet', 'mainnet'].includes(network)) {
-    logger.error(
-      `Invalid STELLAR_NETWORK: "${network}". Must be "testnet" or "mainnet".`
-    );
+    logger.error(`Invalid STELLAR_NETWORK: "${network}". Must be "testnet" or "mainnet".`);
     process.exit(1);
   }
 

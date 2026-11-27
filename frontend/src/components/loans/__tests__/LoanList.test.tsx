@@ -136,7 +136,9 @@ describe('LoanList', () => {
 
     await userEvent.selectOptions(screen.getByLabelText('Filter by community'), 'community-1');
 
-    expect(useLoansSpy).toHaveBeenCalledWith(expect.objectContaining({ communityId: 'community-1' }));
+    expect(useLoansSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ communityId: 'community-1' })
+    );
   });
 
   it('tabpanel has correct aria-labelledby', () => {

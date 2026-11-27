@@ -17,6 +17,7 @@ Production monitoring for CoopLumen covers:
 5. **Performance** — Are request latencies normal?
 
 This guide provides:
+
 - Built-in health check endpoint
 - Structured logging for critical events
 - Monitoring setup (logging-based; no external service required)
@@ -75,11 +76,11 @@ This guide provides:
 
 ### Health Check Details
 
-| Check       | What It Tests                                      | Timeout | Impact if Down              |
-| ----------- | -------------------------------------------------- | ------- | --------------------------- |
-| **database** | PostgreSQL connectivity; can connect and execute | 5s      | Critical — app cannot work   |
-| **redis**   | Redis connectivity (if configured); cache status | 2s      | Degraded — rate limiting weak |
-| **stellar** | Stellar RPC (Horizon) connectivity; can reach    | 3s      | Degraded — user ops blocked  |
+| Check        | What It Tests                                    | Timeout | Impact if Down                |
+| ------------ | ------------------------------------------------ | ------- | ----------------------------- |
+| **database** | PostgreSQL connectivity; can connect and execute | 5s      | Critical — app cannot work    |
+| **redis**    | Redis connectivity (if configured); cache status | 2s      | Degraded — rate limiting weak |
+| **stellar**  | Stellar RPC (Horizon) connectivity; can reach    | 3s      | Degraded — user ops blocked   |
 
 ### Monitoring the Health Check
 
@@ -119,19 +120,19 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
 # In Kubernetes manifest
 spec:
   containers:
-  - name: backend
-    livenessProbe:
-      httpGet:
-        path: /api/v1/health
-        port: 4000
-      initialDelaySeconds: 10
-      periodSeconds: 30
-    readinessProbe:
-      httpGet:
-        path: /api/v1/health
-        port: 4000
-      initialDelaySeconds: 5
-      periodSeconds: 10
+    - name: backend
+      livenessProbe:
+        httpGet:
+          path: /api/v1/health
+          port: 4000
+        initialDelaySeconds: 10
+        periodSeconds: 30
+      readinessProbe:
+        httpGet:
+          path: /api/v1/health
+          port: 4000
+        initialDelaySeconds: 5
+        periodSeconds: 10
 ```
 
 #### Monitoring Service Integration (Datadog, New Relic, etc.)
@@ -164,12 +165,12 @@ setInterval(async () => {
 
 ### Log Levels
 
-| Level   | When to Use                                   | Example                                      |
-| ------- | --------------------------------------------- | -------------------------------------------- |
-| ERROR   | Operational failures; something broke         | Database connection lost; TX submission failed |
-| WARN    | Unexpected but recoverable; watch for patterns | Rate limit exceeded; Horizon timeout          |
-| INFO    | Normal operational events                     | Server started; user logged in               |
-| DEBUG   | Detailed diagnostic info (dev only)           | SQL query executed; cache hit/miss            |
+| Level | When to Use                                    | Example                                        |
+| ----- | ---------------------------------------------- | ---------------------------------------------- |
+| ERROR | Operational failures; something broke          | Database connection lost; TX submission failed |
+| WARN  | Unexpected but recoverable; watch for patterns | Rate limit exceeded; Horizon timeout           |
+| INFO  | Normal operational events                      | Server started; user logged in                 |
+| DEBUG | Detailed diagnostic info (dev only)            | SQL query executed; cache hit/miss             |
 
 ### Critical Events to Log
 
@@ -290,39 +291,39 @@ kubectl logs deployment/cooplumen-backend | tee backend-$(date +%s).log
 
 ### Application Metrics
 
-| Metric                           | Target          | Alert If...         |
-| -------------------------------- | --------------- | ------------------- |
-| **API availability**             | 99.9%+          | < 99.5% (over 1h)   |
-| **Request latency (p99)**        | < 500ms         | > 1000ms (over 5m)  |
-| **Error rate**                   | < 0.1%          | > 1% (over 5m)      |
-| **Active connections**           | Varies          | > 90% of max pool   |
-| **Memory usage**                 | Varies          | > 90% of limit      |
+| Metric                    | Target  | Alert If...        |
+| ------------------------- | ------- | ------------------ |
+| **API availability**      | 99.9%+  | < 99.5% (over 1h)  |
+| **Request latency (p99)** | < 500ms | > 1000ms (over 5m) |
+| **Error rate**            | < 0.1%  | > 1% (over 5m)     |
+| **Active connections**    | Varies  | > 90% of max pool  |
+| **Memory usage**          | Varies  | > 90% of limit     |
 
 ### Stellar-Specific Metrics
 
-| Metric                           | Target          | Alert If...         |
-| -------------------------------- | --------------- | ------------------- |
-| **Horizon connectivity**         | 99%+            | Cannot reach API    |
-| **Transaction success rate**     | > 98%           | < 95% (over 10m)    |
-| **Average submission latency**   | < 3 seconds     | > 10 seconds (over 5m) |
-| **Failed submissions**           | 0 per minute    | > 1 per minute      |
+| Metric                         | Target       | Alert If...            |
+| ------------------------------ | ------------ | ---------------------- |
+| **Horizon connectivity**       | 99%+         | Cannot reach API       |
+| **Transaction success rate**   | > 98%        | < 95% (over 10m)       |
+| **Average submission latency** | < 3 seconds  | > 10 seconds (over 5m) |
+| **Failed submissions**         | 0 per minute | > 1 per minute         |
 
 ### Database Metrics
 
-| Metric                           | Target          | Alert If...         |
-| -------------------------------- | --------------- | ------------------- |
-| **Connection pool utilization**  | 50–80%          | > 90% sustained     |
-| **Query latency (p99)**          | < 100ms         | > 500ms (over 5m)   |
-| **Failed connections**           | 0 per minute    | > 1 per minute      |
-| **Slow queries**                 | Rare            | > 5 per minute      |
+| Metric                          | Target       | Alert If...       |
+| ------------------------------- | ------------ | ----------------- |
+| **Connection pool utilization** | 50–80%       | > 90% sustained   |
+| **Query latency (p99)**         | < 100ms      | > 500ms (over 5m) |
+| **Failed connections**          | 0 per minute | > 1 per minute    |
+| **Slow queries**                | Rare         | > 5 per minute    |
 
 ### Governance Contract Metrics
 
-| Metric                           | Target          | Alert If...         |
-| -------------------------------- | --------------- | ------------------- |
-| **Proposal creation failures**   | 0 per minute    | > 1 per minute      |
-| **Vote submission failures**     | 0 per minute    | > 1 per minute      |
-| **Contract invocation latency**  | < 2 seconds     | > 5 seconds         |
+| Metric                          | Target       | Alert If...    |
+| ------------------------------- | ------------ | -------------- |
+| **Proposal creation failures**  | 0 per minute | > 1 per minute |
+| **Vote submission failures**    | 0 per minute | > 1 per minute |
+| **Contract invocation latency** | < 2 seconds  | > 5 seconds    |
 
 ---
 
@@ -331,23 +332,27 @@ kubectl logs deployment/cooplumen-backend | tee backend-$(date +%s).log
 ### Alert Policy
 
 **Critical (Page on-call immediately):**
+
 - Application crashed or not responding
 - Database unavailable
 - Stellar RPC unreachable
 - High error rate (> 5% over 5 minutes)
 
 **High (Investigate within 1 hour):**
+
 - Memory usage > 85%
 - Database connection pool exhausted
 - Significant latency increase (2x baseline)
 - Sustained elevated error rate (1–5%)
 
 **Medium (Investigate within business hours):**
+
 - Rate limiting actively blocking requests
 - Cache misses causing increased DB load
 - Non-critical dependency timeouts
 
 **Low (Log and review in incident retrospective):**
+
 - Deprecation warnings
 - Non-critical configuration issues
 - Performance optimization opportunities
@@ -366,11 +371,11 @@ consecutive_failures=0
 
 while true; do
   status=$(curl -s -o /dev/null -w "%{http_code}" "$ENDPOINT")
-  
+
   if [[ "$status" != "200" ]]; then
     ((consecutive_failures++))
     echo "❌ Health check failed (HTTP $status) — $consecutive_failures consecutive failures"
-    
+
     if [[ $consecutive_failures -ge $ALERT_THRESHOLD ]]; then
       # Send alert to Slack
       curl -X POST "$SLACK_WEBHOOK" \
@@ -383,7 +388,7 @@ while true; do
             \"ts\": $(date +%s)
           }]
         }"
-      
+
       # Reset counter after alerting
       consecutive_failures=0
     fi
@@ -404,7 +409,7 @@ while true; do
     fi
     consecutive_failures=0
   fi
-  
+
   sleep 30  # Check every 30 seconds
 done
 ```
@@ -602,6 +607,7 @@ git log --oneline -n 20
 ```
 
 **Resolution:**
+
 - Optimize hot code path
 - Scale horizontally (add more instances)
 - Increase CPU allocation (vertical scale)
@@ -625,6 +631,7 @@ kill -USR2 <backend-pid>  # Sends signal to Node.js
 ```
 
 **Resolution:**
+
 - Fix memory leak in code (dangling references)
 - Restart service periodically as workaround
 - Implement pooling for frequently allocated objects
@@ -646,6 +653,7 @@ docker exec postgres psql -U cooplumen -d cooplumen \
 ```
 
 **Resolution:**
+
 - Increase PGPOOL_MAX (if connections legitimately needed)
 - Optimize slow queries
 - Implement connection pooling (e.g., PgBouncer)

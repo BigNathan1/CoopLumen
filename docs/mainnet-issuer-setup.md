@@ -26,7 +26,7 @@ This guide covers account creation, funding, verification, and safe credential m
 **Minimum balance calculation:**
 
 ```
-Base Reserve (2 XLM) 
+Base Reserve (2 XLM)
   + Data Entries (0.5 XLM per entry; usually 0)
   + Trustlines (0.5 XLM per trustline; usually 1)
   + Operational buffer (2-5 XLM for transaction fees)
@@ -44,12 +44,13 @@ Base Reserve (2 XLM)
 
 The issuer account has two keys:
 
-| Key                  | Format                  | Use                                         |
-| -------------------- | ----------------------- | ------------------------------------------- |
-| **Public Key**       | Starts with `G`; 56 chars | Non-secret; recorded in config              |
-| **Private Key/Seed** | Starts with `S`; 56 chars | SECRET; stored securely; never in git       |
+| Key                  | Format                    | Use                                   |
+| -------------------- | ------------------------- | ------------------------------------- |
+| **Public Key**       | Starts with `G`; 56 chars | Non-secret; recorded in config        |
+| **Private Key/Seed** | Starts with `S`; 56 chars | SECRET; stored securely; never in git |
 
 **Important:** The private key is needed to sign transactions that issue tokens. Store it securely:
+
 - ✅ Hardware security module (HSM)
 - ✅ Vault (HashiCorp, AWS Secrets Manager, etc.)
 - ✅ Encrypted secrets file (not committed to git)
@@ -198,25 +199,34 @@ stellar contract invoke \
 #### Option C: Via JavaScript/Node.js
 
 ```javascript
-const { Keypair, TransactionBuilder, Operation, BASE_FEE, Networks, Server } = require('@stellar/stellar-sdk');
+const {
+  Keypair,
+  TransactionBuilder,
+  Operation,
+  BASE_FEE,
+  Networks,
+  Server,
+} = require('@stellar/stellar-sdk');
 
-const fundingKeypair = Keypair.fromSecret('SXXXXXXX...');  // Your funding account
-const issuerPublicKey = 'GXXXXXXX...';  // The issuer account public key
-const server = new Server('https://horizon.stellar.org');  // Mainnet
+const fundingKeypair = Keypair.fromSecret('SXXXXXXX...'); // Your funding account
+const issuerPublicKey = 'GXXXXXXX...'; // The issuer account public key
+const server = new Server('https://horizon.stellar.org'); // Mainnet
 
 async function fundIssuer() {
   try {
     const account = await server.loadAccount(fundingKeypair.publicKey());
-    
+
     const tx = new TransactionBuilder(account, {
       fee: BASE_FEE,
-      networkPassphrase: Networks.PUBLIC_GLOBAL,  // Mainnet passphrase
+      networkPassphrase: Networks.PUBLIC_GLOBAL, // Mainnet passphrase
     })
-      .addOperation(Operation.payment({
-        destination: issuerPublicKey,
-        asset: Operation.native(),  // XLM is native
-        amount: '10',
-      }))
+      .addOperation(
+        Operation.payment({
+          destination: issuerPublicKey,
+          asset: Operation.native(), // XLM is native
+          amount: '10',
+        })
+      )
       .setDefaultTimeout(30)
       .build();
 
@@ -270,7 +280,7 @@ curl "https://horizon.stellar.org/accounts/$ISSUER_PUBLIC_KEY" | jq .
 #   "balances": [
 #     {
 #       "balance": "10.0000000",
-#       "asset_type": "native",  
+#       "asset_type": "native",
 #       "asset_code": null,
 #       "asset_issuer": null
 #     }

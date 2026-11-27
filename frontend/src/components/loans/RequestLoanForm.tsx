@@ -73,7 +73,10 @@ export function RequestLoanForm({ communities }: RequestLoanFormProps) {
     <form className={styles.form} onSubmit={(e) => void handleSubmit(e)}>
       <h3 className={styles.title}>Request a Loan</h3>
       <p className={styles.hint}>
-        You are borrowing as {borrowerAddress ? `${borrowerAddress.slice(0, 6)}…${borrowerAddress.slice(-4)}` : 'unknown'}
+        You are borrowing as{' '}
+        {borrowerAddress
+          ? `${borrowerAddress.slice(0, 6)}…${borrowerAddress.slice(-4)}`
+          : 'unknown'}
       </p>
 
       <Select

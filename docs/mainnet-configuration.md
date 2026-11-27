@@ -28,6 +28,7 @@ AUTH_SESSION_SECRET=dev-secret-123  # Optional in dev; will use fallback
 ```
 
 **Properties:**
+
 - Uses Stellar Testnet (public Stellart network for testing)
 - Horizon URL points to `horizon-testnet.stellar.org`
 - Transaction fees are real (100 stroops) but on testnet XLM
@@ -47,6 +48,7 @@ ADMIN_ADDRESSES=GAAAA...,GBBBB...  # Staging admins
 ```
 
 **Properties:**
+
 - Replicates production configuration but on Testnet
 - Allows testing production workflows without real Mainnet access
 - Tests full deployment pipeline, monitoring, and incident response
@@ -66,6 +68,7 @@ STELLAR_MAINNET_ISSUER_PUBLIC_KEY=GBBBB...  # Mainnet issuer account
 ```
 
 **Properties:**
+
 - Uses Stellar Mainnet (real network; transactions permanent)
 - Horizon URL points to `horizon.stellar.org` (official public API)
 - Transaction fees are real (100 stroops) and in real XLM
@@ -132,36 +135,36 @@ curl http://<deployed-api>/api/v1/health
 
 ### Required on All Environments
 
-| Variable              | Value                                       | Validation                                  |
-| --------------------- | ------------------------------------------- | ------------------------------------------- |
-| `STELLAR_NETWORK`     | `testnet` or `mainnet`                      | Must be one of these two values             |
-| `STELLAR_HORIZON_URL` | `https://horizon-testnet.stellar.org` (test) OR `https://horizon.stellar.org` (main) | Must be valid HTTPS URL |
-| `FRONTEND_URL`        | Frontend origin (e.g., `http://localhost:3000` or `https://cooplumen.org`) | CORS-validated origin |
-| `DATABASE_URL`        | PostgreSQL connection string                | Must be valid `postgresql://` DSN           |
+| Variable              | Value                                                                                | Validation                        |
+| --------------------- | ------------------------------------------------------------------------------------ | --------------------------------- |
+| `STELLAR_NETWORK`     | `testnet` or `mainnet`                                                               | Must be one of these two values   |
+| `STELLAR_HORIZON_URL` | `https://horizon-testnet.stellar.org` (test) OR `https://horizon.stellar.org` (main) | Must be valid HTTPS URL           |
+| `FRONTEND_URL`        | Frontend origin (e.g., `http://localhost:3000` or `https://cooplumen.org`)           | CORS-validated origin             |
+| `DATABASE_URL`        | PostgreSQL connection string                                                         | Must be valid `postgresql://` DSN |
 
 ### Required in Production (`NODE_ENV=production`)
 
-| Variable              | Value                                       | Validation                                  |
-| --------------------- | ------------------------------------------- | ------------------------------------------- |
-| `AUTH_SESSION_SECRET` | Random 32+ byte secret (hex or base64)      | Must be non-empty; enforced at startup      |
-| `ADMIN_ADDRESSES`     | Comma-separated Stellar public keys         | Must not be empty; enforced at startup      |
+| Variable              | Value                                  | Validation                             |
+| --------------------- | -------------------------------------- | -------------------------------------- |
+| `AUTH_SESSION_SECRET` | Random 32+ byte secret (hex or base64) | Must be non-empty; enforced at startup |
+| `ADMIN_ADDRESSES`     | Comma-separated Stellar public keys    | Must not be empty; enforced at startup |
 
 ### Mainnet-Specific (Optional, used when `STELLAR_NETWORK=mainnet`)
 
-| Variable                             | Value                               | Validation                       |
-| ------------------------------------ | ----------------------------------- | -------------------------------- |
-| `STELLAR_MAINNET_GOVERNANCE_CONTRACT_ID` | Soroban contract ID (starts with `C`) | Optional; advisory only if set  |
-| `STELLAR_MAINNET_ISSUER_PUBLIC_KEY` | Stellar public key (starts with `G`) | Optional; advisory only if set  |
+| Variable                                 | Value                                 | Validation                     |
+| ---------------------------------------- | ------------------------------------- | ------------------------------ |
+| `STELLAR_MAINNET_GOVERNANCE_CONTRACT_ID` | Soroban contract ID (starts with `C`) | Optional; advisory only if set |
+| `STELLAR_MAINNET_ISSUER_PUBLIC_KEY`      | Stellar public key (starts with `G`)  | Optional; advisory only if set |
 
 ### Optional (Defaulted)
 
-| Variable              | Default                                   | Purpose                                     |
-| --------------------- | ----------------------------------------- | ------------------------------------------- |
-| `PORT`                | `4000`                                    | API server listen port                      |
-| `NODE_ENV`            | `development`                             | Environment mode (development/production)   |
-| `LOG_LEVEL`           | `info`                                    | Winston log level                           |
-| `REDIS_URL`           | Not set (in-process cache)                | Redis connection; optional for rate limiting |
-| `TRUST_PROXY`         | Not set                                   | Reverse proxy hops for X-Forwarded-For      |
+| Variable      | Default                    | Purpose                                      |
+| ------------- | -------------------------- | -------------------------------------------- |
+| `PORT`        | `4000`                     | API server listen port                       |
+| `NODE_ENV`    | `development`              | Environment mode (development/production)    |
+| `LOG_LEVEL`   | `info`                     | Winston log level                            |
+| `REDIS_URL`   | Not set (in-process cache) | Redis connection; optional for rate limiting |
+| `TRUST_PROXY` | Not set                    | Reverse proxy hops for X-Forwarded-For       |
 
 ---
 

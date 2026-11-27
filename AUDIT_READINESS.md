@@ -28,6 +28,7 @@ CoopLumen is a decentralized community finance platform built on the Stellar net
 ### In Scope
 
 **Smart Contracts:**
+
 - Soroban governance contract (`contracts/governance/src/lib.rs`)
   - Authorization controls and role-based access
   - Proposal creation, voting, and execution
@@ -35,6 +36,7 @@ CoopLumen is a decentralized community finance platform built on the Stellar net
   - Pause and delegation logic
 
 **Backend API:**
+
 - Authentication and session management (`backend/src/api/middleware/auth.ts`)
 - Authorization and role-based access control
 - Asset issuance and trustline management (`backend/src/contracts/assets.ts`, `trustlines.ts`)
@@ -45,12 +47,14 @@ CoopLumen is a decentralized community finance platform built on the Stellar net
 - Rate limiting and DOS protection
 
 **Frontend:**
+
 - Wallet connection and signature handling
 - Session token management
 - User input validation
 - Secure credential handling
 
 **Infrastructure:**
+
 - Environment variable management and secrets
 - Docker and deployment configurations
 - CI/CD pipeline security
@@ -104,21 +108,21 @@ CoopLumen is a decentralized community finance platform built on the Stellar net
 
 ### Trust Boundaries
 
-| Boundary                              | Description                                         |
-| ------------------------------------- | --------------------------------------------------- |
-| Frontend ↔ Backend (HTTPS)            | Authenticated via session token; CORS validated     |
-| Backend ↔ Database (TCP)              | Local network; parameterized queries only           |
-| Backend ↔ Stellar (HTTPS)             | Public API; transaction verification via signature  |
-| Server ↔ Wallet (Client-side signing) | Private keys never sent to backend                  |
+| Boundary                              | Description                                        |
+| ------------------------------------- | -------------------------------------------------- |
+| Frontend ↔ Backend (HTTPS)            | Authenticated via session token; CORS validated    |
+| Backend ↔ Database (TCP)              | Local network; parameterized queries only          |
+| Backend ↔ Stellar (HTTPS)             | Public API; transaction verification via signature |
+| Server ↔ Wallet (Client-side signing) | Private keys never sent to backend                 |
 
 ### Privileged Roles
 
-| Role        | Scope                       | Authority          |
-| ----------- | --------------------------- | ------------------- |
-| Admin       | Server-wide; operator only  | ADMIN_ADDRESSES env |
-| Treasurer   | Community-specific          | Community role DB   |
-| Member      | Community member read/write | Community role DB   |
-| Observer    | Community read-only         | Community role DB   |
+| Role      | Scope                       | Authority           |
+| --------- | --------------------------- | ------------------- |
+| Admin     | Server-wide; operator only  | ADMIN_ADDRESSES env |
+| Treasurer | Community-specific          | Community role DB   |
+| Member    | Community member read/write | Community role DB   |
+| Observer  | Community read-only         | Community role DB   |
 
 ---
 
@@ -126,92 +130,92 @@ CoopLumen is a decentralized community finance platform built on the Stellar net
 
 ### A. Authentication
 
-| Control                              | Implementation                                          |
-| ------------------------------------ | ------------------------------------------------------- |
-| **Wallet-based auth**                | Freighter wallet signs message; server verifies        |
-| **Challenge-response**               | 32-byte random nonce per request; TTL 5 minutes        |
-| **Session tokens**                   | JWT signed with AUTH_SESSION_SECRET; HttpOnly cookie   |
-| **Token expiry**                     | Configured per deployment; default 7 days             |
-| **Double submission protection**     | Token contains nonce; reuse invalidated               |
+| Control                          | Implementation                                       |
+| -------------------------------- | ---------------------------------------------------- |
+| **Wallet-based auth**            | Freighter wallet signs message; server verifies      |
+| **Challenge-response**           | 32-byte random nonce per request; TTL 5 minutes      |
+| **Session tokens**               | JWT signed with AUTH_SESSION_SECRET; HttpOnly cookie |
+| **Token expiry**                 | Configured per deployment; default 7 days            |
+| **Double submission protection** | Token contains nonce; reuse invalidated              |
 
 **Location:** `backend/src/api/routes/auth.ts`, `backend/src/api/utils/sessionToken.ts`
 
 ### B. Authorization
 
-| Control                              | Implementation                                          |
-| ------------------------------------ | ------------------------------------------------------- |
-| **RBAC**                             | requireRole() middleware checks community membership   |
-| **Admin gating**                     | requireAdmin() reads ADMIN_ADDRESSES at startup        |
-| **Role inheritance**                 | None; roles are flat (admin, treasurer, member)        |
-| **Least privilege**                  | Default deny; empty ADMIN_ADDRESSES blocks all ops     |
-| **Community isolation**              | Queries filtered by community_id + stellar_address    |
+| Control                 | Implementation                                       |
+| ----------------------- | ---------------------------------------------------- |
+| **RBAC**                | requireRole() middleware checks community membership |
+| **Admin gating**        | requireAdmin() reads ADMIN_ADDRESSES at startup      |
+| **Role inheritance**    | None; roles are flat (admin, treasurer, member)      |
+| **Least privilege**     | Default deny; empty ADMIN_ADDRESSES blocks all ops   |
+| **Community isolation** | Queries filtered by community_id + stellar_address   |
 
 **Location:** `backend/src/api/middleware/auth.ts`, `backend/src/db/`
 
 ### C. Input Validation
 
-| Control                              | Implementation                                          |
-| ------------------------------------ | ------------------------------------------------------- |
-| **Schema validation**                | Zod schemas per route; type-safe at compile time      |
-| **Boundary validation**              | Public keys, asset codes, amounts validated at API     |
-| **SQL injection prevention**         | Parameterized queries only; no raw SQL construction    |
-| **XSS prevention**                   | Helmet CSP headers; React default escaping             |
+| Control                      | Implementation                                      |
+| ---------------------------- | --------------------------------------------------- |
+| **Schema validation**        | Zod schemas per route; type-safe at compile time    |
+| **Boundary validation**      | Public keys, asset codes, amounts validated at API  |
+| **SQL injection prevention** | Parameterized queries only; no raw SQL construction |
+| **XSS prevention**           | Helmet CSP headers; React default escaping          |
 
 **Location:** `backend/src/api/schemas/`, `backend/src/api/middleware/validate.ts`
 
 ### D. Transaction Security
 
-| Control                              | Implementation                                          |
-| ------------------------------------ | ------------------------------------------------------- |
-| **Signature verification**           | All Stellar transactions verified by network           |
-| **Nonce / sequence number**          | Stellar sequence cache prevents replay                 |
-| **Memo/metadata validation**         | Text and ID memos validated; base64 allowed           |
-| **Idempotency**                      | Stellar TX hash as key; duplicate submission rejected  |
-| **Fee validation**                   | BASE_FEE (100 stroops) standard; no dynamic pricing    |
+| Control                      | Implementation                                        |
+| ---------------------------- | ----------------------------------------------------- |
+| **Signature verification**   | All Stellar transactions verified by network          |
+| **Nonce / sequence number**  | Stellar sequence cache prevents replay                |
+| **Memo/metadata validation** | Text and ID memos validated; base64 allowed           |
+| **Idempotency**              | Stellar TX hash as key; duplicate submission rejected |
+| **Fee validation**           | BASE_FEE (100 stroops) standard; no dynamic pricing   |
 
 **Location:** `backend/src/contracts/transactions.ts`, `backend/src/contracts/sequenceCache.ts`
 
 ### E. Secrets Management
 
-| Control                              | Implementation                                          |
-| ------------------------------------ | ------------------------------------------------------- |
-| **Private key handling**             | Never logged; only in memory during TX signing         |
-| **Environment variables**            | Loaded from .env; never committed; required at startup |
-| **Webhook secrets**                  | HMAC-SHA256 verification on incoming requests          |
-| **Session secret**                   | Random bytes; never exposed in logs or responses       |
+| Control                   | Implementation                                         |
+| ------------------------- | ------------------------------------------------------ |
+| **Private key handling**  | Never logged; only in memory during TX signing         |
+| **Environment variables** | Loaded from .env; never committed; required at startup |
+| **Webhook secrets**       | HMAC-SHA256 verification on incoming requests          |
+| **Session secret**        | Random bytes; never exposed in logs or responses       |
 
 **Location:** `backend/src/index.ts` (env validation), middleware stack
 
 ### F. Rate Limiting
 
-| Control                              | Implementation                                          |
-| ------------------------------------ | ------------------------------------------------------- |
-| **Per-route limits**                 | express-rate-limit configured per endpoint             |
-| **Per-IP tracking**                  | Redis-backed (falls back to in-process)                |
-| **Slow-down**                        | express-slow-down increases response time after limit  |
-| **Health check exemption**           | GET /health not rate-limited to allow monitoring       |
+| Control                    | Implementation                                        |
+| -------------------------- | ----------------------------------------------------- |
+| **Per-route limits**       | express-rate-limit configured per endpoint            |
+| **Per-IP tracking**        | Redis-backed (falls back to in-process)               |
+| **Slow-down**              | express-slow-down increases response time after limit |
+| **Health check exemption** | GET /health not rate-limited to allow monitoring      |
 
 **Location:** `backend/src/api/middleware/rateLimit.ts`, `backend/src/cache/`
 
 ### G. Error Handling
 
-| Control                              | Implementation                                          |
-| ------------------------------------ | ------------------------------------------------------- |
-| **No secret leakage**                | Error messages generic; stack traces logged only       |
-| **HTTP status codes**                | 401 auth, 403 authz, 409 conflict, 500 server errors   |
-| **CORS headers**                     | FRONTEND_URL validated; OPTIONS requests allowed       |
-| **Webhook error logging**            | Invalid signatures logged; requests rejected with 403  |
+| Control                   | Implementation                                        |
+| ------------------------- | ----------------------------------------------------- |
+| **No secret leakage**     | Error messages generic; stack traces logged only      |
+| **HTTP status codes**     | 401 auth, 403 authz, 409 conflict, 500 server errors  |
+| **CORS headers**          | FRONTEND_URL validated; OPTIONS requests allowed      |
+| **Webhook error logging** | Invalid signatures logged; requests rejected with 403 |
 
 **Location:** `backend/src/api/middleware/errorHandler.ts`
 
 ### H. Network Configuration
 
-| Control                              | Implementation                                          |
-| ------------------------------------ | ------------------------------------------------------- |
-| **Network selection**                | STELLAR_NETWORK env var; validated at startup          |
-| **Horizon URL**                      | Configurable per environment; defaults to official     |
-| **HTTPS only**                       | All Stellar communication via HTTPS                    |
-| **Retry logic**                      | Exponential backoff on transient failures              |
+| Control               | Implementation                                     |
+| --------------------- | -------------------------------------------------- |
+| **Network selection** | STELLAR_NETWORK env var; validated at startup      |
+| **Horizon URL**       | Configurable per environment; defaults to official |
+| **HTTPS only**        | All Stellar communication via HTTPS                |
+| **Retry logic**       | Exponential backoff on transient failures          |
 
 **Location:** `backend/src/contracts/stellar.ts`, `backend/src/index.ts`
 
@@ -224,6 +228,7 @@ CoopLumen is a decentralized community finance platform built on the Stellar net
 #### Authorization Controls
 
 **Implemented:**
+
 - ✅ `initialize()` — Only callable once; populates config and grants admin all roles
 - ✅ `grant_role()` / `revoke_role()` — Requires actor auth and appropriate admin/role holder status
 - ✅ `create_proposal()` — Requires proposer auth; no role check (any token holder can propose)
@@ -232,6 +237,7 @@ CoopLumen is a decentralized community finance platform built on the Stellar net
 - ✅ Role-based access — `Pause`, `Schema`, `Issuer`, `Revocation`, `Upgrade`, `Recovery` roles
 
 **Design:**
+
 - Role assignment is the single gate for each operation family
 - Admin can delegate operational roles; `Upgrade` and `Recovery` require admin
 - Failed operations leave no partial state behind (guards run before writes)
@@ -239,6 +245,7 @@ CoopLumen is a decentralized community finance platform built on the Stellar net
 #### Vote Integrity
 
 **Implemented:**
+
 - ✅ **Double-vote prevention:** `VoteUsed(proposal_id, voter)` key marks address as voted
 - ✅ **Balance checking:** Voter balance loaded at vote time; zero balance rejected
 - ✅ **Delegation integrity:** One-hop only; cycles prevented; delegators cannot vote directly
@@ -246,6 +253,7 @@ CoopLumen is a decentralized community finance platform built on the Stellar net
 - ✅ **Vote weight:** Voter balance + delegated balance from all delegators counted once
 
 **Design:**
+
 - Delegators resolved when ballot is cast, not when delegation made (reflects token transfers)
 - Undelegation does not retroactively invalidate prior votes
 - Tally is final once voting period closes
@@ -255,6 +263,7 @@ CoopLumen is a decentralized community finance platform built on the Stellar net
 **States:** `Active` → `Passed` | `Rejected` | `Executed`
 
 **Implemented:**
+
 - ✅ `Active` — New proposals start here; voting happens
 - ✅ `Passed` — Finalized when `votes_for > votes_against` after voting window
 - ✅ `Rejected` — Finalized when `votes_against >= votes_for` after voting window
@@ -262,17 +271,18 @@ CoopLumen is a decentralized community finance platform built on the Stellar net
 - ✅ Quorum requirement — `execute_proposal()` checks participation >= `quorum_bps`
 
 **Design:**
+
 - Finalization and execution are separate (proposal can be finalized but not yet executed)
 - Incident pause can prevent proposal creation but not finalization/execution (incident won't strand proposals)
 
 #### Known Limitations
 
-| Limitation                                   | Impact                                              | Mitigation                                  |
-| -------------------------------------------- | --------------------------------------------------- | ------------------------------------------- |
-| **Actions are opaque strings**               | No on-chain execution; off-chain parser required   | Document action schema; audit executor      |
-| **No cross-contract calls**                  | Governance cannot directly invoke other contracts  | Off-chain execution required                |
-| **No recurring proposals**                   | Governance cannot schedule operations              | Document manual renewal if needed           |
-| **No veto or delegation revocation by admin** | Delegations persist until delegator revokes        | Users must actively manage delegations      |
+| Limitation                                    | Impact                                            | Mitigation                             |
+| --------------------------------------------- | ------------------------------------------------- | -------------------------------------- |
+| **Actions are opaque strings**                | No on-chain execution; off-chain parser required  | Document action schema; audit executor |
+| **No cross-contract calls**                   | Governance cannot directly invoke other contracts | Off-chain execution required           |
+| **No recurring proposals**                    | Governance cannot schedule operations             | Document manual renewal if needed      |
+| **No veto or delegation revocation by admin** | Delegations persist until delegator revokes       | Users must actively manage delegations |
 
 ---
 
@@ -283,6 +293,7 @@ CoopLumen is a decentralized community finance platform built on the Stellar net
 **Endpoint:** `POST /api/v1/auth/verify`
 
 **Flow:**
+
 1. Client calls without auth → receives challenge (32-byte random nonce)
 2. Client signs challenge with Freighter
 3. Client submits signed envelope to verify
@@ -290,6 +301,7 @@ CoopLumen is a decentralized community finance platform built on the Stellar net
 5. Backend issues session JWT signed with AUTH_SESSION_SECRET
 
 **Validation:**
+
 - ✅ Signature verified using Stellar SDK (recovers public key from signature)
 - ✅ Nonce is random; new challenge per request
 - ✅ Challenge expires after 5 minutes (TTL enforced client-side; server-side optional)
@@ -300,12 +312,14 @@ CoopLumen is a decentralized community finance platform built on the Stellar net
 ### Authorization Middleware
 
 **`requireAuth()` middleware:**
+
 - Extracts session token from HttpOnly cookie OR Authorization header
 - Verifies token signature and expiry
 - Populates `req.auth.address` from token
 - Returns 401 if missing or invalid
 
 **`requireRole(roles)` middleware:**
+
 - Requires auth to run first
 - Queries DB for membership in community (parsed from `:id` param)
 - Validates caller is active member (deleted_at IS NULL)
@@ -314,6 +328,7 @@ CoopLumen is a decentralized community finance platform built on the Stellar net
 - Returns 404 if community doesn't exist (timing-safe)
 
 **`requireAdmin()` middleware:**
+
 - Requires auth to run first
 - Checks if caller address is in ADMIN_ADDRESSES
 - Returns 403 if not in list
@@ -321,6 +336,7 @@ CoopLumen is a decentralized community finance platform built on the Stellar net
 ### Input Validation
 
 **Schema validation via Zod:**
+
 ```
 POST /api/v1/tokens/build-issue
   ├─ issuerPublicKey: string (Stellar public key)
@@ -330,6 +346,7 @@ POST /api/v1/tokens/build-issue
 ```
 
 **Boundary checks:**
+
 - ✅ Public keys validated via Stellar SDK (Keypair.isValidPublicKey)
 - ✅ Asset codes validated (length, characters)
 - ✅ Amounts validated (positive, within Stellar limits)
@@ -340,6 +357,7 @@ POST /api/v1/tokens/build-issue
 ### Transaction Submission
 
 **Security properties:**
+
 - ✅ Transactions signed by client or server (never submitted unsigned)
 - ✅ Sequence numbers fetched fresh per TX (prevents replay)
 - ✅ Memo validated (text, ID, or base64)
@@ -347,6 +365,7 @@ POST /api/v1/tokens/build-issue
 - ✅ Duplicate submission detected via TX hash idempotency
 
 **Error handling:**
+
 - ✅ Failed submissions logged (no private key exposure)
 - ✅ User receives error code, not internal details
 - ✅ Retryable errors (429, 503) trigger exponential backoff
@@ -354,12 +373,14 @@ POST /api/v1/tokens/build-issue
 ### Webhook Signature Verification
 
 **Stellar callback webhooks:**
+
 - POST `/api/v1/webhooks/stellar` expects HMAC-SHA256 signature in header
 - Signature verified against STELLAR_WEBHOOK_SECRET
 - Invalid signatures rejected with 403 (no attempt to proceed)
 - Request body used as-is for HMAC (no additional encoding)
 
 **KYC webhooks:**
+
 - POST `/api/v1/webhooks/kyc` expects separate HMAC-SHA256 signature
 - Uses KYC_WEBHOOK_SECRET (different from Stellar webhook secret)
 - Same validation and rejection logic
@@ -371,6 +392,7 @@ POST /api/v1/tokens/build-issue
 ### Wallet Connection
 
 **Security model:**
+
 - ✅ Private keys remain in Freighter (browser extension)
 - ✅ Backend never sees private keys
 - ✅ All signing done in Freighter (client controls all signatures)
@@ -379,6 +401,7 @@ POST /api/v1/tokens/build-issue
 ### Session Token
 
 **Storage:**
+
 - ✅ Stored in HttpOnly, Secure, SameSite=Strict cookie (cannot access via JavaScript)
 - ✅ Set-Cookie header includes SameSite=Strict (CSRF mitigation)
 - ✅ Expires after configured TTL (default 7 days)
@@ -386,6 +409,7 @@ POST /api/v1/tokens/build-issue
 ### Content Security Policy
 
 **Helmet.js configuration:**
+
 - ✅ CSP headers prevent inline script execution
 - ✅ X-Frame-Options: DENY (no framing)
 - ✅ X-Content-Type-Options: nosniff (disable MIME sniffing)
@@ -394,6 +418,7 @@ POST /api/v1/tokens/build-issue
 ### Input Handling
 
 **User-submitted data:**
+
 - ✅ React default escaping prevents XSS
 - ✅ Zod schemas validate on client (client-side validation only; server re-validates)
 - ✅ URLs validated before use (prevents javascript: protocol)
@@ -402,6 +427,7 @@ POST /api/v1/tokens/build-issue
 ### Error Handling
 
 **Error messages:**
+
 - ✅ Generic error messages to user ("Operation failed")
 - ✅ Detailed errors logged in browser console (developer-only)
 - ✅ No sensitive data in error toasts (no stack traces, no API responses)
@@ -414,64 +440,64 @@ POST /api/v1/tokens/build-issue
 
 **Asset:** Community tokens on-chain
 
-| Threat                                  | Likelihood | Severity | Mitigation                                  |
-| --------------------------------------- | ---------- | -------- | ------------------------------------------- |
-| Unauthorized token issuance             | Low        | Critical | Only issuer can issue; auth required        |
-| Double-spending                         | Very Low   | Critical | Stellar ledger enforces ordering            |
-| Account takeover (issuer key)           | Medium     | Critical | Client-side signing; cold storage recommended |
-| Invalid balance queries                 | Low        | High     | Query Horizon; verify with ledger           |
+| Threat                        | Likelihood | Severity | Mitigation                                    |
+| ----------------------------- | ---------- | -------- | --------------------------------------------- |
+| Unauthorized token issuance   | Low        | Critical | Only issuer can issue; auth required          |
+| Double-spending               | Very Low   | Critical | Stellar ledger enforces ordering              |
+| Account takeover (issuer key) | Medium     | Critical | Client-side signing; cold storage recommended |
+| Invalid balance queries       | Low        | High     | Query Horizon; verify with ledger             |
 
 ### Governance Integrity
 
 **Asset:** Proposal voting results
 
-| Threat                                  | Likelihood | Severity | Mitigation                                  |
-| --------------------------------------- | ---------- | -------- | ------------------------------------------- |
-| Double voting                           | Very Low   | Critical | VoteUsed key per proposal prevents re-vote  |
-| Vote manipulation                       | Very Low   | Critical | Stellar ledger immutable; contract verifies |
-| Unauthorized proposal execution         | Low        | High     | Requires executor auth + quorum check       |
-| Delegation bypass                       | Low        | High     | One-hop only; cycles prevented              |
+| Threat                          | Likelihood | Severity | Mitigation                                  |
+| ------------------------------- | ---------- | -------- | ------------------------------------------- |
+| Double voting                   | Very Low   | Critical | VoteUsed key per proposal prevents re-vote  |
+| Vote manipulation               | Very Low   | Critical | Stellar ledger immutable; contract verifies |
+| Unauthorized proposal execution | Low        | High     | Requires executor auth + quorum check       |
+| Delegation bypass               | Low        | High     | One-hop only; cycles prevented              |
 
 ### Authentication & Authorization
 
 **Asset:** User sessions and administrative access
 
-| Threat                                  | Likelihood | Severity | Mitigation                                  |
-| --------------------------------------- | ---------- | -------- | ------------------------------------------- |
-| Session token forgery                   | Very Low   | High     | HMAC-SHA256 signature with secret           |
-| Unauthorized admin action               | Medium     | High     | ADMIN_ADDRESSES must be explicitly set      |
-| RBAC bypass                             | Low        | High     | requireRole checks membership on each call  |
-| Cross-site request forgery (CSRF)       | Low        | High     | HttpOnly, SameSite=Strict cookies           |
+| Threat                            | Likelihood | Severity | Mitigation                                 |
+| --------------------------------- | ---------- | -------- | ------------------------------------------ |
+| Session token forgery             | Very Low   | High     | HMAC-SHA256 signature with secret          |
+| Unauthorized admin action         | Medium     | High     | ADMIN_ADDRESSES must be explicitly set     |
+| RBAC bypass                       | Low        | High     | requireRole checks membership on each call |
+| Cross-site request forgery (CSRF) | Low        | High     | HttpOnly, SameSite=Strict cookies          |
 
 ### Data Confidentiality
 
 **Asset:** User private keys and sensitive data
 
-| Threat                                  | Likelihood | Severity | Mitigation                                  |
-| --------------------------------------- | ---------- | -------- | ------------------------------------------- |
-| Private key logging                     | Very Low   | Critical | Code review; lint for logging patterns      |
-| Session token exposure                  | Low        | High     | HttpOnly, Secure, SameSite cookies          |
-| Password re-use (user issue)            | Medium     | Medium   | Educate users; no password handling         |
+| Threat                       | Likelihood | Severity | Mitigation                             |
+| ---------------------------- | ---------- | -------- | -------------------------------------- |
+| Private key logging          | Very Low   | Critical | Code review; lint for logging patterns |
+| Session token exposure       | Low        | High     | HttpOnly, Secure, SameSite cookies     |
+| Password re-use (user issue) | Medium     | Medium   | Educate users; no password handling    |
 
 ### Data Integrity
 
 **Asset:** Loan and community records
 
-| Threat                                  | Likelihood | Severity | Mitigation                                  |
-| --------------------------------------- | ---------- | -------- | ------------------------------------------- |
-| SQL injection                           | Very Low   | Critical | Parameterized queries only                  |
-| Unauthorized community modification     | Low        | High     | requireRole checks before updates           |
-| Loan record tampering                   | Low        | High     | Database ACLs; audit logs in application    |
+| Threat                              | Likelihood | Severity | Mitigation                               |
+| ----------------------------------- | ---------- | -------- | ---------------------------------------- |
+| SQL injection                       | Very Low   | Critical | Parameterized queries only               |
+| Unauthorized community modification | Low        | High     | requireRole checks before updates        |
+| Loan record tampering               | Low        | High     | Database ACLs; audit logs in application |
 
 ### Availability
 
 **Asset:** Service uptime and responsiveness
 
-| Threat                                  | Likelihood | Severity | Mitigation                                  |
-| --------------------------------------- | ---------- | -------- | ------------------------------------------- |
-| DOS via rate limiting                   | Medium     | Medium   | Rate limits per endpoint; slowdown backoff  |
-| Contract deployment failure             | Medium     | High     | Deploy scripts tested; manual approval      |
-| Stellar network outage                  | Low        | High     | Retry logic; health check monitoring        |
+| Threat                      | Likelihood | Severity | Mitigation                                 |
+| --------------------------- | ---------- | -------- | ------------------------------------------ |
+| DOS via rate limiting       | Medium     | Medium   | Rate limits per endpoint; slowdown backoff |
+| Contract deployment failure | Medium     | High     | Deploy scripts tested; manual approval     |
+| Stellar network outage      | Low        | High     | Retry logic; health check monitoring       |
 
 ---
 
@@ -479,28 +505,28 @@ POST /api/v1/tokens/build-issue
 
 ### High-Priority (Must Address Before Mainnet Launch)
 
-| Issue                                   | Description                                         | Current Status          |
-| --------------------------------------- | --------------------------------------------------- | ----------------------- |
-| **External audit not yet commissioned** | Security review is internal; audit firm TBD         | ⚠️ Scheduled for Phase 2 |
+| Issue                                   | Description                                         | Current Status             |
+| --------------------------------------- | --------------------------------------------------- | -------------------------- |
+| **External audit not yet commissioned** | Security review is internal; audit firm TBD         | ⚠️ Scheduled for Phase 2   |
 | **ADMIN_ADDRESSES not set in prod**     | Operator routes fail open if env var not configured | ✅ Now required at startup |
-| **AUTH_SESSION_SECRET not required**    | Falls back to insecure default in non-prod          | ✅ Now required in prod  |
+| **AUTH_SESSION_SECRET not required**    | Falls back to insecure default in non-prod          | ✅ Now required in prod    |
 
 ### Medium-Priority (Recommend Before Production)
 
-| Issue                                   | Description                                         | Current Status          |
-| --------------------------------------- | --------------------------------------------------- | ----------------------- |
-| **Actions are opaque strings**          | Governance contract actions are off-chain executed  | ⚠️ Documented limitation |
-| **No contract upgrade mechanism**       | Mainnet deployments immutable after first deploy    | ⚠️ Planned for Phase 3   |
-| **Key management not HSM-integrated**   | Issuer keys managed application-side (not ideal)    | ⚠️ Document best practices |
-| **Single admin account**                | No multi-sig for critical operations yet            | ⚠️ Phase 2 capability    |
+| Issue                                 | Description                                        | Current Status             |
+| ------------------------------------- | -------------------------------------------------- | -------------------------- |
+| **Actions are opaque strings**        | Governance contract actions are off-chain executed | ⚠️ Documented limitation   |
+| **No contract upgrade mechanism**     | Mainnet deployments immutable after first deploy   | ⚠️ Planned for Phase 3     |
+| **Key management not HSM-integrated** | Issuer keys managed application-side (not ideal)   | ⚠️ Document best practices |
+| **Single admin account**              | No multi-sig for critical operations yet           | ⚠️ Phase 2 capability      |
 
 ### Low-Priority (Operational)
 
-| Issue                                   | Description                                         | Current Status          |
-| --------------------------------------- | --------------------------------------------------- | ----------------------- |
-| **Testnet/Mainnet data leak risk**      | Manual process to avoid mixing networks             | ✅ Environment validation |
-| **Rate limits may be too permissive**   | Monitor real usage to calibrate                     | ⚠️ Baseline set; adjust in prod |
-| **No automatic incident response**      | Pause mechanism requires manual authorization       | ⚠️ By design (no automation) |
+| Issue                                 | Description                                   | Current Status                  |
+| ------------------------------------- | --------------------------------------------- | ------------------------------- |
+| **Testnet/Mainnet data leak risk**    | Manual process to avoid mixing networks       | ✅ Environment validation       |
+| **Rate limits may be too permissive** | Monitor real usage to calibrate               | ⚠️ Baseline set; adjust in prod |
+| **No automatic incident response**    | Pause mechanism requires manual authorization | ⚠️ By design (no automation)    |
 
 ---
 
@@ -511,6 +537,7 @@ POST /api/v1/tokens/build-issue
 **Location:** `backend/src/__tests__/`
 
 **Tested:**
+
 - ✅ Session token generation, verification, and expiry
 - ✅ RBAC (requireRole guards correct roles)
 - ✅ Admin authorization (requireAdmin checks ADMIN_ADDRESSES)
@@ -526,6 +553,7 @@ POST /api/v1/tokens/build-issue
 **Location:** `contracts/governance/tests/`
 
 **Tested:**
+
 - ✅ Vote counting and finalization
 - ✅ Double-vote prevention
 - ✅ Delegation cycles and self-delegation rejection
@@ -538,6 +566,7 @@ POST /api/v1/tokens/build-issue
 **Location:** `frontend/e2e/`
 
 **Tested:**
+
 - ✅ Freighter wallet connection
 - ✅ Session token issuance and refresh
 - ✅ Community creation and membership
@@ -619,13 +648,13 @@ POST /api/v1/tokens/build-issue
 
 ### Timeline & Budget
 
-| Phase       | Effort          | Timeline       |
-| ----------- | --------------- | -------------- |
-| Scope & RFP | 1 week          | May 27 – Jun 3 |
-| Audit       | 2–4 weeks       | Jun 3 – Jun 24 |
-| Fixes       | 1–2 weeks       | Jun 24 – Jul 8 |
-| Retest      | 1 week          | Jul 8 – Jul 15 |
-| **Total**   | **5–9 weeks**   | **May – July** |
+| Phase       | Effort        | Timeline       |
+| ----------- | ------------- | -------------- |
+| Scope & RFP | 1 week        | May 27 – Jun 3 |
+| Audit       | 2–4 weeks     | Jun 3 – Jun 24 |
+| Fixes       | 1–2 weeks     | Jun 24 – Jul 8 |
+| Retest      | 1 week        | Jul 8 – Jul 15 |
+| **Total**   | **5–9 weeks** | **May – July** |
 
 **Estimated budget:** $15,000 – $40,000 USD (varies by firm and scope)
 

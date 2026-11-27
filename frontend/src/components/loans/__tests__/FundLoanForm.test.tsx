@@ -47,7 +47,9 @@ function mockWallet(overrides: Partial<ReturnType<typeof walletHook.useWallet>> 
   });
 }
 
-function mockLoanActions(overrides: Partial<ReturnType<typeof loanActionsHook.useLoanActions>> = {}) {
+function mockLoanActions(
+  overrides: Partial<ReturnType<typeof loanActionsHook.useLoanActions>> = {}
+) {
   jest.spyOn(loanActionsHook, 'useLoanActions').mockReturnValue({
     disburse: jest.fn().mockResolvedValue({ ...baseLoan, status: 'active' }),
     pending: false,
@@ -143,7 +145,9 @@ describe('FundLoanForm', () => {
   });
 
   it('shows loading state while disbursing', async () => {
-    const disbursePromise = new Promise<Loan>((resolve) => { setTimeout(resolve, 100); });
+    const disbursePromise = new Promise<Loan>((resolve) => {
+      setTimeout(resolve, 100);
+    });
     const disburse = jest.fn().mockReturnValue(disbursePromise);
     mockWallet();
     mockLoanActions({ disburse, pending: true });

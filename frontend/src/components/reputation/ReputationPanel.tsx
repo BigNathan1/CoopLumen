@@ -1,6 +1,6 @@
 'use client';
 
-import { useReputation } from '@/hooks/useReputation';
+import { useReputationLeaderboard } from '@/hooks/useReputation';
 import styles from './ReputationPanel.module.css';
 
 interface Props {
@@ -13,7 +13,7 @@ function shortAddress(address: string): string {
 }
 
 export function ReputationPanel({ communityId }: Props) {
-  const { data: scores, error, isLoading } = useReputation(communityId);
+  const { data: scores, error, isLoading } = useReputationLeaderboard(communityId);
 
   if (isLoading) {
     return <div className={styles.state}>Loading reputation…</div>;

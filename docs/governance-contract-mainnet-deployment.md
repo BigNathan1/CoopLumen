@@ -25,12 +25,14 @@ The governance contract is a Soroban smart contract that powers on-chain proposa
 ### Tools
 
 - ✅ **soroban-cli** installed and up-to-date
+
   ```bash
   soroban --version
   # Should be ≥ v21.0.0
   ```
 
 - ✅ **Rust toolchain** (for compiling contract)
+
   ```bash
   rustup --version
   cargo --version
@@ -244,7 +246,8 @@ echo "✅ Mainnet Contract ID: $MAINNET_CONTRACT_ID"
 # Output example: CABC123...XYZ
 ```
 
-**IMPORTANT:** 
+**IMPORTANT:**
+
 - This transaction costs real XLM (≈0.001 XLM base fee)
 - The transaction is permanent; cannot be reversed
 - The contract ID is permanent and tied to this deployment
@@ -558,6 +561,7 @@ Keep a record of deployment:
 **Cause:** WASM binary is corrupted or incompatible
 
 **Fix:**
+
 1. Clean and rebuild: `cargo clean && cargo build --release`
 2. Verify Soroban SDK version: `grep soroban-sdk Cargo.toml`
 3. Ensure Rust toolchain is up-to-date: `rustup update`
@@ -567,6 +571,7 @@ Keep a record of deployment:
 **Cause:** Deployment account has < 2 XLM
 
 **Fix:**
+
 1. Fund the account with more XLM
 2. Wait for transaction to confirm (~5 seconds)
 3. Retry deployment
@@ -576,6 +581,7 @@ Keep a record of deployment:
 **Cause:** Cannot reach Stellar Mainnet
 
 **Fix:**
+
 1. Check internet connection
 2. Verify Mainnet is operational: `curl https://horizon.stellar.org/`
 3. Try again after a few seconds
@@ -585,6 +591,7 @@ Keep a record of deployment:
 **Cause:** Invalid initialization parameters
 
 **Fix:**
+
 1. Check parameter types (must match Config struct)
 2. Check addresses start with 'G' (public keys) or 'C' (contract IDs)
 3. Check numeric values are in valid ranges
@@ -595,6 +602,7 @@ Keep a record of deployment:
 **Cause:** Network-specific issue or contract state differs
 
 **Fix:**
+
 1. Verify contract ID matches Mainnet
 2. Verify initialization parameters are correct for Mainnet
 3. Check Stellar network compatibility

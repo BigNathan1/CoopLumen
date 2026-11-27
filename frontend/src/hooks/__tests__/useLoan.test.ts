@@ -1,14 +1,13 @@
 import { renderHook } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import useSWR from 'swr';
 import { fetcher } from '@/lib/swr';
 import { useLoan } from '../useLoan';
 
-vi.mock('swr', () => ({ default: vi.fn() }));
-vi.mock('@/lib/swr', () => ({ fetcher: vi.fn() }));
+jest.mock('swr', () => ({ __esModule: true, default: jest.fn() }));
+jest.mock('@/lib/swr', () => ({ fetcher: jest.fn() }));
 
 describe('useLoan', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => jest.clearAllMocks());
 
   it('requests /api/v1/loans/:id when id is provided and enabled', () => {
     renderHook(() => useLoan('loan-123'));

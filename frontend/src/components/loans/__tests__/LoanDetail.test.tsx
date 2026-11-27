@@ -99,7 +99,12 @@ describe('LoanDetail', () => {
   });
 
   it('renders interest rate when > 0', () => {
-    const loanWithInterest = { ...baseLoan, interest_rate: '10.00', total_due: '110.0000000', outstanding: '70.0000000' };
+    const loanWithInterest = {
+      ...baseLoan,
+      interest_rate: '10.00',
+      total_due: '110.0000000',
+      outstanding: '70.0000000',
+    };
     jest.spyOn(loansHook, 'useLoan').mockReturnValue({
       data: loanWithInterest,
       error: null,
@@ -127,7 +132,13 @@ describe('LoanDetail', () => {
   });
 
   it('shows 100% progress when fully repaid', () => {
-    const repaidLoan = { ...baseLoan, status: 'repaid', amount_repaid: '100.0000000', outstanding: '0', closed_at: '2026-06-01T00:00:00.000Z' };
+    const repaidLoan = {
+      ...baseLoan,
+      status: 'repaid',
+      amount_repaid: '100.0000000',
+      outstanding: '0',
+      closed_at: '2026-06-01T00:00:00.000Z',
+    };
     jest.spyOn(loansHook, 'useLoan').mockReturnValue({
       data: repaidLoan,
       error: null,

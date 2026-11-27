@@ -23,7 +23,11 @@ export function LoanList({ communities = [] }: LoanListProps) {
   const [status, setStatus] = useState<LoanStatus | ''>('');
   const [communityId, setCommunityId] = useState('');
 
-  const { data: loans, error, isLoading } = useLoans({
+  const {
+    data: loans,
+    error,
+    isLoading,
+  } = useLoans({
     status: status || undefined,
     communityId: communityId || undefined,
   });
@@ -31,7 +35,9 @@ export function LoanList({ communities = [] }: LoanListProps) {
   return (
     <section className={styles.container} aria-labelledby="loan-list-title">
       <header className={styles.header}>
-        <h2 id="loan-list-title" className={styles.title}>Loans</h2>
+        <h2 id="loan-list-title" className={styles.title}>
+          Loans
+        </h2>
         <span className={styles.count}>{loans?.length ?? 0} shown</span>
       </header>
 

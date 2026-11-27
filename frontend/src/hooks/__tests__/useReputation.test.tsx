@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { useReputation } from '../useReputation';
 
@@ -18,6 +17,8 @@ function ReputationProbe({ address }: { address?: string | null }) {
 describe('useReputation', () => {
   beforeEach(() => {
     jest.restoreAllMocks();
+    // jsdom has no fetch of its own; give spyOn a function to wrap.
+    global.fetch = jest.fn() as unknown as typeof fetch;
   });
 
   test('skips fetch when address is empty or invalid', () => {

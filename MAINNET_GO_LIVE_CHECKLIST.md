@@ -11,6 +11,7 @@
 This checklist ensures CoopLumen is secure, operational, and ready for production launch. Every item must be completed before the go/no-go decision.
 
 **Phases:**
+
 1. **Security & Audit** — Verify security controls
 2. **Configuration** — Verify Mainnet configuration
 3. **Deployment** — Verify deployment readiness
@@ -43,6 +44,7 @@ This checklist ensures CoopLumen is secure, operational, and ready for productio
 - [ ] **Audit sign-off obtained** — Final report received
 
 **If audit not yet complete:**
+
 - [ ] Timeline to completion: [DATE]
 - [ ] Impact on launch: [TIMELINE IMPACT]
 - [ ] Mitigation: Launch on Testnet first, migrate to Mainnet after audit
@@ -303,13 +305,13 @@ This checklist ensures CoopLumen is secure, operational, and ready for productio
 
 ## Sign-Off
 
-| Role | Printed Name | Signature | Date |
-| --- | --- | --- | --- |
-| **CTO / Tech Lead** | _________________ | _________________ | ____ |
-| **Product Lead** | _________________ | _________________ | ____ |
-| **Security Lead** | _________________ | _________________ | ____ |
-| **Operations** | _________________ | _________________ | ____ |
-| **Executive Sponsor** | _________________ | _________________ | ____ |
+| Role                  | Printed Name               | Signature                  | Date     |
+| --------------------- | -------------------------- | -------------------------- | -------- |
+| **CTO / Tech Lead**   | **\*\*\*\***\_**\*\*\*\*** | **\*\*\*\***\_**\*\*\*\*** | \_\_\_\_ |
+| **Product Lead**      | **\*\*\*\***\_**\*\*\*\*** | **\*\*\*\***\_**\*\*\*\*** | \_\_\_\_ |
+| **Security Lead**     | **\*\*\*\***\_**\*\*\*\*** | **\*\*\*\***\_**\*\*\*\*** | \_\_\_\_ |
+| **Operations**        | **\*\*\*\***\_**\*\*\*\*** | **\*\*\*\***\_**\*\*\*\*** | \_\_\_\_ |
+| **Executive Sponsor** | **\*\*\*\***\_**\*\*\*\*** | **\*\*\*\***\_**\*\*\*\*** | \_\_\_\_ |
 
 ---
 

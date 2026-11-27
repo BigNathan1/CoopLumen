@@ -26,7 +26,10 @@ export function FundLoanForm({ loan }: Props) {
     e.preventDefault();
     setSuccess(false);
 
-    const result = await disburse({ stellarTxHash: stellarTxHash.trim() || undefined, note: note.trim() || undefined });
+    const result = await disburse({
+      stellarTxHash: stellarTxHash.trim() || undefined,
+      note: note.trim() || undefined,
+    });
 
     if (result) {
       setSuccess(true);
@@ -64,14 +67,18 @@ export function FundLoanForm({ loan }: Props) {
     <form className={styles.form} onSubmit={(e) => void handleSubmit(e)}>
       <h3 className={styles.title}>Fund Loan</h3>
       <p className={styles.hint}>
-        You are lending as {lenderAddress ? `${lenderAddress.slice(0, 6)}…${lenderAddress.slice(-4)}` : 'unknown'}
+        You are lending as{' '}
+        {lenderAddress ? `${lenderAddress.slice(0, 6)}…${lenderAddress.slice(-4)}` : 'unknown'}
       </p>
 
       <div className={styles.summary}>
         <div className={styles.summaryRow}>
           <span className={styles.summaryLabel}>Loan amount</span>
           <span className={styles.summaryValue}>
-            {Number(loan.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 7 })}
+            {Number(loan.amount).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 7,
+            })}
             <span className={styles.asset}>{loan.asset_code}</span>
           </span>
         </div>
@@ -103,13 +110,7 @@ export function FundLoanForm({ loan }: Props) {
       {error && <p className={styles.error}>{error}</p>}
       {success && <p className={styles.success}>Loan funded and now active.</p>}
 
-      <Button
-        className={styles.btn}
-        type="submit"
-        fullWidth
-        isLoading={pending}
-        disabled={pending}
-      >
+      <Button className={styles.btn} type="submit" fullWidth isLoading={pending} disabled={pending}>
         {pending ? 'Funding…' : 'Fund loan'}
       </Button>
     </form>

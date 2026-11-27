@@ -4,20 +4,23 @@ import Link from 'next/link';
 import { useState, useId, FormEvent, ChangeEvent } from 'react';
 import { useCommunity } from '@/hooks/useCommunities';
 import { useLoans, type Loan, type LoanStatus } from '@/hooks/useLoans';
-import { useLoanActions } from '@/hooks/useLoanActions';
 import { useWallet } from '@/hooks/useWallet';
 import { Alert } from '@/components/ui/Alert';
 import { Badge, type BadgeVariant } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { LoadingSkeleton } from '@/components/ui/LoadingSkeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Table, type TableColumn } from '@/components/ui/Table';
 import { Modal } from '@/components/ui/Modal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { formatAmount, truncateAddress } from '@/lib/format';
-import { sanitizeUserText } from '@/lib/sanitize';
 import styles from './LoansPage.module.css';
+
+/** The table component needs an index signature that the Loan interface does not declare. */
+type LoanRow = Loan & Record<string, unknown>;
+
+type ConfirmAction = { type: 'disburse' | 'default' | 'cancel'; loan: Loan };
 
 const STATUS_META: Record<LoanStatus, { label: string; variant: BadgeVariant }> = {
   pending: { label: 'Pending', variant: 'warning' },
@@ -73,10 +76,7 @@ export function LoansPage({ communityId }: { communityId: string }) {
   const [repayError, setRepayError] = useState<string | null>(null);
 
   // State for confirm dialogs
-  const [confirmAction, setConfirmAction] = useState<{
-    type: 'disburse' | 'default' | 'cancel';
-    loan: Loan;
-  } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
 
   const amountInputId = useId();
   const purposeInputId = useId();
@@ -121,7 +121,7 @@ export function LoansPage({ communityId }: { communityId: string }) {
   const isMember = Boolean(publicKey);
 
   // Table columns
-  const columns: TableColumn<Loan>[] = [
+  const columns: TableColumn<LoanRow>[] = [
     {
       key: 'borrower_address',
       label: 'Borrower',
@@ -191,7 +191,12 @@ export function LoansPage({ communityId }: { communityId: string }) {
       render: (_value, row) =>
         row.due_at ? (
           <time className={styles.date} dateTime={row.due_at}>
-            {new Date(row.due_at).toLocaleDateString()}
+            {new Date(row.due_at).toLocaleDateString(undefined, {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              timeZone: 'UTC',
+            })}
           </time>
         ) : (
           <span className={styles.muted}>—</span>
@@ -200,7 +205,14 @@ export function LoansPage({ communityId }: { communityId: string }) {
     {
       key: 'actions',
       label: 'Actions',
-      render: (_value, row) => <LoanActions loan={row} publicKey={publicKey} />,
+      render: (_value, row) => (
+        <LoanActions
+          loan={row}
+          publicKey={publicKey}
+          onRepay={setRepayLoan}
+          onConfirm={setConfirmAction}
+        />
+      ),
     },
   ];
 
@@ -332,7 +344,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
 
     const { type, loan } = confirmAction;
     let endpoint = '';
-    let body: Record<string, unknown> = {};
 
     if (type === 'disburse') {
       endpoint = `${loan.id}/disburse`;
@@ -348,7 +359,7 @@ export function LoansPage({ communityId }: { communityId: string }) {
         {
           method: type === 'cancel' ? 'DELETE' : 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
+          body: JSON.stringify({}),
         }
       );
 
@@ -364,10 +375,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
       alert(err instanceof Error ? err.message : `Failed to ${type} loan`);
     }
   };
-
-  // Check if user is the borrower or lender for a loan
-  const canActAsBorrower = (loan: Loan) => publicKey === loan.borrower_address;
-  const canActAsLender = (loan: Loan) => publicKey === loan.lender_address;
 
   return (
     <main className={styles.page} aria-label={`${community.name} loans`}>
@@ -429,9 +436,9 @@ export function LoansPage({ communityId }: { communityId: string }) {
 
           {!loansLoading && !loansError && loans && loans.length > 0 && (
             <div className={styles.tableWrapper}>
-              <Table<Loan>
+              <Table<LoanRow>
                 columns={columns}
-                data={loans}
+                data={loans as LoanRow[]}
                 ariaLabel={`${community.name} loans`}
                 emptyMessage="No loans yet."
               />
@@ -444,9 +451,11 @@ export function LoansPage({ communityId }: { communityId: string }) {
           isOpen={isRequestOpen}
           onClose={() => setIsRequestOpen(false)}
           title="Request a Loan"
-          description="Borrow from the community pool. Your loan-to-value limit is based on your token holdings."
-          size="md"
         >
+          <p className={styles.modalDescription}>
+            Borrow from the community pool. Your loan-to-value limit is based on your token
+            holdings.
+          </p>
           <form onSubmit={handleRequestLoan} noValidate className={styles.form}>
             <div className={styles.field}>
               <label htmlFor={amountInputId} className={styles.label}>
@@ -549,13 +558,8 @@ export function LoansPage({ communityId }: { communityId: string }) {
         </Modal>
 
         {/* Repay Modal */}
-        <Modal
-          isOpen={Boolean(repayLoan)}
-          onClose={() => setRepayLoan(null)}
-          title="Repay Loan"
-          description={`Repay loan #${repayLoan?.id.slice(0, 8)}…`}
-          size="md"
-        >
+        <Modal isOpen={Boolean(repayLoan)} onClose={() => setRepayLoan(null)} title="Repay Loan">
+          <p className={styles.modalDescription}>Repay loan #{repayLoan?.id.slice(0, 8)}…</p>
           <form onSubmit={handleRepay} noValidate className={styles.form}>
             <div className={styles.field}>
               <label htmlFor={repayAmountInputId} className={styles.label}>
@@ -605,9 +609,8 @@ export function LoansPage({ communityId }: { communityId: string }) {
         </Modal>
 
         {/* Confirm Action Modal */}
-        <Modal
+        <ConfirmDialog
           isOpen={Boolean(confirmAction)}
-          onClose={() => setConfirmAction(null)}
           title={
             confirmAction?.type === 'disburse'
               ? 'Disburse Loan?'
@@ -620,8 +623,6 @@ export function LoansPage({ communityId }: { communityId: string }) {
               ? `This will ${confirmAction.type} loan #${confirmAction.loan.id.slice(0, 8)}… for ${formatAmount(confirmAction.loan.amount)} ${confirmAction.loan.asset_code}.`
               : ''
           }
-          size="md"
-          variant={confirmAction?.type === 'default' ? 'danger' : 'default'}
           confirmLabel={
             confirmAction?.type === 'disburse'
               ? 'Disburse'
@@ -638,7 +639,17 @@ export function LoansPage({ communityId }: { communityId: string }) {
 }
 
 /** Inline actions for a single loan row. */
-function LoanActions({ loan, publicKey }: { loan: Loan; publicKey: string | null }) {
+function LoanActions({
+  loan,
+  publicKey,
+  onRepay,
+  onConfirm,
+}: {
+  loan: Loan;
+  publicKey: string | null;
+  onRepay: (loan: Loan) => void;
+  onConfirm: (action: ConfirmAction) => void;
+}) {
   const isBorrower = publicKey === loan.borrower_address;
   const isLender = publicKey === loan.lender_address;
 
@@ -649,7 +660,7 @@ function LoanActions({ loan, publicKey }: { loan: Loan; publicKey: string | null
         <Button
           size="sm"
           variant="primary"
-          onClick={() => setRepayLoan(loan)}
+          onClick={() => onRepay(loan)}
           aria-label={`Repay loan ${truncateAddress(loan.borrower_address)}`}
         >
           Repay
@@ -661,7 +672,7 @@ function LoanActions({ loan, publicKey }: { loan: Loan; publicKey: string | null
         <Button
           size="sm"
           variant="danger"
-          onClick={() => setConfirmAction({ type: 'cancel', loan })}
+          onClick={() => onConfirm({ type: 'cancel', loan })}
           aria-label={`Cancel loan ${truncateAddress(loan.borrower_address)}`}
         >
           Cancel
@@ -678,7 +689,7 @@ function LoanActions({ loan, publicKey }: { loan: Loan; publicKey: string | null
         <Button
           size="sm"
           variant="primary"
-          onClick={() => setConfirmAction({ type: 'disburse', loan })}
+          onClick={() => onConfirm({ type: 'disburse', loan })}
           aria-label={`Disburse loan ${truncateAddress(loan.borrower_address)}`}
         >
           Disburse
@@ -690,7 +701,7 @@ function LoanActions({ loan, publicKey }: { loan: Loan; publicKey: string | null
         <Button
           size="sm"
           variant="danger"
-          onClick={() => setConfirmAction({ type: 'default', loan })}
+          onClick={() => onConfirm({ type: 'default', loan })}
           aria-label={`Mark loan ${truncateAddress(loan.borrower_address)} as defaulted`}
         >
           Mark Defaulted

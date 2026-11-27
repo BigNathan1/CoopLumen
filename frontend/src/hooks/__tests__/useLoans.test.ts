@@ -1,14 +1,13 @@
 import { renderHook } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import useSWR from 'swr';
 import { fetcher } from '@/lib/swr';
 import { useLoans } from '../useLoans';
 
-vi.mock('swr', () => ({ default: vi.fn() }));
-vi.mock('@/lib/swr', () => ({ fetcher: vi.fn() }));
+jest.mock('swr', () => ({ __esModule: true, default: jest.fn() }));
+jest.mock('@/lib/swr', () => ({ fetcher: jest.fn() }));
 
 describe('useLoans', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => jest.clearAllMocks());
 
   it('supports useLoans(communityId, filters) signature', () => {
     renderHook(() => useLoans('comm-1', { status: 'active', borrower: 'GABC', limit: 25 }));

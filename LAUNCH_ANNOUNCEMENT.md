@@ -44,6 +44,7 @@ No private key management. Users connect with [Freighter wallet](https://freight
 ### Security & Transparency
 
 CoopLumen has undergone an independent security audit by [Auditor Name] covering:
+
 - Smart contract authorization and vote integrity
 - Backend API authentication and authorization
 - Transaction handling and Stellar integration
@@ -187,18 +188,18 @@ Available now at cooplumen.org
 
 ## Launch Schedule (Example)
 
-| Time (UTC) | Action | Owner |
-| --- | --- | --- |
-| 08:00 | Final system checks complete | Eng |
-| 08:30 | All-hands team call | Lead |
-| 09:00 | Monitoring systems online; alerts active | Ops |
-| 09:15 | Initial health checks pass | Eng |
-| 09:30 | Press release distributed | PR |
-| 09:45 | Social media posts go live | Comms |
-| 10:00 | **LAUNCH WINDOW OPEN** | — |
-| 10:30 | Community onboarding begins | Comms |
-| 12:00 | Extended monitoring (4h post-launch) | Eng/Ops |
-| 16:00 | Post-launch retrospective call | Team |
+| Time (UTC) | Action                                   | Owner   |
+| ---------- | ---------------------------------------- | ------- |
+| 08:00      | Final system checks complete             | Eng     |
+| 08:30      | All-hands team call                      | Lead    |
+| 09:00      | Monitoring systems online; alerts active | Ops     |
+| 09:15      | Initial health checks pass               | Eng     |
+| 09:30      | Press release distributed                | PR      |
+| 09:45      | Social media posts go live               | Comms   |
+| 10:00      | **LAUNCH WINDOW OPEN**                   | —       |
+| 10:30      | Community onboarding begins              | Comms   |
+| 12:00      | Extended monitoring (4h post-launch)     | Eng/Ops |
+| 16:00      | Post-launch retrospective call           | Team    |
 
 ---
 
@@ -232,23 +233,27 @@ A: Yes. CoopLumen is open to any group. Get started at cooplumen.org.
 ### If Critical Issue Occurs Post-Launch
 
 **Immediate (first 30 min):**
+
 1. Acknowledge issue in team channel
 2. Stand up incident command center
 3. Pause public communications while investigating
 4. Activate rollback plan if needed
 
 **Short-term (within 2 hours):**
+
 1. Publish brief status update: "We are investigating an issue and will provide updates every 30 minutes"
 2. Notify directly affected users
 3. Implement temporary workaround if possible
 
 **Medium-term (within 24 hours):**
+
 1. Post incident summary (what happened, when, impact)
 2. Explain root cause
 3. Describe fix or workaround
 4. Provide ETA for resolution
 
 **Long-term (follow-up):**
+
 1. Publish post-mortem
 2. Describe changes to prevent recurrence
 3. Adjust communication plan based on lessons learned
@@ -278,15 +283,15 @@ A: Yes. CoopLumen is open to any group. Get started at cooplumen.org.
 
 ## Links & Resources
 
-| Resource | URL | Status |
-| --- | --- | --- |
-| **Website** | https://cooplumen.org | [Public] |
-| **Docs** | https://docs.cooplumen.org | [Public] |
-| **GitHub** | https://github.com/BigNathan1/CoopLumen | [Public] |
-| **API Docs** | https://api-docs.cooplumen.org | [Public] |
-| **Security Report** | https://cooplumen.org/security | [Public after audit] |
-| **Status Page** | https://status.cooplumen.org | [Optional] |
-| **Email Support** | support@cooplumen.org | [Always] |
+| Resource            | URL                                     | Status               |
+| ------------------- | --------------------------------------- | -------------------- |
+| **Website**         | https://cooplumen.org                   | [Public]             |
+| **Docs**            | https://docs.cooplumen.org              | [Public]             |
+| **GitHub**          | https://github.com/BigNathan1/CoopLumen | [Public]             |
+| **API Docs**        | https://api-docs.cooplumen.org          | [Public]             |
+| **Security Report** | https://cooplumen.org/security          | [Public after audit] |
+| **Status Page**     | https://status.cooplumen.org            | [Optional]           |
+| **Email Support**   | support@cooplumen.org                   | [Always]             |
 
 ---
 
