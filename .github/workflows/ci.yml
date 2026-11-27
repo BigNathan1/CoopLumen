@@ -459,7 +459,11 @@ jobs:
       - name: Test chat notifications (payloads, skip and failure paths)
         run: bash scripts/deploy/test-notify.sh
 
-      - name: Test CI and security scripts (branch protection, malware scan)
+      # The OpenAPI check reads the spec with the root yaml devDependency.
+      - name: Install root deps
+        run: npm ci
+
+      - name: Test CI and security scripts (branch protection, OpenAPI, malware scan)
         run: node --test scripts/ci/__tests__/configure-branch-protection.test.js scripts/ci/__tests__/check-openapi.test.js scripts/security/__tests__/malware-scan.test.js
 
       - name: Validate production compose file
