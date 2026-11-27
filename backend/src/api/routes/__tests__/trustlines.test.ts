@@ -9,7 +9,7 @@ import {
 } from '@stellar/stellar-sdk';
 
 jest.mock('../../../db', () => ({
-  db: { ping: jest.fn().mockResolvedValue(true) },
+  db: { ping: jest.fn().mockResolvedValue(true), query: jest.fn().mockResolvedValue([]) },
 }));
 
 jest.mock('../../../utils/logger', () => ({

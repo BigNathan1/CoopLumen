@@ -22,18 +22,32 @@ import app from '../../../app';
 const query = db.query as jest.Mock;
 const address = Keypair.random().publicKey();
 
+const NO_WORLD_ID = { verified: false, verifiedAt: null, verificationLevel: null };
+
+/**
+ * The route reads the KYC record and the World ID record in turn; answer each
+ * query from its own fixture instead of returning one row for both.
+ */
+function mockStatusQueries(kycRows: unknown[] = [], worldIdRows: unknown[] = []): void {
+  query.mockImplementation((sql: string) =>
+    Promise.resolve(sql.includes('worldid_verifications') ? worldIdRows : kycRows)
+  );
+}
+
 describe('GET /api/v1/kyc/status/:address', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it('returns none when the account has no KYC record', async () => {
-    query.mockResolvedValue([]);
+    mockStatusQueries();
 
     const response = await request(app).get(`/api/v1/kyc/status/${address}`);
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ data: { address, status: 'none' } });
+    expect(response.body).toEqual({
+      data: { address, status: 'none', worldId: NO_WORLD_ID },
+    });
     expect(query).toHaveBeenCalledWith(expect.stringContaining('FROM kyc_records'), [address]);
   });
 
@@ -44,12 +58,14 @@ describe('GET /api/v1/kyc/status/:address', () => {
     ['rejected', 'rejected'],
     ['expired', 'rejected'],
   ])('maps stored %s status to public %s status', async (stored, expected) => {
-    query.mockResolvedValue([{ status: stored }]);
+    mockStatusQueries([{ status: stored }]);
 
     const response = await request(app).get(`/api/v1/kyc/status/${address}`);
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ data: { address, status: expected } });
+    expect(response.body).toEqual({
+      data: { address, status: expected, worldId: NO_WORLD_ID },
+    });
   });
 
   it('rejects an invalid Stellar address before querying the database', async () => {
