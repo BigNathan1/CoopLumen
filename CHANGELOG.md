@@ -127,6 +127,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `KycStatusBadge` on the member profile and on community cards, reading `GET /api/v1/kyc/status/:address` and using the design-system badge variants with a screen-reader label (#542).
 - Add `RepayLoanForm` component with partial and full loan repayment support (#470)
 
+- Add `ReputationScore` visual 0–100 score display component (#471)
 - Added `POST /api/v1/multisig/:id/execute` endpoint to submit fully-signed XDR to Horizon or record transaction hash (#485).
 - Added `POST /api/v1/multisig/:id/sign` endpoint for cosigners submitting partial XDR signatures (#483).
 - Added `POST /api/v1/multisig/propose` endpoint to create a multi-sig transaction proposal (#482).
