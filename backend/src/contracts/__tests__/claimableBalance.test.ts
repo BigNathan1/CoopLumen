@@ -92,8 +92,14 @@ describe('claimableBalance.create', () => {
 
     expect(result.txHash).toBe('abc123def456');
     expect(result.ledger).toBe(1234);
-    expect(result.balanceId).toBe('balance-id-xyz-123456789');
     expect(mockSubmitTransaction).toHaveBeenCalledTimes(1);
+
+    // The balance ID comes from the submitted transaction, never from the
+    // response `id`, which Horizon sets to the transaction hash.
+    const submittedTx = mockSubmitTransaction.mock.calls[0][0];
+    expect(result.balanceId).toBe(submittedTx.getClaimableBalanceId(0));
+    expect(result.balanceId).toMatch(/^00000000[0-9a-f]{64}$/);
+    expect(result.balanceId).not.toBe('balance-id-xyz-123456789');
   });
 
   it('uses CreateClaimableBalance operation', async () => {
@@ -312,9 +318,12 @@ describe('claimableBalance.create', () => {
       sourceKeypair,
     });
 
-    // Should succeed on retry
+    // Should succeed on retry, reporting the balance created by the retried transaction
     expect(result.txHash).toBe('tx-hash-retry');
     expect(mockSubmitTransaction).toHaveBeenCalledTimes(2);
+    const [[firstTx], [retriedTx]] = mockSubmitTransaction.mock.calls;
+    expect(result.balanceId).toBe(retriedTx.getClaimableBalanceId(0));
+    expect(result.balanceId).not.toBe(firstTx.getClaimableBalanceId(0));
   });
 
   it('throws StellarError when tx_insufficient_fee is returned', async () => {

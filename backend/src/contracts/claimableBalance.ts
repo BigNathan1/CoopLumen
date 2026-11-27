@@ -2,6 +2,7 @@ import {
   Asset,
   Claimant,
   Keypair,
+  Transaction,
   TransactionBuilder,
   Operation,
   BASE_FEE,
@@ -69,30 +70,6 @@ export interface ClaimableBalanceResult {
 }
 
 /**
- * Extracts the claimable balance ID from a Horizon transaction result.
- * The balance ID is embedded in the operation result within the transaction metadata.
- */
-function extractBalanceIdFromResult(result: unknown): string {
-  // The Horizon response includes operation results in _links and operation metadata.
-  // The balance ID is returned as a property in the result or fetched from operation records.
-  const typed = result as { id?: unknown; _links?: { transaction?: unknown } };
-
-  if (typeof typed.id === 'string') {
-    return typed.id;
-  }
-
-  // If not in the top-level result, it may be in operation records.
-  // This is a fallback — the SDK version should provide it directly.
-  if (typed._links?.transaction) {
-    // In real usage, the balance ID would be queried from the ledger or operation records.
-    // For this implementation, we assume the SDK surfaces it in result.
-  }
-
-  // Fallback: generate a placeholder (should not reach here with proper SDK response)
-  throw new Error('Balance ID not found in Horizon response');
-}
-
-/**
  * Creates a claimable balance on the Stellar network.
  *
  * A claimable balance locks an asset that designated claimants can claim later,
@@ -125,6 +102,7 @@ export async function create(
 
   return withStellarErrors(action, async () => {
     const network = StellarService.getNetwork();
+    let submitted: Transaction | undefined;
 
     const result = await withSequenceRetry(sourceKeypair.publicKey(), async (sourceAccount) => {
       const txBuilder = new TransactionBuilder(sourceAccount, {
@@ -146,11 +124,14 @@ export async function create(
       const tx = applyTimeBounds(txBuilder, timeBounds).build();
       tx.sign(sourceKeypair);
 
+      submitted = tx;
       return StellarService.submitTransaction(tx);
     });
 
-    // Extract balance ID from the Horizon response
-    const balanceId = extractBalanceIdFromResult(result);
+    // The balance ID is derived from the source account, sequence number and
+    // operation index, so it is computed from the transaction that succeeded.
+    // Horizon's response `id` is the transaction hash, not the balance ID.
+    const balanceId = submitted!.getClaimableBalanceId(0);
 
     // Invalidate any cached balance data for the source account since it has changed
     await invalidateBalanceCache([sourceKeypair.publicKey()]);
