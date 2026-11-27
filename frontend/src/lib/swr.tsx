@@ -1,21 +1,15 @@
 'use client';
 
 import { SWRConfig } from 'swr';
-
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+import { api } from '@/lib/api';
 
 /**
- * Default SWR fetcher: GETs `path` from the backend and unwraps the `data`
- * field of the response envelope. Non-2xx responses reject with the API's
- * `error` message.
+ * Default SWR fetcher: GETs `path` through the shared API client, which adds
+ * the session and CSRF headers and unwraps the `data` field of the response
+ * envelope. Non-2xx responses reject with an ApiError carrying the API's message.
  */
-export async function fetcher<T>(path: string): Promise<T> {
-  const res = await fetch(`${apiUrl}${path}`);
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? 'Request failed');
-  }
-  return (res.json() as Promise<{ data: T }>).then((r) => r.data);
+export function fetcher<T>(path: string): Promise<T> {
+  return api.get<T>(path);
 }
 
 /** App-wide SWR defaults; hooks override `refreshInterval` where they need to. */

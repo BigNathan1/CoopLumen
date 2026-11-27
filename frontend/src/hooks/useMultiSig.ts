@@ -1,5 +1,6 @@
 import useSWR from 'swr';
 import { requestRaw } from '@/lib/api';
+import { fetcher } from '@/lib/swr';
 
 export type MultiSigAction =
   | 'payment'
@@ -62,21 +63,7 @@ export interface CreateMultiSigInput {
   expires_at?: string;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
-
-async function fetcher<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(body.error ?? 'Failed to fetch multisig requests');
-  }
-  const envelope = (await res.json()) as { data: T };
-  return envelope.data;
-}
-
-/**
- * Custom hook to manage multi-sig proposal requests for a community.
- */
+/** Multi-sig requests for a community, with create, approve, reject and execute actions. */
 export function useMultiSig(communityId?: string | null, filters: MultiSigFilters = {}) {
   const query = new URLSearchParams();
   if (filters.status) query.set('status', filters.status);
@@ -84,9 +71,7 @@ export function useMultiSig(communityId?: string | null, filters: MultiSigFilter
   if (filters.limit) query.set('limit', String(filters.limit));
 
   const queryString = query.toString() ? `?${query.toString()}` : '';
-  const url = communityId
-    ? `${API_URL}/api/v1/multisig/community/${communityId}${queryString}`
-    : null;
+  const url = communityId ? `/api/v1/multisig/community/${communityId}${queryString}` : null;
 
   const { data, error, isLoading, mutate } = useSWR<MultiSigRequest[]>(url, fetcher, {
     refreshInterval: 15_000,

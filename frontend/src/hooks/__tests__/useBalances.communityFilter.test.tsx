@@ -6,7 +6,13 @@ import { swrConfig } from '@/lib/swr';
 const fetchMock = jest.fn();
 
 function jsonResponse(status: number, body: unknown) {
-  return { ok: status >= 200 && status < 300, status, json: async () => body };
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  };
 }
 
 beforeAll(() => {
@@ -40,7 +46,7 @@ describe('useBalances with global SWR config', () => {
     const { result } = renderHook(() => useBalances(publicKey), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(fetchMock).toHaveBeenCalledWith('http://localhost:4000/api/v1/balances/' + publicKey);
+    expect(fetchMock.mock.calls[0][0]).toBe('http://localhost:4000/api/v1/balances/' + publicKey);
   });
 
   it('includes communityId as query parameter when provided', async () => {

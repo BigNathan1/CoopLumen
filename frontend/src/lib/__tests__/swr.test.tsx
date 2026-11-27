@@ -5,7 +5,13 @@ import { fetcher, swrConfig } from '@/lib/swr';
 const fetchMock = jest.fn();
 
 function jsonResponse(status: number, body: unknown) {
-  return { ok: status >= 200 && status < 300, status, json: async () => body };
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  };
 }
 
 beforeAll(() => {
@@ -28,7 +34,7 @@ describe('SWRProvider', () => {
 
     const result = await fetcher<{ id: string }>('/api/v1/test');
     expect(result).toEqual({ id: 'test' });
-    expect(fetchMock).toHaveBeenCalledWith('http://localhost:4000/api/v1/test');
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:4000/api/v1/test', expect.anything());
   });
 
   it('throws with API error message on failed response', async () => {
@@ -66,6 +72,6 @@ describe('useSWR with global config', () => {
     });
 
     await waitFor(() => expect(result.current.data).toEqual([{ id: '1' }]));
-    expect(fetchMock).toHaveBeenCalledWith('http://localhost:4000/api/v1/test');
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:4000/api/v1/test', expect.anything());
   });
 });

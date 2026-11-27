@@ -6,7 +6,13 @@ import { swrConfig } from '@/lib/swr';
 const fetchMock = jest.fn();
 
 function jsonResponse(status: number, body: unknown) {
-  return { ok: status >= 200 && status < 300, status, json: async () => body };
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  };
 }
 
 beforeAll(() => {
@@ -37,7 +43,7 @@ describe('useCommunityMembers with global SWR config', () => {
     const { result } = renderHook(() => useCommunityMembers('community-1'), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(fetchMock).toHaveBeenCalledWith(
+    expect(fetchMock.mock.calls[0][0]).toBe(
       'http://localhost:4000/api/v1/communities/community-1/members'
     );
   });
@@ -114,10 +120,11 @@ describe('useCommunityMembers with global SWR config', () => {
       json: async () => {
         throw new Error('not json');
       },
+      text: async () => 'not json',
     });
 
     const { result } = renderHook(() => useCommunityMembers('community-1'), { wrapper });
     await waitFor(() => expect(result.current.error).toBeDefined());
-    expect(result.current.error?.message).toBe('Request failed');
+    expect(result.current.error?.message).toMatch(/^Request failed/);
   });
 });
